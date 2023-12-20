@@ -1,12 +1,12 @@
 {
 	"folders": [
 		{
-			"path": "../router/tls-proxy",
-			"name": "router/tls-proxy",
+			"path": "../redirect/tls-proxy",
+			"name": "redirect/tls-proxy",
 		},
 		{
-			"path": "../router/flow-router",
-			"name": "router/flow-router"
+			"path": "../redirect/flow-router",
+			"name": "redirect/flow-router"
 		},
 		{
 			"path": "../tracker"
