@@ -17,7 +17,7 @@ echo " -> DONE INITIATING LOCAL ENVIRONMENT."
 
 echo " -> SEEDING SOME DATA..."
 
-../router/deploy/data-seed.local.sh
+../redirect/deploy/data-seed.local.sh
 
 echo " -> DONE SEEDING SOME DATA."
 
