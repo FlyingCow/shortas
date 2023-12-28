@@ -1,7 +1,0 @@
-version: '3.8'
-
-services:
-  localstack:
-    extends:
-      file: localstack-services.yml
-      service: localstack
