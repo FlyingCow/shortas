@@ -1,5 +1,10 @@
 
+use flow_router::log::*;
+use flow_router::core::BaseCryptoStore;
+
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt().init();
+    init_logger();
+
+    warn!("Starting Redirect!");
 }
