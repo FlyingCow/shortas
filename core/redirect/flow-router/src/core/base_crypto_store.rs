@@ -1,7 +1,8 @@
 use std::fmt;
+use thiserror::Error;
+
 use crate::domain::Keycert;
 
-use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, CryptoStoreError>;
 
