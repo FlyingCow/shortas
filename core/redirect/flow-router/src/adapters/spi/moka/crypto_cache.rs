@@ -1,8 +1,9 @@
+use std::future::Future;
 use std::time::Duration;
 
 use moka::future::Cache;
 
-use crate::domain::Keycert;
+use crate::domain::{Keycert, keycert};
 use crate::core::base_crypto_cache::{ 
     BaseCryptoCache,
     KeycertContainer,
@@ -37,27 +38,25 @@ impl CryptoCache {
     }
 }
 
-impl BaseCryptoCache for CryptoCache {
-    async fn get_certificate(&self, server_name: &str) -> Result<KeycertContainer> {
-        let cache_result = self.cache.get(&server_name.to_ascii_lowercase()).await;
-        match cache_result {
-            Some(c) => Ok(KeycertContainer { 
-                value: c.value,
-                from_cache: true
-            }),
-            None => Ok(KeycertContainer { 
-                value: None,
-                from_cache: false
-            })
-        }
-    }
+async fn init(init: impl Future<Output = Option<Keycert>>) -> KeycertCacheItem {
 
-    async fn add_certificate(&self, server_name: &str, keycert: Option<Keycert>) -> Result<()> {
-        self.cache.insert(server_name.to_ascii_lowercase(), KeycertCacheItem{
-            value: keycert
+    let keycert_result = init.await;
+
+    KeycertCacheItem{
+        value: keycert_result
+    }
+}
+
+impl BaseCryptoCache for CryptoCache {
+    async fn get_certificate(&self, server_name: &str, init_fn: impl Future<Output = Option<Keycert>>) -> Result<Option<Keycert>> {
+
+        let cache_result = self.cache.get_with(server_name.to_ascii_lowercase(), async move {
+            let cache_item = init(init_fn).await;
+
+            cache_item
         }).await;
 
-        Ok(())
+        Ok(cache_result.value)
     }
 
     async fn remove_certificate(&self, server_name: &str) -> Result<()> {

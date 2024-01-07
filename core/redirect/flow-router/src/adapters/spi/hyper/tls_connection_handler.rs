@@ -87,7 +87,7 @@ where
 
             let default_cert = self.crypto_manager.get_default_certificate().await.unwrap();
 
-            return Ok(default_cert);
+            return Ok(default_cert.unwrap());
         }
 
         //error extracting certificate by domain name case
@@ -105,7 +105,7 @@ where
 
             let default_cert = self.crypto_manager.get_default_certificate().await.unwrap();
 
-            return Ok(default_cert);
+            return Ok(default_cert.unwrap());
         }
 
         let certificate = cert_result.unwrap();
@@ -121,7 +121,7 @@ where
 
             let default_cert = self.crypto_manager.get_default_certificate().await.unwrap();
 
-            return Ok(default_cert);
+            return Ok(default_cert.unwrap());
         }
     }
 

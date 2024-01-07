@@ -1,3 +1,9 @@
+use std::collections::HashMap;
+
+use aws_config::SdkConfig;
+use aws_sdk_dynamodb::types::AttributeValue;
+use aws_sdk_dynamodb::{Client, Error as DynamoError};
+
 use crate::domain::Keycert;
 use crate::core::base_crypto_store::{ 
     BaseCryptoStore, 
@@ -6,11 +12,17 @@ use crate::core::base_crypto_store::{
 };
 
 #[derive(Clone, Debug)]
-pub struct CryptoStore {}
+pub struct CryptoStore {
+    client: Client,
+    encryption_table: String
+}
 
 impl CryptoStore {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(sdk_config: &SdkConfig, encryption_table: String) -> Self {
+        Self {
+            encryption_table,
+            client: Client::new(sdk_config),
+        }
     }
 }
 

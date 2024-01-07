@@ -9,12 +9,8 @@ pub trait BaseCryptoCache: Send + Sync + Clone {
     fn get_certificate(
         &self,
         server_name: &str,
-    ) -> impl std::future::Future<Output = Result<KeycertContainer>> + Send;
-
-    fn add_certificate(&self, 
-        server_name: &str, 
-        keycert: Option<Keycert>
-    ) -> impl std::future::Future<Output = Result<()>> + Send;
+        init: impl std::future::Future<Output = Option<Keycert>> + Send
+    ) -> impl std::future::Future<Output = Result<Option<Keycert>>> + Send;
 
     fn remove_certificate(&self,
         server_name: &str

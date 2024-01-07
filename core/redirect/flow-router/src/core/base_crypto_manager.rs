@@ -8,7 +8,7 @@ pub type Result<T> = std::result::Result<T, CryptoManagerError>;
 pub trait BaseCryptoManager: Send + Sync + Clone {
     fn get_default_certificate(
         &self,
-    ) -> impl std::future::Future<Output = Result<Keycert>> + Send;
+    ) -> impl std::future::Future<Output = Result<Option<Keycert>>> + Send;
 
     fn get_certificate(
         &self,
