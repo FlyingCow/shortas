@@ -6,7 +6,7 @@ use crate::core::{
     base_crypto_manager:: { 
         BaseCryptoManager, 
         Result 
-    }, base_crypto_cache::KeycertContainer
+    }
 };
 
 use crate::domain::Keycert;
@@ -33,7 +33,7 @@ where
 
 
     async fn get_default_certificate(&self) -> Result<Option<Keycert>> {
-        self.get_certificate("default").await
+        self.get_certificate(DEFAULT).await
     }
 
     async fn get_certificate(&self, server_name: &str) -> Result<Option<Keycert>> {

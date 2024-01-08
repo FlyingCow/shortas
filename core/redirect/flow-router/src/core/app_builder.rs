@@ -1,54 +1,74 @@
+// use std::marker::PhantomData;
 
-use crate::core::BaseCryptoManager;
-use crate::core::BaseCryptoStore;
-use crate::core::BaseCryptoCache;
-use crate::core::default::CryptoManager;
+// use crate::core::default::CryptoManager;
+// use crate::core::BaseCryptoCache;
+// use crate::core::BaseCryptoManager;
+// use crate::core::BaseCryptoStore;
 
-pub struct AppBuilder<M> 
-where 
-    M: BaseCryptoManager + Send + Sync + Clone,
-{
-    crypto_manager: Option<M>,
-} 
+// pub struct AppBuilder<CB, C, S>
+// where
+//     CB: BaseCryptoBuilder<C, S>,
+//     C: BaseCryptoCache,
+//     S: BaseCryptoStore,
+// {
+//     pub crypto_builder: CB,
+// }
 
-pub struct CryptoBuilder<M, S, C>
-where 
-    M: BaseCryptoManager + Send + Sync + Clone,
-    S: BaseCryptoStore + Send + Sync + Clone,
-    C: BaseCryptoCache + Send + Sync + Clone,
-{
-    crypto_cache: Option<C>,
-    crypto_store: Option<S>,
-}
+// impl<CB, C, S> AppBuilder<CB, C, S>
+// where
+//     CB: BaseCryptoBuilder<C, S>,
+//     C: BaseCryptoCache,
+//     S: BaseCryptoStore,
+// {
+//     pub fn new(crypto_builder: CB) -> Self {
+//         Self {
+//             crypto_builder: crypto_builder,
+//         }
+//     }
 
-impl<M, S, C> CryptoBuilder<M, S, C>
-where 
-    M: BaseCryptoManager + Send + Sync + Clone,
-    S: BaseCryptoStore + Send + Sync + Clone,
-    C: BaseCryptoCache + Send + Sync + Clone,
-{
+//     pub fn build(self) {
+//         let crypto_manager = self.crypto_builder.build();
+//     }
+// }
 
+// pub trait BaseCryptoBuilder<C, S>
+// where
+//     C: BaseCryptoCache,
+//     S: BaseCryptoStore,
+// {
+//     fn build(self) -> impl BaseCryptoManager;
+// }
 
+// impl<C, S> BaseCryptoBuilder<C, S> for CryptoBuilder<C, S>
+// where
+//     C: BaseCryptoCache,
+//     S: BaseCryptoStore,
+// {
+//     fn build(self) -> impl BaseCryptoManager + Send + Sync {
+//         let manager = CryptoManager::new(self.crypto_store, self.crypto_cache);
+//         manager
+//     }
+// }
 
-    pub fn with_crypto_store(&mut self, crypto_store: S) -> &Self {
+// pub struct CryptoBuilder<C, S>
+// where
+//     C: BaseCryptoCache,
+//     S: BaseCryptoStore,
+// {
+//     crypto_cache: C,
+//     crypto_store: S,
+// }
 
-        self.crypto_store = Some(crypto_store);
-        self
-    }
-
-    pub fn with_crypto_cache(&mut self, crypto_cache: C) -> &Self {
-
-        self.crypto_cache = Some(crypto_cache);
-        self
-    }
-    
-    fn build(&self) -> M
-    {
-        let manager = CryptoManager::new(
-            self.crypto_store.unwrap(), 
-            self.crypto_cache.unwrap()
-        );
-
-        manager
-    }
-}
+// impl<C, S> CryptoBuilder<C, S>
+// where
+//     C: BaseCryptoCache,
+//     S: BaseCryptoStore,
+// {
+//     pub fn new (crypto_store: S, crypto_cache: C) -> Self 
+//     {
+//         CryptoBuilder {
+//             crypto_store,
+//             crypto_cache
+//         }
+//     }
+// }

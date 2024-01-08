@@ -1,0 +1,7 @@
+[aws]
+
+[aws.dynamo]
+encryption_table = "core-routes-encryption-table-main"
+routes_table = "core-routes-hostname-mapping-main"
+hostname_mappings_table = "core-routes-hostname-mapping-main"
+user_settings_table = "core-user-settings-main"

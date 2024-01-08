@@ -1,3 +1,3 @@
+pub mod aws;
 pub mod hyper;
-pub mod dynamo;
 pub mod moka;
