@@ -1,10 +1,18 @@
-//use crate::core::app_builder::{ AppBuilder, BaseCryptoBuilder };
-// use crate::adapters::spi::moka::crypto_cache::CryptoCache;
+use crate::adapters::spi::moka::crypto_cache::CryptoCache;
+use crate::adapters::spi::moka::settings::Moka;
 
-// impl<M> AppBuilder<M> where M: BaseCryptoBuilder {
-//     pub fn with_moka(&mut self, max_capacity: u64, time_to_live_minutes: u64, time_to_idle_minutes: u64) -> &Self {
+pub struct MokaBuilder {
+    pub crypto_cache: CryptoCache,
+}
 
-//         &self.crypto_builder.with_crypto_cache(CryptoCache::new(max_capacity, time_to_live_minutes, time_to_idle_minutes));
-//         self
-//     }
-// }
+impl MokaBuilder {
+    pub async fn new(moka_settings: Moka) -> Self {
+        Self {
+            crypto_cache: CryptoCache::new(
+                moka_settings.crypto_cache.max_capacity,
+                moka_settings.crypto_cache.time_to_live_minutes,
+                moka_settings.crypto_cache.time_to_idle_minutes,
+            ),
+        }
+    }
+}

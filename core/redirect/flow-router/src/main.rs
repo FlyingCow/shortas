@@ -21,5 +21,6 @@ async fn main() {
     let settings = Settings::new().unwrap();
     
     let aws = AwsBuilder::new(settings.aws).await;
+
     warn!("Starting Redirect!");
 }

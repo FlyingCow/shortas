@@ -1,4 +1,3 @@
-pub mod app_builder;
 pub mod base_crypto_cache;
 pub mod base_crypto_store;
 pub mod base_crypto_manager;

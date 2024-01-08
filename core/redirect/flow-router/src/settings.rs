@@ -4,11 +4,13 @@ use config::{Config, ConfigError, Environment, File};
 use serde_derive::Deserialize;
 
 use crate::adapters::spi::aws::settings::AWS;
+use crate::adapters::spi::moka::settings::Moka;
 
 #[derive(Debug, Deserialize)]
 #[allow(unused)]
 pub struct Settings {
-    pub aws: AWS
+    pub aws: AWS,
+    pub moka: Moka
 }
 
 impl Settings {
