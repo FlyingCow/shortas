@@ -5,3 +5,8 @@ encryption_table = "core-routes-encryption-table-main"
 routes_table = "core-routes-hostname-mapping-main"
 hostname_mappings_table = "core-routes-hostname-mapping-main"
 user_settings_table = "core-user-settings-main"
+
+[server]
+#threads = 8,
+listen_os_signals = true,
+exit = true

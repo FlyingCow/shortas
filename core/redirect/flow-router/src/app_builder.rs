@@ -1,24 +1,102 @@
+use std::net::SocketAddr;
+use std::num::NonZeroUsize;
+
 use crate::adapters::spi::aws::app_builder_extension::AwsBuilder;
+use crate::adapters::spi::hyper::app_builder_extension::HyperBuilder;
 use crate::adapters::spi::moka::app_builder_extension::MokaBuilder;
-use crate::core::default::CryptoManager;
+use crate::core::default::app_builder_extension::DefaultsBuilder;
+use crate::core::{ BaseConnectionHandler, BaseTlsConnectionHandler };
 
 use crate::settings::Settings;
+use crate::server::{Server, ServerOptions, Socket};
 
 pub struct AppBuilder{
 
 }
 
+pub struct ServerBuilder<C, T>
+where
+    C: BaseConnectionHandler + Send + Clone + 'static,
+    T: BaseTlsConnectionHandler + Send + Clone + 'static,
+{
+    threads: usize,
+    listen_os_signals: bool,
+    exit: bool,
+    sockets: Vec<Socket>,
+    handler: C,
+    tls_handler: T,
+}
+
+impl<C, T> ServerBuilder<C, T>
+where
+    C: BaseConnectionHandler + Send + Clone + 'static,
+    T: BaseTlsConnectionHandler + Send + Clone + 'static,
+{
+    pub fn new(handler: C, tls_handler: T) -> Self {
+        ServerBuilder {
+            threads: std::thread::available_parallelism().map_or(2, NonZeroUsize::get),
+            listen_os_signals: true,
+            exit: false,
+            sockets: Vec::new(),
+            handler: handler,
+            tls_handler: tls_handler,
+        }
+    }
+
+    pub fn bind(mut self, address: SocketAddr) -> Self {
+        self.sockets.push(Socket::Unsecured(address));
+        self
+    }
+
+    pub fn bind_tls(mut self, address: SocketAddr) -> Self {
+        self.sockets.push(Socket::Secured(address));
+        self
+    }
+
+    pub fn workers(mut self, num: usize) -> Self {
+        assert_ne!(num, 0, "workers must be greater than 0");
+        self.threads = num;
+        self
+    }
+
+    /// Disable OS signal handling.
+    pub fn disable_signals(mut self) -> Self {
+        self.listen_os_signals = false;
+        self
+    }
+
+    pub fn system_exit(mut self) -> Self {
+        self.exit = true;
+        self
+    }
+
+    pub fn build(self) -> Server<C, T> {
+        if self.sockets.is_empty() {
+            panic!("Server should have at least one bound socket");
+        }
+
+        Server::new(self.sockets, self.handler, self.tls_handler, ServerOptions{
+            threads: self.threads,
+            exit: self.exit,
+            listen_os_signals: self.listen_os_signals
+        })
+    }
+}
+
 impl AppBuilder {
-    pub async fn new(){
+    pub async fn new() {
 
         let settings = Settings::new().unwrap();
 
-        let aws = AwsBuilder::new(settings.aws).await;
-        let moka = MokaBuilder::new(settings.moka).await;
+        let awsBuilder = AwsBuilder::new(settings.aws).await;
+        let mokaBuilder = MokaBuilder::new(settings.moka).await;
+        let defaultsBuilder = DefaultsBuilder::new(
+            awsBuilder.dynamo.crypto_store,
+            mokaBuilder.crypto_cache
+        ).await;
+        
+        let hyper = HyperBuilder::new(defaultsBuilder.crypto_manager).await;
 
-        let crypto_manager = CryptoManager::new(
-            aws.dynamo.crypto_store,
-            moka.crypto_cache
-        ); 
+        let server_builder = ServerBuilder::new(hyper.unsecure_handler, hyper.secure_handler);
     }
 }

@@ -8,9 +8,18 @@ use crate::adapters::spi::moka::settings::Moka;
 
 #[derive(Debug, Deserialize)]
 #[allow(unused)]
+pub struct Server {
+    pub threads: usize,
+    pub listen_os_signals: bool,
+    pub exit: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(unused)]
 pub struct Settings {
     pub aws: AWS,
-    pub moka: Moka
+    pub moka: Moka,
+    pub server: Server
 }
 
 impl Settings {
