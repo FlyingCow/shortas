@@ -89,6 +89,7 @@ where
             });
         }
     }
+    
     async fn listen(&self, socket: Socket){
         match socket {
             Socket::Secured(addr) => self.listen_secured(addr).await,
