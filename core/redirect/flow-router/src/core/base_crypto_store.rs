@@ -16,14 +16,8 @@ pub trait BaseCryptoStore: Send + Sync + Clone {
 #[derive(Error, Debug)]
 pub enum CryptoStoreError {
 
-    #[error("A source table with the name {} does not currently exist within the subscriber's account or the subscriber is operating in the wrong Services Region.", .0)]
-    TableNotFoundException(String),
-
     #[error("The operation tried to access a nonexistent table or index. The resource might not be specified correctly, or its status might not be ACTIVE.")]
     ResourceNotFoundException,
-
-    #[error("Throughput exceeds the current throughput quota for your account. Please contact Support to request a quota increase.")]
-    RequestLimitExceeded,
 
     #[error("unknown data store error")]
     Other(CryptoStoreOtherError),

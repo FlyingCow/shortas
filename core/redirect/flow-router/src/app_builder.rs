@@ -107,12 +107,12 @@ where
     pub async fn run(self) {
         let settings = Settings::new().unwrap();
 
-        let awsBuilder = AwsBuilder::new(settings.aws).await;
-        let mokaBuilder = MokaBuilder::new(settings.moka).await;
-        let defaultsBuilder =
-            DefaultsBuilder::new(awsBuilder.dynamo.crypto_store, mokaBuilder.crypto_cache).await;
+        let aws_builder = AwsBuilder::new(settings.aws).await;
+        let moka_builder = MokaBuilder::new(settings.moka).await;
+        let defaults_builder =
+            DefaultsBuilder::new(aws_builder.dynamo.crypto_store, moka_builder.crypto_cache).await;
 
-        let hyper = HyperBuilder::new(defaultsBuilder.crypto_manager).await;
+        let hyper = HyperBuilder::new(defaults_builder.crypto_manager).await;
 
         let mut  server_builder = ServerBuilder::new(hyper.unsecure_handler, hyper.secure_handler);
 
