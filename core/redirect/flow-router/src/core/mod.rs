@@ -4,6 +4,7 @@ pub mod base_crypto_manager;
 pub mod base_connection_handler;
 pub mod base_tls_connection_handler;
 pub mod default;
+pub mod results;
 
 pub use base_crypto_cache::BaseCryptoCache;
 pub use base_crypto_store::BaseCryptoStore;

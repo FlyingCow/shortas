@@ -6,11 +6,11 @@ use std::sync::Arc;
 use http_body_util::Full;
 
 use hyper::body::Bytes;
-use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
 
-use hyper_util::rt::TokioIo;
+use hyper_util::rt::{TokioExecutor, TokioIo};
+use hyper_util::server;
 
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer},
@@ -35,7 +35,7 @@ pub struct TlsConnectionHandler<C>
 where
     C: BaseCryptoManager + Send + Sync + Clone,
 {
-    http: hyper::server::conn::http1::Builder,
+    http: server::conn::auto::Builder<TokioExecutor>,
     crypto_manager: C,
 }
 
@@ -55,7 +55,7 @@ where
                 let stream = start.into_stream(Arc::new(config)).await.unwrap();
                 let io = TokioIo::new(stream);
 
-                if let Err(err) = http.serve_connection(io, service_fn(hello)).await {
+                if let Err(err) = http.serve_connection_with_upgrades(io, service_fn(hello)).await {
                     println!("Error serving connection: {:?}", err);
                 }
             }
@@ -71,7 +71,7 @@ where
     pub fn new(crypto_manager: C) -> Self {
         Self {
             crypto_manager: crypto_manager,
-            http: http1::Builder::new(),
+            http: server::conn::auto::Builder::new(TokioExecutor::new()),
         }
     }
 
@@ -153,7 +153,7 @@ where
             .with_single_cert(certs, keys.remove(0))
             .expect("No certificate found");
 
-        tls_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+        tls_config.alpn_protocols = vec![/*b"h2".to_vec(), */b"http/1.1".to_vec()];
 
         Ok(tls_config)
     }

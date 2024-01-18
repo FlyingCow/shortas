@@ -2,6 +2,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use futures_util::future::join_all;
+use http::{Request, Response};
+
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::Mutex
@@ -9,6 +11,28 @@ use tokio::{
 
 use crate::core::BaseConnectionHandler;
 use crate::core::BaseTlsConnectionHandler;
+
+#[derive(Clone)]
+pub struct PerConnHandler {
+    pub local_addr: SocketAddr,
+    pub remote_addr: SocketAddr,
+    pub server_name: String,
+    pub tls_info: Option<TlsInfo>,
+}
+
+pub struct PerRequestData<B> {
+    pub local_addr: SocketAddr,
+    pub remote_addr: SocketAddr,
+    pub tls_info: Option<TlsInfo>,
+    pub request: Request<B>,
+    pub response: Response<B>,
+}
+
+#[derive(Clone)]
+pub struct TlsInfo {
+    pub sni_hostname: Option<String>,
+    pub alpn_protocol: Option<String>
+}
 
 
 #[derive(Clone, Copy)]
