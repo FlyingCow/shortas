@@ -57,17 +57,14 @@ where
     }
 }
 
-pub struct AppBuilder
-{    
+pub struct AppBuilder {
     threads: usize,
     listen_os_signals: bool,
     exit: bool,
     sockets: Vec<Socket>,
 }
 
-impl AppBuilder
-where
-{
+impl AppBuilder {
     pub fn bind(mut self, address: SocketAddr) -> Self {
         self.sockets.push(Socket::Unsecured(address));
         self
@@ -96,14 +93,14 @@ where
     }
 
     pub fn default(settings: Settings) -> Self {
-        AppBuilder{
+        AppBuilder {
             threads: std::thread::available_parallelism().map_or(2, NonZeroUsize::get),
             listen_os_signals: true,
             exit: false,
             sockets: Vec::new(),
         }
-    } 
-    
+    }
+
     pub async fn run(self) {
         let settings = Settings::new().unwrap();
 
@@ -112,9 +109,13 @@ where
         let defaults_builder =
             DefaultsBuilder::new(aws_builder.dynamo.crypto_store, moka_builder.crypto_cache).await;
 
-        let hyper = HyperBuilder::new(defaults_builder.crypto_manager).await;
+        let hyper = HyperBuilder::new(
+            defaults_builder.crypto_manager,
+            defaults_builder.flow_router,
+        )
+        .await;
 
-        let mut  server_builder = ServerBuilder::new(hyper.unsecure_handler, hyper.secure_handler);
+        let mut server_builder = ServerBuilder::new(hyper.unsecure_handler, hyper.secure_handler);
 
         server_builder.exit = self.exit;
         server_builder.sockets = self.sockets;

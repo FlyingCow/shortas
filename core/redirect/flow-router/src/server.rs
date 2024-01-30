@@ -1,39 +1,20 @@
-use std::net::SocketAddr;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::{convert::Infallible, net::SocketAddr};
 use std::sync::Arc;
 
 use futures_util::future::join_all;
-use http::{Request, Response};
+use futures_util::Future;
+use http::{Request, Response, StatusCode};
 
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::Mutex
 };
+use tower::Service;
 
 use crate::core::BaseConnectionHandler;
 use crate::core::BaseTlsConnectionHandler;
-
-#[derive(Clone)]
-pub struct PerConnHandler {
-    pub local_addr: SocketAddr,
-    pub remote_addr: SocketAddr,
-    pub server_name: String,
-    pub tls_info: Option<TlsInfo>,
-}
-
-pub struct PerRequestData<B> {
-    pub local_addr: SocketAddr,
-    pub remote_addr: SocketAddr,
-    pub tls_info: Option<TlsInfo>,
-    pub request: Request<B>,
-    pub response: Response<B>,
-}
-
-#[derive(Clone)]
-pub struct TlsInfo {
-    pub sni_hostname: Option<String>,
-    pub alpn_protocol: Option<String>
-}
-
 
 #[derive(Clone, Copy)]
 pub enum Socket {
@@ -76,12 +57,12 @@ where
         }
     }
 
-    fn get_unsecure_handler(&self) -> Arc<Mutex<C>> {
-        Arc::new(Mutex::new(self.handler.clone()))
+    fn get_unsecure_handler(&self) -> Arc<C> {
+        Arc::new(self.handler.clone())
     }
 
-    fn get_secure_handler(&self) -> Arc<Mutex<T>> {
-        Arc::new(Mutex::new(self.tls_handler.clone()))
+    fn get_secure_handler(&self) -> Arc<T> {
+        Arc::new(self.tls_handler.clone())
     }
 
     async fn listen_unsecured(&self, addr: SocketAddr) {
@@ -93,7 +74,7 @@ where
             let unsecure_handler = unsecure_handler.clone();
 
             tokio::spawn(async move {
-                let handler = unsecure_handler.lock().await;
+                let handler = unsecure_handler;
                 handler.handle(stream).await;
             });
         }
@@ -108,7 +89,7 @@ where
             let secure_handler = secure_handler.clone();
 
             tokio::spawn(async move {
-                let handler = secure_handler.lock().await;
+                let handler = secure_handler;
                 handler.handle(stream).await
             });
         }
