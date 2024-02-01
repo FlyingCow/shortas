@@ -6,7 +6,7 @@ pub struct Route {
 }
 
 impl Route {
-    pub fn new(switch: String, link: String, dest: Option<String>) -> RouteEntity {
-        RouteEntity { switch, link, dest }
+    pub fn new(switch: String, link: String, dest: Option<String>) -> Self {
+        Route { switch, link, dest }
     }
 }

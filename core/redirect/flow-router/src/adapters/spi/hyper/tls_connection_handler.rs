@@ -1,13 +1,6 @@
-use std::convert::Infallible;
 use std::error::Error as StdError;
-use std::io::{ Error as IoError, ErrorKind };
+use std::io::{Error as IoError, ErrorKind};
 use std::sync::Arc;
-
-use http_body_util::Full;
-
-use hyper::body::Bytes;
-use hyper::service::service_fn;
-use hyper::{Request, Response};
 
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server;
@@ -20,28 +13,26 @@ use tokio::net::TcpStream;
 use tokio_rustls::LazyConfigAcceptor;
 use tracing::{error, warn};
 
-use crate::domain::Keycert;
+use crate::adapters::spi::hyper::flow_router_service::FlowRouterService;
 use crate::core::BaseCryptoManager;
-use crate::core::BaseTlsConnectionHandler;
-
-
-async fn hello(_: Request<hyper::body::Incoming>) -> Result<Response<Full<Bytes>>, Infallible> {
-    Ok(Response::new(Full::new(Bytes::from("Hello, World!"))))
-}
-
+use crate::core::{BaseFlowRouter, BaseTlsConnectionHandler};
+use crate::domain::Keycert;
 
 #[derive(Clone, Debug)]
-pub struct TlsConnectionHandler<C>
+pub struct TlsConnectionHandler<F, C>
 where
     C: BaseCryptoManager + Send + Sync + Clone,
+    F: BaseFlowRouter<hyper::body::Incoming> + Send + Sync + Clone,
 {
     http: server::conn::auto::Builder<TokioExecutor>,
     crypto_manager: C,
+    flow_router_service: FlowRouterService<F>,
 }
 
-impl<C> BaseTlsConnectionHandler for TlsConnectionHandler<C>
+impl<F, C> BaseTlsConnectionHandler for TlsConnectionHandler<F, C>
 where
     C: BaseCryptoManager + Send + Sync + Clone,
+    F: BaseFlowRouter<hyper::body::Incoming> + Send + Sync + Clone,
 {
     async fn handle(&self, stream: TcpStream) {
         let http = &self.http.clone();
@@ -54,24 +45,27 @@ where
                 let config = self.get_tls_config(client_hello).await.unwrap();
                 let stream = start.into_stream(Arc::new(config)).await.unwrap();
                 let io = TokioIo::new(stream);
+                let router = self.flow_router_service.clone();
 
-                if let Err(err) = http.serve_connection_with_upgrades(io, service_fn(hello)).await {
+                if let Err(err) = http.serve_connection_with_upgrades(io, router).await {
                     println!("Error serving connection: {:?}", err);
                 }
             }
-            Err(err) => {}
+            Err(_err) => {}
         }
     }
 }
 
-impl<C> TlsConnectionHandler<C>
+impl<F, C> TlsConnectionHandler<F, C>
 where
     C: BaseCryptoManager + Send + Sync + Clone,
+    F: BaseFlowRouter<hyper::body::Incoming> + Send + Sync + Clone,
 {
-    pub fn new(crypto_manager: C) -> Self {
+    pub fn new(flow_router: F, crypto_manager: C) -> Self {
         Self {
             crypto_manager: crypto_manager,
             http: server::conn::auto::Builder::new(TokioExecutor::new()),
+            flow_router_service: FlowRouterService::new(flow_router),
         }
     }
 
@@ -153,7 +147,7 @@ where
             .with_single_cert(certs, keys.remove(0))
             .expect("No certificate found");
 
-        tls_config.alpn_protocols = vec![/*b"h2".to_vec(), */b"http/1.1".to_vec()];
+        tls_config.alpn_protocols = vec![/*b"h2".to_vec(), */ b"http/1.1".to_vec()];
 
         Ok(tls_config)
     }

@@ -1,14 +1,19 @@
 [aws]
 
 [aws.dynamo]
-encryption_table = "core-routes-encryption-table-main"
-routes_table = "core-routes-hostname-mapping-main"
+encryption_table = "core-routes-encryption-main"
+routes_table = "core-routes-main"
 hostname_mappings_table = "core-routes-hostname-mapping-main"
 user_settings_table = "core-user-settings-main"
 
 
 [moka]
 [moka.crypto_cache]
+max_capacity = 10_000
+time_to_live_minutes = 60 
+time_to_idle_minutes = 20
+
+[moka.routes_cache]
 max_capacity = 10_000
 time_to_live_minutes = 60 
 time_to_idle_minutes = 20

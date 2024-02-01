@@ -8,9 +8,17 @@ pub struct CryptoCache {
     pub time_to_live_minutes: u64, 
     pub time_to_idle_minutes: u64
 }
+#[derive(Debug, Deserialize)]
+#[allow(unused)]
+pub struct RoutesCache {
+    pub max_capacity: u64, 
+    pub time_to_live_minutes: u64, 
+    pub time_to_idle_minutes: u64
+}
 
 #[derive(Debug, Deserialize)]
 #[allow(unused)]
 pub struct Moka {
-    pub crypto_cache: CryptoCache
+    pub crypto_cache: CryptoCache,
+    pub routes_cache: RoutesCache,
 }

@@ -15,9 +15,9 @@ echo "------INITIALIZING DYNAMO TABLE"
 awslocal dynamodb put-item \
     --table-name core-routes-local  \
     --item \
-        '{"switch": {"S": "main"}, "link": {"S": "localhost%2Ftest"}, "dest": {"S": "https://google.com"}}'
+        '{"switch": {"S": "main"}, "link": {"S": "localhost%2ftest"}, "dest": {"S": "https://google.com"}}'
 
 
-awslocal dynamodb get-item --table-name core-routes-local --key '{"link": {"S": "localhost%2Ftest"}, "switch": {"S": "main"}}'
+awslocal dynamodb get-item --table-name core-routes-local --key '{"link": {"S": "localhost%2ftest"}, "switch": {"S": "main"}}'
 
 python3 ./add-certificate.local.py localhost ../flow-router/certs/cert.pem ../flow-router/certs/key.pem

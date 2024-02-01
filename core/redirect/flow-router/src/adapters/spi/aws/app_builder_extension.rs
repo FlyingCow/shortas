@@ -1,13 +1,15 @@
 use aws_config::SdkConfig;
 use crate::adapters::spi::aws::{ 
     settings::AWS,
-    dynamo::crypto_store::CryptoStore 
+    dynamo::crypto_store::CryptoStore,
+    dynamo::routes_store::RoutesStore 
 };
 
 use super::dynamo::settings::Dynamo;
 
 pub struct DynamoBuilder {
-    pub crypto_store: CryptoStore
+    pub crypto_store: CryptoStore,
+    pub routes_store: RoutesStore
 }
 
 pub struct AwsBuilder {
@@ -27,7 +29,8 @@ async fn load_aws_config(settings: &AWS) -> SdkConfig {
 impl DynamoBuilder {
     pub async fn new (sdk_config: &SdkConfig, settings: Dynamo) -> Self {
         Self {
-            crypto_store: CryptoStore::new(sdk_config, settings.encryption_table)
+            crypto_store: CryptoStore::new(sdk_config, settings.encryption_table),
+            routes_store: RoutesStore::new(sdk_config, settings.routes_table)
         }
     }
 }

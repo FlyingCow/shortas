@@ -5,9 +5,8 @@ use aws_sdk_dynamodb::operation::get_item::GetItemOutput;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 
-use tracing::warn;
 
-use crate::core::base_crypto_store::{BaseCryptoStore, CryptoStoreError, Result};
+use crate::core::base_crypto_store::{BaseCryptoStore, Result};
 use crate::domain::Keycert;
 
 #[derive(Clone, Debug)]
@@ -24,7 +23,7 @@ impl CryptoStore {
         }
     }
 
-    fn to_entity(&self, server_name: &str, model: GetItemOutput) -> Option<Keycert> {
+    fn to_entity(&self, model: GetItemOutput) -> Option<Keycert> {
         model.item.map_or(None, |item| {
             let key_str = item.get("key").unwrap().as_s().unwrap();
             let cert_str = item.get("cert").unwrap().as_s().unwrap();
@@ -48,15 +47,14 @@ impl BaseCryptoStore for CryptoStore {
             .await;
 
         let result = match item {
-            Ok(item_output) => Ok(self.to_entity(server_name, item_output)),
+            Ok(item_output) => Ok(self.to_entity(item_output)),
             Err(e) => {
-                //let err = e;
-                //Err(err)
+
                 println!("status: {}", e.raw_response().unwrap().status());
-                Err(CryptoStoreError::ResourceNotFoundException)
+                Err(e)
             }
         };
 
-        result
+        Ok(result?)
     }
 }

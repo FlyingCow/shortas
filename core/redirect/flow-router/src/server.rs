@@ -1,17 +1,9 @@
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::{convert::Infallible, net::SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use futures_util::future::join_all;
-use futures_util::Future;
-use http::{Request, Response, StatusCode};
 
-use tokio::{
-    net::{TcpListener, TcpStream},
-    sync::Mutex
-};
-use tower::Service;
+use tokio::net::TcpListener;
 
 use crate::core::BaseConnectionHandler;
 use crate::core::BaseTlsConnectionHandler;
@@ -46,7 +38,12 @@ where
     C: BaseConnectionHandler + Send + Sync + Clone,
     T: BaseTlsConnectionHandler + Send + Sync + Clone,
 {
-    pub fn new(sockets: Vec<Socket>, unsecure_handler: C, secure_handler: T, options: ServerOptions) -> Self {
+    pub fn new(
+        sockets: Vec<Socket>,
+        unsecure_handler: C,
+        secure_handler: T,
+        options: ServerOptions,
+    ) -> Self {
         Self {
             handler: unsecure_handler,
             tls_handler: secure_handler,
@@ -94,8 +91,8 @@ where
             });
         }
     }
-    
-    async fn listen(&self, socket: Socket){
+
+    async fn listen(&self, socket: Socket) {
         match socket {
             Socket::Secured(addr) => self.listen_secured(addr).await,
             Socket::Unsecured(addr) => self.listen_unsecured(addr).await,
@@ -103,10 +100,8 @@ where
     }
 
     pub async fn run(&self) {
-
         let futures = self.sockets.iter().map(|s| self.listen(s.clone()));
 
         join_all(futures).await;
     }
-
 }

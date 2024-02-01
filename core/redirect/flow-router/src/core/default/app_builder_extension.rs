@@ -1,24 +1,38 @@
 use crate::core::default::{CryptoManager, FlowRouter};
-use crate::core::{BaseCryptoCache, BaseCryptoStore, BaseFlowRouter};
+use crate::core::{
+    BaseCryptoCache, 
+    BaseCryptoStore,
+    BaseRoutesCache, 
+    BaseRoutesStore
+};
 
-pub struct DefaultsBuilder<S, C>
+use super::RoutesManager;
+
+pub struct DefaultsBuilder<CS, CC, RS, RC>
 where
-    C: BaseCryptoCache + Send + Sync + Clone,
-    S: BaseCryptoStore + Send + Sync + Clone,
+    CC: BaseCryptoCache + Send + Sync + Clone + 'static,
+    CS: BaseCryptoStore + Send + Sync + Clone + 'static,
+    RC: BaseRoutesCache + Send + Sync + Clone + 'static,
+    RS: BaseRoutesStore + Send + Sync + Clone + 'static,
 {
-    pub crypto_manager: CryptoManager<S, C>,
-    pub flow_router: FlowRouter,
+    pub crypto_manager: CryptoManager<CS, CC>,
+    pub routes_manager: RoutesManager<RS, RC>,
+    pub flow_router: FlowRouter<RoutesManager<RS, RC>>,
 }
 
-impl<S, C> DefaultsBuilder<S, C>
+impl<CS, CC, RS, RC> DefaultsBuilder<CS, CC, RS, RC>
 where
-    C: BaseCryptoCache + Send + Sync + Clone,
-    S: BaseCryptoStore + Send + Sync + Clone,
+    CC: BaseCryptoCache + Send + Sync + Clone,
+    CS: BaseCryptoStore + Send + Sync + Clone,
+    RC: BaseRoutesCache + Send + Sync + Clone,
+    RS: BaseRoutesStore + Send + Sync + Clone,
 {
-    pub async fn new(crypto_store: S, crypto_cache: C) -> Self {
+    pub async fn new(crypto_store: CS, crypto_cache: CC, routes_store: RS, routes_cache: RC) -> Self {
+        let routes_manager = RoutesManager::new(routes_store, routes_cache);
         Self {
             crypto_manager: CryptoManager::new(crypto_store, crypto_cache),
-            flow_router: FlowRouter {},
+            routes_manager: routes_manager.clone(),
+            flow_router: FlowRouter::new(routes_manager.clone()),
         }
     }
 }

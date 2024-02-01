@@ -92,7 +92,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn default(settings: Settings) -> Self {
+    pub fn default(_settings: Settings) -> Self {
         AppBuilder {
             threads: std::thread::available_parallelism().map_or(2, NonZeroUsize::get),
             listen_os_signals: true,
@@ -107,7 +107,11 @@ impl AppBuilder {
         let aws_builder = AwsBuilder::new(settings.aws).await;
         let moka_builder = MokaBuilder::new(settings.moka).await;
         let defaults_builder =
-            DefaultsBuilder::new(aws_builder.dynamo.crypto_store, moka_builder.crypto_cache).await;
+            DefaultsBuilder::new(
+                aws_builder.dynamo.crypto_store, 
+                moka_builder.crypto_cache,
+                aws_builder.dynamo.routes_store, 
+                moka_builder.routes_cache,).await;
 
         let hyper = HyperBuilder::new(
             defaults_builder.crypto_manager,

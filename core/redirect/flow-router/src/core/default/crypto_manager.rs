@@ -1,4 +1,4 @@
-use tracing::{error, warn};
+use tracing::{error};
 
 use crate::core::{ 
     BaseCryptoCache, 
@@ -38,7 +38,7 @@ where
 
     async fn get_certificate(&self, server_name: &str) -> Result<Option<Keycert>> {
         
-        let keycert: std::prelude::v1::Result<Option<Keycert>, crate::core::base_crypto_cache::CryptoCacheError> = self.crypto_cache.get_certificate(server_name, async move {
+        let keycert: std::prelude::v1::Result<Option<Keycert>, anyhow::Error> = self.crypto_cache.get_certificate(server_name, async move {
 
             let keycert_result = self.crypto_store.get_certificate(server_name).await;
 

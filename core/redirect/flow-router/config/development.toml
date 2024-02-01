@@ -6,6 +6,6 @@ localstack_endpoint="http://localhost:4566"
 
 [aws.dynamo]
 encryption_table = "core-routes-encryption-local"
-routes_table = "core-routes-hostname-mapping-local"
+routes_table = "core-routes-local"
 hostname_mappings_table = "core-routes-hostname-mapping-local"
 user_settings_table = "core-user-settings-local"

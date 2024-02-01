@@ -1,11 +1,11 @@
 use http_body_util::Full;
-use hyper::body::Bytes;
-use hyper::body::Incoming;
+use hyper::body::{Bytes, Incoming};
 use hyper::service::Service;
 use hyper::{Request, Response};
 use std::convert::Infallible;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use crate::core::base_flow_router::BaseFlowRouter;
 use crate::core::PerRequestData;
@@ -42,7 +42,7 @@ where
             request: req,
         };
         let fut = self.flow_router.handle(data);
-        
+
         fut
     }
 }
