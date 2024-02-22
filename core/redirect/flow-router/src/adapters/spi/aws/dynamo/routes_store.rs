@@ -5,8 +5,6 @@ use aws_sdk_dynamodb::operation::get_item::GetItemOutput;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 
-use tracing::warn;
-
 use crate::core::base_routes_store::{BaseRoutesStore, Result};
 use crate::domain::Route;
 
@@ -28,15 +26,13 @@ impl RoutesStore {
         model.item.map_or(None, |item| {
             let switch_str = String::from(item.get("switch").unwrap().as_s().unwrap());
             let link_str = String::from(item.get("link").unwrap().as_s().unwrap());
-            
+
             let dest = match item.get("dest") {
                 Some(dest) => Some(String::from(dest.as_s().unwrap())),
-                None => None
+                None => None,
             };
 
-            Some(
-                Route::new(switch_str, link_str, dest)
-            )
+            Some(Route::new(switch_str, link_str, dest))
         })
     }
 }

@@ -5,7 +5,7 @@ use crate::core::{BaseCryptoManager, BaseFlowRouter};
 pub struct HyperBuilder<M, F>
 where
     M: BaseCryptoManager,
-    F: BaseFlowRouter<hyper::body::Incoming> + Send + Sync + Clone,
+    F: BaseFlowRouter<hyper::body::Incoming> + Send + Sync + Clone + 'static,
 {
     pub unsecure_handler: ConnectionHandler<F>,
     pub secure_handler: TlsConnectionHandler<F, M>,

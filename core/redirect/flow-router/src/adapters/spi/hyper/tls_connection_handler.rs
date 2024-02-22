@@ -22,7 +22,7 @@ use crate::domain::Keycert;
 pub struct TlsConnectionHandler<F, C>
 where
     C: BaseCryptoManager + Send + Sync + Clone,
-    F: BaseFlowRouter<hyper::body::Incoming> + Send + Sync + Clone,
+    F: BaseFlowRouter<hyper::body::Incoming> + Send + Sync + Clone + 'static,
 {
     http: server::conn::auto::Builder<TokioExecutor>,
     crypto_manager: C,
@@ -32,7 +32,7 @@ where
 impl<F, C> BaseTlsConnectionHandler for TlsConnectionHandler<F, C>
 where
     C: BaseCryptoManager + Send + Sync + Clone,
-    F: BaseFlowRouter<hyper::body::Incoming> + Send + Sync + Clone,
+    F: BaseFlowRouter<hyper::body::Incoming> + Send + Sync + Clone + 'static,
 {
     async fn handle(&self, stream: TcpStream) {
         let http = &self.http.clone();

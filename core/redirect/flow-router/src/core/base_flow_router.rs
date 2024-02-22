@@ -1,12 +1,29 @@
-use std::{convert::Infallible, fmt, net::SocketAddr, pin::Pin, sync::Arc};
+use std::{
+    convert::Infallible,
+    fmt, 
+    net::SocketAddr, 
+    pin::Pin};
 
 use bytes::Bytes;
 use futures_util::Future;
-use http::{Request, Response};
-use http_body_util::Full;
+use http::{Request, Response, StatusCode, Uri};
+use http_body_util::combinators::BoxBody;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Infallible>;
+pub enum RedirectType {
+    Permanent,
+    Temporary,
+}
+pub enum FlowRouterResult {
+    Empty(StatusCode),
+    Json(String, StatusCode),
+    PlainText(String, StatusCode),
+    Proxied(Uri, StatusCode),
+    Redirect(Uri, RedirectType),
+    Retargeting(Uri, Vec<Uri>),
+    Error
+}
 
 #[derive(Clone)]
 pub struct PerConnHandler {
@@ -39,7 +56,7 @@ where
     Req: Send + Sync,
 {
     fn handle(&self, req: PerRequestData<Req>)
-        -> Pin<Box<dyn Future<Output = Result<Response<Full<Bytes>>>> + Send>>;
+        -> impl std::future::Future<Output  = Result<FlowRouterResult>> + Send;
 }
 
 #[derive(Error, Debug)]

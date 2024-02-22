@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 echo "BUILDING LOCAL INFRASTRUCTURE..."
 echo " -> RUNNING DOCKER..."
 
-docker-compose --env-file ../docker/.env -f ../docker/docker-services.local.yml up -d 
+docker compose --env-file ../docker/.env -f ../docker/docker-services.local.yml up -d 
 
 echo " -> DONE RUNNING DOCKER."
 

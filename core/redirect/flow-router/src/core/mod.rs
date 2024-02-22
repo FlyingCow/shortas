@@ -2,6 +2,7 @@ pub mod base_connection_handler;
 pub mod base_crypto_cache;
 pub mod base_crypto_manager;
 pub mod base_crypto_store;
+pub mod base_reverse_proxy;
 pub mod base_flow_router;
 pub mod base_routes_cache;
 pub mod base_routes_manager;

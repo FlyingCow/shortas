@@ -1,9 +1,10 @@
-use crate::core::{base_flow_router::Result, BaseFlowRouter, BaseRoutesManager, PerRequestData};
-use std::{future::Future, pin::Pin, sync::Arc};
+use crate::core::{base_flow_router::{FlowRouterResult, RedirectType, Result}, BaseFlowRouter, BaseRoutesManager, PerRequestData};
+
+use std::{convert::Infallible, future::Future, io::Error, pin::Pin, sync::Arc};
 
 use bytes::Bytes;
-use http::{Request, Response};
-use http_body_util::Full;
+use http::{Request, Response, StatusCode};
+use http_body_util::{combinators::BoxBody, BodyExt, Full};
 
 #[derive(Clone, Debug)]
 pub struct FlowRouter<RM>
@@ -51,7 +52,7 @@ where
     fn handle(
         &self,
         req: PerRequestData<Req>,
-    ) -> Pin<Box<dyn Future<Output = Result<Response<Full<Bytes>>>> + Send>> {
+    ) -> impl std::future::Future<Output  = Result<FlowRouterResult>> + Send {
         let (domain, path) = parse_domain_and_path(req.request);
 
         let routes_manager = Arc::new(self.routes_manager.clone());
@@ -68,9 +69,9 @@ where
                         .dest
                         .unwrap_or(String::from("Link destination is empty!"));
 
-                    Response::new(Full::new(Bytes::from(destination)))
+                        FlowRouterResult::Redirect(destination.parse().unwrap(), RedirectType::Temporary)
                 }
-                None => Response::new(Full::new(Bytes::from(String::from("Link Not found!")))),
+                None => FlowRouterResult::Error,
             };
 
             Ok(result)
