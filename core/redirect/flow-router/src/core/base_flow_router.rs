@@ -1,16 +1,10 @@
-use std::{
-    convert::Infallible,
-    fmt, 
-    net::SocketAddr, 
-    pin::Pin};
+use std::{fmt, net::SocketAddr};
 
-use bytes::Bytes;
-use futures_util::Future;
-use http::{Request, Response, StatusCode, Uri};
-use http_body_util::combinators::BoxBody;
+use http::{Request, StatusCode, Uri};
+
 use thiserror::Error;
 
-pub type Result<T> = std::result::Result<T, Infallible>;
+pub type Result<T> = anyhow::Result<T>;
 pub enum RedirectType {
     Permanent,
     Temporary,
@@ -22,7 +16,7 @@ pub enum FlowRouterResult {
     Proxied(Uri, StatusCode),
     Redirect(Uri, RedirectType),
     Retargeting(Uri, Vec<Uri>),
-    Error
+    Error,
 }
 
 #[derive(Clone)]
@@ -55,8 +49,10 @@ pub trait BaseFlowRouter<Req>: Clone
 where
     Req: Send + Sync,
 {
-    fn handle(&self, req: PerRequestData<Req>)
-        -> impl std::future::Future<Output  = Result<FlowRouterResult>> + Send;
+    fn handle(
+        &self,
+        req: PerRequestData<Req>,
+    ) -> impl std::future::Future<Output = Result<FlowRouterResult>> + Send;
 }
 
 #[derive(Error, Debug)]
