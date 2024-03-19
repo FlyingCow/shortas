@@ -27,31 +27,27 @@ pub struct PerConnHandler {
     pub tls_info: Option<TlsInfo>,
 }
 
-#[derive(Clone)]
-pub struct PerRequestData<B>
-where
-    B: Send + Sync + 'static,
+//#[derive(Clone)]
+pub struct PerRequestData
 {
     // pub local_addr: SocketAddr,
     // pub remote_addr: SocketAddr,
     pub tls_info: Option<TlsInfo>,
-    pub request: Request<B>,
+    pub request: Request<()>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TlsInfo {
     pub sni_hostname: Option<String>,
     pub alpn_protocol: Option<String>,
     pub has_certificate: bool,
 }
 
-pub trait BaseFlowRouter<Req>: Clone
-where
-    Req: Send + Sync,
+pub trait BaseFlowRouter: Clone
 {
     fn handle(
         &self,
-        req: PerRequestData<Req>,
+        req: PerRequestData,
     ) -> impl std::future::Future<Output = Result<FlowRouterResult>> + Send;
 }
 

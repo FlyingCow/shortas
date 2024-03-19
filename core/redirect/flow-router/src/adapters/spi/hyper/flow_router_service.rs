@@ -15,14 +15,14 @@ use crate::core::PerRequestData;
 #[derive(Copy, Clone, Debug)]
 pub struct FlowRouterService<Base>
 where
-    Base: BaseFlowRouter<Incoming> + Send + Sync + Clone + 'static,
+    Base: BaseFlowRouter + Send + Sync + Clone + 'static,
 {
     flow_router: Base,
 }
 
 impl<Base> FlowRouterService<Base>
 where
-    Base: BaseFlowRouter<Incoming> + Send + Sync + Clone + 'static,
+    Base: BaseFlowRouter + Send + Sync + Clone + 'static,
 {
     pub fn new(flow_router: Base) -> Self {
         FlowRouterService { flow_router }
@@ -31,17 +31,33 @@ where
 
 impl<Base> Service<Request<Incoming>> for FlowRouterService<Base>
 where
-    Base: BaseFlowRouter<Incoming> + Send + Sync + Clone + 'static,
+    Base: BaseFlowRouter + Send + Sync + Clone + 'static,
 {
     type Response = Response<BoxBody<Bytes, Infallible>>;
     type Error = Infallible;
     type Future =
         Pin<Box<dyn Future<Output = std::result::Result<Self::Response, Self::Error>> + Send>>;
 
+
     fn call(&self, req: Request<Incoming>) -> Self::Future {
+
+
+        let mut request_builder = Request::builder()
+            .method(req.method())
+            .uri(req.uri());
+
+
+        for (header_name, header_value) in req.headers().iter() {
+            request_builder = request_builder.header(header_name.as_str(), header_value);
+        }
+            
+
+        let request = request_builder.body(())
+            .unwrap();
+
         let data = PerRequestData {
             tls_info: None,
-            request: req,
+            request: request,
         };
 
         let flow_router = Arc::new(self.flow_router.clone());

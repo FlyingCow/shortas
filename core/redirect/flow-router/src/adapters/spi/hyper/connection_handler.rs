@@ -9,7 +9,7 @@ use crate::core::{BaseConnectionHandler, BaseFlowRouter};
 #[derive(Clone, Debug)]
 pub struct ConnectionHandler<F>
 where
-    F: BaseFlowRouter<hyper::body::Incoming> + Send + Sync + Clone + 'static,
+    F: BaseFlowRouter + Send + Sync + Clone + 'static,
 {
     http: server::conn::auto::Builder<TokioExecutor>,
     flow_router_service: FlowRouterService<F>,
@@ -17,7 +17,7 @@ where
 
 impl<F> BaseConnectionHandler for ConnectionHandler<F>
 where
-    F: BaseFlowRouter<hyper::body::Incoming> + Send + Sync + Clone + 'static,
+    F: BaseFlowRouter + Send + Sync + Clone + 'static,
 {
     async fn handle(&self, stream: TcpStream) {
         let http = &self.http.clone();
@@ -32,7 +32,7 @@ where
 
 impl<F> ConnectionHandler<F>
 where
-    F: BaseFlowRouter<hyper::body::Incoming> + Send + Sync + Clone,
+    F: BaseFlowRouter + Send + Sync + Clone,
 {
     pub fn new(flow_router: F) -> Self {
         Self {

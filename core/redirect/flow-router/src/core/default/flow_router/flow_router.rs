@@ -1,12 +1,15 @@
-use crate::core::{
-    base_flow_router::{FlowRouterResult, RedirectType, Result},
-    BaseFlowRouter, BaseRoutesManager, PerRequestData,
+use std::{pin::Pin, sync::Arc};
+
+use crate::{
+    core::{
+        base_flow_router::{FlowRouterResult, RedirectType, Result},
+        BaseFlowRouter, BaseRoutesManager, PerRequestData,
+    },
+    domain::Route,
 };
 
-use futures_util::Future;
+use futures_util::{Future, FutureExt};
 use http::Request;
-use moka::future::FutureExt;
-use std::{pin::Pin, sync::Arc};
 
 use super::{Middleware, MiddlewareNext};
 
@@ -20,123 +23,143 @@ enum FlowStep {
     End,
 }
 
-#[derive(Clone, Debug)]
-struct FlowRouterContext {
+pub struct FlowRouterContext
+{
     current_step: FlowStep,
+    request: PerRequestData,
+    current_route: Option<Route>,
 }
 
 #[derive(Clone, Debug)]
 pub struct FlowRouter<RM>
 where
-    RM: BaseRoutesManager + Send + Sync + Clone + 'static,
+    RM: BaseRoutesManager + Send + Sync + 'static
 {
-    context: FlowRouterContext,
     routes_manager: Arc<RM>,
-    modules: Arc<Vec<Box<dyn Middleware<FlowRouter<RM>>>>>,
+    modules: Arc<Vec<Box<dyn Middleware<Self, FlowRouterContext>>>>,
 }
 
 impl<RM> FlowRouter<RM>
 where
-    RM: BaseRoutesManager + Send + Sync + Clone,
+    RM: BaseRoutesManager + Send + Sync
 {
-    pub fn new(routes_manager: RM, modules: Vec<Box<dyn Middleware<FlowRouter<RM>>>>) -> Self {
+    pub fn new(routes_manager: RM, modules: Vec<Box<dyn Middleware<Self, FlowRouterContext>>>) -> Self {
         Self {
-            context: FlowRouterContext {
-                current_step: FlowStep::Initial,
-            },
             routes_manager: Arc::new(routes_manager),
             modules: Arc::new(modules),
         }
     }
 
     fn router_to<'a>(
-        &'a mut self,
+        &'a self,
+        context: &'a mut FlowRouterContext,
         step: FlowStep,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + 'a + Send>> {
-        self.context.current_step = step;
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        context.current_step = step;
 
-        match self.context.current_step {
-            FlowStep::Start => self.handle_start(),
-            FlowStep::UrlExtract => self.handle_url_extract(),
-            FlowStep::Register => self.handle_register(),
-            FlowStep::BuildResult => self.handle_build_result(),
-            FlowStep::End => self.handle_end(),
+        match context.current_step {
+            FlowStep::Start => self.handle_start(context),
+            FlowStep::UrlExtract => self.handle_url_extract(context),
+            FlowStep::Register => self.handle_register(context),
+            FlowStep::BuildResult => self.handle_build_result(context),
+            FlowStep::End => self.handle_end(context),
             _ => panic!("Initial step set not allowed."),
         }
     }
 
-    fn handle_start<'a>(&'a mut self) -> Pin<Box<dyn Future<Output = Result<()>> + 'a + Send>> {
+    fn handle_start<'a>(
+        &'a self,
+        context: &'a mut FlowRouterContext,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         async move {
             println!("HandleStart");
-            let _ = &self.handle_middleware().await;
-            self.router_to(FlowStep::UrlExtract).await
+            let _ = &self.handle_middleware(context).await;
+            self.router_to(context, FlowStep::UrlExtract).await
         }
         .boxed()
     }
 
     fn handle_url_extract<'a>(
-        &'a mut self,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + 'a + Send>> {
+        &'a self,
+        context: &'a mut FlowRouterContext,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         async move {
             println!("HandleUrlExtract");
-            let _ = &self.handle_middleware().await;
-            self.router_to(FlowStep::Register).await
+            let _ = self.handle_middleware(context).await;
+            self.router_to(context, FlowStep::Register).await
         }
         .boxed()
     }
 
-    fn handle_register<'a>(&'a mut self) -> Pin<Box<dyn Future<Output = Result<()>> + 'a + Send>> {
+    fn handle_register<'a>(
+        &'a self,
+        context: &'a mut FlowRouterContext,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         async move {
             println!("HandleRegister");
-            let _ = &self.handle_middleware().await;
-            self.router_to(FlowStep::BuildResult).await
+            let _ = &self.handle_middleware(context).await;
+            self.router_to(context, FlowStep::BuildResult).await
         }
         .boxed()
     }
 
     fn handle_build_result<'a>(
-        &'a mut self,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + 'a + Send>> {
+        &'a self,
+        context: &'a mut FlowRouterContext,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         async move {
             println!("HandleBuildResult");
-            let _ = &self.handle_middleware().await;
-            self.router_to(FlowStep::End).await
+            let _ = &self.handle_middleware(context).await;
+            self.router_to(context, FlowStep::End).await
         }
         .boxed()
     }
 
-    fn handle_end<'a>(&'a mut self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+    fn handle_end<'a>(
+        &'a self,
+        context: &'a mut FlowRouterContext,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         async move {
             println!("HandleEnd");
-            let _ = &self.handle_middleware().await;
+            let _ = &self.handle_middleware(context).await;
             Ok(())
         }
         .boxed()
     }
 
-    pub fn handle_middleware(&mut self) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    fn handle_middleware(
+        &self,
+        context: &mut FlowRouterContext,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         let chain = &mut self.modules.iter().map(|mw| mw.as_ref());
 
-        let request_fn = |req: &Self| -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
-            async move { Ok(()) }.boxed()
-        };
+        let request_fn =
+            |_: &Self, _: &FlowRouterContext| -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+                async move { Ok(()) }.boxed()
+            };
 
         let request_fn = Box::new(request_fn);
 
         let next = MiddlewareNext { chain, request_fn };
 
         // // Run middleware chain
-        next.handle(&self)
+        next.handle(&self, context)
     }
 
-    pub fn run<'a>(&'a mut self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
-        self.router_to(FlowStep::Start)
+    pub async fn run(&mut self, request: PerRequestData) -> Result<()> {
+        let mut ctx = FlowRouterContext {
+            current_step: FlowStep::Initial,
+            current_route: None,
+            request
+        };
+
+        let result = self.router_to(&mut ctx, FlowStep::Start).await;
+
+        result
     }
 }
 
-fn parse_domain_and_path<Req>(request: Request<Req>) -> (String, String)
-where
-    Req: Send + Sync,
+fn parse_domain_and_path(request: Request<()>) -> (String, String)
 {
     let path = &request.uri().path()[1..];
 
@@ -153,21 +176,19 @@ where
     (domain.to_ascii_lowercase(), path.to_ascii_lowercase())
 }
 
-impl<Req, RM> BaseFlowRouter<Req> for FlowRouter<RM>
+impl< RM> BaseFlowRouter for FlowRouter<RM>
 where
-    Req: Send + Sync,
-    RM: BaseRoutesManager + Send + Sync + Clone,
+    RM: BaseRoutesManager + Send + Sync,
 {
     fn handle(
         &self,
-        req: PerRequestData<Req>,
+        req: PerRequestData,
     ) -> impl std::future::Future<Output = Result<FlowRouterResult>> + Send {
         let (domain, path) = parse_domain_and_path(req.request);
 
-        let routes_manager = Arc::new(self.routes_manager.clone());
-
         let fut = async move {
-            let route = routes_manager
+            let route = self
+                .routes_manager
                 .get_route("main", &domain, &path)
                 .await
                 .unwrap();

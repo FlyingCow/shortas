@@ -1,4 +1,4 @@
-use tracing::{error};
+use tracing::error;
 
 use crate::core::{ 
     BaseRoutesCache, 

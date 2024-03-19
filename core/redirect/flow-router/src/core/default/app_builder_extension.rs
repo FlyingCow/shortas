@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::core::default::{CryptoManager, FlowRouter};
 use crate::core::{
     BaseCryptoCache, 
@@ -8,6 +6,7 @@ use crate::core::{
     BaseRoutesStore
 };
 
+use super::flow_router::flow_router::FlowRouterContext;
 use super::flow_router::Middleware;
 use super::RoutesManager;
 
@@ -32,7 +31,7 @@ where
 {
     pub async fn new(crypto_store: CS, crypto_cache: CC, routes_store: RS, routes_cache: RC) -> Self {
         let routes_manager = RoutesManager::new(routes_store, routes_cache);
-        let modules: Vec<Box<dyn Middleware<FlowRouter<RoutesManager<RS, RC>>>>> = vec![];
+        let modules: Vec<Box<dyn Middleware<FlowRouter<RoutesManager<RS, RC>>, FlowRouterContext>>> = vec![];
         Self {
             crypto_manager: CryptoManager::new(crypto_store, crypto_cache),
             routes_manager: routes_manager.clone(),
