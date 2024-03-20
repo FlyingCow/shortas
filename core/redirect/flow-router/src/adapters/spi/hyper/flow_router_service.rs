@@ -1,3 +1,4 @@
+use futures_util::FutureExt;
 use http_body_util::{combinators::BoxBody, BodyExt, Full};
 
 use hyper::body::{Bytes, Incoming};
@@ -12,26 +13,26 @@ use std::sync::Arc;
 use crate::core::base_flow_router::{BaseFlowRouter, FlowRouterResult};
 use crate::core::PerRequestData;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct FlowRouterService<Base>
 where
     Base: BaseFlowRouter + Send + Sync + Clone + 'static,
 {
-    flow_router: Base,
+    flow_router: Box<Base>,
 }
 
 impl<Base> FlowRouterService<Base>
 where
-    Base: BaseFlowRouter + Send + Sync + Clone + 'static,
+    Base: BaseFlowRouter + Send + Sync + Clone,
 {
     pub fn new(flow_router: Base) -> Self {
-        FlowRouterService { flow_router }
+        FlowRouterService { flow_router: Box::new(flow_router) }
     }
 }
 
 impl<Base> Service<Request<Incoming>> for FlowRouterService<Base>
 where
-    Base: BaseFlowRouter + Send + Sync + Clone + 'static,
+    Base: BaseFlowRouter + Send + Sync + Clone,
 {
     type Response = Response<BoxBody<Bytes, Infallible>>;
     type Error = Infallible;
@@ -60,7 +61,7 @@ where
             request: request,
         };
 
-        let flow_router = Arc::new(self.flow_router.clone());
+        let flow_router = self.flow_router.clone();
 
         let fut = async move {
             
@@ -76,6 +77,6 @@ where
             Ok(result)
         };
 
-        Box::pin(fut)
+        fut.boxed()
     }
 }
