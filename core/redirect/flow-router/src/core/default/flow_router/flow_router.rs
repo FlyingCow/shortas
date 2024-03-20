@@ -1,4 +1,4 @@
-use std::{pin::Pin, sync::Arc};
+use std::{fmt, pin::Pin, sync::Arc};
 
 use crate::{
     core::{
@@ -9,12 +9,12 @@ use crate::{
 };
 
 use futures_util::{Future, FutureExt};
-use http::Request;
+use http::{Request, StatusCode};
 
 use super::{Middleware, MiddlewareNext};
 
 #[derive(Clone, Debug)]
-enum FlowStep {
+pub enum FlowStep {
     Initial,
     Start,
     UrlExtract,
@@ -23,17 +23,24 @@ enum FlowStep {
     End,
 }
 
-pub struct FlowRouterContext
-{
-    current_step: FlowStep,
-    request: PerRequestData,
-    current_route: Option<Route>,
+impl fmt::Display for FlowStep {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct FlowRouterContext {
+    pub current_step: FlowStep,
+    pub request: PerRequestData,
+    pub current_route: Option<Route>,
+    pub result: Option<FlowRouterResult>
 }
 
 #[derive(Clone, Debug)]
 pub struct FlowRouter<RM>
 where
-    RM: BaseRoutesManager + Send + Sync + 'static
+    RM: BaseRoutesManager + Send + Sync + 'static,
 {
     routes_manager: Arc<RM>,
     modules: Arc<Vec<Box<dyn Middleware<Self, FlowRouterContext>>>>,
@@ -41,16 +48,19 @@ where
 
 impl<RM> FlowRouter<RM>
 where
-    RM: BaseRoutesManager + Send + Sync
+    RM: BaseRoutesManager + Send + Sync,
 {
-    pub fn new(routes_manager: RM, modules: Vec<Box<dyn Middleware<Self, FlowRouterContext>>>) -> Self {
+    pub fn new(
+        routes_manager: RM,
+        modules: Vec<Box<dyn Middleware<Self, FlowRouterContext>>>,
+    ) -> Self {
         Self {
             routes_manager: Arc::new(routes_manager),
             modules: Arc::new(modules),
         }
     }
 
-    fn router_to<'a>(
+    pub fn router_to<'a>(
         &'a self,
         context: &'a mut FlowRouterContext,
         step: FlowStep,
@@ -107,8 +117,28 @@ where
         &'a self,
         context: &'a mut FlowRouterContext,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+
+
         async move {
             println!("HandleBuildResult");
+
+            let result = match &context.current_route {
+                Some(route) => {                
+                    let destination = &route
+                        .dest.as_ref()
+                        .unwrap_or(&String::from("Link destination is empty!")).to_string();
+    
+                    FlowRouterResult::Redirect(
+                        destination.parse().unwrap(),
+                        RedirectType::Temporary,
+                    )
+                }
+                None => FlowRouterResult::Empty(StatusCode::NOT_FOUND),
+    
+            };
+
+            context.result = Some(result);
+            
             let _ = &self.handle_middleware(context).await;
             self.router_to(context, FlowStep::End).await
         }
@@ -146,21 +176,33 @@ where
         next.handle(&self, context)
     }
 
-    pub async fn run(&mut self, request: PerRequestData) -> Result<()> {
+    async fn get_router(&self, request: &PerRequestData) -> Result<Option<Route>> {
+        let (domain, path) = parse_domain_and_path(&request.request);
+        let route = self
+            .routes_manager
+            .get_route("main", &domain, &path)
+            .await;
+
+        Ok(route?)
+    }
+
+    async fn start(&self, request: PerRequestData) -> Result<FlowRouterContext> {
         let mut ctx = FlowRouterContext {
+            result: None,
             current_step: FlowStep::Initial,
-            current_route: None,
-            request
+            current_route: self.get_router(&request).await?,
+            request,
         };
 
-        let result = self.router_to(&mut ctx, FlowStep::Start).await;
+        self.router_to(&mut ctx, FlowStep::Start).await?;
 
-        result
+        Ok(ctx)
     }
 }
 
-fn parse_domain_and_path(request: Request<()>) -> (String, String)
-{
+
+
+fn parse_domain_and_path(request: &Request<()>) -> (String, String) {
     let path = &request.uri().path()[1..];
 
     let domain = match request.headers().get("Host") {
@@ -176,38 +218,19 @@ fn parse_domain_and_path(request: Request<()>) -> (String, String)
     (domain.to_ascii_lowercase(), path.to_ascii_lowercase())
 }
 
-impl< RM> BaseFlowRouter for FlowRouter<RM>
+impl<RM> BaseFlowRouter for FlowRouter<RM>
 where
     RM: BaseRoutesManager + Send + Sync,
 {
     fn handle(
         &self,
-        req: PerRequestData,
+        request: PerRequestData,
     ) -> impl std::future::Future<Output = Result<FlowRouterResult>> + Send {
-        let (domain, path) = parse_domain_and_path(req.request);
 
         let fut = async move {
-            let route = self
-                .routes_manager
-                .get_route("main", &domain, &path)
-                .await
-                .unwrap();
+            let context = &self.start(request).await?;
 
-            let result = match route {
-                Some(route) => {
-                    let destination = route
-                        .dest
-                        .unwrap_or(String::from("Link destination is empty!"));
-
-                    FlowRouterResult::Redirect(
-                        destination.parse().unwrap(),
-                        RedirectType::Temporary,
-                    )
-                }
-                None => FlowRouterResult::Error,
-            };
-
-            Ok(result)
+            Ok(context.result.clone().unwrap())
         }
         .boxed();
 

@@ -5,10 +5,15 @@ use http::{Request, StatusCode, Uri};
 use thiserror::Error;
 
 pub type Result<T> = anyhow::Result<T>;
+
+
+#[derive(Clone, Debug)]
 pub enum RedirectType {
     Permanent,
     Temporary,
 }
+
+#[derive(Clone, Debug)]
 pub enum FlowRouterResult {
     Empty(StatusCode),
     Json(String, StatusCode),
@@ -19,7 +24,7 @@ pub enum FlowRouterResult {
     Error,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PerConnHandler {
     pub local_addr: SocketAddr,
     pub remote_addr: SocketAddr,
@@ -27,7 +32,7 @@ pub struct PerConnHandler {
     pub tls_info: Option<TlsInfo>,
 }
 
-//#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PerRequestData
 {
     // pub local_addr: SocketAddr,
