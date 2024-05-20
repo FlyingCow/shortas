@@ -1,0 +1,156 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'click-router'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=click-router",
+                    "--package=click-router"
+                ],
+                "filter": {
+                    "name": "click-router",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'click-router'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=click-router",
+                    "--package=click-router"
+                ],
+                "filter": {
+                    "name": "click-router",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'click-router-api'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=click-router-api",
+                    "--package=click-router-api"
+                ],
+                "filter": {
+                    "name": "click-router-api",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'click-router-api'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=click-router-api",
+                    "--package=click-router-api"
+                ],
+                "filter": {
+                    "name": "click-router-api",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'click-tracker'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=click-tracker",
+                    "--package=click-tracker"
+                ],
+                "filter": {
+                    "name": "click-tracker",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'click-tracker'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=click-tracker",
+                    "--package=click-tracker"
+                ],
+                "filter": {
+                    "name": "click-tracker",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'click-aggregator'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=click-aggregator",
+                    "--package=click-aggregator"
+                ],
+                "filter": {
+                    "name": "click-aggregator",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'click-aggregator'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=click-aggregator",
+                    "--package=click-aggregator"
+                ],
+                "filter": {
+                    "name": "click-aggregator",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
