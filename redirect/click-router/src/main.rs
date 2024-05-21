@@ -16,6 +16,7 @@ async fn main() {
         .await
         .with_moka()
         .with_defaults()
+        .with_uaparser()
         .with_flow_defaults()
         .build()
         .unwrap();

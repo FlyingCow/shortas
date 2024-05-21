@@ -7,6 +7,8 @@ pub mod base_flow_router;
 pub mod base_routes_manager;
 pub mod base_user_settings_manager;
 
+pub mod base_user_agent_detector;
+
 pub mod default;
 
 pub use base_crypto_store::BaseCryptoStore;

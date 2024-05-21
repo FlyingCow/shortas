@@ -23,6 +23,9 @@ max_capacity = 10_000
 time_to_live_minutes = 60 
 time_to_idle_minutes = 20
 
+[uaparser]
+yaml = "./click-router/src/adapters/uaparser/core/regexes.yaml"
+
 [server]
 threads = 8
 listen_os_signals = true

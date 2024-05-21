@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use crate::{
     core::{
-        BaseCryptoManager, BaseCryptoStore, BaseRoutesManager, BaseRoutesStore, BaseUserSettingsManager, BaseUserSettingsStore
+        base_user_agent_detector::BaseUserAgentDetector, BaseCryptoManager, BaseCryptoStore, BaseRoutesManager, BaseRoutesStore, BaseUserSettingsManager, BaseUserSettingsStore
     },
     flow_router::{base_flow_module::BaseFlowModule, base_host_detector::BaseHostDetector, base_ip_detector::BaseIPDetector, base_protocol_detector::BaseProtocolDetector, default_flow_router::DefaultFlowRouter},
     settings::Settings,
@@ -19,6 +19,7 @@ pub struct AppBuilder {
     pub(super) crypto_manager: Option<Box<dyn BaseCryptoManager + 'static>>,
     pub(super) user_settings_store: Option<Box<dyn BaseUserSettingsStore + 'static>>,
     pub(super) user_settings_manager: Option<Box<dyn BaseUserSettingsManager + 'static>>,
+    pub(super) user_agent_detector: Option<Box<dyn BaseUserAgentDetector + 'static>>,
     pub(super) modules: Vec<Box<dyn BaseFlowModule + 'static>>,
 }
 
@@ -35,6 +36,7 @@ impl AppBuilder {
             host_detector:None,
             ip_detector: None,
             protocol_detector: None,
+            user_agent_detector: None,
             modules: vec![],
         }
     }

@@ -5,6 +5,7 @@ use serde_derive::Deserialize;
 
 use crate::adapters::aws::aws_settings::AWS;
 use crate::adapters::moka::settings::Moka;
+use crate::adapters::uaparser::settings::UAParser;
 
 #[derive(Debug, Deserialize, Clone)]
 #[allow(unused)]
@@ -19,6 +20,7 @@ pub struct Server {
 pub struct Settings {
     pub aws: AWS,
     pub moka: Moka,
+    pub uaparser: UAParser,
     pub server: Server
 }
 
