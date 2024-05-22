@@ -11,6 +11,7 @@ pub struct UAParserUserAgentDetector {
 
 impl UAParserUserAgentDetector {
     pub fn new(path: &str) -> Self {
+        println!("  yaml -> {}", path);
         let parser = UserAgentParser::builder()
             .build_from_yaml(path)
             .expect("Parser creation failed");

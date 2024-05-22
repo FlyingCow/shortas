@@ -24,7 +24,7 @@ time_to_live_minutes = 60
 time_to_idle_minutes = 20
 
 [uaparser]
-yaml = "./click-router/src/adapters/uaparser/core/regexes.yaml"
+yaml = "./config/user-agents.yaml"
 
 [server]
 threads = 8

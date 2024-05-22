@@ -6,6 +6,6 @@ use crate::adapters::aws::dynamo::dynamo_settings::Dynamo;
 #[allow(unused)]
 pub struct AWS {
     pub local: bool,
-    pub localstack_endpoint: String,
+    pub localstack_endpoint: Option<String>,
     pub dynamo: Dynamo
 }

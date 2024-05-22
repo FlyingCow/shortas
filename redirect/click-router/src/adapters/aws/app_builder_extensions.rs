@@ -13,7 +13,10 @@ async fn load_aws_config(settings: AWS) -> SdkConfig {
     let mut shared_config = aws_config::defaults(aws_config::BehaviorVersion::latest());
 
     if settings.local {
-        shared_config = shared_config.endpoint_url(&settings.localstack_endpoint);
+        let endpoint = settings.localstack_endpoint.unwrap_or("http://localhost:4566".to_string());
+
+        println!("  {} -> {}", "localstack", endpoint);
+        shared_config = shared_config.endpoint_url(endpoint);
     }
 
     shared_config.load().await

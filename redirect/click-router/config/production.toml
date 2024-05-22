@@ -6,3 +6,6 @@ encryption_table = "core-routes-encryption-main"
 routes_table = "core-routes-main"
 hostname_mappings_table = "core-routes-hostname-mapping-main"
 user_settings_table = "core-user-settings-main"
+
+[uaparser]
+yaml = "./config/user-agents.yaml"

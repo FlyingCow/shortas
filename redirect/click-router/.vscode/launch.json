@@ -38,6 +38,9 @@
                     "kind": "bin"
                 }
             },
+            "env": {
+              "APP_RUN_MODE": "development"
+            },
             "args": [],
             "cwd": "${workspaceFolder}"
         },

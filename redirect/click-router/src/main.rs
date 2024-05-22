@@ -3,13 +3,26 @@ use click_router::{
     core::{base_flow_router::PerRequestData, BaseFlowRouter},
     settings::Settings,
 };
+
+use clap::Parser;
 use http::Request;
+
+#[derive(Parser, Debug)]
+#[command(version)]
+pub struct Args {
+    #[arg(short, long, default_value_t = String::from("production"), env("APP_RUN_MODE"))]
+    pub run_mode: String,
+    #[arg(short, long, default_value_t = String::from("./config"), env("APP_CONFIG_PATH"))]
+    pub config_path: String,
+}
 
 #[tokio::main]
 async fn main() {
-    dotenv::dotenv().ok();
 
-    let settings = Settings::new().unwrap();
+    dotenv::from_filename("./click-router/.env").ok();
+    let args = Args::parse();
+
+    let settings = Settings::new(Some(args.run_mode.as_str()), Some(args.config_path.as_str())).unwrap();
 
     let app = AppBuilder::new(settings)
         .with_aws()
