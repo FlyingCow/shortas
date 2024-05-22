@@ -67,42 +67,11 @@ impl DynamoRoutesStore {
             Err(Error::msg("Could not find 'routing.conditions' attribute."))?;
         }
 
-        let conditions = routing_item.get("conditions").map_or(Ok(Vec::new()), |c| {
-            let conditions_items = c.as_l().unwrap();
+        let conditions: Result<Vec<ConditionalRouting>> = routing_item.get("conditions").map_or(Ok(Vec::new()), |c| {
+            let conditions: Vec<ConditionalRouting> = from_attribute_value(c.clone())
+                .expect("bad condition");
 
-            let result: Result<Vec<ConditionalRouting>> = conditions_items
-                .iter()
-                .map(|i| {
-                    let condition_item = i.as_m().unwrap();
-
-                    if condition_item.get("key").is_none() {
-                        Err(Error::msg(
-                            "Could not find 'routing.conditions.key' attribute.",
-                        ))?;
-                    }
-
-                    if condition_item.get("condition").is_none() {
-                        Err(Error::msg(
-                            "Could not find 'routing.conditions.condition' attribute.",
-                        ))?;
-                    }
-
-                    let key = condition_item
-                        .get("key")
-                        .unwrap()
-                        .as_s()
-                        .unwrap()
-                        .to_ascii_lowercase();
-
-                    let condition_json = condition_item.get("condition").unwrap().as_s().unwrap();
-
-                    let condition: Condition = serde_json::from_str(condition_json).unwrap();
-
-                    return Ok(ConditionalRouting { key, condition });
-                })
-                .collect();
-
-            result
+            Ok(conditions)
         });
 
         return Ok(RoutingPolicy::Conditional(conditions?));
@@ -351,17 +320,26 @@ impl DynamoRoutesStore {
     pub async fn store_route(&self, route: &Route) -> Result<()> {
         let mut request = self
             .client
-                .put_item()
-                .table_name(&self.routes_table)
-                .item("switch", AttributeValue::S(route.switch.clone()))
-                .item("link", AttributeValue::S(route.link.clone()))
-                .item("owner.id", AttributeValue::S(route.properties.owner_id.clone().unwrap()));
+            .put_item()
+            .table_name(&self.routes_table)
+            .item("switch", AttributeValue::S(route.switch.clone()))
+            .item("link", AttributeValue::S(route.link.clone()))
+            .item(
+                "owner.id",
+                AttributeValue::S(route.properties.owner_id.clone().unwrap()),
+            );
 
         if let RoutingPolicy::Conditional(conditions) = &route.policy {
+            let mut routing = HashMap::new();
 
-            request = request.item("policy", AttributeValue::S("conditional".to_string()))
-                .item("policy", to_attribute_value(conditions)?);
+            routing.insert(
+                "policy".to_string(),
+                AttributeValue::S("conditional".to_string()),
+            );
 
+            routing.insert("conditions".to_string(), to_attribute_value(conditions)?);
+
+            request = request.item("routing", AttributeValue::M(routing));
         }
 
         let resp = request.send().await?;
@@ -375,48 +353,50 @@ impl BaseRoutesStore for DynamoRoutesStore {
         Ok(())
     }
 
-
-
-
     async fn get_route(&self, switch: &str, path: &str) -> Result<Option<Route>> {
         let expression = Condition {
-
-            ua: Some(UA::IN(vec!["Edge".into(), "Chrome".into(), "Firefox".into()])),
+            ua: Some(UA::IN(vec![
+                "Edge".into(),
+                "Chrome".into(),
+                "Firefox".into(),
+            ])),
             day_of_month: Some(DayOfMonth::IN(vec![7, 14, 30, 26])),
-            and: Some(vec![Box::new(Condition{
+            and: Some(vec![Box::new(Condition {
                 os: Some(OS::EQ("Windows".into())),
                 ..Default::default()
             })]),
             ..Default::default()
-    
         };
-        &self.store_route(&Route::new(
-            "main".to_string(),
-            "localhost%2fcond".to_string(),
-            Some("http://google.com".to_string()),
-            DestinationFormat::Http,
-            StatusCode::TEMPORARY_REDIRECT,
-            RouteStatus::Active,
-            None,
-            RoutingTerminal::External,
-            RoutingPolicy::Conditional(vec![ConditionalRouting{
-                key: "test".to_string(),
-                condition: expression
-            }]),
-            RouteProperties{
-                owner_id: Some("my_users_id".to_string()),
-                creator_id: None,
-                domain_id: None,
-                route_id: None,
-                workspace_id: None,
-                bundling: None,
-                custom: None,
-                native: None,
-                opengraph: false,
-                scripts: None,
-                tags: None
-            },
-        )).await.unwrap();
+        &self
+            .store_route(&Route::new(
+                "main".to_string(),
+                "localhost%2fcond".to_string(),
+                Some("http://google.com".to_string()),
+                DestinationFormat::Http,
+                StatusCode::TEMPORARY_REDIRECT,
+                RouteStatus::Active,
+                None,
+                RoutingTerminal::External,
+                RoutingPolicy::Conditional(vec![ConditionalRouting {
+                    key: "test".to_string(),
+                    condition: expression,
+                }]),
+                RouteProperties {
+                    owner_id: Some("my_users_id".to_string()),
+                    creator_id: None,
+                    domain_id: None,
+                    route_id: None,
+                    workspace_id: None,
+                    bundling: None,
+                    custom: None,
+                    native: None,
+                    opengraph: false,
+                    scripts: None,
+                    tags: None,
+                },
+            ))
+            .await
+            .unwrap();
 
         let item = self
             .client

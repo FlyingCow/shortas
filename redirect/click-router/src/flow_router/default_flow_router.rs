@@ -119,7 +119,7 @@ impl DefaultFlowRouter {
                 let destination = &route
                     .dest
                     .as_ref()
-                    .unwrap_or(&String::from("Link destination is empty!"))
+                    .unwrap_or(&String::from("http://test.com"))
                     .to_string();
 
                 FlowRouterResult::Redirect(destination.parse().unwrap(), RedirectType::Temporary)
