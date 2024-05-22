@@ -38,7 +38,7 @@ impl DynamoRoutesStore {
         routing_item: &HashMap<String, AttributeValue>,
     ) -> Result<RoutingTerminal> {
         if routing_item.get("terminal").is_none() {
-            Err(Error::msg("Could not find 'routing.terminal' attribute."))?;
+            return Ok(RoutingTerminal::External);
         }
 
         let routing_terminal =
