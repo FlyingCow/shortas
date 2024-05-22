@@ -1,33 +1,34 @@
 use http::StatusCode;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::condition::Condition;
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RoutingTerminal {
     External,
     Internal,
     Middleware,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum DestinationFormat{
     Http,
     Native
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileRouting {
     pub content_type: String
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConditionalRouting {
     pub key: String,
     pub condition: Condition,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ChallengeRouting {
     pub key: String,
     pub source: String,
@@ -35,7 +36,7 @@ pub struct ChallengeRouting {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RoutingPolicy {
     Basic,
     Conditional(Vec<ConditionalRouting>),
@@ -45,7 +46,7 @@ pub enum RoutingPolicy {
     Unknown
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RouteProperties {
     pub route_id: Option<String>,
     pub domain_id: Option<String>,
@@ -60,13 +61,13 @@ pub struct RouteProperties {
     pub opengraph: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockedReason{
     Resoned(String),
     Unknown
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RouteStatus{
     Active,
     Blocked(BlockedReason)

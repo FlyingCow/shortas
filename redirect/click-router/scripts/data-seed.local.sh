@@ -12,21 +12,27 @@ awslocal s3 mb s3://my-bucket
 awslocal sqs create-queue --queue-name my-queue
 
 echo "------INITIALIZING DYNAMO TABLE"
+
 awslocal dynamodb put-item \
-    --table-name core-routes-local  \
+    --table-name core-user-settings-local  \
     --item \
-        '{"switch": {"S": "main"}, "link": {"S": "localhost%2ftest"}, "dest": {"S": "https://google.com"}}'
+        '{"user_id": {"S": "my_users_id"}, "user_email": {"S": "my_user@email.com"}, "api_key": {"S": "my_user_api_key"}, "status": {"S": "active"}}'
 
 awslocal dynamodb put-item \
     --table-name core-routes-local  \
     --item \
-        '{"switch": {"S": "main"}, "link": {"S": "localhost%2fattr"}, "dest": {"S": "https://google.com"}, "attributes": {"M": {"type": {"S":"test"}, "env": {"S": "local"}}}}'
+        '{"switch": {"S": "main"}, "link": {"S": "localhost%2ftest"}, "dest": {"S": "https://google.com"}, "owner.id": {"S": "my_users_id"}}'
+
+awslocal dynamodb put-item \
+    --table-name core-routes-local  \
+    --item \
+        '{"switch": {"S": "main"}, "link": {"S": "localhost%2fattr"}, "dest": {"S": "https://google.com"}, "owner.id": {"S": "my_users_id"}, "attributes": {"M": {"type": {"S":"test"}, "env": {"S": "local"}}}}'
 
 
 awslocal dynamodb put-item \
     --table-name core-routes-local  \
     --item \
-        '{"switch": {"S": "main"}, "link": {"S": "localhost%2fblocked"}, "dest": {"S": "https://google.com"}, "blocked": {"BOOL": true}, "blocked.reason": {"S": "Spam"}}'
+        '{"switch": {"S": "main"}, "link": {"S": "localhost%2fblocked"}, "dest": {"S": "https://google.com"}, "owner.id": {"S": "my_users_id"}, "blocked": {"BOOL": true}, "blocked.reason": {"S": "Spam"}}'
 
 awslocal dynamodb get-item --table-name core-routes-local --key '{"link": {"S": "localhost%2ftest"}, "switch": {"S": "main"}}'
 

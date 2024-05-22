@@ -20,14 +20,36 @@ pub struct RedirectOnlyModule {
 }
 
 impl RedirectOnlyModule {
+    pub fn new(user_settings_manager: Box<dyn BaseUserSettingsManager>) -> Self {
+        Self{
+            user_settings_manager
+        }
+    }
+
     async fn is_tracking_allowed(&self, context: &mut FlowRouterContext) -> Result<bool> {
-        if context.out_route.as_ref().unwrap().properties.owner_id.is_none(){
+        if context
+            .out_route
+            .as_ref()
+            .unwrap()
+            .properties
+            .owner_id
+            .is_none()
+        {
             return Ok(false);
         }
 
         let settings = &self
             .user_settings_manager
-            .get_user_settings(context.out_route.as_ref().unwrap().properties.owner_id.as_ref().unwrap())
+            .get_user_settings(
+                context
+                    .out_route
+                    .as_ref()
+                    .unwrap()
+                    .properties
+                    .owner_id
+                    .as_ref()
+                    .unwrap(),
+            )
             .await?;
 
         if let Some(settings) = settings {
@@ -82,7 +104,9 @@ impl BaseFlowModule for RedirectOnlyModule {
         flow_router: &DefaultFlowRouter,
     ) -> Result<FlowStepContinuation> {
         if context.is_data_true(IS_REDIRECT_ONLY) {
-            flow_router.router_to(context, FlowStep::BuildResult).await?;
+            flow_router
+                .router_to(context, FlowStep::BuildResult)
+                .await?;
 
             return Ok(FlowStepContinuation::Break);
         }

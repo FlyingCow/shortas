@@ -215,7 +215,7 @@ impl DefaultFlowRouter {
         context.host = self.host_detector.detect(&context.request.request);
         context.protocol = self.protocol_detector.detect(&context.request.request);
         context.client_ip = self.ip_detector.detect(&context);
-        
+
         context
     }
 }

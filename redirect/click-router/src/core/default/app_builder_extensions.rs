@@ -1,8 +1,9 @@
 use crate::{
     app_builder::AppBuilder,
     core::default::{
-        default_crypto_manager::DefaultCryptoManager, default_routes_manager::DefaultRoutesManager, default_user_settings_manager::DefaultUserSettingsManager
-    }, flow_router::modules::{not_found_module::NotFoundModule, root_module::RootModule},
+        default_crypto_manager::DefaultCryptoManager, default_routes_manager::DefaultRoutesManager,
+        default_user_settings_manager::DefaultUserSettingsManager,
+    },
 };
 
 pub struct DefaultsBuilder {}
@@ -24,10 +25,6 @@ impl AppBuilder {
         self.routes_manager = routes_manager;
         self.crypto_manager = crypto_manager;
         self.user_settings_manager = user_settings_manager;
-
-        self.modules.push(Box::new(RootModule{}));
-        self.modules.push(Box::new(NotFoundModule{}));
-
 
         println!("{}", "WITH DEFAULT MANAGERS");
 

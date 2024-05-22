@@ -46,17 +46,23 @@ impl DynamoUserSettingsStore {
                     }
                 });
 
-            let debug = *item.get("debug").unwrap().as_bool().unwrap();
-            let overflow = *item.get("overflow").unwrap().as_bool().unwrap();
-            let skip = item.get("skip").unwrap().as_ss().unwrap().clone();
-            let allowed_request_params =
-                item.get("request_params").unwrap().as_ss().unwrap().clone();
+            let debug = item.get("debug").map_or(false, |d| *d.as_bool().unwrap());
+
+            let overflow = item
+                .get("overflow")
+                .map_or(false, |d| *d.as_bool().unwrap());
+
+            let skip = item
+                .get("skip")
+                .map_or(vec![], |d| d.as_ss().unwrap().clone());
+
+            let allowed_request_params = item
+                .get("request_params")
+                .map_or(vec![], |d| d.as_ss().unwrap().clone());
+
             let allowed_destination_params = item
                 .get("destination_params")
-                .unwrap()
-                .as_ss()
-                .unwrap()
-                .clone();
+                .map_or(vec![], |d| d.as_ss().unwrap().clone());
 
             Ok(Some(UserSettings::new(
                 user_id,
@@ -90,6 +96,6 @@ impl BaseUserSettingsStore for DynamoUserSettingsStore {
             .send()
             .await?;
 
-            Ok(self.to_entity(item)?)
+        Ok(self.to_entity(item)?)
     }
 }

@@ -1,3 +1,4 @@
+pub mod app_builder_extensions;
 pub mod redirect_only_module;
 // pub mod abuse_module;
 // pub mod full_path_module;

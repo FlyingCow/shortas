@@ -31,11 +31,12 @@ async fn main() {
         .with_defaults()
         .with_uaparser()
         .with_flow_defaults()
+        .with_default_modules()
         .build()
         .unwrap();
 
     let request = Request::builder()
-        .uri("/attr")
+        .uri("/cond")
         .header("Host", "localhost")
         .header("User-Agent", "my-awesome-agent/1.0");
 

@@ -8,11 +8,11 @@ use aws_sdk_dynamodb::operation::get_item::GetItemOutput;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 use http::StatusCode;
-use serde_dynamo::aws_sdk_dynamodb_1::from_attribute_value;
+use serde_dynamo::aws_sdk_dynamodb_1::{from_attribute_value, to_attribute_value};
 use serde_json::Value;
 
 use crate::core::BaseRoutesStore;
-use crate::model::condition::Condition;
+use crate::model::condition::{Condition, DayOfMonth, OS, UA};
 use crate::model::route::{
     BlockedReason, ChallengeRouting, ConditionalRouting, DestinationFormat, FileRouting,
     RouteProperties, RouteStatus, RoutingPolicy, RoutingTerminal,
@@ -294,9 +294,7 @@ impl DynamoRoutesStore {
                 .get("bundling")
                 .map_or(None, |p| Some(from_attribute_value(p.to_owned()).unwrap()));
 
-            let opengraph = item.get("blocked").map_or(false, |d| {
-                *d.as_bool().unwrap()
-            });
+            let opengraph = item.get("blocked").map_or(false, |d| *d.as_bool().unwrap());
             let properties = RouteProperties {
                 creator_id: creator_id,
                 owner_id: owner_id,
@@ -349,13 +347,77 @@ impl DynamoRoutesStore {
     }
 }
 
+impl DynamoRoutesStore {
+    pub async fn store_route(&self, route: &Route) -> Result<()> {
+        let mut request = self
+            .client
+                .put_item()
+                .table_name(&self.routes_table)
+                .item("switch", AttributeValue::S(route.switch.clone()))
+                .item("link", AttributeValue::S(route.link.clone()))
+                .item("owner.id", AttributeValue::S(route.properties.owner_id.clone().unwrap()));
+
+        if let RoutingPolicy::Conditional(conditions) = &route.policy {
+
+            request = request.item("policy", AttributeValue::S("conditional".to_string()))
+                .item("policy", to_attribute_value(conditions)?);
+
+        }
+
+        let resp = request.send().await?;
+        return Ok(());
+    }
+}
+
 #[async_trait::async_trait(?Send)]
 impl BaseRoutesStore for DynamoRoutesStore {
     async fn invalidate(&self, _: &str, _: &str) -> Result<()> {
         Ok(())
     }
 
+
+
+
     async fn get_route(&self, switch: &str, path: &str) -> Result<Option<Route>> {
+        let expression = Condition {
+
+            ua: Some(UA::IN(vec!["Edge".into(), "Chrome".into(), "Firefox".into()])),
+            day_of_month: Some(DayOfMonth::IN(vec![7, 14, 30, 26])),
+            and: Some(vec![Box::new(Condition{
+                os: Some(OS::EQ("Windows".into())),
+                ..Default::default()
+            })]),
+            ..Default::default()
+    
+        };
+        &self.store_route(&Route::new(
+            "main".to_string(),
+            "localhost%2fcond".to_string(),
+            Some("http://google.com".to_string()),
+            DestinationFormat::Http,
+            StatusCode::TEMPORARY_REDIRECT,
+            RouteStatus::Active,
+            None,
+            RoutingTerminal::External,
+            RoutingPolicy::Conditional(vec![ConditionalRouting{
+                key: "test".to_string(),
+                condition: expression
+            }]),
+            RouteProperties{
+                owner_id: Some("my_users_id".to_string()),
+                creator_id: None,
+                domain_id: None,
+                route_id: None,
+                workspace_id: None,
+                bundling: None,
+                custom: None,
+                native: None,
+                opengraph: false,
+                scripts: None,
+                tags: None
+            },
+        )).await.unwrap();
+
         let item = self
             .client
             .get_item()

@@ -2,9 +2,14 @@ use anyhow::Result;
 
 use crate::{
     core::{
-        base_user_agent_detector::BaseUserAgentDetector, BaseCryptoManager, BaseCryptoStore, BaseRoutesManager, BaseRoutesStore, BaseUserSettingsManager, BaseUserSettingsStore
+        base_user_agent_detector::BaseUserAgentDetector, BaseCryptoManager, BaseCryptoStore,
+        BaseRoutesManager, BaseRoutesStore, BaseUserSettingsManager, BaseUserSettingsStore,
     },
-    flow_router::{base_flow_module::BaseFlowModule, base_host_detector::BaseHostDetector, base_ip_detector::BaseIPDetector, base_protocol_detector::BaseProtocolDetector, default_flow_router::DefaultFlowRouter},
+    flow_router::{
+        base_flow_module::BaseFlowModule, base_host_detector::BaseHostDetector,
+        base_ip_detector::BaseIPDetector, base_protocol_detector::BaseProtocolDetector,
+        default_flow_router::DefaultFlowRouter,
+    },
     settings::Settings,
 };
 #[derive(Clone)]
@@ -33,7 +38,7 @@ impl AppBuilder {
             crypto_manager: None,
             user_settings_store: None,
             user_settings_manager: None,
-            host_detector:None,
+            host_detector: None,
             ip_detector: None,
             protocol_detector: None,
             user_agent_detector: None,
