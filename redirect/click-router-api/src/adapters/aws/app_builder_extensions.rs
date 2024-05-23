@@ -1,7 +1,7 @@
 use aws_config::SdkConfig;
 
 use crate::{
-    adapters::aws::dynamo::dynamo_routes_store::DynamoRoutesStore, app_builder::AppBuilder,
+    adapters::aws::dynamo::{dynamo_crypto_store::DynamoCryptoStore, dynamo_routes_store::DynamoRoutesStore, dynamo_user_settings_store::DynamoUserSettingsStore}, app_builder::AppBuilder,
 };
 
 use super::aws_settings::AWS;
@@ -29,9 +29,21 @@ impl AppBuilder {
         let routes_store = Some(Box::new(DynamoRoutesStore::new(
             &config,
             self.settings.aws.dynamo.routes_table.clone(),
+        ))as Box<_>);
+
+        let crypto_store = Some(Box::new(DynamoCryptoStore::new(
+            &config,
+            self.settings.aws.dynamo.encryption_table.clone(),
+        )) as Box<_>);
+
+        let user_settings_store = Some(Box::new(DynamoUserSettingsStore::new(
+            &config,
+            self.settings.aws.dynamo.user_settings_table.clone(),
         )) as Box<_>);
 
         self.routes_store = routes_store;
+        self.crypto_store = crypto_store;
+        self.user_settings_store = user_settings_store;
 
         self
     }

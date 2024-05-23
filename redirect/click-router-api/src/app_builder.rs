@@ -2,6 +2,7 @@ use actix_web::{middleware::Logger, web, App, HttpServer};
 use anyhow::Result;
 
 use crate::adapters;
+use crate::core::{BaseCryptoStore, BaseUserSettingsStore};
 use crate::settings::Server;
 use crate::{adapters::api::app_state::AppState, core::BaseRoutesStore, settings::Settings};
 
@@ -9,6 +10,8 @@ use crate::{adapters::api::app_state::AppState, core::BaseRoutesStore, settings:
 pub struct AppBuilder {
     pub(super) settings: Settings,
     pub(super) routes_store: Option<Box<dyn BaseRoutesStore + Send + Sync + 'static>>,
+    pub(super) crypto_store: Option<Box<dyn BaseCryptoStore + Send + Sync + 'static>>,
+    pub(super) user_settings_store: Option<Box<dyn BaseUserSettingsStore + Send + Sync + 'static>>,
 }
 
 #[derive(Clone)]
@@ -18,17 +21,21 @@ pub struct Api {
 }
 
 impl Api {
-    fn new(settings: Server, routes_store: Box<dyn BaseRoutesStore + Send + Sync>) -> Self {
+    fn new(
+        settings: Server,
+        routes_store: Box<dyn BaseRoutesStore + Send + Sync>,
+        crypto_store: Box<dyn BaseCryptoStore + Send + Sync>,
+        user_settings_store: Box<dyn BaseUserSettingsStore + Send + Sync>,
+    ) -> Self {
         Api {
-            api_pool: AppState::new(routes_store),
+            api_pool: AppState::new(routes_store, crypto_store, user_settings_store),
             settings,
         }
     }
 
     async fn start_server(self) -> Result<()> {
-        
         let port = self.settings.port.unwrap_or(8080);
-        
+
         println!("Server running on port {}", port);
 
         HttpServer::new(move || {
@@ -40,7 +47,6 @@ impl Api {
         .bind(("127.0.0.1", port))?
         .run()
         .await?;
-
 
         Ok(())
     }
@@ -56,6 +62,8 @@ impl AppBuilder {
         Self {
             settings,
             routes_store: None,
+            crypto_store: None,
+            user_settings_store: None,
         }
     }
 
@@ -66,6 +74,8 @@ impl AppBuilder {
         let router = Api::new(
             self.settings.server.clone(),
             self.routes_store.clone().unwrap(),
+            self.crypto_store.clone().unwrap(),
+            self.user_settings_store.clone().unwrap(),
         );
 
         Ok(router)
