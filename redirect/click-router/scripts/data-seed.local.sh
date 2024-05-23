@@ -34,6 +34,97 @@ awslocal dynamodb put-item \
     --item \
         '{"switch": {"S": "main"}, "link": {"S": "localhost%2fblocked"}, "dest": {"S": "https://google.com"}, "owner.id": {"S": "my_users_id"}, "blocked": {"BOOL": true}, "blocked.reason": {"S": "Spam"}}'
 
-awslocal dynamodb get-item --table-name core-routes-local --key '{"link": {"S": "localhost%2ftest"}, "switch": {"S": "main"}}'
+
+awslocal dynamodb put-item \
+    --table-name core-routes-local  \
+    --item \
+        '{
+        "link": {
+            "S": "localhost%2fconds"
+        },
+        "routing": {
+            "M": {
+                "conditions": {
+                    "L": [
+                        {
+                            "M": {
+                                "key": {
+                                    "S": "test"
+                                },
+                                "condition": {
+                                    "M": {
+                                        "ua": {
+                                            "M": {
+                                                "IN": {
+                                                    "L": [
+                                                        {
+                                                            "S": "Edge"
+                                                        },
+                                                        {
+                                                            "S": "Chrome"
+                                                        },
+                                                        {
+                                                            "S": "Firefox"
+                                                        }
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "day_of_month": {
+                                            "M": {
+                                                "IN": {
+                                                    "L": [
+                                                        {
+                                                            "N": "7"
+                                                        },
+                                                        {
+                                                            "N": "14"
+                                                        },
+                                                        {
+                                                            "N": "30"
+                                                        },
+                                                        {
+                                                            "N": "26"
+                                                        }
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "and": {
+                                            "L": [
+                                                {
+                                                    "M": {
+                                                        "os": {
+                                                            "M": {
+                                                                "EQ": {
+                                                                    "S": "Windows"
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                "policy": {
+                    "S": "conditional"
+                }
+            }
+        },
+        "owner.id": {
+            "S": "my_users_id"
+        },
+        "switch": {
+            "S": "main"
+        }
+    }'
+
+
+awslocal dynamodb get-item --table-name core-routes-local --key '{"link": {"S": "localhost%2fconds"}, "switch": {"S": "main"}}'
 
 python3 ./add-certificate.local.py localhost ../certs/cert.pem ../certs/key.pem
