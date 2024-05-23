@@ -7,8 +7,8 @@ build: build-click-router-api
 test: test-click-router
 test: test-click-router-api
 
-start-local:
-	./scripts/local-env-start.sh
+start-aws-local:
+	./infrastructure/aws/local-env-start.sh
 
 install-local:
 	./scripts/local-env-install.sh
