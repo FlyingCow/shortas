@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 use click_router_api::{app_builder::AppBuilder, settings::Settings};
 
 use clap::Parser;
@@ -12,7 +14,7 @@ pub struct Args {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     dotenv::from_filename("./click-router-api/.env").ok();
     let args = Args::parse();
 
@@ -22,5 +24,12 @@ async fn main() {
     )
     .unwrap();
 
-    let _app = AppBuilder::new(settings).with_aws().await.build().unwrap();
+    let _app = AppBuilder::new(settings)
+        .with_aws()
+        .await
+        .build()?
+        .run()
+        .await?;
+
+    Ok(())
 }

@@ -48,6 +48,10 @@ build-click-router-api:
 		--release \
 		--manifest-path=click-router-api/Cargo.toml \
 		--config 'build.target-dir = "target/click-router-api"'
+	
+	cp -R -f -v \
+		./click-router-api/config \
+		./target/click-router-api/release
 
 	@printf -- "DONE: Building click-router-api\n\n"
 
