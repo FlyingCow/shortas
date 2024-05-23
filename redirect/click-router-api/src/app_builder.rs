@@ -1,39 +1,52 @@
-use actix_web::{get, post, App, HttpResponse, HttpServer, Responder};
+use actix_web::{middleware::Logger, web, App, HttpServer};
 use anyhow::Result;
 
-use crate::{core::BaseRoutesStore, settings::Settings};
+use crate::adapters;
+use crate::settings::Server;
+use crate::{adapters::api::app_state::AppState, core::BaseRoutesStore, settings::Settings};
 
 #[derive(Clone)]
 pub struct AppBuilder {
     pub(super) settings: Settings,
-    pub(super) routes_store: Option<Box<dyn BaseRoutesStore + 'static>>,
+    pub(super) routes_store: Option<Box<dyn BaseRoutesStore + Send + Sync + 'static>>,
 }
 
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
+#[derive(Clone)]
+pub struct Api {
+    pub settings: Server,
+    pub api_pool: AppState,
 }
 
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
-}
-
-pub struct Api {}
 impl Api {
-    fn new() -> Self {
-        Api {}
+    fn new(settings: Server, routes_store: Box<dyn BaseRoutesStore + Send + Sync>) -> Self {
+        Api {
+            api_pool: AppState::new(routes_store),
+            settings,
+        }
     }
 
-    pub async fn run(&self) -> Result<()> {
-        HttpServer::new(|| {
-            App::new().service(hello).service(echo)
-            //.route("/hey", web::get().to(manual_hello))
+    async fn start_server(self) -> Result<()> {
+        
+        let port = self.settings.port.unwrap_or(8080);
+        
+        println!("Server running on port {}", port);
+
+        HttpServer::new(move || {
+            App::new()
+                .app_data(web::Data::new(self.api_pool.clone()))
+                .wrap(Logger::default())
+                .configure(adapters::api::api_routes::routes)
         })
-        .bind(("127.0.0.1", 8080))?
+        .bind(("127.0.0.1", port))?
         .run()
         .await?;
 
+
+        Ok(())
+    }
+
+    pub async fn run(self) -> Result<()> {
+        self.start_server().await?;
         Ok(())
     }
 }
@@ -47,9 +60,13 @@ impl AppBuilder {
     }
 
     pub fn build(&self) -> Result<Api> {
+        env_logger::try_init()?;
         println!("{}", "BUILDING");
 
-        let router = Api::new();
+        let router = Api::new(
+            self.settings.server.clone(),
+            self.routes_store.clone().unwrap(),
+        );
 
         Ok(router)
     }

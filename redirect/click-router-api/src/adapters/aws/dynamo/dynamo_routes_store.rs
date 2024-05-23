@@ -66,11 +66,11 @@ impl BaseRoutesStore for DynamoRoutesStore {
         todo!()
     }
 
-    async fn invalidate_route(&self, _: &str, _: &str) -> Result<()> {
+    async fn invalidate_route(&self, _switch: &str, _domain: &str, _path: &str) -> Result<()> {
         todo!()
     }
 
-    async fn get_route(&self, switch: &str, path: &str) -> Result<Option<Route>> {
+    async fn get_route(&self, switch: &str, domain: &str, path: &str) -> Result<Option<Route>> {
         /*
                 let expression = Condition {
                     ua: Some(UA::IN(vec![
@@ -117,6 +117,8 @@ impl BaseRoutesStore for DynamoRoutesStore {
                     .await
                     .unwrap();
         */
+        let link = format!("{}%2f{}", domain, path);
+
         let item = self
             .client
             .get_item()
@@ -124,7 +126,7 @@ impl BaseRoutesStore for DynamoRoutesStore {
             .set_key(Some(HashMap::from([
                 (
                     "link".to_string(),
-                    AttributeValue::S(path.to_ascii_lowercase()),
+                    AttributeValue::S(link.to_ascii_lowercase()),
                 ),
                 (
                     "switch".to_string(),

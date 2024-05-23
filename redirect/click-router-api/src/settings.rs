@@ -9,6 +9,7 @@ pub struct Server {
     pub threads: usize,
     pub listen_os_signals: bool,
     pub exit: bool,
+    pub port: Option<u16>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

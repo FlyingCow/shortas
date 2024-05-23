@@ -11,3 +11,4 @@ user_settings_table = "core-user-settings-main"
 threads = 8
 listen_os_signals = true
 exit = true
+port = 3000
