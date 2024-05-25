@@ -1,4 +1,4 @@
-use std::{borrow::Cow, net::IpAddr, sync::Arc};
+use std::{net::IpAddr, sync::Arc};
 
 use maxminddb::{geoip2, MaxMindDBError, Reader};
 

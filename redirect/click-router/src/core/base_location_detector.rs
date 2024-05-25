@@ -1,4 +1,4 @@
-use std::{borrow::Cow, net::IpAddr};
+use std::net::IpAddr;
 
 use dyn_clone::{clone_trait_object, DynClone};
 use serde::{Deserialize, Serialize};
