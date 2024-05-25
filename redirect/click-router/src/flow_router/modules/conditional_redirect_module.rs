@@ -1,6 +1,12 @@
 use anyhow::Result;
 
-use crate::{core::{base_flow_router::FlowRouterContext, base_location_detector::BaseLocationDetector}, flow_router::{base_flow_module::{BaseFlowModule, FlowStepContinuation}, default_flow_router::DefaultFlowRouter}};
+use crate::{
+    core::{base_flow_router::FlowRouterContext, base_location_detector::BaseLocationDetector},
+    flow_router::{
+        base_flow_module::{BaseFlowModule, FlowStepContinuation},
+        default_flow_router::DefaultFlowRouter,
+    },
+};
 
 // const IS_CONDITIONAL: &'static str = "is_conditional";
 
@@ -25,8 +31,9 @@ impl BaseFlowModule for ConditionalRedirectModule {
         if context.client_ip.is_some() {
             let ip_addr = context.client_ip.as_ref().unwrap().address;
 
-            let _location = &self.location_detector.detect_location(&ip_addr);
+            let _location = &self.location_detector.detect_country(&ip_addr);
         }
+
         return Ok(FlowStepContinuation::Continue);
     }
 }
