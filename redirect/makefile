@@ -25,9 +25,20 @@ build-click-router:
 		./click-router/config \
 		./target/click-router/release
 
+	mkdir -p ./target/click-router/release/data/
+
+
+	mkdir -p ./target/click-router/release/data/ua-parser/
+
 	cp -R -f -v \
-		./click-router/src/adapters/uaparser/core/regexes.yaml \
-		./target/click-router/release/config/user-agents.yaml
+		./click-router/data/ua-parser/core/regexes.yaml \
+		./target/click-router/release/data/ua-parser/user-agents.yaml
+
+
+	mkdir -p ./target/click-router/release/data/geo-ip/
+	cp -R -f -v \
+		./click-router/data/geo-ip/GeoLite2-Country.mmdb \
+		./target/click-router/release/data/geo-ip/GeoLite2-Country.mmdb
 
 	@printf -- "DONE: Building click-router\n\n"
 

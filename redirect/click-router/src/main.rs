@@ -37,7 +37,7 @@ async fn main() {
         .unwrap();
 
     let request = Request::builder()
-        .uri("/cond")
+        .uri("/conds")
         .header("Host", "localhost")
         .header("User-Agent", "my-awesome-agent/1.0");
 

@@ -11,7 +11,7 @@ hostname_mappings_table = "core-routes-hostname-mapping-local"
 user_settings_table = "core-user-settings-local"
 
 [uaparser]
-yaml = "./click-router/src/adapters/uaparser/core/regexes.yaml"
+yaml = "./click-router/data/ua-parser/core/regexes.yaml"
 
 [geo_ip]
 mmdb = "./click-router/data/geo-ip/GeoLite2-Country.mmdb"

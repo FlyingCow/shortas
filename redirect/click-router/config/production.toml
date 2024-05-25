@@ -8,4 +8,7 @@ hostname_mappings_table = "core-routes-hostname-mapping-main"
 user_settings_table = "core-user-settings-main"
 
 [uaparser]
-yaml = "./config/user-agents.yaml"
+yaml = "./data/ua-parser/user-agents.yaml"
+
+[geo_ip]
+mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"
