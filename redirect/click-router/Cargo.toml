@@ -23,6 +23,7 @@ config = "0.14.0"
 dotenv = "0.15.0"
 dyn-clone = "1.0.17"
 http = "1.1.0"
+maxminddb = "0.24.0"
 moka = { version = "0.12.7", features = ["future"] }
 serde = "1.0.200"
 serde_derive = "1.0.200"

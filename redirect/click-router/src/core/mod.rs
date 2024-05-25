@@ -8,6 +8,7 @@ pub mod base_routes_manager;
 pub mod base_user_settings_manager;
 
 pub mod base_user_agent_detector;
+pub mod base_location_detector;
 
 pub mod default;
 

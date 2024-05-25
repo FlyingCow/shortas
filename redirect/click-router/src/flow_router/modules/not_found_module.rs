@@ -8,7 +8,7 @@ use crate::{
         default_flow_router::DefaultFlowRouter,
     },
 };
-const  IS_404: &'static str = "is_404";
+const IS_404: &'static str = "is_404";
 
 #[derive(Debug, Clone)]
 pub struct NotFoundModule {}

@@ -2,6 +2,7 @@ use config::{Config, ConfigError, Environment, File};
 use serde_derive::Deserialize;
 
 use crate::adapters::aws::aws_settings::AWS;
+use crate::adapters::geo_ip::settings::GeoIP;
 use crate::adapters::moka::settings::Moka;
 use crate::adapters::uaparser::settings::UAParser;
 
@@ -19,6 +20,7 @@ pub struct Settings {
     pub aws: AWS,
     pub moka: Moka,
     pub uaparser: UAParser,
+    pub geo_ip: GeoIP,
     pub server: Server
 }
 const DEV_RUN_MODE: &'static str = "development";

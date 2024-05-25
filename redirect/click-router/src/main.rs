@@ -30,6 +30,7 @@ async fn main() {
         .with_moka()
         .with_defaults()
         .with_uaparser()
+        .with_geo_ip()
         .with_flow_defaults()
         .with_default_modules()
         .build()
