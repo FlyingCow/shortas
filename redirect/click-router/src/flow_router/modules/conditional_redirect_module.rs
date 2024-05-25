@@ -1,18 +1,8 @@
-use anyhow::{Ok, Result};
-use http::Method;
+use anyhow::Result;
 
-use crate::{
-    core::{
-        base_flow_router::{FlowRouterContext, FlowStep},
-        BaseUserSettingsManager,
-    },
-    flow_router::{
-        base_flow_module::{BaseFlowModule, FlowStepContinuation},
-        default_flow_router::DefaultFlowRouter,
-    },
-    model::user_settings::SKIP_TRACKING,
-};
-const IS_CONDITIONAL: &'static str = "is_conditional";
+use crate::{core::{base_flow_router::FlowRouterContext, base_location_detector::BaseLocationDetector}, flow_router::{base_flow_module::{BaseFlowModule, FlowStepContinuation}, default_flow_router::DefaultFlowRouter}};
+
+// const IS_CONDITIONAL: &'static str = "is_conditional";
 
 #[derive(Clone)]
 pub struct ConditionalRedirectModule {
@@ -21,9 +11,7 @@ pub struct ConditionalRedirectModule {
 
 impl ConditionalRedirectModule {
     pub fn new(location_detector: Box<dyn BaseLocationDetector>) -> Self {
-        Self{
-            location_detector
-        }
+        Self { location_detector }
     }
 }
 
@@ -34,7 +22,11 @@ impl BaseFlowModule for ConditionalRedirectModule {
         context: &mut FlowRouterContext,
         _: &DefaultFlowRouter,
     ) -> Result<FlowStepContinuation> {
+        if context.client_ip.is_some() {
+            let ip_addr = context.client_ip.as_ref().unwrap().address;
 
+            let _location = &self.location_detector.detect_location(&ip_addr);
+        }
         return Ok(FlowStepContinuation::Continue);
     }
 }

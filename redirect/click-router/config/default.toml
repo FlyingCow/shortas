@@ -27,7 +27,7 @@ time_to_idle_minutes = 20
 yaml = "./config/user-agents.yaml"
 
 [geo_ip]
-yaml = "./data/geo-ip/GeoLite2-Country.mmdb"
+mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"
 
 [server]
 threads = 8

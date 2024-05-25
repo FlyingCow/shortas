@@ -1,6 +1,3 @@
-[submodule "redirect/click-router/src/adapters/uaparser/core"]
-	path = redirect/click-router/src/adapters/uaparser/core
-	url = https://github.com/ua-parser/uap-core
 [submodule "redirect/click-router/data/ua-parser/uap-core"]
 	path = redirect/click-router/data/ua-parser/uap-core
 	url = https://github.com/ua-parser/uap-core

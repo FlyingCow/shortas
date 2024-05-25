@@ -12,3 +12,6 @@ user_settings_table = "core-user-settings-local"
 
 [uaparser]
 yaml = "./click-router/src/adapters/uaparser/core/regexes.yaml"
+
+[geo_ip]
+mmdb = "./click-router/data/geo-ip/GeoLite2-Country.mmdb"

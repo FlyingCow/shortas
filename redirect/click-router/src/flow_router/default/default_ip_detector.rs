@@ -1,11 +1,10 @@
-use std::net::{AddrParseError, SocketAddr};
+use std::{net::{IpAddr, SocketAddr}, str::FromStr};
 
 use crate::{
     core::base_flow_router::FlowRouterContext,
     flow_router::base_ip_detector::{BaseIPDetector, IPInfo},
 };
 
-static DEFAULT_PORT: u16 = 80;
 static X_FORWARDED_FOR_HEADER: &str = "X-Forwarded-For";
 
 #[derive(Clone)]
@@ -41,20 +40,14 @@ impl BaseIPDetector for DefaultIPDetector {
         let ip: SocketAddr = context.request.remote_addr;
 
         if let Some(ip_header) = detect_for_headers(&context.request.request) {
-            let mut port: u16 = DEFAULT_PORT;
 
-            if let Some(host) = &context.host {
-                port = host.port;
-            }
+            let addr = IpAddr::from_str(ip_header.as_str());
 
-            let server: Result<SocketAddr, AddrParseError> =
-                format!("{}:{}", ip_header, port).parse();
-
-            if let Ok(server) = server {
-                return Some(IPInfo { address: server });
+            if let Ok(addr) = addr {
+                return Some(IPInfo { address: addr });
             }
         }
 
-        return Some(IPInfo { address: ip });
+        return Some(IPInfo { address: ip.ip() });
     }
 }
