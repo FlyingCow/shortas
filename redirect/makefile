@@ -8,7 +8,7 @@ test: test-click-router
 test: test-click-router-api
 
 start-aws-local:
-	./infrastructure/aws/local-env-start.sh
+	./infra/aws/local-env-start.sh
 
 install-local:
 	./scripts/local-env-install.sh
