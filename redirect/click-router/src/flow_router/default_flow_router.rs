@@ -18,7 +18,9 @@ use crate::{
 
 use super::{
     base_flow_module::BaseFlowModule, base_host_extractor::BaseHostExtractor,
-    base_ip_extractor::BaseIPExtractor, base_protocol_extractor::BaseProtocolExtractor, base_user_agent_extractor::BaseUserAgentExtractor,
+    base_ip_extractor::BaseIPExtractor, base_language_extractor::BaseLanguageExtractor,
+    base_protocol_extractor::BaseProtocolExtractor,
+    base_user_agent_string_extractor::BaseUserAgentStringExtractor,
 };
 
 #[derive(Clone)]
@@ -27,7 +29,8 @@ pub struct DefaultFlowRouter {
     host_extractor: Box<dyn BaseHostExtractor>,
     protocol_extractor: Box<dyn BaseProtocolExtractor>,
     ip_extractor: Box<dyn BaseIPExtractor>,
-    user_agent_extractor: Box<dyn BaseUserAgentExtractor>,
+    user_agent_extractor: Box<dyn BaseUserAgentStringExtractor>,
+    language_extractor: Box<dyn BaseLanguageExtractor>,
     modules: Vec<Box<dyn BaseFlowModule>>,
 }
 
@@ -37,7 +40,8 @@ impl DefaultFlowRouter {
         host_extractor: Box<dyn BaseHostExtractor>,
         protocol_extractor: Box<dyn BaseProtocolExtractor>,
         ip_extractor: Box<dyn BaseIPExtractor>,
-        user_agent_extractor: Box<dyn BaseUserAgentExtractor>,
+        user_agent_extractor: Box<dyn BaseUserAgentStringExtractor>,
+        language_extractor: Box<dyn BaseLanguageExtractor>,
         modules: Vec<Box<dyn BaseFlowModule>>,
     ) -> Self {
         DefaultFlowRouter {
@@ -46,6 +50,7 @@ impl DefaultFlowRouter {
             protocol_extractor,
             ip_extractor,
             user_agent_extractor,
+            language_extractor,
             modules,
         }
     }
@@ -212,6 +217,7 @@ impl DefaultFlowRouter {
             in_route: self.build_route_uri(&request.request),
             user_agent: None,
             client_ip: None,
+            languages: None,
             host: None,
             protocol: None,
             out_route: None, //self.get_route(&request).await?,
@@ -223,6 +229,7 @@ impl DefaultFlowRouter {
         context.protocol = self.protocol_extractor.detect(&context.request.request);
         context.client_ip = self.ip_extractor.detect(&context);
         context.user_agent = self.user_agent_extractor.detect(&context.request.request);
+        context.languages = self.language_extractor.detect(&context.request.request);
 
         context
     }

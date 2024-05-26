@@ -8,7 +8,7 @@ use std::{
     net::SocketAddr,
 };
 
-use crate::{flow_router::{base_host_extractor::HostInfo, base_ip_extractor::IPInfo, base_protocol_extractor::ProtoInfo}, model::Route};
+use crate::{flow_router::{base_host_extractor::HostInfo, base_ip_extractor::IPInfo, base_language_extractor::Language, base_protocol_extractor::ProtoInfo}, model::Route};
 
 use super::base_user_agent_detector::{Device, UserAgent, OS};
 
@@ -137,6 +137,7 @@ pub struct FlowRouterContext {
     pub host: Option<HostInfo>,
     pub client_ip: Option<IPInfo>,
     pub user_agent: Option<String>,
+    pub languages: Option<Vec<Language>>,
     pub protocol: Option<ProtoInfo>,
     pub out_route: Option<Route>,
     pub in_route: FlowInRoute,
