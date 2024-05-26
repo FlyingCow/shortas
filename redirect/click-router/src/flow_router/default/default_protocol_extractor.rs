@@ -1,4 +1,4 @@
-use crate::flow_router::base_protocol_detector::{BaseProtocolDetector, ProtoInfo};
+use crate::flow_router::base_protocol_extractor::{BaseProtocolExtractor, ProtoInfo};
 
 static HTTP: &'static str = "http";
 static HTTPS: &'static str = "https";
@@ -7,11 +7,11 @@ static X_FORWARDED_PROTO_HEADER: &str = "X-Forwarded-Proto";
 static X_FORWARDED_SSL_HEADER: &str = "X-Forwarded-Ssl";
 
 #[derive(Clone)]
-pub struct DefaultProtocolDetector {}
+pub struct DefaultProtocolExtractor {}
 
-impl DefaultProtocolDetector {
+impl DefaultProtocolExtractor {
     pub fn new() -> Self {
-        DefaultProtocolDetector {}
+        Self {}
     }
 }
 
@@ -58,7 +58,7 @@ fn detect_ssl_on_headers(request: &http::Request<()>) -> Option<bool> {
     None
 }
 
-impl BaseProtocolDetector for DefaultProtocolDetector {
+impl BaseProtocolExtractor for DefaultProtocolExtractor {
     fn detect(&self, request: &http::Request<()>) -> Option<ProtoInfo> {
         let mut proto: String = HTTP.to_string();
         let mut ssl_on: bool = false;
@@ -95,7 +95,7 @@ mod tests {
         builder = builder.header("X-Forwarded-Proto", "https");
         builder = builder.header("X-Forwarded-Ssl", "on");
 
-        let result = DefaultProtocolDetector::new().detect(&builder.body(()).unwrap());
+        let result = DefaultProtocolExtractor::new().detect(&builder.body(()).unwrap());
 
         assert!(result.is_some());
         let proto_info = result.unwrap();
@@ -110,7 +110,7 @@ mod tests {
 
         builder = builder.uri("https://www.rust-lang.org:443/");
 
-        let result = DefaultProtocolDetector::new().detect(&builder.body(()).unwrap());
+        let result = DefaultProtocolExtractor::new().detect(&builder.body(()).unwrap());
 
         assert!(result.is_some());
         let proto_info = result.unwrap();
@@ -124,7 +124,7 @@ mod tests {
 
         builder = builder.uri("http://www.rust-lang.org/");
 
-        let result = DefaultProtocolDetector::new().detect(&builder.body(()).unwrap());
+        let result = DefaultProtocolExtractor::new().detect(&builder.body(()).unwrap());
 
         assert!(result.is_some());
         let proto_info = result.unwrap();

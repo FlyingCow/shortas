@@ -2,17 +2,17 @@ use std::{net::{IpAddr, SocketAddr}, str::FromStr};
 
 use crate::{
     core::base_flow_router::FlowRouterContext,
-    flow_router::base_ip_detector::{BaseIPDetector, IPInfo},
+    flow_router::base_ip_extractor::{BaseIPExtractor, IPInfo},
 };
 
 static X_FORWARDED_FOR_HEADER: &str = "X-Forwarded-For";
 
 #[derive(Clone)]
-pub struct DefaultIPDetector {}
+pub struct DefaultIPExtractor {}
 
-impl DefaultIPDetector {
+impl DefaultIPExtractor {
     pub fn new() -> Self {
-        DefaultIPDetector {}
+        Self {}
     }
 }
 
@@ -35,7 +35,7 @@ fn detect_for_headers(request: &http::Request<()>) -> Option<String> {
     None
 }
 
-impl BaseIPDetector for DefaultIPDetector {
+impl BaseIPExtractor for DefaultIPExtractor {
     fn detect(&self, context: &FlowRouterContext) -> Option<IPInfo> {
         let ip: SocketAddr = context.request.remote_addr;
 

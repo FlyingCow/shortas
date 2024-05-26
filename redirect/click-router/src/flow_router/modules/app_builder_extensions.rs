@@ -1,7 +1,7 @@
 use crate::{
     app_builder::AppBuilder,
     flow_router::modules::{
-        conditional_redirect_module::ConditionalRedirectModule, not_found_module::NotFoundModule,
+        conditional_module::ConditionalModule, not_found_module::NotFoundModule,
         redirect_only_module::RedirectOnlyModule, root_module::RootModule,
     },
 };
@@ -13,7 +13,7 @@ impl AppBuilder {
         self.modules.push(Box::new(RedirectOnlyModule::new(
             self.user_settings_manager.clone().unwrap(),
         )));
-        self.modules.push(Box::new(ConditionalRedirectModule::new(
+        self.modules.push(Box::new(ConditionalModule::new(
             self.location_detector.clone().unwrap(),
         )));
 

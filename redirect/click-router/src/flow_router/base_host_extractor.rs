@@ -8,8 +8,8 @@ pub struct HostInfo{
     pub port: u16
 }
 
-pub trait BaseHostDetector: DynClone{
+pub trait BaseHostExtractor: DynClone{
     fn detect(&self, request: &Request<()>) -> Option<HostInfo>;
 }
 
-clone_trait_object!(BaseHostDetector);
+clone_trait_object!(BaseHostExtractor);

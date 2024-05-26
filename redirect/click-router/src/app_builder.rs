@@ -5,9 +5,7 @@ use crate::{
         base_location_detector::BaseLocationDetector, base_user_agent_detector::BaseUserAgentDetector, BaseCryptoManager, BaseCryptoStore, BaseRoutesManager, BaseRoutesStore, BaseUserSettingsManager, BaseUserSettingsStore
     },
     flow_router::{
-        base_flow_module::BaseFlowModule, base_host_detector::BaseHostDetector,
-        base_ip_detector::BaseIPDetector, base_protocol_detector::BaseProtocolDetector,
-        default_flow_router::DefaultFlowRouter,
+        base_flow_module::BaseFlowModule, base_host_extractor::BaseHostExtractor, base_ip_extractor::BaseIPExtractor, base_protocol_extractor::BaseProtocolExtractor, base_user_agent_extractor::BaseUserAgentExtractor, default_flow_router::DefaultFlowRouter
     },
     settings::Settings,
 };
@@ -16,9 +14,10 @@ pub struct AppBuilder {
     pub(super) settings: Settings,
     pub(super) routes_store: Option<Box<dyn BaseRoutesStore + 'static>>,
     pub(super) routes_manager: Option<Box<dyn BaseRoutesManager + 'static>>,
-    pub(super) host_detector: Option<Box<dyn BaseHostDetector + 'static>>,
-    pub(super) protocol_detector: Option<Box<dyn BaseProtocolDetector + 'static>>,
-    pub(super) ip_detector: Option<Box<dyn BaseIPDetector + 'static>>,
+    pub(super) host_extractor: Option<Box<dyn BaseHostExtractor + 'static>>,
+    pub(super) protocol_extractor: Option<Box<dyn BaseProtocolExtractor + 'static>>,
+    pub(super) ip_extractor: Option<Box<dyn BaseIPExtractor + 'static>>,
+    pub(super) user_agent_extractor: Option<Box<dyn BaseUserAgentExtractor + 'static>>,
     pub(super) crypto_store: Option<Box<dyn BaseCryptoStore + 'static>>,
     pub(super) crypto_manager: Option<Box<dyn BaseCryptoManager + 'static>>,
     pub(super) user_settings_store: Option<Box<dyn BaseUserSettingsStore + 'static>>,
@@ -38,9 +37,10 @@ impl AppBuilder {
             crypto_manager: None,
             user_settings_store: None,
             user_settings_manager: None,
-            host_detector: None,
-            ip_detector: None,
-            protocol_detector: None,
+            host_extractor: None,
+            ip_extractor: None,
+            user_agent_extractor: None,
+            protocol_extractor: None,
             user_agent_detector: None,
             location_detector: None,
             modules: vec![],
@@ -52,9 +52,10 @@ impl AppBuilder {
 
         let router = DefaultFlowRouter::new(
             self.routes_manager.clone().unwrap(),
-            self.host_detector.clone().unwrap(),
-            self.protocol_detector.clone().unwrap(),
-            self.ip_detector.clone().unwrap(),
+            self.host_extractor.clone().unwrap(),
+            self.protocol_extractor.clone().unwrap(),
+            self.ip_extractor.clone().unwrap(),
+            self.user_agent_extractor.clone().unwrap(),
             self.modules.clone(),
         );
 

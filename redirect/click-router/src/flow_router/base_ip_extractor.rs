@@ -9,8 +9,8 @@ pub struct IPInfo {
     pub address: IpAddr,
 }
 
-pub trait BaseIPDetector: DynClone {
+pub trait BaseIPExtractor: DynClone {
     fn detect(&self, context: &FlowRouterContext) -> Option<IPInfo>;
 }
 
-clone_trait_object!(BaseIPDetector);
+clone_trait_object!(BaseIPExtractor);

@@ -8,7 +8,9 @@ use std::{
     net::SocketAddr,
 };
 
-use crate::{flow_router::{base_host_detector::HostInfo, base_ip_detector::IPInfo, base_protocol_detector::ProtoInfo}, model::Route};
+use crate::{flow_router::{base_host_extractor::HostInfo, base_ip_extractor::IPInfo, base_protocol_extractor::ProtoInfo}, model::Route};
+
+use super::base_user_agent_detector::{Device, UserAgent, OS};
 
 #[derive(Clone, Debug)]
 pub enum RedirectType {
@@ -128,9 +130,13 @@ pub struct FlowInRoute {
 #[derive(Clone, Debug)]
 pub struct FlowRouterContext {
     pub data: HashMap<&'static str, FlowRouterData>,
+    pub client_os: Option<OS>,
+    pub client_browser: Option<UserAgent>,
+    pub client_device: Option<Device>,
     pub current_step: FlowStep,
     pub host: Option<HostInfo>,
     pub client_ip: Option<IPInfo>,
+    pub user_agent: Option<String>,
     pub protocol: Option<ProtoInfo>,
     pub out_route: Option<Route>,
     pub in_route: FlowInRoute,

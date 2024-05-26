@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::condition::Condition;
+use super::expression::Expression;
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub enum RoutingTerminal {
@@ -26,7 +26,7 @@ pub struct FileRouting {
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct ConditionalRouting {
     pub key: String,
-    pub condition: Condition,
+    pub condition: Expression,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]

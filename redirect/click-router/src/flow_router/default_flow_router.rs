@@ -17,32 +17,35 @@ use crate::{
 };
 
 use super::{
-    base_flow_module::BaseFlowModule, base_host_detector::BaseHostDetector,
-    base_ip_detector::BaseIPDetector, base_protocol_detector::BaseProtocolDetector,
+    base_flow_module::BaseFlowModule, base_host_extractor::BaseHostExtractor,
+    base_ip_extractor::BaseIPExtractor, base_protocol_extractor::BaseProtocolExtractor, base_user_agent_extractor::BaseUserAgentExtractor,
 };
 
 #[derive(Clone)]
 pub struct DefaultFlowRouter {
     routes_manager: Box<dyn BaseRoutesManager>,
-    host_detector: Box<dyn BaseHostDetector>,
-    protocol_detector: Box<dyn BaseProtocolDetector>,
-    ip_detector: Box<dyn BaseIPDetector>,
+    host_extractor: Box<dyn BaseHostExtractor>,
+    protocol_extractor: Box<dyn BaseProtocolExtractor>,
+    ip_extractor: Box<dyn BaseIPExtractor>,
+    user_agent_extractor: Box<dyn BaseUserAgentExtractor>,
     modules: Vec<Box<dyn BaseFlowModule>>,
 }
 
 impl DefaultFlowRouter {
     pub fn new(
         routes_manager: Box<dyn BaseRoutesManager>,
-        host_detector: Box<dyn BaseHostDetector>,
-        protocol_detector: Box<dyn BaseProtocolDetector>,
-        ip_detector: Box<dyn BaseIPDetector>,
+        host_extractor: Box<dyn BaseHostExtractor>,
+        protocol_extractor: Box<dyn BaseProtocolExtractor>,
+        ip_extractor: Box<dyn BaseIPExtractor>,
+        user_agent_extractor: Box<dyn BaseUserAgentExtractor>,
         modules: Vec<Box<dyn BaseFlowModule>>,
     ) -> Self {
         DefaultFlowRouter {
             routes_manager,
-            host_detector,
-            protocol_detector,
-            ip_detector,
+            host_extractor,
+            protocol_extractor,
+            ip_extractor,
+            user_agent_extractor,
             modules,
         }
     }
@@ -182,7 +185,7 @@ impl DefaultFlowRouter {
     fn build_route_uri(&self, request: &Request<()>) -> FlowInRoute {
         let path = &request.uri().path()[1..];
 
-        let host_info = self.host_detector.detect(&request).unwrap();
+        let host_info = self.host_extractor.detect(&request).unwrap();
 
         let query = request.uri().query().unwrap_or_default();
 
@@ -202,8 +205,12 @@ impl DefaultFlowRouter {
     fn build_context(&self, request: &PerRequestData) -> FlowRouterContext {
         let mut context = FlowRouterContext {
             data: HashMap::new(),
+            client_os: None,
+            client_browser: None,
+            client_device: None,
             current_step: FlowStep::Initial,
             in_route: self.build_route_uri(&request.request),
+            user_agent: None,
             client_ip: None,
             host: None,
             protocol: None,
@@ -212,9 +219,10 @@ impl DefaultFlowRouter {
             request: request.clone(),
         };
 
-        context.host = self.host_detector.detect(&context.request.request);
-        context.protocol = self.protocol_detector.detect(&context.request.request);
-        context.client_ip = self.ip_detector.detect(&context);
+        context.host = self.host_extractor.detect(&context.request.request);
+        context.protocol = self.protocol_extractor.detect(&context.request.request);
+        context.client_ip = self.ip_extractor.detect(&context);
+        context.user_agent = self.user_agent_extractor.detect(&context.request.request);
 
         context
     }

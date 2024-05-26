@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Condition {
+pub struct Expression{
     
     #[serde(alias="default_operator", alias="DEFAULT_OPERATOR")]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -38,14 +38,14 @@ pub struct Condition {
 
     #[serde(alias="and", alias="AND")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub and: Option<Vec<Box<Condition>>>,
+    pub and: Option<Vec<Box<Expression>>>,
 
     #[serde(alias="or", alias="OR")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub or: Option<Vec<Box<Condition>>>
+    pub or: Option<Vec<Box<Expression>>>
 }
 
-impl Default for Condition {
+impl Default for Expression{
     fn default() -> Self {
         Self { 
             default_operator: Default::default(),

@@ -8,8 +8,8 @@ pub struct ProtoInfo{
     pub ssl_on: bool
 }
 
-pub trait BaseProtocolDetector: DynClone{
+pub trait BaseProtocolExtractor: DynClone{
     fn detect(&self, request: &Request<()>) -> Option<ProtoInfo>;
 }
 
-clone_trait_object!(BaseProtocolDetector);
+clone_trait_object!(BaseProtocolExtractor);

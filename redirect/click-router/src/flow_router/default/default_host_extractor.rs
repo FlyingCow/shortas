@@ -1,14 +1,14 @@
-use crate::flow_router::base_host_detector::{BaseHostDetector, HostInfo};
+use crate::flow_router::base_host_extractor::{BaseHostExtractor, HostInfo};
 
 static HOST_HEADER: &str = "Host";
 const DEFAULT_PORT: u16 = 80;
 
 #[derive(Clone)]
-pub struct DefaultHostDetector {}
+pub struct DefaultHostExtractor {}
 
-impl DefaultHostDetector {
+impl DefaultHostExtractor {
     pub fn new() -> Self {
-        DefaultHostDetector {}
+        Self {}
     }
 }
 
@@ -51,7 +51,7 @@ fn detect_from_headers(request: &http::Request<()>) -> Option<HostInfo> {
     None
 }
 
-impl BaseHostDetector for DefaultHostDetector {
+impl BaseHostExtractor for DefaultHostExtractor {
     fn detect(&self, request: &http::Request<()>) -> Option<HostInfo> {
         if let Some(host_info) = detect_from_headers(request) {
             return Some(host_info);
@@ -77,7 +77,7 @@ mod tests {
 
         builder = builder.header("Host", "test.com:80");
 
-        let result = DefaultHostDetector::new().detect(&builder.body(()).unwrap());
+        let result = DefaultHostExtractor::new().detect(&builder.body(()).unwrap());
 
         assert!(result.is_some());
         let host_info = result.unwrap();
@@ -91,7 +91,7 @@ mod tests {
 
         builder = builder.header("Host", "test.com:443");
 
-        let result = DefaultHostDetector::new().detect(&builder.body(()).unwrap());
+        let result = DefaultHostExtractor::new().detect(&builder.body(()).unwrap());
 
         assert!(result.is_some());
         let host_info = result.unwrap();
@@ -105,7 +105,7 @@ mod tests {
 
         builder = builder.uri("http://www.rust-lang.org:80/");
 
-        let result = DefaultHostDetector::new().detect(&builder.body(()).unwrap());
+        let result = DefaultHostExtractor::new().detect(&builder.body(()).unwrap());
 
         assert!(result.is_some());
         let host_info = result.unwrap();
@@ -119,7 +119,7 @@ mod tests {
 
         builder = builder.uri("https://www.rust-lang.org:443/");
 
-        let result = DefaultHostDetector::new().detect(&builder.body(()).unwrap());
+        let result = DefaultHostExtractor::new().detect(&builder.body(()).unwrap());
 
         assert!(result.is_some());
         let host_info = result.unwrap();
