@@ -36,28 +36,31 @@ impl BaseFlowModule for ConditionalModule {
         {
             if conditions
                 .iter()
-                .any(|condition| condition.condition.needs_browser())
+                .any(|routing| routing.condition.needs_browser())
             {
                 router.load_browser(context);
             }
             if conditions
                 .iter()
-                .any(|condition| condition.condition.needs_os())
+                .any(|routing| routing.condition.needs_os())
             {
                 router.load_os(context);
             }
             if conditions
                 .iter()
-                .any(|condition| condition.condition.needs_device())
+                .any(|routing| routing.condition.needs_device())
             {
                 router.load_device(context);
             }
             if conditions
                 .iter()
-                .any(|condition| condition.condition.needs_country())
+                .any(|routing| routing.condition.needs_country())
             {
                 router.load_country(context);
             }
+
+            println!("IS_CONDITIONAL");
+            context.add_bool(IS_CONDITIONAL, true);
         }
 
         return Ok(FlowStepContinuation::Continue);
