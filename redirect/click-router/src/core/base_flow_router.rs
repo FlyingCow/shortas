@@ -2,10 +2,7 @@ use anyhow::Result;
 use dyn_clone::{clone_trait_object, DynClone};
 use http::{Request, StatusCode, Uri};
 use std::{
-    self,
-    collections::HashMap,
-    fmt::{self, Display, Formatter, Result as FmtResult},
-    net::SocketAddr,
+    self, collections::HashMap, fmt::{self, Display, Formatter, Result as FmtResult}, net::SocketAddr
 };
 
 use crate::{flow_router::{base_host_extractor::HostInfo, base_ip_extractor::IPInfo, base_language_extractor::Language, base_protocol_extractor::ProtoInfo}, model::Route};
@@ -35,9 +32,9 @@ impl Display for FlowRouterResult {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Default, Clone, Debug)]
 pub enum FlowStep {
-    Initial,
+    #[default] Initial,
     Start,
     UrlExtract,
     Register,
@@ -126,6 +123,18 @@ pub struct FlowInRoute {
     pub query: String
 }
 
+impl FlowInRoute{
+    pub fn new(scheme: String, host: String, port: u16, path: String, query: String) -> Self{
+        Self{
+            scheme,
+            host,
+            port,
+            path,
+            query
+        }
+    }
+}
+
 
 #[derive(Clone, Debug)]
 pub struct FlowRouterContext {
@@ -144,6 +153,27 @@ pub struct FlowRouterContext {
     pub request: PerRequestData,
 
     pub result: Option<FlowRouterResult>,
+}
+
+impl FlowRouterContext {
+    pub fn new(in_route: FlowInRoute, request: PerRequestData,) -> Self {
+        Self {
+            data: HashMap::new(),
+            client_os: None,
+            client_browser: None,
+            client_device: None,
+            current_step: FlowStep::Initial,
+            in_route: in_route,
+            user_agent: None,
+            client_ip: None,
+            languages: None,
+            host: None,
+            protocol: None,
+            out_route: None, 
+            result: None,
+            request: request,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

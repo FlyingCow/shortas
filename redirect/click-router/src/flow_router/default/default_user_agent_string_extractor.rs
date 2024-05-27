@@ -32,3 +32,26 @@ impl BaseUserAgentStringExtractor for DefaultUserAgentStringExtractor {
         detect_from_headers(&request)
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use http::Request;
+
+    use super::*;
+
+    #[test]
+    fn should_extract_from_user_agent_header_when_present() {
+        let mut builder = Request::builder();
+
+        builder = builder.header(USER_AGENT_HEADER, "test user agent 0.1");
+
+        let result = DefaultUserAgentStringExtractor::new().detect(&builder.body(()).unwrap());
+
+        assert!(result.is_some());
+        let user_agent = result.unwrap();
+        assert_eq!(user_agent, "test user agent 0.1");
+
+    }
+
+}

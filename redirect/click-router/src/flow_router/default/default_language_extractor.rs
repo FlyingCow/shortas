@@ -45,3 +45,29 @@ impl BaseLanguageExtractor for DefaultLanguageExtractor {
         header
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use http::Request;
+
+    use super::*;
+
+    #[test]
+    fn should_extract_from_accept_language_header_when_present() {
+        let mut builder = Request::builder();
+
+        builder = builder.header(ACCEPT_LANGUAGE_HEADER, "en-US,en;q=0.5");
+
+        let result = DefaultLanguageExtractor::new().detect(&builder.body(()).unwrap());
+
+        assert!(result.is_some());
+        let languages = result.unwrap();
+        assert_eq!(languages.len(), 2);
+        assert_eq!(languages[0].name, "en-US");
+        assert_eq!(languages[0].quality, 1.0);
+
+        assert_eq!(languages[1].name, "en");
+        assert_eq!(languages[1].quality, 0.5);
+    }
+}
