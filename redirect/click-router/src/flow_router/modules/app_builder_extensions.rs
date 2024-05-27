@@ -14,7 +14,6 @@ impl AppBuilder {
             self.user_settings_manager.clone().unwrap(),
         )));
         self.modules.push(Box::new(ConditionalModule::new(
-            self.location_detector.clone().unwrap(),
         )));
 
         println!("{}", "WITH DEFAULT FLOW MODULES");

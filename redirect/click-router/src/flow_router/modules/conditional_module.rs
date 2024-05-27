@@ -1,23 +1,22 @@
-use anyhow::Result;
-use chrono::{DateTime, prelude::*, Utc};
 use crate::{
-    core::{base_flow_router::FlowRouterContext, base_location_detector::BaseLocationDetector, base_user_agent_detector::BaseUserAgentDetector},
+    core::base_flow_router::FlowRouterContext,
     flow_router::{
         base_flow_module::{BaseFlowModule, FlowStepContinuation},
         default_flow_router::DefaultFlowRouter,
     },
+    model::route::RoutingPolicy,
 };
+use anyhow::Result;
+use chrono::{prelude::*, DateTime, Utc};
 
-// const IS_CONDITIONAL: &'static str = "is_conditional";
+const IS_CONDITIONAL: &'static str = "is_conditional";
 
 #[derive(Clone)]
-pub struct ConditionalModule {
-    location_detector: Box<dyn BaseLocationDetector>,
-}
+pub struct ConditionalModule {}
 
 impl ConditionalModule {
-    pub fn new(location_detector: Box<dyn BaseLocationDetector>) -> Self {
-        Self { location_detector }
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
@@ -26,46 +25,68 @@ impl BaseFlowModule for ConditionalModule {
     async fn handle_start(
         &self,
         context: &mut FlowRouterContext,
-        _: &DefaultFlowRouter,
+        router: &DefaultFlowRouter,
     ) -> Result<FlowStepContinuation> {
-        if context.client_ip.is_some() {
-            let ip_addr = context.client_ip.as_ref().unwrap().address;
+        if context.out_route.is_none() {
+            return Ok(FlowStepContinuation::Continue);
+        }
 
-            let _location = &self.location_detector.detect_country(&ip_addr);
+        //preload heavy stuff if needed
+        if let RoutingPolicy::Conditional(conditions) = &context.out_route.as_ref().unwrap().policy
+        {
+            if conditions
+                .iter()
+                .any(|condition| condition.condition.needs_browser())
+            {
+                router.load_browser(context);
+            }
+            if conditions
+                .iter()
+                .any(|condition| condition.condition.needs_os())
+            {
+                router.load_os(context);
+            }
+            if conditions
+                .iter()
+                .any(|condition| condition.condition.needs_device())
+            {
+                router.load_device(context);
+            }
+            if conditions
+                .iter()
+                .any(|condition| condition.condition.needs_country())
+            {
+                router.load_country(context);
+            }
         }
 
         return Ok(FlowStepContinuation::Continue);
     }
 }
 
-pub struct ExpressionContext {
-    user_agent_detector: Box<dyn BaseUserAgentDetector>
-}
+pub struct ExpressionContext {}
 
 impl ExpressionContext {
-    fn get_os(&self, flow_context: &mut FlowRouterContext)-> Result<String> {
-        if flow_context.client_os.is_none(){
-            //flow_context.client_os = &self.user_agent_detector.parse_os(&flow_context.)
-        }
-        Ok("Windows".into())
+    fn get_os(&self, flow_context: &mut FlowRouterContext) -> Option<String> {
+        Some("Windows".into())
     }
-    fn get_ua(&self) -> Result<String, std::io::Error> {
-        Ok("Chrome".into())
+    fn get_ua(&self) -> Option<String> {
+        Some("Chrome".into())
     }
-    fn get_day_of_month(&self) -> Result<u32, std::io::Error> {
+    fn get_day_of_month(&self) -> Option<u32> {
         let now = Utc::now();
-        Ok(now.day())
+        Some(now.day())
     }
-    fn get_day_of_week(&self) -> Result<u32, std::io::Error> {
+    fn get_day_of_week(&self) -> Option<u32> {
         let now = Utc::now();
-        Ok(now.weekday().num_days_from_sunday())
+        Some(now.weekday().num_days_from_sunday())
     }
-    fn get_month(&self) -> Result<u32, std::io::Error> {
+    fn get_month(&self) -> Option<u32> {
         let now = Utc::now();
-        Ok(now.month())
+        Some(now.month())
     }
-    fn get_date(&self) -> Result<DateTime<Utc>, std::io::Error> {
+    fn get_date(&self) -> Option<DateTime<Utc>> {
         let now = Utc::now();
-        Ok(now)
+        Some(now)
     }
 }

@@ -10,7 +10,9 @@ use crate::{
             FlowInRoute, FlowRouterContext, FlowRouterResult, FlowStep, PerRequestData,
             RedirectType,
         },
-        BaseFlowRouter, BaseRoutesManager,
+        base_location_detector::BaseLocationDetector,
+        base_user_agent_detector::BaseUserAgentDetector,
+        BaseFlowRouter, BaseRoutesManager, InitOnce,
     },
     flow_router::base_flow_module::FlowStepContinuation,
     model::Route,
@@ -29,8 +31,10 @@ pub struct DefaultFlowRouter {
     host_extractor: Box<dyn BaseHostExtractor>,
     protocol_extractor: Box<dyn BaseProtocolExtractor>,
     ip_extractor: Box<dyn BaseIPExtractor>,
-    user_agent_extractor: Box<dyn BaseUserAgentStringExtractor>,
+    user_agent_string_extractor: Box<dyn BaseUserAgentStringExtractor>,
     language_extractor: Box<dyn BaseLanguageExtractor>,
+    user_agent_detector: Box<dyn BaseUserAgentDetector>,
+    location_detector: Box<dyn BaseLocationDetector>,
     modules: Vec<Box<dyn BaseFlowModule>>,
 }
 
@@ -40,8 +44,10 @@ impl DefaultFlowRouter {
         host_extractor: Box<dyn BaseHostExtractor>,
         protocol_extractor: Box<dyn BaseProtocolExtractor>,
         ip_extractor: Box<dyn BaseIPExtractor>,
-        user_agent_extractor: Box<dyn BaseUserAgentStringExtractor>,
+        user_agent_string_extractor: Box<dyn BaseUserAgentStringExtractor>,
         language_extractor: Box<dyn BaseLanguageExtractor>,
+        user_agent_detector: Box<dyn BaseUserAgentDetector>,
+        location_detector: Box<dyn BaseLocationDetector>,
         modules: Vec<Box<dyn BaseFlowModule>>,
     ) -> Self {
         DefaultFlowRouter {
@@ -49,8 +55,10 @@ impl DefaultFlowRouter {
             host_extractor,
             protocol_extractor,
             ip_extractor,
-            user_agent_extractor,
+            user_agent_string_extractor,
             language_extractor,
+            user_agent_detector,
+            location_detector,
             modules,
         }
     }
@@ -207,12 +215,77 @@ impl DefaultFlowRouter {
         in_route
     }
 
+    pub fn load_country(&self, context: &FlowRouterContext) {
+        if context.client_country.has_value() {
+            return;
+        }
+
+        if context.client_ip.is_none() {
+            context.client_os.init_with(None);
+        }
+
+        let country = self
+            .location_detector
+            .detect_country(&context.client_ip.as_ref().unwrap().address);
+
+        context.client_country.init_with(country);
+    }
+
+    pub fn load_os(&self, context: &FlowRouterContext) {
+        if context.client_os.has_value() {
+            return;
+        }
+
+        if context.user_agent.is_none() {
+            context.client_os.init_with(None);
+        }
+
+        let os = self
+            .user_agent_detector
+            .parse_os(context.user_agent.as_ref().unwrap());
+
+        context.client_os.init_with(Some(os));
+    }
+
+    pub fn load_browser(&self, context: &FlowRouterContext) {
+        if context.client_browser.has_value() {
+            return;
+        }
+
+        if context.user_agent.is_none() {
+            context.client_browser.init_with(None);
+        }
+
+        let browser = self
+            .user_agent_detector
+            .parse_user_agent(context.user_agent.as_ref().unwrap());
+
+        context.client_browser.init_with(Some(browser));
+    }
+
+    pub fn load_device(&self, context: &FlowRouterContext) {
+        if context.client_device.has_value() {
+            return;
+        }
+
+        if context.user_agent.is_none() {
+            context.client_device.init_with(None);
+        }
+
+        let device = self
+            .user_agent_detector
+            .parse_device(context.user_agent.as_ref().unwrap());
+
+        context.client_device.init_with(Some(device));
+    }
+
     fn build_context(&self, request: &PerRequestData) -> FlowRouterContext {
         let mut context = FlowRouterContext {
             data: HashMap::new(),
-            client_os: None,
-            client_browser: None,
-            client_device: None,
+            client_os: InitOnce::default(None),
+            client_browser: InitOnce::default(None),
+            client_device: InitOnce::default(None),
+            client_country: InitOnce::default(None),
             current_step: FlowStep::Initial,
             in_route: self.build_route_uri(&request.request),
             user_agent: None,
@@ -220,7 +293,7 @@ impl DefaultFlowRouter {
             languages: None,
             host: None,
             protocol: None,
-            out_route: None, 
+            out_route: None,
             result: None,
             request: request.clone(),
         };
@@ -228,7 +301,9 @@ impl DefaultFlowRouter {
         context.host = self.host_extractor.detect(&context.request.request);
         context.protocol = self.protocol_extractor.detect(&context.request.request);
         context.client_ip = self.ip_extractor.detect(&context);
-        context.user_agent = self.user_agent_extractor.detect(&context.request.request);
+        context.user_agent = self
+            .user_agent_string_extractor
+            .detect(&context.request.request);
         context.languages = self.language_extractor.detect(&context.request.request);
 
         context

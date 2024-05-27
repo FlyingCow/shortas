@@ -63,6 +63,8 @@ impl AppBuilder {
             self.ip_extractor.clone().unwrap(),
             self.user_agent_string_extractor.clone().unwrap(),
             self.language_extractor.clone().unwrap(),
+            self.user_agent_detector.clone().unwrap(),
+            self.location_detector.clone().unwrap(),
             self.modules.clone(),
         );
 

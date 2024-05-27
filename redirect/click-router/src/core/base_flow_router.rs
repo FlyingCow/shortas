@@ -2,12 +2,23 @@ use anyhow::Result;
 use dyn_clone::{clone_trait_object, DynClone};
 use http::{Request, StatusCode, Uri};
 use std::{
-    self, collections::HashMap, fmt::{self, Display, Formatter, Result as FmtResult}, net::SocketAddr
+    self,
+    collections::HashMap,
+    fmt::{self, Display, Formatter, Result as FmtResult},
+    net::SocketAddr,
 };
 
-use crate::{flow_router::{base_host_extractor::HostInfo, base_ip_extractor::IPInfo, base_language_extractor::Language, base_protocol_extractor::ProtoInfo}, model::Route};
+use crate::{
+    flow_router::{
+        base_host_extractor::HostInfo, base_ip_extractor::IPInfo,
+        base_language_extractor::Language, base_protocol_extractor::ProtoInfo,
+    },
+    model::Route,
+};
 
-use super::base_user_agent_detector::{Device, UserAgent, OS};
+use super::{
+    base_location_detector::Country, base_user_agent_detector::{Device, UserAgent, OS}, InitOnce
+};
 
 #[derive(Clone, Debug)]
 pub enum RedirectType {
@@ -34,7 +45,8 @@ impl Display for FlowRouterResult {
 
 #[derive(Default, Clone, Debug)]
 pub enum FlowStep {
-    #[default] Initial,
+    #[default]
+    Initial,
     Start,
     UrlExtract,
     Register,
@@ -120,28 +132,28 @@ pub struct FlowInRoute {
     pub host: String,
     pub port: u16,
     pub path: String,
-    pub query: String
+    pub query: String,
 }
 
-impl FlowInRoute{
-    pub fn new(scheme: String, host: String, port: u16, path: String, query: String) -> Self{
-        Self{
+impl FlowInRoute {
+    pub fn new(scheme: String, host: String, port: u16, path: String, query: String) -> Self {
+        Self {
             scheme,
             host,
             port,
             path,
-            query
+            query,
         }
     }
 }
 
-
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct FlowRouterContext {
     pub data: HashMap<&'static str, FlowRouterData>,
-    pub client_os: Option<OS>,
-    pub client_browser: Option<UserAgent>,
-    pub client_device: Option<Device>,
+    pub client_os: InitOnce<Option<OS>>,
+    pub client_browser: InitOnce<Option<UserAgent>>,
+    pub client_device: InitOnce<Option<Device>>,
+    pub client_country: InitOnce<Option<Country>>,
     pub current_step: FlowStep,
     pub host: Option<HostInfo>,
     pub client_ip: Option<IPInfo>,
@@ -156,12 +168,13 @@ pub struct FlowRouterContext {
 }
 
 impl FlowRouterContext {
-    pub fn new(in_route: FlowInRoute, request: PerRequestData,) -> Self {
+    pub fn new(in_route: FlowInRoute, request: PerRequestData) -> Self {
         Self {
             data: HashMap::new(),
-            client_os: None,
-            client_browser: None,
-            client_device: None,
+            client_os: InitOnce::default(None),
+            client_browser: InitOnce::default(None),
+            client_device: InitOnce::default(None),
+            client_country: InitOnce::default(None),
             current_step: FlowStep::Initial,
             in_route: in_route,
             user_agent: None,
@@ -169,7 +182,7 @@ impl FlowRouterContext {
             languages: None,
             host: None,
             protocol: None,
-            out_route: None, 
+            out_route: None,
             result: None,
             request: request,
         }
