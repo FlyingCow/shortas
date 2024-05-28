@@ -71,9 +71,9 @@ impl Default for Expression {
 }
 
 impl Expression {
-    //
-    //Checks if current expression or subsequential expressions need device to be preloaded.
-    //
+    ///
+    /// Checks if current expression or subsequential expressions need device to be preloaded.
+    ///
     pub fn needs_device(&self) -> bool {
         let curent = self.device.is_some();
         let and = self.and.is_some()
@@ -94,9 +94,9 @@ impl Expression {
         curent || and || or
     }
 
-    //
-    //Checks if current expression or subsequential expressions need os to be preloaded.
-    //
+    ///
+    /// Checks if current expression or subsequential expressions need os to be preloaded.
+    ///
     pub fn needs_os(&self) -> bool {
         let curent = self.os.is_some();
         let and = self.and.is_some()
@@ -117,9 +117,9 @@ impl Expression {
         curent || and || or
     }
 
-    //
-    //Checks if current expression or subsequential expressions need browser to be preloaded.
-    //
+    ///
+    /// Checks if current expression or subsequential expressions need browser to be preloaded.
+    ///
     pub fn needs_browser(&self) -> bool {
         let curent = self.ua.is_some();
         let and = self.and.is_some()
@@ -140,9 +140,9 @@ impl Expression {
         curent || and || or
     }
 
-    //
-    //Checks if current expression or subsequential expressions need country to be preloaded.
-    //
+    ///
+    /// Checks if current expression or subsequential expressions need country to be preloaded.
+    ///
     pub fn needs_country(&self) -> bool {
         let curent = self.country.is_some();
         let and = self.and.is_some()
