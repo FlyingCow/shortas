@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use async_recursion::async_recursion;
+use chrono::Utc;
 use http::{uri::Scheme, Request, StatusCode};
 
 use crate::{
@@ -247,20 +248,20 @@ impl DefaultFlowRouter {
         context.client_os.init_with(Some(os));
     }
 
-    pub fn load_browser(&self, context: &FlowRouterContext) {
-        if context.client_browser.has_value() {
+    pub fn load_ua(&self, context: &FlowRouterContext) {
+        if context.client_ua.has_value() {
             return;
         }
 
         if context.user_agent.is_none() {
-            context.client_browser.init_with(None);
+            context.client_ua.init_with(None);
         }
 
-        let browser = self
+        let ua = self
             .user_agent_detector
             .parse_user_agent(context.user_agent.as_ref().unwrap());
 
-        context.client_browser.init_with(Some(browser));
+        context.client_ua.init_with(Some(ua));
     }
 
     pub fn load_device(&self, context: &FlowRouterContext) {
@@ -281,16 +282,17 @@ impl DefaultFlowRouter {
 
     fn build_context(&self, request: &PerRequestData) -> FlowRouterContext {
         let mut context = FlowRouterContext {
+            utc: Utc::now(),
             data: HashMap::new(),
             client_os: InitOnce::default(None),
-            client_browser: InitOnce::default(None),
+            client_ua: InitOnce::default(None),
             client_device: InitOnce::default(None),
             client_country: InitOnce::default(None),
             current_step: FlowStep::Initial,
             in_route: self.build_route_uri(&request.request),
             user_agent: None,
             client_ip: None,
-            languages: None,
+            client_langs: None,
             host: None,
             protocol: None,
             out_route: None,
@@ -304,7 +306,7 @@ impl DefaultFlowRouter {
         context.user_agent = self
             .user_agent_string_extractor
             .detect(&context.request.request);
-        context.languages = self.language_extractor.detect(&context.request.request);
+        context.client_langs = self.language_extractor.detect(&context.request.request);
 
         context
     }

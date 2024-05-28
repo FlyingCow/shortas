@@ -18,6 +18,10 @@ pub struct Expression {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device: Option<Device>,
 
+    #[serde(alias = "lang", alias = "LANG")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lang: Option<Lang>,
+
     #[serde(alias = "country", alias = "COUNTRY")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub country: Option<Country>,
@@ -25,7 +29,7 @@ pub struct Expression {
     #[serde(alias = "date", alias = "DATE")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub date: Option<Date>,
-    //Query: Query,
+    
     #[serde(alias = "rnd", alias = "RND")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rnd: Option<RND>,
@@ -55,6 +59,7 @@ impl Default for Expression {
     fn default() -> Self {
         Self {
             default_operator: Default::default(),
+            lang: Default::default(),
             ua: Default::default(),
             os: Default::default(),
             device: Default::default(),
@@ -120,7 +125,7 @@ impl Expression {
     ///
     /// Checks if current expression or subsequential expressions need browser to be preloaded.
     ///
-    pub fn needs_browser(&self) -> bool {
+    pub fn needs_ua(&self) -> bool {
         let curent = self.ua.is_some();
         let and = self.and.is_some()
             && self
@@ -128,14 +133,14 @@ impl Expression {
                 .as_ref()
                 .unwrap()
                 .iter()
-                .any(|item| item.needs_browser());
+                .any(|item| item.needs_ua());
         let or = self.or.is_some()
             && self
                 .or
                 .as_ref()
                 .unwrap()
                 .iter()
-                .any(|item| item.needs_browser());
+                .any(|item| item.needs_ua());
 
         curent || and || or
     }
@@ -170,6 +175,14 @@ pub enum DefaultOperator {
     And,
     #[serde(alias = "or", alias = "OR")]
     Or,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum Lang {
+    #[serde(alias = "eq", alias = "EQ")]
+    EQ(String),
+    #[serde(alias = "in", alias = "IN")]
+    IN(Vec<String>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -224,6 +237,10 @@ pub enum Country {
 pub enum Date {
     #[serde(alias = "eq", alias = "EQ")]
     EQ(String),
+    #[serde(alias = "gt", alias = "GT")]
+    GT(String),
+    #[serde(alias = "lt", alias = "LT")]
+    LT(String),
     #[serde(alias = "in", alias = "IN")]
     IN(Vec<String>),
 }

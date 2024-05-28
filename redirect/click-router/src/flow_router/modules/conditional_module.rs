@@ -7,7 +7,6 @@ use crate::{
     model::route::RoutingPolicy,
 };
 use anyhow::Result;
-use chrono::{prelude::*, DateTime, Utc};
 
 const IS_CONDITIONAL: &'static str = "is_conditional";
 
@@ -36,9 +35,9 @@ impl BaseFlowModule for ConditionalModule {
         {
             if conditions
                 .iter()
-                .any(|routing| routing.condition.needs_browser())
+                .any(|routing| routing.condition.needs_ua())
             {
-                router.load_browser(context);
+                router.load_ua(context);
             }
             if conditions
                 .iter()
@@ -64,32 +63,5 @@ impl BaseFlowModule for ConditionalModule {
         }
 
         return Ok(FlowStepContinuation::Continue);
-    }
-}
-
-pub struct ExpressionContext {}
-
-impl ExpressionContext {
-    fn get_os(&self, flow_context: &mut FlowRouterContext) -> Option<String> {
-        Some("Windows".into())
-    }
-    fn get_ua(&self) -> Option<String> {
-        Some("Chrome".into())
-    }
-    fn get_day_of_month(&self) -> Option<u32> {
-        let now = Utc::now();
-        Some(now.day())
-    }
-    fn get_day_of_week(&self) -> Option<u32> {
-        let now = Utc::now();
-        Some(now.weekday().num_days_from_sunday())
-    }
-    fn get_month(&self) -> Option<u32> {
-        let now = Utc::now();
-        Some(now.month())
-    }
-    fn get_date(&self) -> Option<DateTime<Utc>> {
-        let now = Utc::now();
-        Some(now)
     }
 }

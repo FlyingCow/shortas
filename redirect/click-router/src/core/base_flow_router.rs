@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use dyn_clone::{clone_trait_object, DynClone};
 use http::{Request, StatusCode, Uri};
 use std::{
@@ -149,16 +150,17 @@ impl FlowInRoute {
 
 #[derive(Debug)]
 pub struct FlowRouterContext {
+    pub utc: DateTime<Utc>,
     pub data: HashMap<&'static str, FlowRouterData>,
     pub client_os: InitOnce<Option<OS>>,
-    pub client_browser: InitOnce<Option<UserAgent>>,
+    pub client_ua: InitOnce<Option<UserAgent>>,
     pub client_device: InitOnce<Option<Device>>,
     pub client_country: InitOnce<Option<Country>>,
     pub current_step: FlowStep,
     pub host: Option<HostInfo>,
     pub client_ip: Option<IPInfo>,
     pub user_agent: Option<String>,
-    pub languages: Option<Vec<Language>>,
+    pub client_langs: Option<Vec<Language>>,
     pub protocol: Option<ProtoInfo>,
     pub out_route: Option<Route>,
     pub in_route: FlowInRoute,
@@ -170,21 +172,22 @@ pub struct FlowRouterContext {
 impl FlowRouterContext {
     pub fn new(in_route: FlowInRoute, request: PerRequestData) -> Self {
         Self {
+            utc: Utc::now(),
             data: HashMap::new(),
             client_os: InitOnce::default(None),
-            client_browser: InitOnce::default(None),
+            client_ua: InitOnce::default(None),
             client_device: InitOnce::default(None),
             client_country: InitOnce::default(None),
             current_step: FlowStep::Initial,
-            in_route: in_route,
+            in_route,
             user_agent: None,
             client_ip: None,
-            languages: None,
+            client_langs: None,
             host: None,
             protocol: None,
             out_route: None,
             result: None,
-            request: request,
+            request,
         }
     }
 }
