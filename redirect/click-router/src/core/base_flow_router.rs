@@ -163,6 +163,7 @@ pub struct FlowRouterContext {
     pub client_langs: Option<Vec<Language>>,
     pub protocol: Option<ProtoInfo>,
     pub out_route: Option<Route>,
+    pub main_route: Option<Route>,
     pub in_route: FlowInRoute,
     pub request: PerRequestData,
 
@@ -186,6 +187,7 @@ impl FlowRouterContext {
             host: None,
             protocol: None,
             out_route: None,
+            main_route: None,
             result: None,
             request,
         }

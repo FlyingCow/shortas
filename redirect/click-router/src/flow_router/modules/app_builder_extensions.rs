@@ -14,6 +14,7 @@ impl AppBuilder {
             self.user_settings_manager.clone().unwrap(),
         )));
         self.modules.push(Box::new(ConditionalModule::new(
+            self.expression_evaluator.clone().unwrap(),
         )));
 
         println!("{}", "WITH DEFAULT FLOW MODULES");

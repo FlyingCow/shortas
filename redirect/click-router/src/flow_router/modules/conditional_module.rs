@@ -1,6 +1,7 @@
 use crate::{
     core::base_flow_router::FlowRouterContext,
     flow_router::{
+        base_expression_evaluator::BaseExpressionEvaluator,
         base_flow_module::{BaseFlowModule, FlowStepContinuation},
         default_flow_router::DefaultFlowRouter,
     },
@@ -11,11 +12,13 @@ use anyhow::Result;
 const IS_CONDITIONAL: &'static str = "is_conditional";
 
 #[derive(Clone)]
-pub struct ConditionalModule {}
+pub struct ConditionalModule {
+    evaluator: Box<dyn BaseExpressionEvaluator>,
+}
 
 impl ConditionalModule {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(evaluator: Box<dyn BaseExpressionEvaluator>) -> Self {
+        Self { evaluator }
     }
 }
 
@@ -26,12 +29,13 @@ impl BaseFlowModule for ConditionalModule {
         context: &mut FlowRouterContext,
         router: &DefaultFlowRouter,
     ) -> Result<FlowStepContinuation> {
-        if context.out_route.is_none() {
+        if context.main_route.is_none() {
             return Ok(FlowStepContinuation::Continue);
         }
 
         //preload heavy stuff if needed
-        if let RoutingPolicy::Conditional(conditions) = &context.out_route.as_ref().unwrap().policy
+        if let RoutingPolicy::Conditional(conditions) =
+            &context.main_route.as_ref().unwrap().policy.clone()
         {
             if conditions
                 .iter()
@@ -60,6 +64,29 @@ impl BaseFlowModule for ConditionalModule {
 
             println!("IS_CONDITIONAL");
             context.add_bool(IS_CONDITIONAL, true);
+        }
+
+        return Ok(FlowStepContinuation::Continue);
+    }
+
+    async fn handle_url_extract(
+        &self,
+        context: &mut FlowRouterContext,
+        flow_router: &DefaultFlowRouter,
+    ) -> Result<FlowStepContinuation> {
+        if let RoutingPolicy::Conditional(conditions) = &context.main_route.as_ref().unwrap().policy
+        {
+            if let Some(matching) = &self.evaluator.find(context, conditions) {
+                let out_route = flow_router
+                    .get_route(matching.key.as_str(), context)
+                    .await?;
+
+                if let Some(route) = out_route {
+                    context.out_route = Some(route);
+
+                    return Ok(FlowStepContinuation::Continue);
+                }
+            }
         }
 
         return Ok(FlowStepContinuation::Continue);

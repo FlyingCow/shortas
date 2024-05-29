@@ -20,11 +20,13 @@ use crate::{
 };
 
 use super::{
-    base_flow_module::BaseFlowModule, base_host_extractor::BaseHostExtractor,
-    base_ip_extractor::BaseIPExtractor, base_language_extractor::BaseLanguageExtractor,
-    base_protocol_extractor::BaseProtocolExtractor,
+    base_flow_module::BaseFlowModule,
+    base_host_extractor::BaseHostExtractor, base_ip_extractor::BaseIPExtractor,
+    base_language_extractor::BaseLanguageExtractor, base_protocol_extractor::BaseProtocolExtractor,
     base_user_agent_string_extractor::BaseUserAgentStringExtractor,
 };
+
+const MAIN_SWITCH: &'static str = "main"; 
 
 #[derive(Clone)]
 pub struct DefaultFlowRouter {
@@ -163,11 +165,11 @@ impl DefaultFlowRouter {
         Ok(())
     }
 
-    async fn get_route(&self, context: &FlowRouterContext) -> Result<Option<Route>> {
+    pub async fn get_route(&self, switch: &str, context: &FlowRouterContext) -> Result<Option<Route>> {
         let route = self
             .routes_manager
             .get_route(
-                "main",
+                switch,
                 context.in_route.host.as_str(),
                 context.in_route.path.as_str(),
             )
@@ -187,8 +189,9 @@ impl DefaultFlowRouter {
             }
         }
 
-        if let None = context.out_route {
-            context.out_route = self.get_route(&context).await?
+        if let None = context.main_route {
+            context.main_route = self.get_route(MAIN_SWITCH, &context).await?;
+            context.out_route = context.main_route.clone();
         }
 
         self.router_to(&mut context, FlowStep::Start).await?;
@@ -216,7 +219,7 @@ impl DefaultFlowRouter {
         in_route
     }
 
-    pub fn load_country(&self, context: &FlowRouterContext) {
+    pub fn load_country(&self, context: &mut FlowRouterContext) {
         if context.client_country.has_value() {
             return;
         }
@@ -232,7 +235,7 @@ impl DefaultFlowRouter {
         context.client_country.init_with(country);
     }
 
-    pub fn load_os(&self, context: &FlowRouterContext) {
+    pub fn load_os(&self, context: &mut FlowRouterContext) {
         if context.client_os.has_value() {
             return;
         }
@@ -248,7 +251,7 @@ impl DefaultFlowRouter {
         context.client_os.init_with(Some(os));
     }
 
-    pub fn load_ua(&self, context: &FlowRouterContext) {
+    pub fn load_ua(&self, context: &mut FlowRouterContext) {
         if context.client_ua.has_value() {
             return;
         }
@@ -264,7 +267,7 @@ impl DefaultFlowRouter {
         context.client_ua.init_with(Some(ua));
     }
 
-    pub fn load_device(&self, context: &FlowRouterContext) {
+    pub fn load_device(&self, context: &mut FlowRouterContext) {
         if context.client_device.has_value() {
             return;
         }
@@ -296,6 +299,7 @@ impl DefaultFlowRouter {
             host: None,
             protocol: None,
             out_route: None,
+            main_route: None,
             result: None,
             request: request.clone(),
         };

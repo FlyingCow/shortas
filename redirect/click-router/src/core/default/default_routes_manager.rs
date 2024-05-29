@@ -20,7 +20,7 @@ fn get_key(domain: &str, link: &str) -> String {
 impl BaseRoutesManager for DefaultRoutesManager {
     async fn get_route(
         &self,
-        switch: &'static str,
+        switch: &str,
         domain: &str,
         path: &str,
     ) -> Result<Option<Route>> {

@@ -7,7 +7,7 @@ use crate::model::Route;
 pub trait BaseRoutesManager: DynClone {
     async fn get_route(
         &self,
-        switch: &'static str,
+        switch: &str,
         domain: &str,
         path: &str,
     ) -> Result<Option<Route>>;

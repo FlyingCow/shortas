@@ -28,7 +28,7 @@ impl RedirectOnlyModule {
 
     async fn is_tracking_allowed(&self, context: &mut FlowRouterContext) -> Result<bool> {
         if context
-            .out_route
+            .main_route
             .as_ref()
             .unwrap()
             .properties
@@ -42,7 +42,7 @@ impl RedirectOnlyModule {
             .user_settings_manager
             .get_user_settings(
                 context
-                    .out_route
+                    .main_route
                     .as_ref()
                     .unwrap()
                     .properties
@@ -68,7 +68,7 @@ impl RedirectOnlyModule {
     async fn is_redirect_only(&self, context: &mut FlowRouterContext) -> Result<bool> {
         //no need to register,
         //since it will be handle by not found module
-        if context.out_route.is_none() {
+        if context.main_route.is_none() {
             return Ok(true);
         }
 

@@ -7,7 +7,7 @@ use crate::{
         BaseRoutesManager, BaseRoutesStore, BaseUserSettingsManager, BaseUserSettingsStore,
     },
     flow_router::{
-        base_flow_module::BaseFlowModule, base_host_extractor::BaseHostExtractor, base_ip_extractor::BaseIPExtractor, base_language_extractor::BaseLanguageExtractor, base_protocol_extractor::BaseProtocolExtractor, base_user_agent_string_extractor::BaseUserAgentStringExtractor, default_flow_router::DefaultFlowRouter
+        base_expression_evaluator::BaseExpressionEvaluator, base_flow_module::BaseFlowModule, base_host_extractor::BaseHostExtractor, base_ip_extractor::BaseIPExtractor, base_language_extractor::BaseLanguageExtractor, base_protocol_extractor::BaseProtocolExtractor, base_user_agent_string_extractor::BaseUserAgentStringExtractor, default_flow_router::DefaultFlowRouter
     },
     settings::Settings,
 };
@@ -27,6 +27,8 @@ pub struct AppBuilder {
     pub(super) user_settings_store: Option<Box<dyn BaseUserSettingsStore + 'static>>,
     pub(super) user_settings_manager: Option<Box<dyn BaseUserSettingsManager + 'static>>,
     pub(super) user_agent_detector: Option<Box<dyn BaseUserAgentDetector + 'static>>,
+    pub(super) expression_evaluator: Option<Box<dyn BaseExpressionEvaluator + 'static>>,
+    
     
     pub(super) location_detector: Option<Box<dyn BaseLocationDetector + 'static>>,
     pub(super) modules: Vec<Box<dyn BaseFlowModule + 'static>>,
@@ -49,6 +51,7 @@ impl AppBuilder {
             protocol_extractor: None,
             user_agent_detector: None,
             location_detector: None,
+            expression_evaluator: None,
             modules: vec![],
         }
     }

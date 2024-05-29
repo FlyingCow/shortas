@@ -12,10 +12,10 @@ use crate::{
     flow_router::{
         base_expression_evaluator::BaseExpressionEvaluator, base_language_extractor::Language,
     },
-    model::expression::{
+    model::{expression::{
         Country as CountryExpr, Date as DateExpr, DayOfMonth, DayOfWeek, DefaultOperator,
         Device as DeviceExpr, Expression, Lang as LangExpr, OS as OSExpr, RND, UA as UAExpr,
-    },
+    }, route::ConditionalRouting},
 };
 
 const DATE_FORMAT: &'static str = "%Y%m%d";
@@ -240,8 +240,8 @@ impl DefaultExpressionEvaluator {
         };
 
         match &expr.default_operator {
-            //and by default
-            None => result.iter().all(|&i| i),
+            //or by default
+            None => result.iter().any(|&i| i),
             Some(op) => match op {
                 DefaultOperator::And => result.iter().all(|&i| i),
                 DefaultOperator::Or => result.iter().any(|&i| i),
@@ -253,5 +253,19 @@ impl DefaultExpressionEvaluator {
 impl BaseExpressionEvaluator for DefaultExpressionEvaluator {
     fn eval(&self, router_context: &FlowRouterContext, expr: &Expression) -> Result<bool> {
         Ok(self.eval_expression(router_context, expr))
+    }
+
+    fn find<'a>(&self, router_context: &FlowRouterContext,  conditions: &'a Vec<ConditionalRouting>) -> Option<&'a ConditionalRouting> {
+        let result = conditions.iter().find(|x| {
+            let eval_result = &self.eval(router_context, &x.condition);
+
+            if let Ok(matches) = eval_result {
+                return *matches;
+            }
+
+            false
+        });
+
+        result
     }
 }

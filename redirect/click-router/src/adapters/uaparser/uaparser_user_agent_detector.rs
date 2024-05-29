@@ -48,8 +48,8 @@ impl BaseUserAgentDetector for UAParserUserAgentDetector {
     }
 
     fn parse_user_agent(&self, user_agent: &str) -> UserAgent {
-        let uaparser_user_agent = self.parser.parse_user_agent(user_agent);
 
+        let uaparser_user_agent = self.parser.parse_user_agent(user_agent);
         UserAgent {
             family: uaparser_user_agent.family.to_string(),
             major: uaparser_user_agent

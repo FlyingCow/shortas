@@ -21,7 +21,7 @@ fn detect_from_headers(request: &http::Request<()>) -> Option<String> {
             return None;
         }
 
-        return Some(client_details.to_ascii_lowercase());
+        return Some(client_details.to_string());
     }
 
     None

@@ -35,6 +35,12 @@ awslocal dynamodb put-item \
         '{"switch": {"S": "main"}, "link": {"S": "localhost%2fblocked"}, "dest": {"S": "https://google.com"}, "owner.id": {"S": "my_users_id"}, "blocked": {"BOOL": true}, "blocked.reason": {"S": "Spam"}}'
 
 
+
+awslocal dynamodb put-item \
+    --table-name core-routes-local  \
+    --item \
+        '{"switch": {"S": "test"}, "link": {"S": "localhost%2fconds"}, "dest": {"S": "https://google.com?q=test"}, "owner.id": {"S": "my_users_id"}}'
+
 awslocal dynamodb put-item \
     --table-name core-routes-local  \
     --item \
@@ -42,6 +48,7 @@ awslocal dynamodb put-item \
         "link": {
             "S": "localhost%2fconds"
         },
+        "dest": {"S": "https://google.com?q=main"},
         "routing": {
             "M": {
                 "conditions": {

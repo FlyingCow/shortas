@@ -36,11 +36,9 @@ impl<T> InitOnce<T> {
         }
     }
 
-    pub fn init_with(&self, value: T) -> Self {
-        Self {
-            loaded: true,
-            value: value,
-        }
+    pub fn init_with(&mut self, value: T) {
+        self.loaded = true;
+        self.value = value;
     }
 
     pub fn has_value(&self) -> bool {

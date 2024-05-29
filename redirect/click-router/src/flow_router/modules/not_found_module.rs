@@ -20,7 +20,7 @@ impl BaseFlowModule for NotFoundModule {
         context: &mut FlowRouterContext,
         flow_router: &DefaultFlowRouter,
     ) -> Result<FlowStepContinuation> {
-        if let None = context.out_route {
+        if let None = context.main_route {
             context.add_bool(IS_404, true);
 
             context.result = Some(FlowRouterResult::Redirect(
