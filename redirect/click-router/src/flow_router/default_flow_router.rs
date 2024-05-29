@@ -81,7 +81,7 @@ impl DefaultFlowRouter {
     }
 
     async fn handle_start(&self, context: &mut FlowRouterContext) -> Result<()> {
-        println!("HandleStart");
+        //println!("HandleStart");
 
         for module in &self.modules {
             let result = module.handle_start(context, &self).await?;
@@ -95,7 +95,7 @@ impl DefaultFlowRouter {
     }
 
     async fn handle_url_extract(&self, context: &mut FlowRouterContext) -> Result<()> {
-        println!("HandleUrlExtract");
+        //println!("HandleUrlExtract");
 
         for module in &self.modules {
             let result = module.handle_url_extract(context, &self).await?;
@@ -109,7 +109,7 @@ impl DefaultFlowRouter {
     }
 
     async fn handle_register(&self, context: &mut FlowRouterContext) -> Result<()> {
-        println!("HandleRegister");
+        //println!("HandleRegister");
 
         for module in &self.modules {
             let result = module.handle_register(context, &self).await?;
@@ -123,7 +123,7 @@ impl DefaultFlowRouter {
     }
 
     async fn handle_build_result(&self, context: &mut FlowRouterContext) -> Result<()> {
-        println!("HandleBuildResult");
+        //println!("HandleBuildResult");
 
         for module in &self.modules {
             let result = module.handle_build_result(context, &self).await?;
@@ -152,7 +152,7 @@ impl DefaultFlowRouter {
     }
 
     async fn handle_end(&self, context: &mut FlowRouterContext) -> Result<()> {
-        println!("HandleEnd");
+        //println!("HandleEnd");
 
         for module in &self.modules {
             let result = module.handle_end(context, &self).await?;
