@@ -1,0 +1,122 @@
+use std::{
+    net::{IpAddr, SocketAddr},
+    str::FromStr,
+};
+
+use crate::{
+    core::flow_router::FlowRouterContext,
+    flow_router::ip_extract::{BaseIPExtractor, IPInfo},
+};
+
+static X_FORWARDED_FOR_HEADER: &str = "X-Forwarded-For";
+
+#[derive(Clone)]
+pub struct DefaultIPExtractor {}
+
+impl DefaultIPExtractor {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+fn detect_for_headers(request: &http::Request<()>) -> Option<String> {
+    if let Some(proto_header) = *&request.headers().get(X_FORWARDED_FOR_HEADER) {
+        let header = proto_header
+        .to_str()
+        .unwrap_or_default()
+        .replace(" ", "");
+
+        let client_details = header
+            .split(",")
+            .last()
+            .unwrap();
+
+        if client_details.is_empty() {
+            return None;
+        }
+
+        return Some(client_details.to_ascii_lowercase());
+    }
+
+    None
+}
+
+impl BaseIPExtractor for DefaultIPExtractor {
+    fn detect(&self, context: &FlowRouterContext) -> Option<IPInfo> {
+        if let Some(ip_header) = detect_for_headers(&context.request.request) {
+            let addr = IpAddr::from_str(ip_header.as_str());
+
+            if let Ok(addr) = addr {
+                return Some(IPInfo { address: addr });
+            }
+        }
+
+        let ip: SocketAddr = context.request.remote_addr;
+        return Some(IPInfo { address: ip.ip() });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use http::Request;
+
+    use crate::core::flow_router::{FlowInRoute, PerRequestData};
+
+    use super::*;
+
+    fn get_default_context(header_value: &str, remote_addr: &str) -> FlowRouterContext {
+        let builder = Request::builder().header(X_FORWARDED_FOR_HEADER, header_value);
+
+        FlowRouterContext::new(
+            FlowInRoute::new(
+                String::from("http"),
+                String::from("test.com"),
+                80,
+                String::from("/"),
+                String::from(""),
+            ),
+            PerRequestData {
+                request: builder.body(()).unwrap(),
+                local_addr: SocketAddr::new("192.168.0.1".parse().unwrap(), 80),
+                remote_addr: SocketAddr::new(remote_addr.parse().unwrap(), 80),
+                tls_info: None,
+            },
+        )
+    }
+
+    #[test]
+    fn should_extract_from_header_when_present() {
+        let context = get_default_context("183.143.0.2", "183.143.0.1");
+        
+
+        let result = DefaultIPExtractor::new().detect(&context);
+
+        assert!(result.is_some());
+        let ip_info = result.unwrap();
+        assert_eq!(ip_info.address, "183.143.0.2".parse::<IpAddr>().unwrap());
+    }
+
+    #[test]
+    fn should_use_last_value_from_header() {
+        let context = get_default_context("183.143.0.2, 183.143.0.3, 183.143.0.4", "183.143.0.1");
+        
+
+        let result = DefaultIPExtractor::new().detect(&context);
+
+        assert!(result.is_some());
+        let ip_info = result.unwrap();
+        assert_eq!(ip_info.address, "183.143.0.4".parse::<IpAddr>().unwrap());
+    }
+
+    #[test]
+    fn should_use_remote_addr_when_header_not_present() {
+        let context = get_default_context("", "183.143.0.1");
+        
+
+        let result = DefaultIPExtractor::new().detect(&context);
+
+        assert!(result.is_some());
+        let ip_info = result.unwrap();
+        assert_eq!(ip_info.address, "183.143.0.1".parse::<IpAddr>().unwrap());
+    }
+}

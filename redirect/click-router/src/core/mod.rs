@@ -1,26 +1,26 @@
-pub mod base_crypto_store;
-pub mod base_routes_store;
-pub mod base_user_settings_store;
+pub mod crypto_store;
+pub mod routes_store;
+pub mod user_settings_store;
 
-pub mod base_crypto_manager;
-pub mod base_flow_router;
-pub mod base_routes_manager;
-pub mod base_user_settings_manager;
+pub mod crypto_manage;
+pub mod flow_router;
+pub mod routes_manage;
+pub mod user_settings_manage;
 
-pub mod base_location_detector;
-pub mod base_user_agent_detector;
+pub mod location_detect;
+pub mod user_agent_detect;
 
 pub mod default;
 
-pub use base_crypto_store::BaseCryptoStore;
-pub use base_routes_store::BaseRoutesStore;
-pub use base_user_settings_store::BaseUserSettingsStore;
+pub use crypto_store::BaseCryptoStore;
+pub use routes_store::BaseRoutesStore;
+pub use user_settings_store::BaseUserSettingsStore;
 
-pub use base_crypto_manager::BaseCryptoManager;
-pub use base_routes_manager::BaseRoutesManager;
-pub use base_user_settings_manager::BaseUserSettingsManager;
+pub use crypto_manage::BaseCryptoManager;
+pub use routes_manage::BaseRoutesManager;
+pub use user_settings_manage::BaseUserSettingsManager;
 
-pub use base_flow_router::BaseFlowRouter;
+pub use flow_router::BaseFlowRouter;
 
 #[derive(Debug, Clone)]
 pub struct InitOnce<T> {

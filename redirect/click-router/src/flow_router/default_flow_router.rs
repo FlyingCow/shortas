@@ -7,23 +7,23 @@ use http::{uri::Scheme, Request, StatusCode};
 
 use crate::{
     core::{
-        base_flow_router::{
+        flow_router::{
             FlowInRoute, FlowRouterContext, FlowRouterResult, FlowStep, PerRequestData,
             RedirectType,
         },
-        base_location_detector::BaseLocationDetector,
-        base_user_agent_detector::BaseUserAgentDetector,
+        location_detect::BaseLocationDetector,
+        user_agent_detect::BaseUserAgentDetector,
         BaseFlowRouter, BaseRoutesManager, InitOnce,
     },
-    flow_router::base_flow_module::FlowStepContinuation,
+    flow_router::flow_module::FlowStepContinuation,
     model::Route,
 };
 
 use super::{
-    base_flow_module::BaseFlowModule,
-    base_host_extractor::BaseHostExtractor, base_ip_extractor::BaseIPExtractor,
-    base_language_extractor::BaseLanguageExtractor, base_protocol_extractor::BaseProtocolExtractor,
-    base_user_agent_string_extractor::BaseUserAgentStringExtractor,
+    flow_module::BaseFlowModule,
+    host_extract::BaseHostExtractor, ip_extract::BaseIPExtractor,
+    language_extract::BaseLanguageExtractor, protocol_extract::BaseProtocolExtractor,
+    user_agent_string_extract::BaseUserAgentStringExtractor,
 };
 
 const MAIN_SWITCH: &'static str = "main"; 

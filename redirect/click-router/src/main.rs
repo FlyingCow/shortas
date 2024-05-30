@@ -1,6 +1,6 @@
 use click_router::{
-    app_builder::AppBuilder,
-    core::{base_flow_router::PerRequestData, BaseFlowRouter},
+    app::AppBuilder,
+    core::{flow_router::PerRequestData, BaseFlowRouter},
     settings::Settings,
 };
 

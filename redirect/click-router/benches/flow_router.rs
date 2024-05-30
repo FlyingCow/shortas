@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use click_router::core::base_flow_router::PerRequestData;
+use click_router::core::flow_router::PerRequestData;
 use click_router::core::BaseFlowRouter;
 use click_router::flow_router::default_flow_router::DefaultFlowRouter;
 use click_router::{settings::Settings, AppBuilder};
@@ -45,21 +45,24 @@ async fn benchmark_flow_router(c: &mut Criterion) {
 
         let app = Arc::new(init_flow_router().await);
 
+        let request = Request::builder()
+            .uri("/test")
+            .header("Host", "localhost")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0");
+
+            let request = Arc::new(request.body(()).unwrap());
+
         c.bench_function("iter", move |b| {
 
             b.to_async(FuturesExecutor).iter(|| async { 
 
                 let app_binding = app.as_ref();
 
-                let request = Request::builder()
-                    .uri("/test")
-                    .header("Host", "localhost")
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0");
-        
+
                     app_binding.handle(PerRequestData {
                                 local_addr: "192.168.0.100:80".parse().unwrap(),
                                 remote_addr: "188.138.135.18:80".parse().unwrap(),
-                                request: request.body(()).unwrap(),
+                                request: request.as_ref().clone(),
                                 tls_info: None,
                             })
                             .await

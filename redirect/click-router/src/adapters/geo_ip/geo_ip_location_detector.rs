@@ -2,7 +2,7 @@ use std::{net::IpAddr, sync::Arc};
 
 use maxminddb::{geoip2, MaxMindDBError, Reader};
 
-use crate::core::base_location_detector::{BaseLocationDetector, Country};
+use crate::core::location_detect::{BaseLocationDetector, Country};
 
 #[derive(Clone, Debug)]
 pub struct GeoIPLocationDetector {
