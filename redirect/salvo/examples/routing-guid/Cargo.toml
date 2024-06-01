@@ -1,0 +1,13 @@
+[package]
+name = "example-routing-guid"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+
+[dependencies]
+regex = "1"
+salvo = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
