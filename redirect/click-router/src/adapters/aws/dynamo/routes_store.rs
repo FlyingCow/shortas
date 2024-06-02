@@ -25,7 +25,7 @@ impl DynamoRoutesStore {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseRoutesStore for DynamoRoutesStore {
     async fn invalidate(&self, _: &str, _: &str) -> Result<()> {
         Ok(())

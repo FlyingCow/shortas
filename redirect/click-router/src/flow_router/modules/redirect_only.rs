@@ -16,11 +16,11 @@ const IS_REDIRECT_ONLY: &'static str = "is_redirect_only";
 
 #[derive(Clone)]
 pub struct RedirectOnlyModule {
-    user_settings_manager: Box<dyn BaseUserSettingsManager>,
+    user_settings_manager: Box<dyn BaseUserSettingsManager + Send + Sync>,
 }
 
 impl RedirectOnlyModule {
-    pub fn new(user_settings_manager: Box<dyn BaseUserSettingsManager>) -> Self {
+    pub fn new(user_settings_manager: Box<dyn BaseUserSettingsManager + Send + Sync>) -> Self {
         Self{
             user_settings_manager
         }
@@ -84,7 +84,7 @@ impl RedirectOnlyModule {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseFlowModule for RedirectOnlyModule {
     async fn handle_start(
         &self,

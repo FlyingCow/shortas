@@ -16,7 +16,7 @@ static IS_ROOT: &str = "is_root";
 #[derive(Debug, Clone)]
 pub struct RootModule {}
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseFlowModule for RootModule {
     async fn handle_start(
         &self,

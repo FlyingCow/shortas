@@ -14,12 +14,12 @@ pub struct RouteCacheItem {
 #[derive(Clone)]
 pub struct MokaDecoratedRoutesStore {
     cache: Cache<String, RouteCacheItem>,
-    routes_store: Box<dyn BaseRoutesStore>,
+    routes_store: Box<dyn BaseRoutesStore + Send + Sync>,
 }
 
 impl MokaDecoratedRoutesStore {
     pub fn new(
-        routes_store: Box<dyn BaseRoutesStore>,
+        routes_store: Box<dyn BaseRoutesStore + Send + Sync>,
         max_capacity: u64,
         time_to_live_minutes: u64,
         time_to_idle_minutes: u64,
@@ -44,7 +44,7 @@ fn get_key(switch: &str, link: &str) -> String {
     format!("{}|{}", switch, link).to_ascii_lowercase()
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseRoutesStore for MokaDecoratedRoutesStore {
     async fn invalidate(&self, switch: &str, path: &str) -> Result<()> {
         let key = get_key(switch, path);

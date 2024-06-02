@@ -14,24 +14,24 @@ use crate::{
 #[derive(Clone)]
 pub struct AppBuilder {
     pub(super) settings: Settings,
-    pub(super) routes_store: Option<Box<dyn BaseRoutesStore + 'static>>,
-    pub(super) routes_manager: Option<Box<dyn BaseRoutesManager + 'static>>,
-    pub(super) host_extractor: Option<Box<dyn BaseHostExtractor + 'static>>,
-    pub(super) protocol_extractor: Option<Box<dyn BaseProtocolExtractor + 'static>>,
-    pub(super) ip_extractor: Option<Box<dyn BaseIPExtractor + 'static>>,
-    pub(super) user_agent_string_extractor: Option<Box<dyn BaseUserAgentStringExtractor + 'static>>,
-    pub(super) language_extractor: Option<Box<dyn BaseLanguageExtractor + 'static>>,
+    pub(super) routes_store: Option<Box<dyn BaseRoutesStore + Send + Sync + 'static>>,
+    pub(super) routes_manager: Option<Box<dyn BaseRoutesManager + Send + Sync + 'static>>,
+    pub(super) host_extractor: Option<Box<dyn BaseHostExtractor + Send + Sync + 'static>>,
+    pub(super) protocol_extractor: Option<Box<dyn BaseProtocolExtractor + Send + Sync + 'static>>,
+    pub(super) ip_extractor: Option<Box<dyn BaseIPExtractor + Send + Sync + 'static>>,
+    pub(super) user_agent_string_extractor: Option<Box<dyn BaseUserAgentStringExtractor + Send + Sync + 'static>>,
+    pub(super) language_extractor: Option<Box<dyn BaseLanguageExtractor + Send + Sync + 'static>>,
 
-    pub(super) crypto_store: Option<Box<dyn BaseCryptoStore + 'static>>,
-    pub(super) crypto_manager: Option<Box<dyn BaseCryptoManager + 'static>>,
-    pub(super) user_settings_store: Option<Box<dyn BaseUserSettingsStore + 'static>>,
-    pub(super) user_settings_manager: Option<Box<dyn BaseUserSettingsManager + 'static>>,
-    pub(super) user_agent_detector: Option<Box<dyn BaseUserAgentDetector + 'static>>,
-    pub(super) expression_evaluator: Option<Box<dyn BaseExpressionEvaluator + 'static>>,
+    pub(super) crypto_store: Option<Box<dyn BaseCryptoStore + Send + Sync + 'static>>,
+    pub(super) crypto_manager: Option<Box<dyn BaseCryptoManager + Send + Sync + 'static>>,
+    pub(super) user_settings_store: Option<Box<dyn BaseUserSettingsStore + Send + Sync + 'static>>,
+    pub(super) user_settings_manager: Option<Box<dyn BaseUserSettingsManager + Send + Sync + 'static>>,
+    pub(super) user_agent_detector: Option<Box<dyn BaseUserAgentDetector + Send + Sync + 'static>>,
+    pub(super) expression_evaluator: Option<Box<dyn BaseExpressionEvaluator + Send + Sync + 'static>>,
     
     
-    pub(super) location_detector: Option<Box<dyn BaseLocationDetector + 'static>>,
-    pub(super) modules: Vec<Box<dyn BaseFlowModule + 'static>>,
+    pub(super) location_detector: Option<Box<dyn BaseLocationDetector + Send + Sync + 'static>>,
+    pub(super) modules: Vec<Box<dyn BaseFlowModule + Send + Sync + 'static>>,
 }
 
 impl AppBuilder {

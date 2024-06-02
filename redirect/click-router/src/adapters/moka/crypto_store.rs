@@ -16,12 +16,12 @@ pub struct KeycertCacheItem {
 #[derive(Clone)]
 pub struct MokaDecoratedCryptoStore {
     cache: Cache<String, KeycertCacheItem>,
-    crypto_store: Box<dyn BaseCryptoStore>,
+    crypto_store: Box<dyn BaseCryptoStore + Send + Sync>,
 }
 
 impl MokaDecoratedCryptoStore {
     pub fn new(
-        crypto_store: Box<dyn BaseCryptoStore>,
+        crypto_store: Box<dyn BaseCryptoStore + Send + Sync>,
         max_capacity: u64,
         time_to_live_minutes: u64,
         time_to_idle_minutes: u64,
@@ -48,7 +48,7 @@ fn get_key(domain: &str) -> String {
     domain_str
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseCryptoStore for MokaDecoratedCryptoStore {
     async fn get_certificate(&self, server_name: &str) -> Result<Option<Keycert>> {
         let key = get_key(server_name);

@@ -13,7 +13,7 @@ const IS_404: &'static str = "is_404";
 #[derive(Debug, Clone)]
 pub struct NotFoundModule {}
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseFlowModule for NotFoundModule {
     async fn handle_start(
         &self,

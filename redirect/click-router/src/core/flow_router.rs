@@ -2,6 +2,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use dyn_clone::{clone_trait_object, DynClone};
 use http::{Request, StatusCode, Uri};
+use serde::Serialize;
 use std::{
     self,
     collections::HashMap,
@@ -216,7 +217,7 @@ pub struct TlsInfo {
     pub alpn_protocol: Option<String>,
     pub has_certificate: bool,
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 pub trait BaseFlowRouter: DynClone {
     async fn handle(&self, req: PerRequestData) -> Result<FlowRouterResult>;
 }

@@ -3,7 +3,7 @@ use dyn_clone::{clone_trait_object, DynClone};
 
 use crate::model::Keycert;
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 pub trait BaseCryptoStore: DynClone {
     async fn store_certificate(&self, route: &Keycert) -> Result<()>;
     async fn update_certificate(&self, route: &Keycert) -> Result<()>;

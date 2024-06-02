@@ -79,7 +79,7 @@ impl DynamoUserSettingsStore {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseUserSettingsStore for DynamoUserSettingsStore {
     async fn store_user_settings(&self, _user_settings: &UserSettings) -> Result<()> {
         todo!()

@@ -1,9 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, error::Error, fmt::Debug};
 
 use anyhow::Result;
 use async_recursion::async_recursion;
 use chrono::Utc;
 use http::{uri::Scheme, Request, StatusCode};
+use serde::Serialize;
 
 use crate::{
     core::{
@@ -20,38 +21,56 @@ use crate::{
 };
 
 use super::{
-    flow_module::BaseFlowModule,
-    host_extract::BaseHostExtractor, ip_extract::BaseIPExtractor,
+    flow_module::BaseFlowModule, host_extract::BaseHostExtractor, ip_extract::BaseIPExtractor,
     language_extract::BaseLanguageExtractor, protocol_extract::BaseProtocolExtractor,
     user_agent_string_extract::BaseUserAgentStringExtractor,
 };
 
-const MAIN_SWITCH: &'static str = "main"; 
+const MAIN_SWITCH: &'static str = "main";
 
 #[derive(Clone)]
 pub struct DefaultFlowRouter {
-    routes_manager: Box<dyn BaseRoutesManager>,
-    host_extractor: Box<dyn BaseHostExtractor>,
-    protocol_extractor: Box<dyn BaseProtocolExtractor>,
-    ip_extractor: Box<dyn BaseIPExtractor>,
-    user_agent_string_extractor: Box<dyn BaseUserAgentStringExtractor>,
-    language_extractor: Box<dyn BaseLanguageExtractor>,
-    user_agent_detector: Box<dyn BaseUserAgentDetector>,
-    location_detector: Box<dyn BaseLocationDetector>,
-    modules: Vec<Box<dyn BaseFlowModule>>,
+    routes_manager: Box<dyn BaseRoutesManager + Send + Sync>,
+    host_extractor: Box<dyn BaseHostExtractor + Send + Sync>,
+    protocol_extractor: Box<dyn BaseProtocolExtractor + Send + Sync>,
+    ip_extractor: Box<dyn BaseIPExtractor + Send + Sync>,
+    user_agent_string_extractor: Box<dyn BaseUserAgentStringExtractor + Send + Sync>,
+    language_extractor: Box<dyn BaseLanguageExtractor + Send + Sync>,
+    user_agent_detector: Box<dyn BaseUserAgentDetector + Send + Sync>,
+    location_detector: Box<dyn BaseLocationDetector + Send + Sync>,
+    modules: Vec<Box<dyn BaseFlowModule + Send + Sync>>,
 }
+
+// impl Debug for DefaultFlowRouter {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         f.debug_struct("DefaultFlowRouter")
+//             .field("routes_manager", &self.routes_manager)
+//             .field("host_extractor", &self.host_extractor)
+//             .field("protocol_extractor", &self.protocol_extractor)
+//             .field("ip_extractor", &self.ip_extractor)
+//             .field(
+//                 "user_agent_string_extractor",
+//                 &self.user_agent_string_extractor,
+//             )
+//             .field("language_extractor", &self.language_extractor)
+//             .field("user_agent_detector", &self.user_agent_detector)
+//             .field("location_detector", &self.location_detector)
+//             .field("modules", &self.modules)
+//             .finish()
+//     }
+// }
 
 impl DefaultFlowRouter {
     pub fn new(
-        routes_manager: Box<dyn BaseRoutesManager>,
-        host_extractor: Box<dyn BaseHostExtractor>,
-        protocol_extractor: Box<dyn BaseProtocolExtractor>,
-        ip_extractor: Box<dyn BaseIPExtractor>,
-        user_agent_string_extractor: Box<dyn BaseUserAgentStringExtractor>,
-        language_extractor: Box<dyn BaseLanguageExtractor>,
-        user_agent_detector: Box<dyn BaseUserAgentDetector>,
-        location_detector: Box<dyn BaseLocationDetector>,
-        modules: Vec<Box<dyn BaseFlowModule>>,
+        routes_manager: Box<dyn BaseRoutesManager + Send + Sync>,
+        host_extractor: Box<dyn BaseHostExtractor + Send + Sync>,
+        protocol_extractor: Box<dyn BaseProtocolExtractor + Send + Sync>,
+        ip_extractor: Box<dyn BaseIPExtractor + Send + Sync>,
+        user_agent_string_extractor: Box<dyn BaseUserAgentStringExtractor + Send + Sync>,
+        language_extractor: Box<dyn BaseLanguageExtractor + Send + Sync>,
+        user_agent_detector: Box<dyn BaseUserAgentDetector + Send + Sync>,
+        location_detector: Box<dyn BaseLocationDetector + Send + Sync>,
+        modules: Vec<Box<dyn BaseFlowModule + Send + Sync>>,
     ) -> Self {
         DefaultFlowRouter {
             routes_manager,
@@ -66,7 +85,7 @@ impl DefaultFlowRouter {
         }
     }
 
-    #[async_recursion(?Send)]
+    #[async_recursion()]
     pub async fn router_to(&self, context: &mut FlowRouterContext, step: FlowStep) -> Result<()> {
         context.current_step = step;
 
@@ -165,7 +184,11 @@ impl DefaultFlowRouter {
         Ok(())
     }
 
-    pub async fn get_route(&self, switch: &str, context: &FlowRouterContext) -> Result<Option<Route>> {
+    pub async fn get_route(
+        &self,
+        switch: &str,
+        context: &FlowRouterContext,
+    ) -> Result<Option<Route>> {
         let route = self
             .routes_manager
             .get_route(
@@ -316,7 +339,7 @@ impl DefaultFlowRouter {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseFlowRouter for DefaultFlowRouter {
     async fn handle(&self, req: PerRequestData) -> Result<FlowRouterResult> {
         let context = self.start(req).await?;

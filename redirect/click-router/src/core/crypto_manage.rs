@@ -3,7 +3,7 @@ use dyn_clone::{clone_trait_object, DynClone};
 
 use crate::model::Keycert;
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 pub trait BaseCryptoManager: DynClone {
     async fn get_default_certificate(&self) -> Result<Option<Keycert>>;
 

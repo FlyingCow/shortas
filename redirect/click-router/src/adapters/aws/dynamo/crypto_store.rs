@@ -41,7 +41,7 @@ impl DynamoCryptoStore {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseCryptoStore for DynamoCryptoStore {
     async fn invalidate(&self, _: &str) -> Result<()> {
         Ok(())

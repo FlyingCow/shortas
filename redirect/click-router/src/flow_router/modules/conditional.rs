@@ -13,16 +13,16 @@ const IS_CONDITIONAL: &'static str = "is_conditional";
 
 #[derive(Clone)]
 pub struct ConditionalModule {
-    evaluator: Box<dyn BaseExpressionEvaluator>,
+    evaluator: Box<dyn BaseExpressionEvaluator + Send + Sync>,
 }
 
 impl ConditionalModule {
-    pub fn new(evaluator: Box<dyn BaseExpressionEvaluator>) -> Self {
+    pub fn new(evaluator: Box<dyn BaseExpressionEvaluator + Send + Sync>) -> Self {
         Self { evaluator }
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseFlowModule for ConditionalModule {
     async fn handle_start(
         &self,

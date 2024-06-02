@@ -27,7 +27,7 @@ impl DynamoRoutesStore {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseRoutesStore for DynamoRoutesStore {
     async fn store_route(&self, route: &Route) -> Result<()> {
         let mut request = self

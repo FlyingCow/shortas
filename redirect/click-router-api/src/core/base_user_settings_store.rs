@@ -3,7 +3,7 @@ use dyn_clone::{clone_trait_object, DynClone};
 
 use crate::model::UserSettings;
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 pub trait BaseUserSettingsStore: DynClone {
     async fn store_user_settings(&self, user_settings: &UserSettings) -> Result<()>;
     async fn update_user_settings(&self, user_settings: &UserSettings) -> Result<()>;

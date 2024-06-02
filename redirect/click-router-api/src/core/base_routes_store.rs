@@ -3,7 +3,7 @@ use dyn_clone::{clone_trait_object, DynClone};
 
 use crate::model::Route;
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 pub trait BaseRoutesStore: DynClone {
     async fn store_route(&self, route: &Route) -> Result<()>;
     async fn update_route(&self, route: &Route) -> Result<()>;

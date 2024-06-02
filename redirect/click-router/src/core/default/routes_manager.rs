@@ -6,7 +6,7 @@ use crate::model::Route;
 
 #[derive(Clone)]
 pub struct DefaultRoutesManager {
-    routes_store: Box<dyn BaseRoutesStore>,
+    routes_store: Box<dyn BaseRoutesStore + Send + Sync>,
 }
 
 fn get_key(domain: &str, link: &str) -> String {
@@ -16,7 +16,7 @@ fn get_key(domain: &str, link: &str) -> String {
     domain_str + "%2F" + &link_str
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseRoutesManager for DefaultRoutesManager {
     async fn get_route(
         &self,
@@ -33,7 +33,7 @@ impl BaseRoutesManager for DefaultRoutesManager {
 }
 
 impl DefaultRoutesManager {
-    pub fn new(routes_store: Box<dyn BaseRoutesStore>) -> Self {
+    pub fn new(routes_store: Box<dyn BaseRoutesStore + Send + Sync>) -> Self {
         Self { routes_store }
     }
 }

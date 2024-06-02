@@ -16,12 +16,12 @@ pub struct UserSettingsCacheItem {
 #[derive(Clone)]
 pub struct MokaDecoratedUserSettingsStore {
     cache: Cache<String, UserSettingsCacheItem>,
-    user_settings_store: Box<dyn BaseUserSettingsStore>,
+    user_settings_store: Box<dyn BaseUserSettingsStore + Send + Sync>,
 }
 
 impl MokaDecoratedUserSettingsStore {
     pub fn new(
-        user_settings_store: Box<dyn BaseUserSettingsStore>,
+        user_settings_store: Box<dyn BaseUserSettingsStore + Send + Sync>,
         max_capacity: u64,
         time_to_live_minutes: u64,
         time_to_idle_minutes: u64,
@@ -48,7 +48,7 @@ fn get_key(user_id: &str) -> String {
     user_id_str
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseUserSettingsStore for MokaDecoratedUserSettingsStore {
     async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
         let key = get_key(user_id);

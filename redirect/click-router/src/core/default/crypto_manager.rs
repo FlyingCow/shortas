@@ -8,10 +8,10 @@ const DEFAULT: &'static str = "default";
 
 #[derive(Clone)]
 pub struct DefaultCryptoManager {
-    crypto_store: Box<dyn BaseCryptoStore>,
+    crypto_store: Box<dyn BaseCryptoStore + Send + Sync>,
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait()]
 impl BaseCryptoManager for DefaultCryptoManager {
     async fn get_default_certificate(&self) -> Result<Option<Keycert>> {
         self.get_certificate(DEFAULT).await
@@ -25,7 +25,7 @@ impl BaseCryptoManager for DefaultCryptoManager {
 }
 
 impl DefaultCryptoManager {
-    pub fn new(crypto_store: Box<dyn BaseCryptoStore>) -> Self {
+    pub fn new(crypto_store: Box<dyn BaseCryptoStore + Send + Sync>) -> Self {
         Self { crypto_store }
     }
 }
