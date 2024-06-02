@@ -2,7 +2,6 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use dyn_clone::{clone_trait_object, DynClone};
 use http::{Request, StatusCode, Uri};
-use serde::Serialize;
 use std::{
     self,
     collections::HashMap,

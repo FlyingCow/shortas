@@ -1,20 +1,15 @@
-use std::{
-    path,
-    sync::{Arc, Mutex, RwLock},
-};
-
 use click_router::{
     app::AppBuilder,
     core::{flow_router::{FlowRouterResult, PerRequestData}, BaseFlowRouter},
-    flow_router::{self, default_flow_router::DefaultFlowRouter},
+    flow_router::default_flow_router::DefaultFlowRouter,
     settings::Settings,
 };
 
 use clap::Parser;
 use once_cell::sync::OnceCell;
 use salvo::{
-    async_trait, conn::TcpListener, handler, writing::Text, Depot, Error, FlowCtrl, Handler,
-    Listener, Request, Response, Result, Router, Server,
+    async_trait, conn::TcpListener, writing::Text, Depot, FlowCtrl, Handler,
+    Listener, Request, Response, Router, Server,
 };
 
 #[derive(Parser, Debug)]

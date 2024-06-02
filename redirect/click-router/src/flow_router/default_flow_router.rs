@@ -1,10 +1,9 @@
-use std::{collections::HashMap, error::Error, fmt::Debug};
+use std::collections::HashMap;
 
 use anyhow::Result;
 use async_recursion::async_recursion;
 use chrono::Utc;
 use http::{uri::Scheme, Request, StatusCode};
-use serde::Serialize;
 
 use crate::{
     core::{
