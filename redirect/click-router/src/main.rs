@@ -1,15 +1,29 @@
+use std::{
+    io::{Error as IoError, Result as IoResult},
+    sync::Arc,
+};
+
 use click_router::{
     app::AppBuilder,
-    core::{flow_router::{FlowRouterResult, PerRequestData}, BaseFlowRouter},
+    core::{
+        flow_router::{FlowRouterResult, PerRequestData},
+        BaseFlowRouter,
+    },
     flow_router::default_flow_router::DefaultFlowRouter,
     settings::Settings,
 };
 
 use clap::Parser;
 use once_cell::sync::OnceCell;
+use rustls::server::ClientHello;
 use salvo::{
-    async_trait, conn::TcpListener, writing::Text, Depot, FlowCtrl, Handler,
-    Listener, Request, Response, Router, Server,
+    async_trait,
+    conn::{
+        rustls_async::{Keycert, ResolvesServerConfig, RustlsConfig},
+        TcpListener,
+    },
+    writing::Text,
+    Depot, FlowCtrl, Handler, Listener, Request, Response, Router, Server,
 };
 
 #[derive(Parser, Debug)]
@@ -59,9 +73,7 @@ pub struct Args {
 //     println!("{}", result)
 // }
 
-
 static FLOW_ROUTER: OnceCell<DefaultFlowRouter> = OnceCell::new();
-
 
 struct Redirect;
 
@@ -103,9 +115,30 @@ pub fn get_flow_router() -> &'static DefaultFlowRouter {
     FLOW_ROUTER.get().unwrap()
 }
 
+struct ServerConfigResolverMock;
+
+#[async_trait]
+impl ResolvesServerConfig<IoError> for ServerConfigResolverMock {
+    async fn resolve(&self, client_hello: ClientHello<'_>) -> IoResult<Arc<RustlsConfig>> {
+        //println!("host:{}", client_hello.server_name().unwrap());
+
+        let config = RustlsConfig::new(
+            Keycert::new()
+                .cert(include_bytes!("../certs/cert.pem").as_ref())
+                .key(include_bytes!("../certs/key.pem").as_ref()),
+        );
+
+        Ok(Arc::new(config))
+    }
+}
+
 #[tokio::main]
 async fn main() {
-    //tracing_subscriber::fmt().init();
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
+    tracing_subscriber::fmt().init();
 
     dotenv::from_filename("./click-router/.env").ok();
 
@@ -131,10 +164,14 @@ async fn main() {
 
     let _ = FLOW_ROUTER.set(app);
 
-    let acceptor = TcpListener::new("0.0.0.0:5800").bind().await;
-
     let router = Router::with_path("<**rest_path>").get(Redirect);
 
     println!("{:?}", router);
+
+    let acceptor = TcpListener::new("0.0.0.0:5800")
+        .rustls_async(ServerConfigResolverMock)
+        .bind()
+        .await;
+
     Server::new(acceptor).serve(router).await;
 }
