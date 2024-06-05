@@ -59,8 +59,11 @@ pub struct Args {
 //     println!("{}", result)
 // }
 
-struct Redirect;
 
+static FLOW_ROUTER: OnceCell<DefaultFlowRouter> = OnceCell::new();
+
+
+struct Redirect;
 
 #[async_trait]
 impl Handler for Redirect {
@@ -94,8 +97,6 @@ impl Handler for Redirect {
         res.render(Text::Plain(result.to_string()));
     }
 }
-
-static FLOW_ROUTER: OnceCell<DefaultFlowRouter> = OnceCell::new();
 
 #[inline]
 pub fn get_flow_router() -> &'static DefaultFlowRouter {
