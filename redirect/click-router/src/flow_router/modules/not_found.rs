@@ -42,7 +42,6 @@ impl BaseFlowModule for NotFoundModule {
         _flow_router: &DefaultFlowRouter,
     ) -> Result<FlowStepContinuation> {
         if context.is_data_true(IS_404) {
-            println!("{}", "Is 404");
             return Ok(FlowStepContinuation::Break);
         } else {
             //println!("{}", "Is NOT 404");

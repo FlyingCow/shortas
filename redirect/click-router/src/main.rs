@@ -5,10 +5,7 @@ use std::{
 
 use click_router::{
     app::AppBuilder,
-    core::{
-        flow_router::{FlowRouterResult, PerRequestData},
-        BaseFlowRouter,
-    },
+    core::{flow_router::PerRequestData, BaseFlowRouter},
     flow_router::default_flow_router::DefaultFlowRouter,
     settings::Settings,
 };
@@ -25,6 +22,7 @@ use salvo::{
     writing::Text,
     Depot, FlowCtrl, Handler, Listener, Request, Response, Router, Server,
 };
+use tracing::info;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -34,44 +32,6 @@ pub struct Args {
     #[arg(short, long, default_value_t = String::from("./config"), env("APP_CONFIG_PATH"))]
     pub config_path: String,
 }
-
-// #[tokio::main]
-// async fn main() {
-
-//     dotenv::from_filename("./click-router/.env").ok();
-//     let args = Args::parse();
-
-//     let settings = Settings::new(Some(args.run_mode.as_str()), Some(args.config_path.as_str())).unwrap();
-
-//     let app = AppBuilder::new(settings)
-//         .with_aws()
-//         .await
-//         .with_moka()
-//         .with_defaults()
-//         .with_uaparser()
-//         .with_geo_ip()
-//         .with_flow_defaults()
-//         .with_default_modules()
-//         .build()
-//         .unwrap();
-
-//     let request = Request::builder()
-//         .uri("/test")
-//         .header("Host", "localhost")
-//         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0");
-
-//     let result = app
-//         .handle(PerRequestData {
-//             local_addr: "192.168.0.100:80".parse().unwrap(),
-//             remote_addr: "188.138.135.18:80".parse().unwrap(),
-//             request: request.body(()).unwrap(),
-//             tls_info: None,
-//         })
-//         .await
-//         .unwrap();
-
-//     println!("{}", result)
-// }
 
 static FLOW_ROUTER: OnceCell<DefaultFlowRouter> = OnceCell::new();
 
@@ -120,7 +80,7 @@ struct ServerConfigResolverMock;
 #[async_trait]
 impl ResolvesServerConfig<IoError> for ServerConfigResolverMock {
     async fn resolve(&self, client_hello: ClientHello<'_>) -> IoResult<Arc<RustlsConfig>> {
-        //println!("host:{}", client_hello.server_name().unwrap());
+        info!("host:{}", client_hello.server_name().unwrap());
 
         let config = RustlsConfig::new(
             Keycert::new()
