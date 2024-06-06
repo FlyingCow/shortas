@@ -135,7 +135,7 @@ async fn main() {
 
     let router = Router::with_path("<**rest_path>").get(Redirect);
 
-    info!("{:?}", router);
+    println!("{:?}", router);
 
     let acceptor = TcpListener::new("0.0.0.0:5800")
         .rustls_async(ServerConfigResolverMock)
