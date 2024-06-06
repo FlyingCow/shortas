@@ -1,7 +1,11 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use cookie::CookieJar;
 use dyn_clone::{clone_trait_object, DynClone};
-use http::{Request, StatusCode, Uri};
+use http::{uri::Scheme, Extensions, HeaderMap, Method, StatusCode, Uri, Version};
+use indexmap::IndexMap;
+use multimap::MultiMap;
+use once_cell::sync::OnceCell;
 use std::{
     self,
     collections::HashMap,
@@ -11,14 +15,16 @@ use std::{
 
 use crate::{
     flow_router::{
-        host_extract::HostInfo, ip_extract::IPInfo,
-        language_extract::Language, protocol_extract::ProtoInfo,
+        host_extract::HostInfo, ip_extract::IPInfo, language_extract::Language,
+        protocol_extract::ProtoInfo,
     },
     model::Route,
 };
 
 use super::{
-    location_detect::Country, user_agent_detect::{Device, UserAgent, OS}, InitOnce
+    location_detect::Country,
+    user_agent_detect::{Device, UserAgent, OS},
+    InitOnce,
 };
 
 #[derive(Clone, Debug)]
@@ -165,13 +171,14 @@ pub struct FlowRouterContext {
     pub out_route: Option<Route>,
     pub main_route: Option<Route>,
     pub in_route: FlowInRoute,
-    pub request: PerRequestData,
+    pub request: RequestData,
+    pub response: ResponseData,
 
     pub result: Option<FlowRouterResult>,
 }
 
 impl FlowRouterContext {
-    pub fn new(in_route: FlowInRoute, request: PerRequestData) -> Self {
+    pub fn new(in_route: FlowInRoute, request: RequestData, response: ResponseData) -> Self {
         Self {
             utc: Utc::now(),
             data: HashMap::new(),
@@ -190,6 +197,7 @@ impl FlowRouterContext {
             main_route: None,
             result: None,
             request,
+            response,
         }
     }
 }
@@ -202,12 +210,50 @@ pub struct PerConnHandler {
     pub tls_info: Option<TlsInfo>,
 }
 
-#[derive(Clone, Debug)]
-pub struct PerRequestData {
-    pub local_addr: SocketAddr,
-    pub remote_addr: SocketAddr,
+#[derive(Clone, Debug, Default)]
+pub struct ResponseData {
+    /// The HTTP status code.WebTransportSession
+    pub status_code: Option<StatusCode>,
+    /// The HTTP headers.
+    pub headers: HeaderMap,
+    /// The HTTP version.
+    pub version: Version,
+    /// The HTTP cookies.
+    pub cookies: CookieJar,
+    /// Used to store extra data derived from the underlying protocol.
+    pub extensions: Extensions,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct RequestData {
+    // The requested URL.
+    pub uri: Uri,
+
+    // The request headers.
+    pub headers: HeaderMap,
+
+    pub extensions: Extensions,
+
+    // The request method.
+    pub method: Method,
+
+    pub cookies: CookieJar,
+
+    pub params: IndexMap<String, String>,
+
+    // accept: Option<Vec<Mime>>,
+    pub queries: OnceCell<MultiMap<String, String>>,
+
+    /// The version of the HTTP protocol used.
+    pub version: Version,
+
+    pub scheme: Option<Scheme>,
+
+    pub local_addr: Option<SocketAddr>,
+
+    pub remote_addr: Option<SocketAddr>,
+
     pub tls_info: Option<TlsInfo>,
-    pub request: Request<()>,
 }
 
 #[derive(Clone, Debug)]
@@ -218,6 +264,6 @@ pub struct TlsInfo {
 }
 #[async_trait::async_trait()]
 pub trait BaseFlowRouter: DynClone {
-    async fn handle(&self, req: PerRequestData) -> Result<FlowRouterResult>;
+    async fn handle(&self, req: RequestData, res: ResponseData) -> Result<FlowRouterResult>;
 }
 clone_trait_object!(BaseFlowRouter);

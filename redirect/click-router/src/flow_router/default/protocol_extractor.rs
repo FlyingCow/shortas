@@ -1,4 +1,7 @@
-use crate::flow_router::protocol_extract::{BaseProtocolExtractor, ProtoInfo};
+use crate::{
+    core::flow_router::RequestData,
+    flow_router::protocol_extract::{BaseProtocolExtractor, ProtoInfo},
+};
 
 static HTTP: &'static str = "http";
 static HTTPS: &'static str = "https";
@@ -15,24 +18,24 @@ impl DefaultProtocolExtractor {
     }
 }
 
-fn detect_proto_uri(request: &http::Request<()>) -> Option<String> {
-    if let Some(scheme) = *&request.uri().scheme_str() {
+fn detect_proto_uri(request: &RequestData) -> Option<String> {
+    if let Some(scheme) = *&request.uri.scheme_str() {
         return Some(scheme.to_ascii_lowercase());
     }
 
     None
 }
 
-fn detect_ssl_on_uri(request: &http::Request<()>) -> Option<bool> {
-    if let Some(scheme) = *&request.uri().scheme_str() {
+fn detect_ssl_on_uri(request: &RequestData) -> Option<bool> {
+    if let Some(scheme) = *&request.uri.scheme_str() {
         return Some(scheme.to_ascii_lowercase() == HTTPS);
     }
 
     None
 }
 
-fn detect_proto_headers(request: &http::Request<()>) -> Option<String> {
-    if let Some(proto_header) = *&request.headers().get(X_FORWARDED_PROTO_HEADER) {
+fn detect_proto_headers(request: &RequestData) -> Option<String> {
+    if let Some(proto_header) = *&request.headers.get(X_FORWARDED_PROTO_HEADER) {
         return Some(
             proto_header
                 .to_str()
@@ -44,8 +47,8 @@ fn detect_proto_headers(request: &http::Request<()>) -> Option<String> {
     None
 }
 
-fn detect_ssl_on_headers(request: &http::Request<()>) -> Option<bool> {
-    if let Some(proto_header) = *&request.headers().get(X_FORWARDED_SSL_HEADER) {
+fn detect_ssl_on_headers(request: &RequestData) -> Option<bool> {
+    if let Some(proto_header) = *&request.headers.get(X_FORWARDED_SSL_HEADER) {
         return Some(
             proto_header
                 .to_str()
@@ -59,7 +62,7 @@ fn detect_ssl_on_headers(request: &http::Request<()>) -> Option<bool> {
 }
 
 impl BaseProtocolExtractor for DefaultProtocolExtractor {
-    fn detect(&self, request: &http::Request<()>) -> Option<ProtoInfo> {
+    fn detect(&self, request: &RequestData) -> Option<ProtoInfo> {
         let mut proto: String = HTTP.to_string();
         let mut ssl_on: bool = false;
 
@@ -84,33 +87,38 @@ impl BaseProtocolExtractor for DefaultProtocolExtractor {
 
 #[cfg(test)]
 mod tests {
-    use http::Request;
-
     use super::*;
 
     #[test]
     fn should_extract_proto_header_when_present() {
-        let mut builder = Request::builder();
+        let mut request = RequestData {
+            ..Default::default()
+        };
 
-        builder = builder.header("X-Forwarded-Proto", "https");
-        builder = builder.header("X-Forwarded-Ssl", "on");
+        request
+            .headers
+            .insert("X-Forwarded-Proto", "https".parse().unwrap());
 
-        let result = DefaultProtocolExtractor::new().detect(&builder.body(()).unwrap());
+        request
+            .headers
+            .insert("X-Forwarded-Ssl", "on".parse().unwrap());
+
+        let result = DefaultProtocolExtractor::new().detect(&request);
 
         assert!(result.is_some());
         let proto_info = result.unwrap();
         assert_eq!(proto_info.proto, "https");
         assert!(proto_info.ssl_on);
-
     }
 
     #[test]
     fn should_extract_https_uri_proto_when_host_header_not_present() {
-        let mut builder = Request::builder();
+        let request = RequestData {
+            uri: "https://www.rust-lang.org:443/".parse().unwrap(),
+            ..Default::default()
+        };
 
-        builder = builder.uri("https://www.rust-lang.org:443/");
-
-        let result = DefaultProtocolExtractor::new().detect(&builder.body(()).unwrap());
+        let result = DefaultProtocolExtractor::new().detect(&request);
 
         assert!(result.is_some());
         let proto_info = result.unwrap();
@@ -120,11 +128,12 @@ mod tests {
 
     #[test]
     fn should_extract_http_uri_proto_when_host_header_not_present() {
-        let mut builder = Request::builder();
+        let request = RequestData {
+            uri: "http://www.rust-lang.org/".parse().unwrap(),
+            ..Default::default()
+        };
 
-        builder = builder.uri("http://www.rust-lang.org/");
-
-        let result = DefaultProtocolExtractor::new().detect(&builder.body(()).unwrap());
+        let result = DefaultProtocolExtractor::new().detect(&request);
 
         assert!(result.is_some());
         let proto_info = result.unwrap();

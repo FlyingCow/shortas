@@ -1,6 +1,8 @@
-use crate::flow_router::language_extract::{BaseLanguageExtractor, Language};
+use crate::{
+    core::flow_router::RequestData,
+    flow_router::language_extract::{BaseLanguageExtractor, Language},
+};
 use accept_language::parse_with_quality;
-use http::Request;
 
 static ACCEPT_LANGUAGE_HEADER: &str = "Accept-Language";
 
@@ -13,8 +15,8 @@ impl DefaultLanguageExtractor {
     }
 }
 
-fn detect_from_headers(request: &http::Request<()>) -> Option<Vec<Language>> {
-    if let Some(accept_language_header) = *&request.headers().get(ACCEPT_LANGUAGE_HEADER) {
+fn detect_from_headers(request: &RequestData) -> Option<Vec<Language>> {
+    if let Some(accept_language_header) = *&request.headers.get(ACCEPT_LANGUAGE_HEADER) {
         let languages = accept_language_header.to_str();
 
         if languages.is_err() {
@@ -35,7 +37,7 @@ fn detect_from_headers(request: &http::Request<()>) -> Option<Vec<Language>> {
 }
 
 impl BaseLanguageExtractor for DefaultLanguageExtractor {
-    fn detect(&self, request: &Request<()>) -> Option<Vec<Language>> {
+    fn detect(&self, request: &RequestData) -> Option<Vec<Language>> {
         let header = detect_from_headers(&request);
 
         if header.is_none() {
@@ -46,20 +48,22 @@ impl BaseLanguageExtractor for DefaultLanguageExtractor {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use http::Request;
 
     use super::*;
 
     #[test]
     fn should_extract_from_accept_language_header_when_present() {
-        let mut builder = Request::builder();
+        let mut request = RequestData {
+            ..Default::default()
+        };
 
-        builder = builder.header(ACCEPT_LANGUAGE_HEADER, "en-US,en;q=0.5");
+        request
+            .headers
+            .insert(ACCEPT_LANGUAGE_HEADER, "en-US,en;q=0.5".parse().unwrap());
 
-        let result = DefaultLanguageExtractor::new().detect(&builder.body(()).unwrap());
+        let result = DefaultLanguageExtractor::new().detect(&request);
 
         assert!(result.is_some());
         let languages = result.unwrap();

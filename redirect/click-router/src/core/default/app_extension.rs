@@ -1,3 +1,5 @@
+use tracing::info;
+
 use crate::{
     app::AppBuilder,
     core::default::{
@@ -26,7 +28,7 @@ impl AppBuilder {
         self.crypto_manager = crypto_manager;
         self.user_settings_manager = user_settings_manager;
 
-        println!("{}", "WITH DEFAULT MANAGERS");
+        info!("{}", "WITH DEFAULT MANAGERS");
 
         self
     }

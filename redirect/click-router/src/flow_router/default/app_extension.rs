@@ -1,9 +1,10 @@
+use tracing::info;
+
 use crate::{
     app::AppBuilder,
     flow_router::default::{
-        expression_evaluator::DefaultExpressionEvaluator,
-        host_extractor::DefaultHostExtractor, ip_extractor::DefaultIPExtractor,
-        language_extractor::DefaultLanguageExtractor,
+        expression_evaluator::DefaultExpressionEvaluator, host_extractor::DefaultHostExtractor,
+        ip_extractor::DefaultIPExtractor, language_extractor::DefaultLanguageExtractor,
         protocol_extractor::DefaultProtocolExtractor,
         user_agent_string_extractor::DefaultUserAgentStringExtractor,
     },
@@ -33,7 +34,7 @@ impl AppBuilder {
         self.language_extractor = language_extractor;
         self.expression_evaluator = expression_evaluator;
 
-        println!("{}", "WITH FLOW DEFAULTS");
+        info!("{}", "WITH FLOW DEFAULTS");
 
         self
     }

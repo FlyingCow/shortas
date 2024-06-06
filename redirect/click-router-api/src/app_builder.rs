@@ -1,5 +1,6 @@
 use actix_web::{middleware::Logger, web, App, HttpServer};
 use anyhow::Result;
+use tracing::info;
 
 use crate::adapters;
 use crate::core::{BaseCryptoStore, BaseUserSettingsStore};
@@ -36,7 +37,7 @@ impl Api {
     async fn start_server(self) -> Result<()> {
         let port = self.settings.port.unwrap_or(8080);
 
-        println!("Server running on port {}", port);
+        info!("Server running on port {}", port);
 
         HttpServer::new(move || {
             App::new()
@@ -69,7 +70,7 @@ impl AppBuilder {
 
     pub fn build(&self) -> Result<Api> {
         env_logger::try_init()?;
-        println!("{}", "BUILDING");
+        info!("{}", "BUILDING");
 
         let router = Api::new(
             self.settings.server.clone(),

@@ -1,13 +1,17 @@
 use anyhow::Result;
+use tracing::info;
 
 use crate::{
     core::{
-        location_detect::BaseLocationDetector,
-        user_agent_detect::BaseUserAgentDetector, BaseCryptoManager, BaseCryptoStore,
-        BaseRoutesManager, BaseRoutesStore, BaseUserSettingsManager, BaseUserSettingsStore,
+        location_detect::BaseLocationDetector, user_agent_detect::BaseUserAgentDetector,
+        BaseCryptoManager, BaseCryptoStore, BaseRoutesManager, BaseRoutesStore,
+        BaseUserSettingsManager, BaseUserSettingsStore,
     },
     flow_router::{
-        expression_evaluate::BaseExpressionEvaluator, flow_module::BaseFlowModule, host_extract::BaseHostExtractor, ip_extract::BaseIPExtractor, language_extract::BaseLanguageExtractor, protocol_extract::BaseProtocolExtractor, user_agent_string_extract::BaseUserAgentStringExtractor, default_flow_router::DefaultFlowRouter
+        default_flow_router::DefaultFlowRouter, expression_evaluate::BaseExpressionEvaluator,
+        flow_module::BaseFlowModule, host_extract::BaseHostExtractor, ip_extract::BaseIPExtractor,
+        language_extract::BaseLanguageExtractor, protocol_extract::BaseProtocolExtractor,
+        user_agent_string_extract::BaseUserAgentStringExtractor,
     },
     settings::Settings,
 };
@@ -19,17 +23,19 @@ pub struct AppBuilder {
     pub(super) host_extractor: Option<Box<dyn BaseHostExtractor + Send + Sync + 'static>>,
     pub(super) protocol_extractor: Option<Box<dyn BaseProtocolExtractor + Send + Sync + 'static>>,
     pub(super) ip_extractor: Option<Box<dyn BaseIPExtractor + Send + Sync + 'static>>,
-    pub(super) user_agent_string_extractor: Option<Box<dyn BaseUserAgentStringExtractor + Send + Sync + 'static>>,
+    pub(super) user_agent_string_extractor:
+        Option<Box<dyn BaseUserAgentStringExtractor + Send + Sync + 'static>>,
     pub(super) language_extractor: Option<Box<dyn BaseLanguageExtractor + Send + Sync + 'static>>,
 
     pub(super) crypto_store: Option<Box<dyn BaseCryptoStore + Send + Sync + 'static>>,
     pub(super) crypto_manager: Option<Box<dyn BaseCryptoManager + Send + Sync + 'static>>,
     pub(super) user_settings_store: Option<Box<dyn BaseUserSettingsStore + Send + Sync + 'static>>,
-    pub(super) user_settings_manager: Option<Box<dyn BaseUserSettingsManager + Send + Sync + 'static>>,
+    pub(super) user_settings_manager:
+        Option<Box<dyn BaseUserSettingsManager + Send + Sync + 'static>>,
     pub(super) user_agent_detector: Option<Box<dyn BaseUserAgentDetector + Send + Sync + 'static>>,
-    pub(super) expression_evaluator: Option<Box<dyn BaseExpressionEvaluator + Send + Sync + 'static>>,
-    
-    
+    pub(super) expression_evaluator:
+        Option<Box<dyn BaseExpressionEvaluator + Send + Sync + 'static>>,
+
     pub(super) location_detector: Option<Box<dyn BaseLocationDetector + Send + Sync + 'static>>,
     pub(super) modules: Vec<Box<dyn BaseFlowModule + Send + Sync + 'static>>,
 }
@@ -57,7 +63,7 @@ impl AppBuilder {
     }
 
     pub fn build(&self) -> Result<DefaultFlowRouter> {
-        println!("{}", "BUILDING");
+        info!("{}", "BUILDING");
 
         let router = DefaultFlowRouter::new(
             self.routes_manager.clone().unwrap(),

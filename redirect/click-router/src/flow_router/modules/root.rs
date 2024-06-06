@@ -24,9 +24,9 @@ impl BaseFlowModule for RootModule {
         _flow_router: &DefaultFlowRouter,
     ) -> Result<FlowStepContinuation> {
         
-        if context.request.request.uri().path() == "/" {
+        if context.request.uri.path() == "/" {
 
-            let root_uri = format!("https://{}", context.request.request.uri().host().unwrap());
+            let root_uri = format!("https://{}", context.request.uri.host().unwrap());
 
             context.result = Some(FlowRouterResult::Redirect(
                 Uri::from_str(&root_uri).unwrap(),
@@ -35,7 +35,7 @@ impl BaseFlowModule for RootModule {
 
             context.add_bool(IS_ROOT, true);
 
-            println!("IS_ROOT");
+            //println!("IS_ROOT");
             return Ok(FlowStepContinuation::Break);
         }
 

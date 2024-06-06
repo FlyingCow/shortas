@@ -1,3 +1,5 @@
+use tracing::info;
+
 use crate::{
     app::AppBuilder,
     flow_router::modules::{
@@ -17,7 +19,7 @@ impl AppBuilder {
             self.expression_evaluator.clone().unwrap(),
         )));
 
-        println!("{}", "WITH DEFAULT FLOW MODULES");
+        info!("{}", "WITH DEFAULT FLOW MODULES");
 
         self
     }

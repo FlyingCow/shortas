@@ -1,10 +1,12 @@
+use tracing::info;
+
 use crate::{
     adapters::moka::{crypto_store::MokaDecoratedCryptoStore, routes_store::MokaDecoratedRoutesStore, user_settings_store::MokaDecoratedUserSettingsStore}, app::AppBuilder,
 };
 
 impl AppBuilder {
     pub fn with_moka(&mut self) -> &mut Self {
-        println!("{}", "WITH MOKA CACHE");
+        info!("{}", "WITH MOKA CACHE");
 
         let crypto_store = Some(Box::new(MokaDecoratedCryptoStore::new(
             self.crypto_store.clone().unwrap(),

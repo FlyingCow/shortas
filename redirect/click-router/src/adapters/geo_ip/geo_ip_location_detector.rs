@@ -1,6 +1,7 @@
 use std::{net::IpAddr, sync::Arc};
 
 use maxminddb::{geoip2, MaxMindDBError, Reader};
+use tracing::info;
 
 use crate::core::location_detect::{BaseLocationDetector, Country};
 
@@ -11,7 +12,7 @@ pub struct GeoIPLocationDetector {
 
 impl GeoIPLocationDetector {
     pub fn new(path: &str) -> Self {
-        println!("  mmdb -> {}", path);
+        info!("  mmdb -> {}", path);
 
         let reader = Reader::open_readfile(path).unwrap();
 

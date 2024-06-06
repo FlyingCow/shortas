@@ -3,13 +3,12 @@ use std::collections::HashMap;
 use anyhow::Result;
 use async_recursion::async_recursion;
 use chrono::Utc;
-use http::{uri::Scheme, Request, StatusCode};
+use http::{uri::Scheme, StatusCode};
 
 use crate::{
     core::{
         flow_router::{
-            FlowInRoute, FlowRouterContext, FlowRouterResult, FlowStep, PerRequestData,
-            RedirectType,
+            FlowInRoute, FlowRouterContext, FlowRouterResult, FlowStep, RedirectType, RequestData, ResponseData,
         },
         location_detect::BaseLocationDetector,
         user_agent_detect::BaseUserAgentDetector,
@@ -200,8 +199,8 @@ impl DefaultFlowRouter {
         Ok(route?)
     }
 
-    async fn start(&self, request: PerRequestData) -> Result<FlowRouterContext> {
-        let mut context = self.build_context(&request);
+    async fn start(&self, req: RequestData, res: ResponseData) -> Result<FlowRouterContext> {
+        let mut context = self.build_context(&req, &res);
 
         for module in &self.modules {
             let result = module.init(&mut context, &self).await?;
@@ -221,14 +220,14 @@ impl DefaultFlowRouter {
         Ok(context)
     }
 
-    fn build_route_uri(&self, request: &Request<()>) -> FlowInRoute {
-        let path = &request.uri().path()[1..];
+    fn build_route_uri(&self, request: &RequestData) -> FlowInRoute {
+        let path = &request.uri.path()[1..];
 
         let host_info = self.host_extractor.detect(&request).unwrap();
 
-        let query = request.uri().query().unwrap_or_default();
+        let query = request.uri.query().unwrap_or_default();
 
-        let scheme = request.uri().scheme().unwrap_or(&Scheme::HTTP).to_string();
+        let scheme = request.uri.scheme().unwrap_or(&Scheme::HTTP).to_string();
 
         let in_route = FlowInRoute {
             host: host_info.host,
@@ -305,7 +304,7 @@ impl DefaultFlowRouter {
         context.client_device.init_with(Some(device));
     }
 
-    fn build_context(&self, request: &PerRequestData) -> FlowRouterContext {
+    fn build_context(&self, req: &RequestData, res: &ResponseData) -> FlowRouterContext {
         let mut context = FlowRouterContext {
             utc: Utc::now(),
             data: HashMap::new(),
@@ -314,7 +313,7 @@ impl DefaultFlowRouter {
             client_device: InitOnce::default(None),
             client_country: InitOnce::default(None),
             current_step: FlowStep::Initial,
-            in_route: self.build_route_uri(&request.request),
+            in_route: self.build_route_uri(req),
             user_agent: None,
             client_ip: None,
             client_langs: None,
@@ -323,16 +322,17 @@ impl DefaultFlowRouter {
             out_route: None,
             main_route: None,
             result: None,
-            request: request.clone(),
+            request: req.clone(),
+            response: res.clone()
         };
 
-        context.host = self.host_extractor.detect(&context.request.request);
-        context.protocol = self.protocol_extractor.detect(&context.request.request);
-        context.client_ip = self.ip_extractor.detect(&context);
+        context.host = self.host_extractor.detect(&context.request);
+        context.protocol = self.protocol_extractor.detect(&context.request);
+        context.client_ip = self.ip_extractor.detect(&context.request);
         context.user_agent = self
             .user_agent_string_extractor
-            .detect(&context.request.request);
-        context.client_langs = self.language_extractor.detect(&context.request.request);
+            .detect(&context.request);
+        context.client_langs = self.language_extractor.detect(&context.request);
 
         context
     }
@@ -340,8 +340,8 @@ impl DefaultFlowRouter {
 
 #[async_trait::async_trait()]
 impl BaseFlowRouter for DefaultFlowRouter {
-    async fn handle(&self, req: PerRequestData) -> Result<FlowRouterResult> {
-        let context = self.start(req).await?;
+    async fn handle(&self, req: RequestData, res: ResponseData) -> Result<FlowRouterResult> {
+        let context = self.start(req, res).await?;
         Ok(context.result.unwrap())
     }
 }

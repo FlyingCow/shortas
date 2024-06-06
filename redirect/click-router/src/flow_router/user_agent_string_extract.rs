@@ -1,9 +1,10 @@
 use dyn_clone::{clone_trait_object, DynClone};
-use http::Request;
+
+use crate::core::flow_router::RequestData;
 
 
 pub trait BaseUserAgentStringExtractor: DynClone{
-    fn detect(&self, request: &Request<()>) -> Option<String>;
+    fn detect(&self, request: &RequestData) -> Option<String>;
 }
 
 clone_trait_object!(BaseUserAgentStringExtractor);

@@ -1,10 +1,7 @@
-use std::{
-    net::{IpAddr, SocketAddr},
-    str::FromStr,
-};
+use std::{net::IpAddr, str::FromStr};
 
 use crate::{
-    core::flow_router::FlowRouterContext,
+    core::flow_router::RequestData,
     flow_router::ip_extract::{BaseIPExtractor, IPInfo},
 };
 
@@ -19,17 +16,11 @@ impl DefaultIPExtractor {
     }
 }
 
-fn detect_for_headers(request: &http::Request<()>) -> Option<String> {
-    if let Some(proto_header) = *&request.headers().get(X_FORWARDED_FOR_HEADER) {
-        let header = proto_header
-        .to_str()
-        .unwrap_or_default()
-        .replace(" ", "");
+fn detect_for_headers(request: &RequestData) -> Option<String> {
+    if let Some(proto_header) = *&request.headers.get(X_FORWARDED_FOR_HEADER) {
+        let header = proto_header.to_str().unwrap_or_default().replace(" ", "");
 
-        let client_details = header
-            .split(",")
-            .last()
-            .unwrap();
+        let client_details = header.split(",").last().unwrap();
 
         if client_details.is_empty() {
             return None;
@@ -42,8 +33,8 @@ fn detect_for_headers(request: &http::Request<()>) -> Option<String> {
 }
 
 impl BaseIPExtractor for DefaultIPExtractor {
-    fn detect(&self, context: &FlowRouterContext) -> Option<IPInfo> {
-        if let Some(ip_header) = detect_for_headers(&context.request.request) {
+    fn detect(&self, request: &RequestData) -> Option<IPInfo> {
+        if let Some(ip_header) = detect_for_headers(&request) {
             let addr = IpAddr::from_str(ip_header.as_str());
 
             if let Ok(addr) = addr {
@@ -51,21 +42,33 @@ impl BaseIPExtractor for DefaultIPExtractor {
             }
         }
 
-        let ip: SocketAddr = context.request.remote_addr;
-        return Some(IPInfo { address: ip.ip() });
+        if let Some(ip) = request.remote_addr {
+            return Some(IPInfo { address: ip.ip() });
+        }
+
+        None
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use http::Request;
+    use std::net::SocketAddr;
 
-    use crate::core::flow_router::{FlowInRoute, PerRequestData};
+    use crate::core::flow_router::{FlowInRoute, FlowRouterContext, RequestData, ResponseData};
 
     use super::*;
 
     fn get_default_context(header_value: &str, remote_addr: &str) -> FlowRouterContext {
-        let builder = Request::builder().header(X_FORWARDED_FOR_HEADER, header_value);
+        let mut request = RequestData {
+            local_addr: Some(SocketAddr::new("192.168.0.1".parse().unwrap(), 80)),
+            remote_addr: Some(SocketAddr::new(remote_addr.parse().unwrap(), 80)),
+            tls_info: None,
+            ..Default::default()
+        };
+
+        request
+            .headers
+            .insert(X_FORWARDED_FOR_HEADER, header_value.parse().unwrap());
 
         FlowRouterContext::new(
             FlowInRoute::new(
@@ -75,21 +78,16 @@ mod tests {
                 String::from("/"),
                 String::from(""),
             ),
-            PerRequestData {
-                request: builder.body(()).unwrap(),
-                local_addr: SocketAddr::new("192.168.0.1".parse().unwrap(), 80),
-                remote_addr: SocketAddr::new(remote_addr.parse().unwrap(), 80),
-                tls_info: None,
-            },
+            request,
+            ResponseData::default(),
         )
     }
 
     #[test]
     fn should_extract_from_header_when_present() {
         let context = get_default_context("183.143.0.2", "183.143.0.1");
-        
 
-        let result = DefaultIPExtractor::new().detect(&context);
+        let result = DefaultIPExtractor::new().detect(&context.request);
 
         assert!(result.is_some());
         let ip_info = result.unwrap();
@@ -99,9 +97,8 @@ mod tests {
     #[test]
     fn should_use_last_value_from_header() {
         let context = get_default_context("183.143.0.2, 183.143.0.3, 183.143.0.4", "183.143.0.1");
-        
 
-        let result = DefaultIPExtractor::new().detect(&context);
+        let result = DefaultIPExtractor::new().detect(&context.request);
 
         assert!(result.is_some());
         let ip_info = result.unwrap();
@@ -111,9 +108,8 @@ mod tests {
     #[test]
     fn should_use_remote_addr_when_header_not_present() {
         let context = get_default_context("", "183.143.0.1");
-        
 
-        let result = DefaultIPExtractor::new().detect(&context);
+        let result = DefaultIPExtractor::new().detect(&context.request);
 
         assert!(result.is_some());
         let ip_info = result.unwrap();

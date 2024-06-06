@@ -4,10 +4,7 @@ use std::{
 };
 
 use click_router::{
-    app::AppBuilder,
-    core::{flow_router::PerRequestData, BaseFlowRouter},
-    flow_router::default_flow_router::DefaultFlowRouter,
-    settings::Settings,
+    app::AppBuilder, core::{flow_router::{RequestData, ResponseData}, BaseFlowRouter}, flow_router::default_flow_router::DefaultFlowRouter, settings::Settings
 };
 
 use clap::Parser;
@@ -22,7 +19,7 @@ use salvo::{
     writing::Text,
     Depot, FlowCtrl, Handler, Listener, Request, Response, Router, Server,
 };
-use tracing::info;
+
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -37,6 +34,8 @@ static FLOW_ROUTER: OnceCell<DefaultFlowRouter> = OnceCell::new();
 
 struct Redirect;
 
+// fn to_socket_addr()
+
 #[async_trait]
 impl Handler for Redirect {
     async fn handle(
@@ -46,27 +45,38 @@ impl Handler for Redirect {
         res: &mut Response,
         _ctrl: &mut FlowCtrl,
     ) {
-        let request = http::Request::builder()
-            .uri(req.uri())
-            .header("Host", "localhost")
-            .header(
-                "User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
-            );
 
         let router = get_flow_router();
 
         let result = router
-            .handle(PerRequestData {
-                local_addr: "192.168.0.100:80".parse().unwrap(),
-                remote_addr: "188.138.135.18:80".parse().unwrap(),
-                request: request.body(()).unwrap(),
-                tls_info: None,
-            })
+            .handle(
+                RequestData {
+                    headers: req.headers().clone(),
+                    uri: req.uri().clone(),
+                    extensions: req.extensions().clone(),
+                    method: req.method().clone(),
+                    cookies: req.cookies().clone(),
+                    params: req.params().clone(),
+                    queries: OnceCell::with_value(req.queries().clone()),
+                    version: req.version().clone(),
+                    scheme: Some(req.scheme().clone()),
+                    local_addr: req.local_addr().clone().into_std(),
+                    remote_addr: req.remote_addr().clone().into_std(),
+                    tls_info: None,
+                },
+                ResponseData {
+                    cookies: res.cookies.clone(),
+                    extensions: res.extensions.clone(),
+                    headers: res.headers.clone(),
+                    status_code: res.status_code,
+                    version: res.version,
+                },
+            )
             .await
             .unwrap();
 
         res.render(Text::Plain(result.to_string()));
+ 
     }
 }
 
@@ -79,8 +89,7 @@ struct ServerConfigResolverMock;
 
 #[async_trait]
 impl ResolvesServerConfig<IoError> for ServerConfigResolverMock {
-    async fn resolve(&self, client_hello: ClientHello<'_>) -> IoResult<Arc<RustlsConfig>> {
-        info!("host:{}", client_hello.server_name().unwrap());
+    async fn resolve(&self, _client_hello: ClientHello<'_>) -> IoResult<Arc<RustlsConfig>> {
 
         let config = RustlsConfig::new(
             Keycert::new()
@@ -126,7 +135,7 @@ async fn main() {
 
     let router = Router::with_path("<**rest_path>").get(Redirect);
 
-    println!("{:?}", router);
+    info!("{:?}", router);
 
     let acceptor = TcpListener::new("0.0.0.0:5800")
         .rustls_async(ServerConfigResolverMock)

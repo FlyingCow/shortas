@@ -2,7 +2,7 @@ use std::net::IpAddr;
 
 use dyn_clone::{clone_trait_object, DynClone};
 
-use crate::core::flow_router::FlowRouterContext;
+use crate::core::flow_router::RequestData;
 
 #[derive(Clone, Debug)]
 pub struct IPInfo {
@@ -10,7 +10,7 @@ pub struct IPInfo {
 }
 
 pub trait BaseIPExtractor: DynClone {
-    fn detect(&self, context: &FlowRouterContext) -> Option<IPInfo>;
+    fn detect(&self, context: &RequestData) -> Option<IPInfo>;
 }
 
 clone_trait_object!(BaseIPExtractor);

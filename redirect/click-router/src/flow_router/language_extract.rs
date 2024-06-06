@@ -1,5 +1,5 @@
 use dyn_clone::{clone_trait_object, DynClone};
-use http::Request;
+use crate::core::flow_router::RequestData;
 
 #[derive(Clone, Debug)]
 pub struct Language {
@@ -14,7 +14,7 @@ impl Language{
 }
 
 pub trait BaseLanguageExtractor: DynClone{
-    fn detect(&self, request: &Request<()>) -> Option<Vec<Language>>;
+    fn detect(&self, request: &RequestData) -> Option<Vec<Language>>;
 }
 
 clone_trait_object!(BaseLanguageExtractor);

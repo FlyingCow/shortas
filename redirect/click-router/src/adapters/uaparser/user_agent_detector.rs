@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use tracing::info;
 use uaparser::{Parser, UserAgentParser};
 
 use crate::core::user_agent_detect::{BaseUserAgentDetector, Device, UserAgent, OS};
@@ -11,7 +12,8 @@ pub struct UAParserUserAgentDetector {
 
 impl UAParserUserAgentDetector {
     pub fn new(path: &str) -> Self {
-        println!("  yaml -> {}", path);
+        info!("  yaml -> {}", path);
+
         let parser = UserAgentParser::builder()
             .build_from_yaml(path)
             .expect("Parser creation failed");
@@ -48,7 +50,6 @@ impl BaseUserAgentDetector for UAParserUserAgentDetector {
     }
 
     fn parse_user_agent(&self, user_agent: &str) -> UserAgent {
-
         let uaparser_user_agent = self.parser.parse_user_agent(user_agent);
         UserAgent {
             family: uaparser_user_agent.family.to_string(),
