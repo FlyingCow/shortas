@@ -4,6 +4,7 @@ pub mod user_settings_store;
 
 pub mod crypto_manage;
 pub mod flow_router;
+pub mod hits_register;
 pub mod routes_manage;
 pub mod user_settings_manage;
 

@@ -2,11 +2,16 @@ use aws_config::SdkConfig;
 use tracing::info;
 
 use crate::{
-    adapters::aws::dynamo::{
-        crypto_store::DynamoCryptoStore, routes_store::DynamoRoutesStore,
-        user_settings_store::DynamoUserSettingsStore,
+    adapters::aws::{
+        dynamo::{
+            crypto_store::DynamoCryptoStore, routes_store::DynamoRoutesStore,
+            user_settings_store::DynamoUserSettingsStore,
+        },
+        kinesis::hit_registrar::KinesisHitRegistrar,
     },
     app::AppBuilder,
+    model::Hit,
+    utils::async_queue::AsyncQueue,
 };
 
 use super::settings::AWS;
@@ -46,6 +51,12 @@ impl AppBuilder {
             self.settings.aws.dynamo.user_settings_table.clone(),
         )) as Box<_>);
 
+        let hit_registrar = Some(Box::new(KinesisHitRegistrar::new(
+            &config,
+            self.settings.aws.kinesis.hit_stream.clone(),
+        )) as Box<_>);
+
+        self.hit_registrar = hit_registrar;
         self.routes_store = routes_store;
         self.crypto_store = crypto_store;
         self.user_settings_store = user_settings_store;

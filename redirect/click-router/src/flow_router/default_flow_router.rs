@@ -4,18 +4,21 @@ use anyhow::Result;
 use async_recursion::async_recursion;
 use chrono::Utc;
 use http::{uri::Scheme, StatusCode};
+use uuid::Uuid;
 
 use crate::{
     core::{
         flow_router::{
-            FlowInRoute, FlowRouterContext, FlowRouterResult, FlowStep, RedirectType, RequestData, ResponseData,
+            FlowInRoute, FlowRouterContext, FlowRouterResult, FlowStep, RedirectType, RequestData,
+            ResponseData,
         },
+        hits_register::BaseHitRegistrar,
         location_detect::BaseLocationDetector,
         user_agent_detect::BaseUserAgentDetector,
         BaseFlowRouter, BaseRoutesManager, InitOnce,
     },
     flow_router::flow_module::FlowStepContinuation,
-    model::Route,
+    model::{Hit, Route},
 };
 
 use super::{
@@ -29,6 +32,7 @@ const MAIN_SWITCH: &'static str = "main";
 #[derive(Clone)]
 pub struct DefaultFlowRouter {
     routes_manager: Box<dyn BaseRoutesManager + Send + Sync>,
+    hit_registrar: Box<dyn BaseHitRegistrar + Send + Sync>,
     host_extractor: Box<dyn BaseHostExtractor + Send + Sync>,
     protocol_extractor: Box<dyn BaseProtocolExtractor + Send + Sync>,
     ip_extractor: Box<dyn BaseIPExtractor + Send + Sync>,
@@ -39,28 +43,10 @@ pub struct DefaultFlowRouter {
     modules: Vec<Box<dyn BaseFlowModule + Send + Sync>>,
 }
 
-// impl Debug for DefaultFlowRouter {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.debug_struct("DefaultFlowRouter")
-//             .field("routes_manager", &self.routes_manager)
-//             .field("host_extractor", &self.host_extractor)
-//             .field("protocol_extractor", &self.protocol_extractor)
-//             .field("ip_extractor", &self.ip_extractor)
-//             .field(
-//                 "user_agent_string_extractor",
-//                 &self.user_agent_string_extractor,
-//             )
-//             .field("language_extractor", &self.language_extractor)
-//             .field("user_agent_detector", &self.user_agent_detector)
-//             .field("location_detector", &self.location_detector)
-//             .field("modules", &self.modules)
-//             .finish()
-//     }
-// }
-
 impl DefaultFlowRouter {
     pub fn new(
         routes_manager: Box<dyn BaseRoutesManager + Send + Sync>,
+        hit_registrar: Box<dyn BaseHitRegistrar + Send + Sync>,
         host_extractor: Box<dyn BaseHostExtractor + Send + Sync>,
         protocol_extractor: Box<dyn BaseProtocolExtractor + Send + Sync>,
         ip_extractor: Box<dyn BaseIPExtractor + Send + Sync>,
@@ -72,6 +58,7 @@ impl DefaultFlowRouter {
     ) -> Self {
         DefaultFlowRouter {
             routes_manager,
+            hit_registrar,
             host_extractor,
             protocol_extractor,
             ip_extractor,
@@ -98,8 +85,6 @@ impl DefaultFlowRouter {
     }
 
     async fn handle_start(&self, context: &mut FlowRouterContext) -> Result<()> {
-        //println!("HandleStart");
-
         for module in &self.modules {
             let result = module.handle_start(context, &self).await?;
 
@@ -112,8 +97,6 @@ impl DefaultFlowRouter {
     }
 
     async fn handle_url_extract(&self, context: &mut FlowRouterContext) -> Result<()> {
-        //println!("HandleUrlExtract");
-
         for module in &self.modules {
             let result = module.handle_url_extract(context, &self).await?;
 
@@ -126,8 +109,6 @@ impl DefaultFlowRouter {
     }
 
     async fn handle_register(&self, context: &mut FlowRouterContext) -> Result<()> {
-        //println!("HandleRegister");
-
         for module in &self.modules {
             let result = module.handle_register(context, &self).await?;
 
@@ -136,12 +117,17 @@ impl DefaultFlowRouter {
             }
         }
 
+        self.hit_registrar.register(Hit::new(
+            context.id.clone().to_string(),
+            Some(context.out_route.clone().unwrap().dest.unwrap()),
+            context.user_agent.clone(),
+            Some(context.client_ip.clone().unwrap().address)
+        )).await?;
+
         self.router_to(context, FlowStep::BuildResult).await
     }
 
     async fn handle_build_result(&self, context: &mut FlowRouterContext) -> Result<()> {
-        //println!("HandleBuildResult");
-
         for module in &self.modules {
             let result = module.handle_build_result(context, &self).await?;
 
@@ -169,8 +155,6 @@ impl DefaultFlowRouter {
     }
 
     async fn handle_end(&self, context: &mut FlowRouterContext) -> Result<()> {
-        //println!("HandleEnd");
-
         for module in &self.modules {
             let result = module.handle_end(context, &self).await?;
 
@@ -306,6 +290,7 @@ impl DefaultFlowRouter {
 
     fn build_context(&self, req: &RequestData, res: &ResponseData) -> FlowRouterContext {
         let mut context = FlowRouterContext {
+            id: Uuid::new_v4(),
             utc: Utc::now(),
             data: HashMap::new(),
             client_os: InitOnce::default(None),
@@ -323,15 +308,13 @@ impl DefaultFlowRouter {
             main_route: None,
             result: None,
             request: req.clone(),
-            response: res.clone()
+            response: res.clone(),
         };
 
         context.host = self.host_extractor.detect(&context.request);
         context.protocol = self.protocol_extractor.detect(&context.request);
         context.client_ip = self.ip_extractor.detect(&context.request);
-        context.user_agent = self
-            .user_agent_string_extractor
-            .detect(&context.request);
+        context.user_agent = self.user_agent_string_extractor.detect(&context.request);
         context.client_langs = self.language_extractor.detect(&context.request);
 
         context

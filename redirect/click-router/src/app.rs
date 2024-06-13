@@ -3,9 +3,9 @@ use tracing::info;
 
 use crate::{
     core::{
-        location_detect::BaseLocationDetector, user_agent_detect::BaseUserAgentDetector,
-        BaseCryptoManager, BaseCryptoStore, BaseRoutesManager, BaseRoutesStore,
-        BaseUserSettingsManager, BaseUserSettingsStore,
+        hits_register::BaseHitRegistrar, location_detect::BaseLocationDetector,
+        user_agent_detect::BaseUserAgentDetector, BaseCryptoManager, BaseCryptoStore,
+        BaseRoutesManager, BaseRoutesStore, BaseUserSettingsManager, BaseUserSettingsStore,
     },
     flow_router::{
         default_flow_router::DefaultFlowRouter, expression_evaluate::BaseExpressionEvaluator,
@@ -35,6 +35,7 @@ pub struct AppBuilder {
     pub(super) user_agent_detector: Option<Box<dyn BaseUserAgentDetector + Send + Sync + 'static>>,
     pub(super) expression_evaluator:
         Option<Box<dyn BaseExpressionEvaluator + Send + Sync + 'static>>,
+    pub(super) hit_registrar: Option<Box<dyn BaseHitRegistrar + Send + Sync + 'static>>,
 
     pub(super) location_detector: Option<Box<dyn BaseLocationDetector + Send + Sync + 'static>>,
     pub(super) modules: Vec<Box<dyn BaseFlowModule + Send + Sync + 'static>>,
@@ -50,6 +51,7 @@ impl AppBuilder {
             crypto_manager: None,
             user_settings_store: None,
             user_settings_manager: None,
+            hit_registrar: None,
             host_extractor: None,
             ip_extractor: None,
             user_agent_string_extractor: None,
@@ -67,6 +69,7 @@ impl AppBuilder {
 
         let router = DefaultFlowRouter::new(
             self.routes_manager.clone().unwrap(),
+            self.hit_registrar.clone().unwrap(),
             self.host_extractor.clone().unwrap(),
             self.protocol_extractor.clone().unwrap(),
             self.ip_extractor.clone().unwrap(),

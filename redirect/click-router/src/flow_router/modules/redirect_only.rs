@@ -62,7 +62,7 @@ impl RedirectOnlyModule {
             }
         }
 
-        Ok(false)
+        Ok(true)
     }
 
     async fn is_redirect_only(&self, context: &mut FlowRouterContext) -> Result<bool> {
