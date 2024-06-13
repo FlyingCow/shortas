@@ -10,8 +10,6 @@ use crate::{
         kinesis::hit_registrar::KinesisHitRegistrar,
     },
     app::AppBuilder,
-    model::Hit,
-    utils::async_queue::AsyncQueue,
 };
 
 use super::settings::AWS;
