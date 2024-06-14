@@ -98,7 +98,7 @@ mod tests {
 
         request
             .headers
-            .insert("Host", "test.com:80".parse().unwrap());
+            .insert("Host", "test.com:443".parse().unwrap());
 
         let result = DefaultHostExtractor::new().detect(&request);
 
