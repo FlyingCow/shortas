@@ -1,0 +1,26 @@
+debug = true
+
+[aws]
+local = true
+localstack_endpoint="http://localhost:4566"
+
+[aws.dynamo]
+encryption_table = "core-routes-encryption-local"
+routes_table = "core-routes-local"
+hostname_mappings_table = "core-routes-hostname-mapping-local"
+user_settings_table = "core-user-settings-local"
+
+[aws.kinesis]
+[aws.kinesis.hit_stream]
+stream_name = "hit-stream-local"
+partition_keys = ["hit-stream_01", "hit-stream_02"]
+batch_size = 100
+consumers_count = 2
+iteration_seconds = 1
+
+
+[uaparser]
+yaml = "./data/ua-parser/regexes.yaml"
+
+[geo_ip]
+mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"

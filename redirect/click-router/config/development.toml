@@ -20,7 +20,7 @@ iteration_seconds = 1
 
 
 [uaparser]
-yaml = "./click-router/data/ua-parser/core/regexes.yaml"
+yaml = "./data/ua-parser/regexes.yaml"
 
 [geo_ip]
-mmdb = "./click-router/data/geo-ip/GeoLite2-Country.mmdb"
+mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"
