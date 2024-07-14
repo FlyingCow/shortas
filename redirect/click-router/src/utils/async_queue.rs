@@ -3,8 +3,7 @@ use std::{sync::Arc, time::Duration};
 use anyhow::Result;
 use tokio::{
     sync::{
-        mpsc::{self, Sender},
-        Semaphore,
+        mpsc::{self, Sender}, Mutex, Semaphore
     },
     time::Instant,
 };
@@ -12,7 +11,7 @@ use tracing::{error, warn};
 
 #[async_trait::async_trait()]
 pub trait BatchProcess<T>: Send + Sync {
-    async fn process(&self, batch: Vec<T>) -> Result<()>;
+    async fn process(&mut self, batch: Vec<T>) -> Result<()>;
 }
 
 #[derive(Clone, Debug)]
@@ -28,7 +27,7 @@ impl<T: Send + Sync> AsyncQueue<T> {
         duration: Duration,
     ) -> Self {
         let (tx, mut rx) = mpsc::channel((consumers) * batch_size);
-        let processor = Arc::new(processor);
+        let processor = Arc::new(Mutex::new(processor));
 
         let _join_handle = tokio::spawn(async move {
             let permits = Arc::new(Semaphore::new(consumers));
@@ -61,7 +60,7 @@ impl<T: Send + Sync> AsyncQueue<T> {
 
                     let permit = permits.acquire_owned().await.unwrap();
                     tokio::spawn(async move {
-                        let result = processor.as_ref().process(items).await;
+                        let result = processor.lock().await.process(items).await;
 
                         if let Err(error) = result {
                             error!("{}", error);

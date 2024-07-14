@@ -3,8 +3,7 @@ use tracing::info;
 
 use crate::{
     core::{
-        location_detect::BaseLocationDetector, user_agent_detect::BaseUserAgentDetector,
-        BaseUserSettingsManager, BaseUserSettingsStore,
+        hit_stream::BaseHitStream, location_detect::BaseLocationDetector, user_agent_detect::BaseUserAgentDetector, BaseUserSettingsManager, BaseUserSettingsStore
     },
     settings::Settings,
     tracking_pipe::default_tracking_pipe::DefaultTrackingPipe,
@@ -18,6 +17,8 @@ pub struct AppBuilder {
     pub(super) user_agent_detector: Option<Box<dyn BaseUserAgentDetector + Send + Sync + 'static>>,
 
     pub(super) location_detector: Option<Box<dyn BaseLocationDetector + Send + Sync + 'static>>,
+
+    pub(super) hit_stream: Option<Box<dyn BaseHitStream + Send + Sync + 'static>>,
     //pub(super) modules: Vec<Box<dyn BaseFlowModule + Send + Sync + 'static>>,
 }
 
@@ -29,6 +30,7 @@ impl AppBuilder {
             user_settings_manager: None,
             user_agent_detector: None,
             location_detector: None,
+            hit_stream: None
             // modules: vec![],
         }
     }
@@ -37,8 +39,7 @@ impl AppBuilder {
         info!("{}", "BUILDING");
 
         let router = DefaultTrackingPipe::new(
-            self.user_agent_detector.clone().unwrap(),
-            self.location_detector.clone().unwrap(),
+            self.hit_stream.clone().unwrap(),
         );
 
         Ok(router)

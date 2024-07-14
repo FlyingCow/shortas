@@ -4,7 +4,13 @@ use std::{
 };
 
 use click_router::{
-    app::AppBuilder, core::{flow_router::{RequestData, ResponseData}, BaseFlowRouter}, flow_router::default_flow_router::DefaultFlowRouter, settings::Settings
+    app::AppBuilder,
+    core::{
+        flow_router::{RequestData, ResponseData},
+        BaseFlowRouter,
+    },
+    flow_router::default_flow_router::DefaultFlowRouter,
+    settings::Settings,
 };
 
 use clap::Parser;
@@ -19,7 +25,6 @@ use salvo::{
     writing::Text,
     Depot, FlowCtrl, Handler, Listener, Request, Response, Router, Server,
 };
-
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -45,7 +50,6 @@ impl Handler for Redirect {
         res: &mut Response,
         _ctrl: &mut FlowCtrl,
     ) {
-
         let router = get_flow_router();
 
         let result = router
@@ -76,7 +80,6 @@ impl Handler for Redirect {
             .unwrap();
 
         res.render(Text::Plain(result.to_string()));
- 
     }
 }
 
@@ -90,7 +93,6 @@ struct ServerConfigResolverMock;
 #[async_trait]
 impl ResolvesServerConfig<IoError> for ServerConfigResolverMock {
     async fn resolve(&self, _client_hello: ClientHello<'_>) -> IoResult<Arc<RustlsConfig>> {
-
         let config = RustlsConfig::new(
             Keycert::new()
                 .cert(include_bytes!("../certs/cert.pem").as_ref())
@@ -120,7 +122,9 @@ async fn main() {
     .unwrap();
 
     let app = AppBuilder::new(settings)
-        .with_aws()
+        .with_dynamo_stores()
+        .await
+        .with_kafka()
         .await
         .with_moka()
         .with_defaults()

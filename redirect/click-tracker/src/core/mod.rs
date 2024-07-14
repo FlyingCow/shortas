@@ -2,6 +2,8 @@ pub mod user_settings_manage;
 
 pub mod default;
 
+pub mod hit_stream;
+
 pub mod location_detect;
 pub mod user_agent_detect;
 pub mod user_settings_store;

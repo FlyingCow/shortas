@@ -15,7 +15,9 @@ async fn init_flow_router() -> DefaultFlowRouter {
     let settings = Settings::new(Some(APP_RUN_MODE), Some(APP_CONFIG_PATH)).unwrap();
 
     let app: DefaultFlowRouter = AppBuilder::new(settings)
-        .with_aws()
+        .with_dynamo_stores()
+        .await
+        .with_kafka()
         .await
         .with_moka()
         .with_defaults()
@@ -27,14 +29,6 @@ async fn init_flow_router() -> DefaultFlowRouter {
         .unwrap();
 
     app
-}
-
-fn fibonacci(n: u64) -> u64 {
-    match n {
-        0 => 1,
-        1 => 1,
-        n => fibonacci(n - 1) + fibonacci(n - 2),
-    }
 }
 
 #[tokio::main]

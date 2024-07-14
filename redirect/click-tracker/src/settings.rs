@@ -1,7 +1,7 @@
 use config::{Config, ConfigError, Environment, File};
 use serde_derive::Deserialize;
 
-use crate::adapters::{aws::settings::AWS, geo_ip::settings::GeoIP, moka::settings::Moka, uaparser::settings::UAParser};
+use crate::adapters::{aws::settings::AWS, kafka::settings::Kafka, geo_ip::settings::GeoIP, moka::settings::Moka, uaparser::settings::UAParser};
 // use crate::adapters::geo_ip::settings::GeoIP;
 // use crate::adapters::moka::settings::Moka;
 // use crate::adapters::uaparser::settings::UAParser;
@@ -18,6 +18,7 @@ pub struct Server {
 #[allow(unused)]
 pub struct Settings {
     pub aws: AWS,
+    pub kafka: Kafka,
     pub moka: Moka,
     pub uaparser: UAParser,
     pub geo_ip: GeoIP,

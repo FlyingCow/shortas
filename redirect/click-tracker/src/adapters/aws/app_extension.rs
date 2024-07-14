@@ -2,13 +2,10 @@ use aws_config::SdkConfig;
 use tracing::info;
 
 use crate::{
-    // adapters::aws::{
-    //     dynamo::{
-
-    //     },
-    //     kinesis::hit_registrar::KinesisHitRegistrar,
-    // },
-    adapters::aws::dynamo::user_settings_store::DynamoUserSettingsStore, app::AppBuilder
+    adapters::aws::{
+        dynamo::user_settings_store::DynamoUserSettingsStore, kinesis::hit_stream::KinesisHitStream,
+    },
+    app::AppBuilder,
 };
 
 use super::settings::AWS;
@@ -39,7 +36,13 @@ impl AppBuilder {
             self.settings.aws.dynamo.user_settings_table.clone(),
         )) as Box<_>);
 
+        let hit_stream = Some(Box::new(KinesisHitStream::new(
+            &config,
+            self.settings.aws.kinesis.hit_stream.clone(),
+        )) as Box<_>);
+
         self.user_settings_store = user_settings_store;
+        self.hit_stream = hit_stream;
 
         self
     }

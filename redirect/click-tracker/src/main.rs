@@ -1,12 +1,11 @@
-use std::{
-    io::{Error as IoError, Result as IoResult},
-    sync::Arc,
-};
+use anyhow::Result;
 
 use clap::Parser;
-use click_tracker::{settings::Settings, tracking_pipe::default_tracking_pipe::DefaultTrackingPipe, AppBuilder};
+use click_tracker::{
+    core::tracking_pipe::BaseTrackingPipe, settings::Settings,
+    tracking_pipe::default_tracking_pipe::DefaultTrackingPipe, AppBuilder,
+};
 use once_cell::sync::OnceCell;
-
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -25,7 +24,7 @@ pub fn get_trackin_pipe() -> &'static DefaultTrackingPipe {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     tracing_subscriber::fmt().init();
 
     dotenv::from_filename("./click-tracker/.env").ok();
@@ -50,6 +49,10 @@ async fn main() {
         .build()
         .unwrap();
 
+    app.start()
+    .await?;
+
     let _ = TRACKING_PIPE.set(app);
 
+    return Ok(());
 }

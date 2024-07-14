@@ -29,7 +29,7 @@ impl Into<Vec<u8>> for &Hit {
 
 #[async_trait::async_trait()]
 impl BatchProcess<Hit> for KinesisHitsProducer {
-    async fn process(&self, batch: Vec<Hit>) -> Result<()> {
+    async fn process(&mut self, batch: Vec<Hit>) -> Result<()> {
         //let blob = Blob::new(*batch);
         warn!("batch");
         let key = self

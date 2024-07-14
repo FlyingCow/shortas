@@ -30,7 +30,21 @@ async fn load_aws_config(settings: AWS) -> SdkConfig {
 }
 
 impl AppBuilder {
-    pub async fn with_aws(&mut self) -> &mut Self {
+    pub async fn with_kinesis(&mut self) -> &mut Self {
+        info!("{}", "WITH AWS KINESIS PROVIDER");
+
+        let config = load_aws_config(self.settings.aws.clone()).await;
+
+        let hit_registrar = Some(Box::new(KinesisHitRegistrar::new(
+            &config,
+            self.settings.aws.kinesis.hit_stream.clone(),
+        )) as Box<_>);
+
+        self.hit_registrar = hit_registrar;
+
+        self
+    }
+    pub async fn with_dynamo_stores(&mut self) -> &mut Self {
         info!("{}", "WITH AWS PROVIDERS");
 
         let config = load_aws_config(self.settings.aws.clone()).await;
@@ -49,12 +63,6 @@ impl AppBuilder {
             self.settings.aws.dynamo.user_settings_table.clone(),
         )) as Box<_>);
 
-        let hit_registrar = Some(Box::new(KinesisHitRegistrar::new(
-            &config,
-            self.settings.aws.kinesis.hit_stream.clone(),
-        )) as Box<_>);
-
-        self.hit_registrar = hit_registrar;
         self.routes_store = routes_store;
         self.crypto_store = crypto_store;
         self.user_settings_store = user_settings_store;
