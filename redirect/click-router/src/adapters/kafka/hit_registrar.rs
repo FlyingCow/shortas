@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::Result;
 use kafka::{
     client::RequiredAcks,
-    producer::{AsBytes, Producer, Record},
+    producer::{Producer, Record},
 };
 use tracing::warn;
 
@@ -14,12 +14,6 @@ use crate::{
 };
 
 use super::settings::HitStreamConfig;
-
-// impl Into<Vec<u8>> for &Hit {
-//     fn into(self) -> Vec<u8> {
-//         serde_json::to_vec(self).unwrap()
-//     }
-// }
 
 struct KafkaHitsProducer {
     producer: Producer,

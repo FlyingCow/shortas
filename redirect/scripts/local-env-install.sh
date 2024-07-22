@@ -31,3 +31,4 @@ sudo apt install awscli -y
 sudo apt install python3-pip -y
 sudo pip3 install awscli-local
 sudo pip install terraform-local
+sudo apt install openjdk-21-jre-headless
