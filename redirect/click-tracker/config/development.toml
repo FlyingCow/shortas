@@ -10,10 +10,12 @@ routes_table = "core-routes-local"
 hostname_mappings_table = "core-routes-hostname-mapping-local"
 user_settings_table = "core-user-settings-local"
 
-[aws.kinesis]
-[aws.kinesis.hit_stream]
-stream_name = "hit-stream-local"
-partition_keys = ["hit-stream_01", "hit-stream_02"]
+
+[kafka]
+[kafka.hit_stream]
+topic = "hit-stream-local"
+hosts = ["localhost:9092", "localhost:9093"]
+ack_timeout_secs = 60
 batch_size = 100
 consumers_count = 2
 iteration_seconds = 1

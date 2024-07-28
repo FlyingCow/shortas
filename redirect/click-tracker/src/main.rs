@@ -37,8 +37,10 @@ async fn main() -> Result<()> {
     )
     .unwrap();
 
-    let app = AppBuilder::new(settings)
+    let mut app = AppBuilder::new(settings)
         .with_aws()
+        .await
+        .with_kafka()
         .await
         .with_moka()
         .with_defaults()

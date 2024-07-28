@@ -1,13 +1,18 @@
+use std::{borrow::Borrow, ops::Deref, sync::{Arc, Mutex}};
+
 use anyhow::Result;
 use tracing::info;
 
 use crate::{
+    adapters::kafka::hit_stream,
     core::{
-        hit_stream::BaseHitStream, location_detect::BaseLocationDetector, user_agent_detect::BaseUserAgentDetector, BaseUserSettingsManager, BaseUserSettingsStore
+        hit_stream::BaseHitStream, location_detect::BaseLocationDetector,
+        user_agent_detect::BaseUserAgentDetector, BaseUserSettingsManager, BaseUserSettingsStore,
     },
     settings::Settings,
     tracking_pipe::default_tracking_pipe::DefaultTrackingPipe,
 };
+
 #[derive(Clone)]
 pub struct AppBuilder {
     pub(super) settings: Settings,
@@ -30,17 +35,16 @@ impl AppBuilder {
             user_settings_manager: None,
             user_agent_detector: None,
             location_detector: None,
-            hit_stream: None
-            // modules: vec![],
+            hit_stream: None, // modules: vec![],
         }
     }
 
     pub fn build(&self) -> Result<DefaultTrackingPipe> {
         info!("{}", "BUILDING");
 
-        let router = DefaultTrackingPipe::new(
-            self.hit_stream.clone().unwrap(),
-        );
+        let hit_stream = &self.hit_stream.clone().unwrap();
+
+        let router = DefaultTrackingPipe::new(hit_stream.to_owned());
 
         Ok(router)
     }

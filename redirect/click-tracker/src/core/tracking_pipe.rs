@@ -106,7 +106,6 @@ impl TrackingPipeContext {
 }
 
 #[async_trait::async_trait()]
-pub trait BaseTrackingPipe: DynClone {
-    async fn start(&self) -> Result<()>;
+pub trait BaseTrackingPipe {
+    async fn start(&mut self) -> Result<()>;
 }
-clone_trait_object!(BaseTrackingPipe);

@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "click-router",
     "click-aggregator",
+    "click-aggregator-api",
     "click-router-api",
     "click-tracker"
 ]
