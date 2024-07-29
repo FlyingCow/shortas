@@ -42,7 +42,7 @@ impl AppBuilder {
 
         let hit_stream = &self.hit_stream.clone().unwrap();
 
-        let router = DefaultTrackingPipe::new(hit_stream.to_owned());
+        let router = DefaultTrackingPipe::new(hit_stream.to_owned(), vec![]);
 
         Ok(router)
     }

@@ -118,7 +118,8 @@ impl DefaultFlowRouter {
         }
 
         self.hit_registrar.register(Hit::new(
-            context.id.clone().to_string(),
+            context.id.clone(),
+            context.utc,
             Some(context.out_route.clone().unwrap().dest.unwrap()),
             context.user_agent.clone(),
             Some(context.client_ip.clone().unwrap().address)

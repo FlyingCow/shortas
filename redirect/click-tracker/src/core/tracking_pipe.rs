@@ -1,8 +1,8 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use ulid::Ulid;
 use std::{self, collections::HashMap};
 use tokio_util::sync::CancellationToken;
-use uuid::Uuid;
 
 use crate::model::Hit;
 
@@ -47,7 +47,7 @@ impl TrackingPipeData {
 
 #[derive(Debug)]
 pub struct TrackingPipeContext {
-    pub id: Uuid,
+    pub id: String,
     pub utc: DateTime<Utc>,
     pub hit: Hit,
     pub data: HashMap<&'static str, TrackingPipeData>,
@@ -60,7 +60,7 @@ pub struct TrackingPipeContext {
 impl TrackingPipeContext {
     pub fn new(hit: Hit) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: Ulid::new().to_string(),
             utc: Utc::now(),
             hit: hit,
             data: HashMap::new(),

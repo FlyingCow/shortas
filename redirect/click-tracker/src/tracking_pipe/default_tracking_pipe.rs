@@ -1,23 +1,26 @@
+
 use anyhow::Result;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, warn};
 
 use crate::core::{hit_stream::BaseHitStream, tracking_pipe::BaseTrackingPipe};
 
+use super::tracking_module::BaseTrackingModule;
+
+
 pub struct DefaultTrackingPipe {
-    hit_stream: Box<dyn BaseHitStream + Send + Sync + 'static>, // user_agent_detector: Box<dyn BaseUserAgentDetector + Send + Sync>,
-                                                                // location_detector: Box<dyn BaseLocationDetector + Send + Sync>,
-                                                                // modules: Vec<Box<dyn BaseFlowModule + Send + Sync>>,
+    hit_stream: Box<dyn BaseHitStream + Send + Sync + 'static>,
+    modules: Vec<Box<dyn BaseTrackingModule + Send + Sync + 'static>>                                                                
 }
 
 impl DefaultTrackingPipe {
     pub fn new(
         hit_stream: Box<dyn BaseHitStream + Send + Sync + 'static>,
-        //modules: Vec<Box<dyn BaseFlowModule + Send + Sync>>,
+        modules: Vec<Box<dyn BaseTrackingModule + Send + Sync>>,
     ) -> Self {
         DefaultTrackingPipe {
             hit_stream: hit_stream,
-            //modules,
+            modules,
         }
     }
 }
@@ -39,7 +42,7 @@ impl BaseTrackingPipe for DefaultTrackingPipe {
                         }
                     }
                 };
-                
+
                 if cancelation_token.is_cancelled()
                 {
                     warn!("Tracking pipe has been cancelled.");
