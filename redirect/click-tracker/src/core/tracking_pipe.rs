@@ -1,7 +1,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use dyn_clone::{clone_trait_object, DynClone};
 use std::{self, collections::HashMap};
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::model::Hit;
@@ -107,5 +107,5 @@ impl TrackingPipeContext {
 
 #[async_trait::async_trait()]
 pub trait BaseTrackingPipe {
-    async fn start(&mut self) -> Result<()>;
+    async fn start(&mut self, cnacelation_token: CancellationToken) -> Result<()>;
 }

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use super::settings::HitStreamConfig;
 use crate::{core::hit_stream::BaseHitStream, model::Hit};
@@ -7,13 +7,17 @@ use kafka::{
     client::{FetchOffset, GroupOffsetStorage},
     consumer::Consumer,
 };
-use tokio::sync::Mutex;
+use tokio::{
+    sync::Mutex,
+    time::sleep,
+};
 
 const TRACKERS_GROUP: &str = "trackers";
+const IDLE_TIMEOUT: u64 = 500;
 
 #[derive(Clone)]
 pub struct KafkaHitStream {
-    consumer: Arc<Mutex<Consumer>>
+    consumer: Arc<Mutex<Consumer>>,
 }
 
 impl KafkaHitStream {
@@ -27,7 +31,7 @@ impl KafkaHitStream {
             .unwrap();
 
         Self {
-            consumer: Arc::new(Mutex::new(consumer))
+            consumer: Arc::new(Mutex::new(consumer)),
         }
     }
 }
@@ -36,15 +40,21 @@ impl KafkaHitStream {
 impl BaseHitStream for KafkaHitStream {
     async fn pull(&mut self) -> Result<Vec<Hit>> {
         let mut consumer = self.consumer.lock().await;
+
+        let mut hits: Vec<Hit> = vec![];
         for ms in consumer.poll()?.iter() {
             for m in ms.messages() {
-                let str = String::from_utf8_lossy(m.value);
-                println!("{:?}", str);
+                let hit = serde_json::from_slice(m.value)?;
+                hits.push(hit);
             }
             let _ = consumer.consume_messageset(ms);
-            consumer.commit_consumed().unwrap();
+        }
+        consumer.commit_consumed().unwrap();
+
+        if hits.len() == 0 {
+            sleep(Duration::from_millis(IDLE_TIMEOUT)).await;
         }
 
-        Ok(vec![])
+        Ok(hits)
     }
 }

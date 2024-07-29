@@ -8,5 +8,4 @@ pub trait BaseHitStream: DynClone {
     async fn pull(&mut self) -> Result<Vec<Hit>>;
 }
 
-
 clone_trait_object!(BaseHitStream);

@@ -1,11 +1,12 @@
+use std::thread;
+
 use anyhow::Result;
 
 use clap::Parser;
-use click_tracker::{
-    core::tracking_pipe::BaseTrackingPipe, settings::Settings,
-    tracking_pipe::default_tracking_pipe::DefaultTrackingPipe, AppBuilder,
-};
-use once_cell::sync::OnceCell;
+use signal_hook::{consts::SIGINT, iterator::Signals};
+
+use click_tracker::{core::tracking_pipe::BaseTrackingPipe, settings::Settings, AppBuilder};
+use tokio_util::sync::CancellationToken;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -14,13 +15,6 @@ pub struct Args {
     pub run_mode: String,
     #[arg(short, long, default_value_t = String::from("./config"), env("APP_CONFIG_PATH"))]
     pub config_path: String,
-}
-
-static TRACKING_PIPE: OnceCell<DefaultTrackingPipe> = OnceCell::new();
-
-#[inline]
-pub fn get_trackin_pipe() -> &'static DefaultTrackingPipe {
-    TRACKING_PIPE.get().unwrap()
 }
 
 #[tokio::main]
@@ -51,10 +45,17 @@ async fn main() -> Result<()> {
         .build()
         .unwrap();
 
-    app.start()
-    .await?;
+    let cancel: CancellationToken = CancellationToken::new();
 
-    let _ = TRACKING_PIPE.set(app);
+    let handler = app.start(cancel.clone());
 
-    return Ok(());
+    let mut signals = Signals::new(&[SIGINT])?;
+    thread::spawn(move || {
+        for sig in signals.forever() {
+            cancel.cancel();
+            println!("Received signal {:?}", sig);
+        }
+    });
+
+    return handler.await;
 }

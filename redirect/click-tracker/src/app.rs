@@ -1,10 +1,8 @@
-use std::{borrow::Borrow, ops::Deref, sync::{Arc, Mutex}};
 
 use anyhow::Result;
 use tracing::info;
 
 use crate::{
-    adapters::kafka::hit_stream,
     core::{
         hit_stream::BaseHitStream, location_detect::BaseLocationDetector,
         user_agent_detect::BaseUserAgentDetector, BaseUserSettingsManager, BaseUserSettingsStore,

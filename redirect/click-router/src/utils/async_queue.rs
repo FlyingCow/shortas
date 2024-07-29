@@ -3,11 +3,14 @@ use std::{sync::Arc, time::Duration};
 use anyhow::Result;
 use tokio::{
     sync::{
-        mpsc::{self, Sender}, Mutex, Semaphore
+        mpsc::{self, Sender},
+        Mutex, Semaphore,
     },
     time::Instant,
 };
 use tracing::{error, warn};
+
+const IDLE_TIMEOUT: u64 = 500;
 
 #[async_trait::async_trait()]
 pub trait BatchProcess<T>: Send + Sync {
@@ -38,12 +41,18 @@ impl<T: Send + Sync> AsyncQueue<T> {
             sleep.as_mut().reset(Instant::now() + duration);
 
             loop {
-
                 let recv_res = rx.try_recv();
-
 
                 if let Some(message) = recv_res.ok() {
                     batch.push(message);
+                } else {
+                    if batch.len() > 0 { 
+                        tokio::time::sleep(Duration::from_millis(IDLE_TIMEOUT)).await;
+                    }
+                    else  {
+                        let message = rx.recv().await.unwrap();
+                        batch.push(message);
+                    }
                 }
 
                 if batch.len() >= batch_size || (batch.len() > 0 && sleep.is_elapsed()) {
@@ -79,8 +88,7 @@ impl<T: Send + Sync> AsyncQueue<T> {
 
     pub async fn enqueue(&self, item: T) -> Result<()> {
         warn!("enqueue");
-        self.tx.send(item).await.map_err(anyhow::Error::msg)?;
 
-        Ok(())
+        self.tx.send(item).await.map_err(anyhow::Error::msg)
     }
 }

@@ -6,7 +6,7 @@ use http::{uri::Scheme, Extensions, HeaderMap, Method, StatusCode, Uri, Version}
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use once_cell::sync::OnceCell;
-use uuid::Uuid;
+use ulid::Ulid;
 use std::{
     self,
     collections::HashMap,
@@ -157,7 +157,7 @@ impl FlowInRoute {
 
 #[derive(Debug)]
 pub struct FlowRouterContext {
-    pub id: Uuid,
+    pub id: String,
     pub utc: DateTime<Utc>,
     pub data: HashMap<&'static str, FlowRouterData>,
     pub client_os: InitOnce<Option<OS>>,
@@ -182,7 +182,7 @@ pub struct FlowRouterContext {
 impl FlowRouterContext {
     pub fn new(in_route: FlowInRoute, request: RequestData, response: ResponseData) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: Ulid::new().to_string(),
             utc: Utc::now(),
             data: HashMap::new(),
             client_os: InitOnce::default(None),

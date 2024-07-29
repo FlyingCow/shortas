@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_recursion::async_recursion;
 use chrono::Utc;
 use http::{uri::Scheme, StatusCode};
-use uuid::Uuid;
+use ulid::Ulid;
 
 use crate::{
     core::{
@@ -290,7 +290,7 @@ impl DefaultFlowRouter {
 
     fn build_context(&self, req: &RequestData, res: &ResponseData) -> FlowRouterContext {
         let mut context = FlowRouterContext {
-            id: Uuid::new_v4(),
+            id: Ulid::new().to_string(),
             utc: Utc::now(),
             data: HashMap::new(),
             client_os: InitOnce::default(None),

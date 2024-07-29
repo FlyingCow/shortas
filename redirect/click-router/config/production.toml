@@ -17,7 +17,7 @@ consumers_count = 2
 iteration_seconds = 1
 
 [uaparser]
-yaml = "./data/ua-parser/user-agents.yaml"
+yaml = "./data/ua-parser/regexes.yaml"
 
 [geo_ip]
 mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"

@@ -34,7 +34,7 @@ build-click-router:
 
 	cp -R -f -v \
 		./data/ua-parser/regexes.yaml \
-		./target/click-router/release/data/ua-parser/user-agents.yaml
+		./target/click-router/release/data/ua-parser/regexes.yaml
 
 
 	mkdir -p ./target/click-router/release/data/geo-ip/
@@ -97,7 +97,7 @@ build-click-tracker:
 
 	cp -R -f -v \
 		./data/ua-parser/regexes.yaml \
-		./target/click-tracker/release/data/ua-parser/user-agents.yaml
+		./target/click-tracker/release/data/ua-parser/regexes.yaml
 
 
 	mkdir -p ./target/click-tracker/release/data/geo-ip/
