@@ -11,10 +11,11 @@ user_settings_table = "core-user-settings-main"
 [kafka.hit_stream]
 topic = "hit-stream-main"
 hosts = ["localhost"]
+
+[kafka.click_aggs]
+topic = "click-aggs-main"
+hosts = ["localhost:9092", "localhost:9093"]
 ack_timeout_secs = 60
-batch_size = 100
-consumers_count = 2
-iteration_seconds = 1
 
 [uaparser]
 yaml = "./data/ua-parser/regexes.yaml"

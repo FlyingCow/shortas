@@ -18,7 +18,7 @@ use crate::{
         BaseFlowRouter, BaseRoutesManager, InitOnce,
     },
     flow_router::flow_module::FlowStepContinuation,
-    model::{Hit, Route},
+    model::{hit::Click, Hit, Route},
 };
 
 use super::{
@@ -117,12 +117,12 @@ impl DefaultFlowRouter {
             }
         }
 
-        self.hit_registrar.register(Hit::new(
+        self.hit_registrar.register(Hit::click(
             context.id.clone(),
             context.utc,
-            Some(context.out_route.clone().unwrap().dest.unwrap()),
             context.user_agent.clone(),
-            Some(context.client_ip.clone().unwrap().address)
+            Some(context.client_ip.clone().unwrap().address),
+            Click::new(context.out_route.clone().unwrap().dest.unwrap()),
         )).await?;
 
         self.router_to(context, FlowStep::BuildResult).await

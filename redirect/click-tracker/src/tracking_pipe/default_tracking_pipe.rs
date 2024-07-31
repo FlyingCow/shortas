@@ -1,16 +1,14 @@
-
 use anyhow::Result;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, warn};
 
-use crate::core::{hit_stream::BaseHitStream, tracking_pipe::BaseTrackingPipe};
+use crate::core::{hit_stream::BaseHitStream, tracking_pipe::{BaseTrackingPipe, TrackingPipeContext}};
 
 use super::tracking_module::BaseTrackingModule;
 
-
 pub struct DefaultTrackingPipe {
     hit_stream: Box<dyn BaseHitStream + Send + Sync + 'static>,
-    modules: Vec<Box<dyn BaseTrackingModule + Send + Sync + 'static>>                                                                
+    modules: Vec<Box<dyn BaseTrackingModule + Send + Sync + 'static>>,
 }
 
 impl DefaultTrackingPipe {
@@ -29,6 +27,7 @@ impl DefaultTrackingPipe {
 impl BaseTrackingPipe for DefaultTrackingPipe {
     async fn start(&mut self, cancelation_token: CancellationToken) -> Result<()> {
         let mut hit_stream = self.hit_stream.clone();
+        let modules = self.modules.clone();
         let handler = tokio::spawn(async move {
             loop {
                 match hit_stream.as_mut().pull().await {
@@ -38,17 +37,19 @@ impl BaseTrackingPipe for DefaultTrackingPipe {
                     }
                     Ok(hits) => {
                         for hit in hits {
-                            println!("{}", serde_json::json!(hit))
+
+                            let mut context = TrackingPipeContext::new(hit);
+                            for module in &modules {
+                                let _result = module.execute(&mut context).await;
+                            }
                         }
                     }
                 };
 
-                if cancelation_token.is_cancelled()
-                {
+                if cancelation_token.is_cancelled() {
                     warn!("Tracking pipe has been cancelled.");
                     break;
                 }
-
             }
         });
         handler.await.map_err(anyhow::Error::from)

@@ -17,6 +17,7 @@ echo " -> DONE INITIATING LOCAL ENVIRONMENT."
 echo " -> INITIATING KAFKA TOPICS."
 
 docker exec kafka kafka-topics.sh --create --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1 --topic hit-stream-local 
+docker exec kafka kafka-topics.sh --create --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1 --topic click-aggs-local
 
 echo " -> DONE INITIATING KAFKA TOPICS."
 

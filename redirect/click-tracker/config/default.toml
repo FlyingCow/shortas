@@ -7,10 +7,12 @@ user_settings_table = "core-user-settings-main"
 [kafka.hit_stream]
 topic = "hit-stream-main"
 hosts = ["localhost:9092", "localhost:9093"]
+
+[kafka.click_aggs]
+topic = "click-aggs-local"
+hosts = ["localhost:9092", "localhost:9093"]
 ack_timeout_secs = 60
-batch_size = 100
-consumers_count = 2
-iteration_seconds = 1
+
 
 [moka]
 [moka.user_settings_cache]

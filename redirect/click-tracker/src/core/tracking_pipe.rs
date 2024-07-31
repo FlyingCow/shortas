@@ -1,15 +1,14 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use ulid::Ulid;
 use std::{self, collections::HashMap};
 use tokio_util::sync::CancellationToken;
+use ulid::Ulid;
 
 use crate::model::Hit;
 
 use super::{
     location_detect::Country,
     user_agent_detect::{Device, UserAgent, OS},
-    InitOnce,
 };
 
 #[derive(Clone, Debug)]
@@ -46,15 +45,30 @@ impl TrackingPipeData {
 }
 
 #[derive(Debug)]
+pub struct TrackingError {
+    pub utc: DateTime<Utc>,
+    pub tries: u16,
+    pub error: String,
+    pub stack_trace: String 
+}
+
+#[derive(Debug)]
+pub enum TrackingState {
+    Ok,
+    Error(TrackingError),
+}
+
+#[derive(Debug)]
 pub struct TrackingPipeContext {
     pub id: String,
     pub utc: DateTime<Utc>,
     pub hit: Hit,
     pub data: HashMap<&'static str, TrackingPipeData>,
-    pub client_os: InitOnce<Option<OS>>,
-    pub client_ua: InitOnce<Option<UserAgent>>,
-    pub client_device: InitOnce<Option<Device>>,
-    pub client_country: InitOnce<Option<Country>>,
+    pub client_os: Option<OS>,
+    pub client_ua: Option<UserAgent>,
+    pub client_device: Option<Device>,
+    pub client_country: Option<Country>,
+    pub state: TrackingState,
 }
 
 impl TrackingPipeContext {
@@ -64,10 +78,11 @@ impl TrackingPipeContext {
             utc: Utc::now(),
             hit: hit,
             data: HashMap::new(),
-            client_os: InitOnce::default(None),
-            client_ua: InitOnce::default(None),
-            client_device: InitOnce::default(None),
-            client_country: InitOnce::default(None),
+            client_os: None,
+            client_ua: None,
+            client_device: None,
+            client_country: None,
+            state: TrackingState::Ok
         }
     }
 }

@@ -8,7 +8,7 @@ use tokio::{
     },
     time::Instant,
 };
-use tracing::{error, warn};
+use tracing::{error, info};
 
 const IDLE_TIMEOUT: u64 = 500;
 
@@ -87,7 +87,7 @@ impl<T: Send + Sync> AsyncQueue<T> {
     }
 
     pub async fn enqueue(&self, item: T) -> Result<()> {
-        warn!("enqueue");
+        info!("Enqueuing a hit");
 
         self.tx.send(item).await.map_err(anyhow::Error::msg)
     }

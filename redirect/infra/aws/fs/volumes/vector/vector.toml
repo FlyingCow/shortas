@@ -1,0 +1,20 @@
+[sources.click_stream]
+type = "kafka"
+auto_offset_reset = "smallest"
+bootstrap_servers = "localhost:9092", "localhost:9093"
+group_id = "vector"
+topics = [ "click-aggs-local" ]
+decoding.codec = "json"
+
+[sinks.clickhouse]
+type = "clickhouse"
+inputs = ["click_stream"]
+endpoint = "http://localhost:8123"
+database = "shortas"
+table = "click_stream"
+skip_unknown_fields = true
+auth.strategy = "basic"
+auth.user = "101"
+auth.password = "101"
+buffer.max_events = 10000
+batch.timeout_secs = 1

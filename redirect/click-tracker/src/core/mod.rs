@@ -2,6 +2,7 @@ pub mod user_settings_manage;
 
 pub mod default;
 
+pub mod click_aggs_register;
 pub mod hit_stream;
 
 pub mod location_detect;

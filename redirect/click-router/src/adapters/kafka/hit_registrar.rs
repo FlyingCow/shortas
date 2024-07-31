@@ -5,7 +5,7 @@ use kafka::{
     client::RequiredAcks,
     producer::{Producer, Record},
 };
-use tracing::warn;
+use tracing::info;
 
 use crate::{
     core::hits_register::BaseHitRegistrar,
@@ -23,7 +23,7 @@ struct KafkaHitsProducer {
 #[async_trait::async_trait()]
 impl BatchProcess<Hit> for KafkaHitsProducer {
     async fn process(&mut self, batch: Vec<Hit>) -> Result<()> {
-        warn!("batch");
+        info!("Sending a hits batch");
 
         let mut records: Vec<Record<(), Vec<u8>>> = vec![];
 

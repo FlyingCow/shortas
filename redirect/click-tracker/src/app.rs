@@ -1,14 +1,16 @@
-
 use anyhow::Result;
 use tracing::info;
 
 use crate::{
     core::{
-        hit_stream::BaseHitStream, location_detect::BaseLocationDetector,
-        user_agent_detect::BaseUserAgentDetector, BaseUserSettingsManager, BaseUserSettingsStore,
+        click_aggs_register::BaseClickAggsRegistrar, hit_stream::BaseHitStream,
+        location_detect::BaseLocationDetector, user_agent_detect::BaseUserAgentDetector,
+        BaseUserSettingsManager, BaseUserSettingsStore,
     },
     settings::Settings,
-    tracking_pipe::default_tracking_pipe::DefaultTrackingPipe,
+    tracking_pipe::{
+        default_tracking_pipe::DefaultTrackingPipe, tracking_module::BaseTrackingModule,
+    },
 };
 
 #[derive(Clone)]
@@ -22,7 +24,10 @@ pub struct AppBuilder {
     pub(super) location_detector: Option<Box<dyn BaseLocationDetector + Send + Sync + 'static>>,
 
     pub(super) hit_stream: Option<Box<dyn BaseHitStream + Send + Sync + 'static>>,
-    //pub(super) modules: Vec<Box<dyn BaseFlowModule + Send + Sync + 'static>>,
+    pub(super) click_aggs_registrar:
+        Option<Box<dyn BaseClickAggsRegistrar + Send + Sync + 'static>>,
+
+    pub(super) modules: Vec<Box<dyn BaseTrackingModule + Send + Sync + 'static>>,
 }
 
 impl AppBuilder {
@@ -33,7 +38,9 @@ impl AppBuilder {
             user_settings_manager: None,
             user_agent_detector: None,
             location_detector: None,
-            hit_stream: None, // modules: vec![],
+            hit_stream: None,
+            click_aggs_registrar: None,
+            modules: vec![],
         }
     }
 
@@ -42,7 +49,7 @@ impl AppBuilder {
 
         let hit_stream = &self.hit_stream.clone().unwrap();
 
-        let router = DefaultTrackingPipe::new(hit_stream.to_owned(), vec![]);
+        let router = DefaultTrackingPipe::new(hit_stream.to_owned(), self.modules.clone());
 
         Ok(router)
     }
