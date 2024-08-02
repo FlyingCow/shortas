@@ -6,7 +6,7 @@ use crate::core::tracking_pipe::TrackingPipeContext;
 
 #[async_trait::async_trait()]
 pub trait BaseTrackingModule: DynClone {
-    async fn execute(&self, _context: &mut TrackingPipeContext) -> Result<()>;
+    async fn execute(&mut self, _context: &mut TrackingPipeContext) -> Result<()>;
 }
 
 clone_trait_object!(BaseTrackingModule);

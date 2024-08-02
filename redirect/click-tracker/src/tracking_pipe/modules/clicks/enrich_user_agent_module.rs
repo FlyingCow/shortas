@@ -11,7 +11,7 @@ pub struct EnrichUserAgentModule{
 
 #[async_trait::async_trait()]
 impl BaseTrackingModule for EnrichUserAgentModule {
-    async fn execute(&self, context: &mut TrackingPipeContext) -> Result<()> {
+    async fn execute(&mut self, context: &mut TrackingPipeContext) -> Result<()> {
         println!("{}", "Executing EnrichUserAgentModule");
         let user_agent = &self.user_agent_detector.parse_user_agent(context.hit.user_agent.as_ref().unwrap());
         println!("{}", user_agent.family);

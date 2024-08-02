@@ -2,6 +2,10 @@ CREATE DATABASE IF NOT EXISTS shortas;
 CREATE OR REPLACE TABLE shortas.click_stream
 (
     id FixedString(26),
+    owner_id UUID,
+    creator_id UUID,
+    route_id UUID,
+    workspace_id UUID,
     inserted DateTime MATERIALIZED now(),
     created DateTime,
     dest Nullable(String),

@@ -9,7 +9,7 @@ pub struct InitModule;
 
 #[async_trait::async_trait()]
 impl BaseTrackingModule for InitModule {
-    async fn execute(&self, context: &mut TrackingPipeContext) -> Result<()> {
+    async fn execute(&mut self, context: &mut TrackingPipeContext) -> Result<()> {
 
         println!("{}", serde_json::json!(context.hit));
         println!("{}", "Executing InitModule");

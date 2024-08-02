@@ -1,0 +1,34 @@
+sources:
+  click_stream:
+    type: kafka
+    auto_offset_reset: smallest
+    bootstrap_servers: kafka:29092
+    group_id: vector
+    topics: 
+      - "click-aggs-local"
+    decoding:
+      codec: json
+
+sinks:
+  # clickhouse:
+  #   type: "clickhouse"
+  #   inputs: 
+  #     - "click_stream"
+  #   endpoint: "http://clickhouse:8123"
+  #   database: "shortas"
+  #   table: "click_stream"
+  #   skip_unknown_fields: true
+  #   auth:
+  #     strategy: "basic"
+  #     user: "101"
+  #     password: "101"
+  #   batch:
+  #     timeout_secs: 1
+
+  my_sink_id:
+    type: console
+    inputs:
+      - click_stream
+    target: stdout
+    encoding:
+      codec: json

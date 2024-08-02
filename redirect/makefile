@@ -11,6 +11,8 @@ test: test-click-router-api
 
 start-aws-local:
 	./infra/aws/local-env-start.sh
+start-custom-local:
+	./infra/custom/local-env-start.sh
 
 install-local:
 	./scripts/local-env-install.sh

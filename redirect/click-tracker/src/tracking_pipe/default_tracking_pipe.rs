@@ -27,7 +27,7 @@ impl DefaultTrackingPipe {
 impl BaseTrackingPipe for DefaultTrackingPipe {
     async fn start(&mut self, cancelation_token: CancellationToken) -> Result<()> {
         let mut hit_stream = self.hit_stream.clone();
-        let modules = self.modules.clone();
+        let mut modules = self.modules.clone();
         let handler = tokio::spawn(async move {
             loop {
                 match hit_stream.as_mut().pull().await {
@@ -39,7 +39,7 @@ impl BaseTrackingPipe for DefaultTrackingPipe {
                         for hit in hits {
 
                             let mut context = TrackingPipeContext::new(hit);
-                            for module in &modules {
+                            for module in &mut modules {
                                 let _result = module.execute(&mut context).await;
                             }
                         }

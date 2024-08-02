@@ -32,3 +32,9 @@ sudo apt install python3-pip -y
 sudo pip3 install awscli-local
 sudo pip install terraform-local
 sudo apt install openjdk-21-jre-headless
+
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube
+sudo mkdir -p /usr/local/bin/
+sudo install minikube /usr/local/bin/
+minikube start --driver=docker
+minikube dashboard

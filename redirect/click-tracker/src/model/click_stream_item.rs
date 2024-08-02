@@ -4,6 +4,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClickStreamItem {
     pub id: String,
+    pub owner_id: String,
+    pub creator_id: String,
+    pub route_id: String,
+    pub workspace_id: String,
     pub created: DateTime<Utc>,
     pub dest: Option<String>,
     pub ip: Option<String>,

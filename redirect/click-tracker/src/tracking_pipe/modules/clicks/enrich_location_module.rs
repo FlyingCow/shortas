@@ -12,7 +12,7 @@ pub struct EnrichLocationModule {
 
 #[async_trait::async_trait()]
 impl BaseTrackingModule for EnrichLocationModule {
-    async fn execute(&self, _context: &mut TrackingPipeContext) -> Result<()> {
+    async fn execute(&mut self, _context: &mut TrackingPipeContext) -> Result<()> {
         println!("{}", "Executing EnrichLocationModule");
         Ok(())
     }
