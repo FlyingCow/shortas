@@ -1,7 +1,7 @@
 [sources.click_stream]
 type = "kafka"
 auto_offset_reset = "smallest"
-bootstrap_servers = "kafka:9092"
+bootstrap_servers = "aws-kafka-1:9092"
 group_id = "vector"
 topics = [ "click-aggs-local" ]
 decoding.codec = "json"
