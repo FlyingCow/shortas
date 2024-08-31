@@ -62,7 +62,7 @@ fn detect_ssl_on_headers(request: &RequestData) -> Option<bool> {
 }
 
 impl BaseProtocolExtractor for DefaultProtocolExtractor {
-    fn detect(&self, request: &RequestData) -> Option<ProtoInfo> {
+    fn detect(&self, request: &RequestData, _debug: bool) -> Option<ProtoInfo> {
         let mut proto: String = HTTP.to_string();
         let mut ssl_on: bool = false;
 
@@ -103,7 +103,7 @@ mod tests {
             .headers
             .insert("X-Forwarded-Ssl", "on".parse().unwrap());
 
-        let result = DefaultProtocolExtractor::new().detect(&request);
+        let result = DefaultProtocolExtractor::new().detect(&request, false);
 
         assert!(result.is_some());
         let proto_info = result.unwrap();
@@ -118,7 +118,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = DefaultProtocolExtractor::new().detect(&request);
+        let result = DefaultProtocolExtractor::new().detect(&request, false);
 
         assert!(result.is_some());
         let proto_info = result.unwrap();
@@ -133,7 +133,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = DefaultProtocolExtractor::new().detect(&request);
+        let result = DefaultProtocolExtractor::new().detect(&request, false);
 
         assert!(result.is_some());
         let proto_info = result.unwrap();

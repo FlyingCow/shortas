@@ -60,6 +60,7 @@ pub struct RouteProperties {
     pub native: Option<Value>,
     pub bundling: Option<Value>,
     pub opengraph: bool,
+    pub allow_debug: bool
 }
 
 impl Default for RouteProperties {
@@ -76,6 +77,7 @@ impl Default for RouteProperties {
             native: Default::default(),
             bundling: Default::default(),
             opengraph: false,
+            allow_debug: false,
         }
     }
 }

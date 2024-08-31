@@ -14,7 +14,7 @@ impl Language{
 }
 
 pub trait BaseLanguageExtractor: DynClone{
-    fn detect(&self, request: &RequestData) -> Option<Vec<Language>>;
+    fn detect(&self, request: &RequestData, debug: bool) -> Option<Vec<Language>>;
 }
 
 clone_trait_object!(BaseLanguageExtractor);

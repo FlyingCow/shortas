@@ -230,7 +230,9 @@ pub fn to_entity(model: GetItemOutput) -> Result<Option<Route>> {
             .get("bundling")
             .map_or(None, |p| Some(from_attribute_value(p.to_owned()).unwrap()));
 
-        let opengraph = item.get("blocked").map_or(false, |d| *d.as_bool().unwrap());
+        let opengraph = item.get("og").map_or(false, |d| *d.as_bool().unwrap());
+        let allow_debug = item.get("debug").map_or(false, |d| *d.as_bool().unwrap());
+
         let properties = RouteProperties {
             creator_id: creator_id,
             owner_id: owner_id,
@@ -243,6 +245,7 @@ pub fn to_entity(model: GetItemOutput) -> Result<Option<Route>> {
             native: native,
             bundling: bundling,
             opengraph: opengraph,
+            allow_debug: allow_debug
         };
 
         //policy

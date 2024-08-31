@@ -26,6 +26,7 @@ services:
 
   kafka:
     image: docker.io/bitnami/kafka:3.8
+    container_name: kafka
     ports:
       - "9092:9092"
       - "9093:9093"
@@ -58,8 +59,8 @@ services:
       - ${PWD}/fs/volumes/clickhouse/etc/clickhouse-server/users.d/users.xml:/etc/clickhouse-server/users.d/users.xml
       - ${PWD}/fs/volumes/clickhouse/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
     ports:
-      - "127.0.0.1:8123:8123"
-      - "127.0.0.1:9000:9000"
+      - "8123:8123"
+      - "9000:9000"
     networks:
       - core-net
       
@@ -76,6 +77,20 @@ services:
     networks:
       - core-net
 
+  cache:
+    image: redis:7.4-alpine
+    container_name: cache
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    volumes: 
+      - cache:/data
+    networks:
+      - core-net
+
 volumes:
   kafka_data:
+    driver: local
+  cache:
     driver: local

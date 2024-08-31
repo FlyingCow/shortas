@@ -21,9 +21,18 @@ pub enum HitData {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HitRoute {
+    pub id: Option<String>,
+    pub owner_id: Option<String>,
+    pub creator_id: Option<String>,
+    pub workspace_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Hit {
     pub id: String,
     pub data: HitData,
+    pub route: Option<HitRoute>,
     pub user_agent: Option<String>,
     pub ip: Option<IpAddr>,
     pub utc: DateTime<Utc>,

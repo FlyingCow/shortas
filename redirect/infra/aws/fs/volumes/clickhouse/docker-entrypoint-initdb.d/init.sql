@@ -1,11 +1,18 @@
 CREATE DATABASE IF NOT EXISTS shortas;
+
+CREATE OR REPLACE TABLE shortas.click_stream_raw (
+    message String
+)
+ENGINE = MergeTree()
+ORDER BY tuple();
+
 CREATE OR REPLACE TABLE shortas.click_stream
 (
     id FixedString(26),
-    owner_id UUID,
-    creator_id UUID,
-    route_id UUID,
-    workspace_id UUID,
+    owner_id FixedString(26),
+    creator_id FixedString(26),
+    route_id FixedString(26),
+    workspace_id FixedString(26),
     inserted DateTime MATERIALIZED now(),
     created DateTime,
     dest Nullable(String),

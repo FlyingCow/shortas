@@ -21,25 +21,25 @@ awslocal dynamodb put-item \
 awslocal dynamodb put-item \
     --table-name core-routes-local  \
     --item \
-        '{"switch": {"S": "main"}, "link": {"S": "localhost%2ftest"}, "dest": {"S": "https://google.com"}, "owner.id": {"S": "my_users_id"}}'
+        '{"switch": {"S": "main"}, "link": {"S": "localhost%2ftest"}, "dest": {"S": "https://google.com"}, "route.id": {"S": "my_route_id"}, "owner.id": {"S": "my_users_id"}, "creator.id": {"S": "my_creator_id"}, "workspace.id": {"S": "my_workspace_id"}}'
 
 awslocal dynamodb put-item \
     --table-name core-routes-local  \
     --item \
-        '{"switch": {"S": "main"}, "link": {"S": "localhost%2fattr"}, "dest": {"S": "https://google.com"}, "owner.id": {"S": "my_users_id"}, "attributes": {"M": {"type": {"S":"test"}, "env": {"S": "local"}}}}'
-
-
-awslocal dynamodb put-item \
-    --table-name core-routes-local  \
-    --item \
-        '{"switch": {"S": "main"}, "link": {"S": "localhost%2fblocked"}, "dest": {"S": "https://google.com"}, "owner.id": {"S": "my_users_id"}, "blocked": {"BOOL": true}, "blocked.reason": {"S": "Spam"}}'
-
+        '{"switch": {"S": "main"}, "link": {"S": "localhost%2fattr"}, "dest": {"S": "https://google.com"}, "route.id": {"S": "my_route_id"}, "owner.id": {"S": "my_users_id"}, "creator.id": {"S": "my_creator_id"}, "workspace.id": {"S": "my_workspace_id"}, "attributes": {"M": {"type": {"S":"test"}, "env": {"S": "local"}}}}'
 
 
 awslocal dynamodb put-item \
     --table-name core-routes-local  \
     --item \
-        '{"switch": {"S": "test"}, "link": {"S": "localhost%2fconds"}, "dest": {"S": "https://google.com?q=test"}, "owner.id": {"S": "my_users_id"}}'
+        '{"switch": {"S": "main"}, "link": {"S": "localhost%2fblocked"}, "dest": {"S": "https://google.com"}, "route.id": {"S": "my_route_id"}, "owner.id": {"S": "my_users_id"}, "creator.id": {"S": "my_creator_id"}, "workspace.id": {"S": "my_workspace_id"}, "blocked": {"BOOL": true}, "blocked.reason": {"S": "Spam"}}'
+
+
+
+awslocal dynamodb put-item \
+    --table-name core-routes-local  \
+    --item \
+        '{"switch": {"S": "test"}, "link": {"S": "localhost%2fconds"}, "dest": {"S": "https://google.com?q=test"}, "route.id": {"S": "my_route_id"}, "owner.id": {"S": "my_users_id"}, "creator.id": {"S": "my_creator_id"}, "workspace.id": {"S": "my_workspace_id"}}'
 
 awslocal dynamodb put-item \
     --table-name core-routes-local  \
@@ -123,9 +123,8 @@ awslocal dynamodb put-item \
                 }
             }
         },
-        "owner.id": {
-            "S": "my_users_id"
-        },
+        "debug": {"BOOL": true},
+        "route.id": {"S": "my_route_id"}, "owner.id": {"S": "my_users_id"}, "creator.id": {"S": "my_creator_id"}, "workspace.id": {"S": "my_workspace_id"},
         "switch": {
             "S": "main"
         }

@@ -10,7 +10,7 @@ pub struct IPInfo {
 }
 
 pub trait BaseIPExtractor: DynClone {
-    fn detect(&self, context: &RequestData) -> Option<IPInfo>;
+    fn detect(&self, context: &RequestData, debug: bool) -> Option<IPInfo>;
 }
 
 clone_trait_object!(BaseIPExtractor);

@@ -1,13 +1,13 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct ClickStreamItem {
     pub id: String,
-    pub owner_id: String,
-    pub creator_id: String,
-    pub route_id: String,
-    pub workspace_id: String,
+    pub owner_id: Option<String>,
+    pub creator_id: Option<String>,
+    pub route_id: Option<String>,
+    pub workspace_id: Option<String>,
     pub created: DateTime<Utc>,
     pub dest: Option<String>,
     pub ip: Option<String>,

@@ -12,8 +12,19 @@ pub struct EnrichLocationModule {
 
 #[async_trait::async_trait()]
 impl BaseTrackingModule for EnrichLocationModule {
-    async fn execute(&mut self, _context: &mut TrackingPipeContext) -> Result<()> {
+    async fn execute(&mut self, context: &mut TrackingPipeContext) -> Result<()> {
         println!("{}", "Executing EnrichLocationModule");
+
+        if let Some(ip) = context.hit.ip.clone() {
+            let country = &self.location_detector.detect_country(&ip);
+
+            if country.is_none() {
+                return Ok(());
+            }
+
+            context.client_country = Some(country.clone().unwrap());
+        }
+
         Ok(())
     }
 }

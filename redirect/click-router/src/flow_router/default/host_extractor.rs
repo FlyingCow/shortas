@@ -55,7 +55,7 @@ fn detect_from_headers(request: &RequestData) -> Option<HostInfo> {
 }
 
 impl BaseHostExtractor for DefaultHostExtractor {
-    fn detect(&self, request: &RequestData) -> Option<HostInfo> {
+    fn detect(&self, request: &RequestData, _debug: bool) -> Option<HostInfo> {
         if let Some(host_info) = detect_from_headers(request) {
             return Some(host_info);
         }
@@ -82,7 +82,7 @@ mod tests {
             .headers
             .insert("Host", "test.com:80".parse().unwrap());
 
-        let result = DefaultHostExtractor::new().detect(&request);
+        let result = DefaultHostExtractor::new().detect(&request, false);
 
         assert!(result.is_some());
         let host_info = result.unwrap();
@@ -100,7 +100,7 @@ mod tests {
             .headers
             .insert("Host", "test.com:443".parse().unwrap());
 
-        let result = DefaultHostExtractor::new().detect(&request);
+        let result = DefaultHostExtractor::new().detect(&request, false);
 
         assert!(result.is_some());
         let host_info = result.unwrap();
@@ -117,7 +117,7 @@ mod tests {
         request
             .uri = "http://www.rust-lang.org:80/".parse().unwrap();
 
-        let result = DefaultHostExtractor::new().detect(&request);
+        let result = DefaultHostExtractor::new().detect(&request, false);
 
         assert!(result.is_some());
         let host_info = result.unwrap();
@@ -134,7 +134,7 @@ mod tests {
         request
             .uri = "https://www.rust-lang.org:443/".parse().unwrap();
 
-        let result = DefaultHostExtractor::new().detect(&request);
+        let result = DefaultHostExtractor::new().detect(&request, false);
 
         assert!(result.is_some());
         let host_info = result.unwrap();

@@ -4,7 +4,7 @@ use crate::core::flow_router::RequestData;
 
 
 pub trait BaseUserAgentStringExtractor: DynClone{
-    fn detect(&self, request: &RequestData) -> Option<String>;
+    fn detect(&self, request: &RequestData, debug: bool) -> Option<String>;
 }
 
 clone_trait_object!(BaseUserAgentStringExtractor);

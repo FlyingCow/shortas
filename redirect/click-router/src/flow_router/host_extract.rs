@@ -10,7 +10,7 @@ pub struct HostInfo{
 }
 
 pub trait BaseHostExtractor: DynClone{
-    fn detect(&self, request: &RequestData) -> Option<HostInfo>;
+    fn detect(&self, request: &RequestData, debug: bool) -> Option<HostInfo>;
 }
 
 clone_trait_object!(BaseHostExtractor);

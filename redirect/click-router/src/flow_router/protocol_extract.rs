@@ -8,7 +8,7 @@ pub struct ProtoInfo {
 }
 
 pub trait BaseProtocolExtractor: DynClone {
-    fn detect(&self, request: &RequestData) -> Option<ProtoInfo>;
+    fn detect(&self, request: &RequestData, debug: bool) -> Option<ProtoInfo>;
 }
 
 clone_trait_object!(BaseProtocolExtractor);

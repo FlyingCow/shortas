@@ -18,12 +18,18 @@ use crate::{
         BaseFlowRouter, BaseRoutesManager, InitOnce,
     },
     flow_router::flow_module::FlowStepContinuation,
-    model::{hit::Click, Hit, Route},
+    model::{
+        hit::{Click, HitRoute},
+        Hit, Route,
+    },
 };
 
 use super::{
-    flow_module::BaseFlowModule, host_extract::BaseHostExtractor, ip_extract::BaseIPExtractor,
-    language_extract::BaseLanguageExtractor, protocol_extract::BaseProtocolExtractor,
+    flow_module::BaseFlowModule,
+    host_extract::BaseHostExtractor,
+    ip_extract::BaseIPExtractor,
+    language_extract::BaseLanguageExtractor,
+    protocol_extract::BaseProtocolExtractor,
     user_agent_string_extract::BaseUserAgentStringExtractor,
 };
 
@@ -117,13 +123,16 @@ impl DefaultFlowRouter {
             }
         }
 
-        self.hit_registrar.register(Hit::click(
-            context.id.clone(),
-            context.utc,
-            context.user_agent.clone(),
-            Some(context.client_ip.clone().unwrap().address),
-            Click::new(context.out_route.clone().unwrap().dest.unwrap()),
-        )).await?;
+        self.hit_registrar
+            .register(Hit::click(
+                context.id.clone(),
+                context.utc,
+                context.user_agent.clone(),
+                Some(context.client_ip.clone().unwrap().address),
+                Click::new(context.out_route.clone().unwrap().dest.unwrap()),
+                HitRoute::from_route(&context.main_route),
+            ))
+            .await?;
 
         self.router_to(context, FlowStep::BuildResult).await
     }
@@ -200,6 +209,8 @@ impl DefaultFlowRouter {
             context.out_route = context.main_route.clone();
         }
 
+        let _ = &self.replace_debug_data(&mut context);
+
         self.router_to(&mut context, FlowStep::Start).await?;
 
         Ok(context)
@@ -208,7 +219,7 @@ impl DefaultFlowRouter {
     fn build_route_uri(&self, request: &RequestData) -> FlowInRoute {
         let path = &request.uri.path()[1..];
 
-        let host_info = self.host_extractor.detect(&request).unwrap();
+        let host_info = self.host_extractor.detect(&request, false).unwrap();
 
         let query = request.uri.query().unwrap_or_default();
 
@@ -225,18 +236,29 @@ impl DefaultFlowRouter {
         in_route
     }
 
+    fn allow_debug(&self, context: &mut FlowRouterContext) -> bool {
+        if context.main_route.is_none() {
+            return false;
+        }
+
+        let route = context.main_route.as_ref().unwrap();
+
+        return route.properties.allow_debug;
+    }
+
     pub fn load_country(&self, context: &mut FlowRouterContext) {
         if context.client_country.has_value() {
             return;
         }
 
         if context.client_ip.is_none() {
-            context.client_os.init_with(None);
+            context.client_country.init_with(None);
+            return;
         }
 
         let country = self
             .location_detector
-            .detect_country(&context.client_ip.as_ref().unwrap().address);
+            .detect_country(&context.client_ip.clone().unwrap().address);
 
         context.client_country.init_with(country);
     }
@@ -248,6 +270,7 @@ impl DefaultFlowRouter {
 
         if context.user_agent.is_none() {
             context.client_os.init_with(None);
+            return;
         }
 
         let os = self
@@ -264,6 +287,7 @@ impl DefaultFlowRouter {
 
         if context.user_agent.is_none() {
             context.client_ua.init_with(None);
+            return;
         }
 
         let ua = self
@@ -280,6 +304,7 @@ impl DefaultFlowRouter {
 
         if context.user_agent.is_none() {
             context.client_device.init_with(None);
+            return;
         }
 
         let device = self
@@ -287,6 +312,20 @@ impl DefaultFlowRouter {
             .parse_device(context.user_agent.as_ref().unwrap());
 
         context.client_device.init_with(Some(device));
+    }
+
+    fn replace_debug_data(&self, context: &mut FlowRouterContext) {
+        if !self.allow_debug(context) {
+            return;
+        }
+
+        context.host = self.host_extractor.detect(&context.request, true);
+        context.protocol = self.protocol_extractor.detect(&context.request, true);
+        context.client_ip = self.ip_extractor.detect(&context.request, true);
+        context.user_agent = self
+            .user_agent_string_extractor
+            .detect(&context.request, true);
+        context.client_langs = self.language_extractor.detect(&context.request, true);
     }
 
     fn build_context(&self, req: &RequestData, res: &ResponseData) -> FlowRouterContext {
@@ -312,11 +351,13 @@ impl DefaultFlowRouter {
             response: res.clone(),
         };
 
-        context.host = self.host_extractor.detect(&context.request);
-        context.protocol = self.protocol_extractor.detect(&context.request);
-        context.client_ip = self.ip_extractor.detect(&context.request);
-        context.user_agent = self.user_agent_string_extractor.detect(&context.request);
-        context.client_langs = self.language_extractor.detect(&context.request);
+        context.host = self.host_extractor.detect(&context.request, false);
+        context.protocol = self.protocol_extractor.detect(&context.request, false);
+        context.client_ip = self.ip_extractor.detect(&context.request, false);
+        context.user_agent = self
+            .user_agent_string_extractor
+            .detect(&context.request, false);
+        context.client_langs = self.language_extractor.detect(&context.request, false);
 
         context
     }
