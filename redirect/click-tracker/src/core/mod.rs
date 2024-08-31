@@ -6,10 +6,10 @@ pub mod click_aggs_register;
 pub mod hit_stream;
 
 pub mod location_detect;
+pub mod session_detect;
+pub mod tracking_pipe;
 pub mod user_agent_detect;
 pub mod user_settings_store;
-
-pub mod tracking_pipe;
 
 pub use user_settings_manage::BaseUserSettingsManager;
 

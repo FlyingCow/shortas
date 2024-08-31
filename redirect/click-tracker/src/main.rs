@@ -40,6 +40,7 @@ async fn main() -> Result<()> {
         .with_defaults()
         .with_uaparser()
         .with_geo_ip()
+        .with_redis()
         .with_tracking_defaults()
         .with_default_modules()
         .build()

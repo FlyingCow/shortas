@@ -4,8 +4,8 @@ use tracing::info;
 use crate::{
     core::{
         click_aggs_register::BaseClickAggsRegistrar, hit_stream::BaseHitStream,
-        location_detect::BaseLocationDetector, user_agent_detect::BaseUserAgentDetector,
-        BaseUserSettingsManager, BaseUserSettingsStore,
+        location_detect::BaseLocationDetector, session_detect::BaseSessionDetector,
+        user_agent_detect::BaseUserAgentDetector, BaseUserSettingsManager, BaseUserSettingsStore,
     },
     settings::Settings,
     tracking_pipe::{
@@ -22,6 +22,7 @@ pub struct AppBuilder {
     pub(super) user_agent_detector: Option<Box<dyn BaseUserAgentDetector + Send + Sync + 'static>>,
 
     pub(super) location_detector: Option<Box<dyn BaseLocationDetector + Send + Sync + 'static>>,
+    pub(super) session_detector: Option<Box<dyn BaseSessionDetector + Send + Sync + 'static>>,
 
     pub(super) hit_stream: Option<Box<dyn BaseHitStream + Send + Sync + 'static>>,
     pub(super) click_aggs_registrar:
@@ -38,6 +39,7 @@ impl AppBuilder {
             user_settings_manager: None,
             user_agent_detector: None,
             location_detector: None,
+            session_detector: None,
             hit_stream: None,
             click_aggs_registrar: None,
             modules: vec![],
