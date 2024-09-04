@@ -21,7 +21,8 @@ pub struct ClickStreamItem {
     pub device_brand: Option<String>,
     pub device_family: Option<String>,
     pub device_model: Option<String>,
-    pub first_click: Option<DateTime<Utc>>,
-    pub is_uniqueu: bool,
+    pub session_first: Option<DateTime<Utc>>,
+    pub session_clicks: Option<u128>,
+    pub is_unique: bool,
     pub is_bot: bool,
 }

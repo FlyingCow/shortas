@@ -3,9 +3,7 @@ use tracing::info;
 use crate::{
     app::AppBuilder,
     tracking_pipe::modules::clicks::{
-        enrich_location_module::EnrichLocationModule,
-        enrich_user_agent_module::EnrichUserAgentModule, init_module::InitModule,
-        register_aggregate_module::RegisterAggregateModule,
+        enrich_location_module::EnrichLocationModule, enrich_session_module::EnrichSessionModule, enrich_user_agent_module::EnrichUserAgentModule, init_module::InitModule, register_aggregate_module::RegisterAggregateModule
     },
 };
 
@@ -18,6 +16,9 @@ impl AppBuilder {
         )));
         self.modules.push(Box::new(EnrichUserAgentModule::new(
             self.user_agent_detector.clone().unwrap(),
+        )));
+        self.modules.push(Box::new(EnrichSessionModule::new(
+            self.session_detector.clone().unwrap(),
         )));
 
         //

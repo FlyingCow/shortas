@@ -27,8 +27,9 @@ CREATE OR REPLACE TABLE shortas.click_stream
     device_brand LowCardinality(Nullable(String)),
     device_family LowCardinality(Nullable(String)),
     device_model LowCardinality(Nullable(String)),
-    first_click Nullable(DateTime),
-    is_uniqueu Bool,
+    session_first Nullable(DateTime),
+    session_clicks Nullable(UInt128),
+    is_unique Bool,
     is_bot Bool
 )
 ENGINE = MergeTree

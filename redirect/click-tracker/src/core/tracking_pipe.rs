@@ -7,8 +7,7 @@ use ulid::Ulid;
 use crate::model::Hit;
 
 use super::{
-    location_detect::Country,
-    user_agent_detect::{Device, UserAgent, OS},
+    location_detect::Country, session_detect::Session, user_agent_detect::{Device, UserAgent, OS}
 };
 
 #[derive(Clone, Debug)]
@@ -68,6 +67,8 @@ pub struct TrackingPipeContext {
     pub client_ua: Option<UserAgent>,
     pub client_device: Option<Device>,
     pub client_country: Option<Country>,
+    pub spider: bool,
+    pub session: Option<Session>,
     pub state: TrackingState,
 }
 
@@ -82,7 +83,9 @@ impl TrackingPipeContext {
             client_ua: None,
             client_device: None,
             client_country: None,
-            state: TrackingState::Ok
+            session: None,
+            state: TrackingState::Ok,
+            spider: false
         }
     }
 }

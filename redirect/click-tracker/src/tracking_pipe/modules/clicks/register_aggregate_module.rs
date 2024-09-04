@@ -1,4 +1,5 @@
 use anyhow::Result;
+use tracing::info;
 
 use crate::{
     core::{click_aggs_register::BaseClickAggsRegistrar, tracking_pipe::TrackingPipeContext},
@@ -14,7 +15,6 @@ pub struct RegisterAggregateModule {
 #[async_trait::async_trait()]
 impl BaseTrackingModule for RegisterAggregateModule {
     async fn execute(&mut self, context: &mut TrackingPipeContext) -> Result<()> {
-        println!("{}", "Executing RegisterAggregateModule");
 
         let mut stream_item = ClickStreamItem {
             id: context.hit.id.clone(),
@@ -51,13 +51,21 @@ impl BaseTrackingModule for RegisterAggregateModule {
             stream_item.device_brand = device.brand;
             stream_item.device_family = Some(device.family);
             stream_item.device_model = device.model;
+
+            stream_item.is_bot = context.spider;
         }
 
-        if let Some(country) = context.client_country.clone() {
-            stream_item.country = Some(country.iso_code);
+        if let Some(country) = &context.client_country {
+            stream_item.country = Some(country.iso_code.clone());
         }
 
-        println!("{}", serde_json::json!(stream_item));
+        if let Some(session) = &context.session {
+            stream_item.session_clicks = Some(session.count);
+            stream_item.session_first = Some(session.first);
+            stream_item.is_unique = session.count == 1;
+        }
+
+        info!("{}", serde_json::json!(stream_item));
 
         self.click_aggs_registrar
             .as_mut()

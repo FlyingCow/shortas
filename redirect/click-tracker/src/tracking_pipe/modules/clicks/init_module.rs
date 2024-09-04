@@ -11,9 +11,6 @@ pub struct InitModule;
 #[async_trait::async_trait()]
 impl BaseTrackingModule for InitModule {
     async fn execute(&mut self, context: &mut TrackingPipeContext) -> Result<()> {
-
-
-        println!("{}", "Executing InitModule");
         Ok(())
     }
 }

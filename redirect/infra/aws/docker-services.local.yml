@@ -78,7 +78,7 @@ services:
       - core-net
 
   cache:
-    image: redis:7.4-alpine
+    image: "redis/redis-stack:edge"
     container_name: cache
     restart: always
     ports:

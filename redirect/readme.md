@@ -8,6 +8,9 @@ TODO:
 
 HOW TO:
 
+    Build
+    - make build
+     
     Run tracker
     - ./click-tracker -r development
 
