@@ -14,6 +14,12 @@ HOW TO:
     Run tracker
     - ./click-tracker -r development
 
+    Run router
+    - export AWS_ACCESS_KEY_ID=foobar
+    - export AWS_SECRET_ACCESS_KEY=foobar
+    - export AWS_DEFAULT_REGION=us-east-1
+    - ./click-router -r development
+
     Manual setup
     1. add 127.0.0.1 kafka to /etc/hosts
     1. add 127.0.0.1 clickhouse to /etc/hosts

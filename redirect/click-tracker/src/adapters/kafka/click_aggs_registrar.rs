@@ -34,7 +34,6 @@ impl KafkaClickAggsRegistrar {
 #[async_trait::async_trait()]
 impl BaseClickAggsRegistrar for KafkaClickAggsRegistrar {
     async fn register(&self, click: ClickStreamItem) -> Result<()> {
-        info!("Sending a hits batch");
 
         let record = Record::from_value(
             self.settings.topic.as_str(),

@@ -14,6 +14,7 @@ use tokio::{
 
 const TRACKERS_GROUP: &str = "trackers";
 const IDLE_TIMEOUT: u64 = 500;
+const MAX_BYTES_FETCH: i32 = 55728640;
 
 #[derive(Clone)]
 pub struct KafkaHitStream {
@@ -27,6 +28,7 @@ impl KafkaHitStream {
             .with_fallback_offset(FetchOffset::Earliest)
             .with_group(TRACKERS_GROUP.to_string())
             .with_offset_storage(Some(GroupOffsetStorage::Kafka))
+            .with_fetch_max_bytes_per_partition(MAX_BYTES_FETCH)
             .create()
             .unwrap();
 
