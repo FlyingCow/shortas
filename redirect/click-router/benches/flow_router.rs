@@ -17,7 +17,7 @@ async fn init_flow_router() -> DefaultFlowRouter {
     let app: DefaultFlowRouter = AppBuilder::new(settings)
         .with_dynamo_stores()
         .await
-        .with_kafka()
+        .with_rdkafka()
         .await
         .with_moka()
         .with_defaults()

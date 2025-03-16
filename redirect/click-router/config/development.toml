@@ -14,7 +14,7 @@ user_settings_table = "core-user-settings-local"
 [kafka]
 [kafka.hit_stream]
 topic = "hit-stream-local"
-hosts = ["kafka:9092", "kafka:9093"]
+hosts = ["kafka:9092"]
 ack_timeout_secs = 60
 batch_size = 100
 consumers_count = 2
