@@ -124,7 +124,7 @@ async fn main() {
     let app = AppBuilder::new(settings)
         .with_dynamo_stores()
         .await
-        .with_kafka()
+        .with_rdkafka()
         .await
         .with_moka()
         .with_defaults()
@@ -141,10 +141,11 @@ async fn main() {
 
     println!("{:?}", router);
 
-    let acceptor = TcpListener::new("0.0.0.0:5800")
-        .rustls_async(ServerConfigResolverMock)
-        .bind()
-        .await;
+    // let acceptor = TcpListener::new("0.0.0.0:5800")
+    //     .rustls_async(ServerConfigResolverMock)
+    //     .bind()
+    //     .await;
 
+        let acceptor = TcpListener::new("127.0.0.1:5800").bind().await;
     Server::new(acceptor).serve(router).await;
 }
