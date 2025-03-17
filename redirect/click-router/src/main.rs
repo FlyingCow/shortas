@@ -1,6 +1,5 @@
 use std::{
-    io::{Error as IoError, Result as IoResult},
-    sync::Arc,
+    io::{Error as IoError, Result as IoResult}, ops::Deref, sync::Arc
 };
 
 use click_router::{
@@ -60,7 +59,7 @@ impl Handler for Redirect {
                     extensions: req.extensions().clone(),
                     method: req.method().clone(),
                     cookies: req.cookies().clone(),
-                    params: req.params().clone(),
+                    params: req.params().deref().clone(),
                     queries: OnceCell::with_value(req.queries().clone()),
                     version: req.version().clone(),
                     scheme: Some(req.scheme().clone()),
@@ -137,15 +136,16 @@ async fn main() {
 
     let _ = FLOW_ROUTER.set(app);
 
-    let router = Router::with_path("<**rest_path>").get(Redirect);
+    //let router = Router::with_path("<**rest_path>").get(Redirect);
+    let router = Router::with_path("conds").get(Redirect);
 
     println!("{:?}", router);
 
-    // let acceptor = TcpListener::new("0.0.0.0:5800")
-    //     .rustls_async(ServerConfigResolverMock)
-    //     .bind()
-    //     .await;
+    let acceptor = TcpListener::new("0.0.0.0:5800")
+        .rustls_async(ServerConfigResolverMock)
+        .bind()
+        .await;
 
-        let acceptor = TcpListener::new("127.0.0.1:5800").bind().await;
+        // let acceptor = TcpListener::new("127.0.0.1:5800").bind().await;
     Server::new(acceptor).serve(router).await;
 }
