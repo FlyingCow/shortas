@@ -3,6 +3,7 @@ use std::ops::DerefMut;
 use anyhow::Result;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
+use typed_builder::TypedBuilder;
 
 use super::{HitStreamSource, TrackingPipeContext};
 
@@ -13,6 +14,8 @@ pub trait TrackingModule {
     async fn execute(&mut self, _context: &mut TrackingPipeContext) -> Result<()>;
 }
 
+#[derive(TypedBuilder)]
+#[builder(field_defaults(setter(prefix = "with_")))]
 pub struct TrackingPipe<S, M>
 where
     S: HitStreamSource,

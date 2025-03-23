@@ -1,24 +1,67 @@
 use anyhow::Result;
 
-use click_tracker_ref::{App, FluvioHitStream, KafkaHitStream, adapters::HitStreamSourceType};
+use clap::Parser;
+use click_tracker_ref::{
+    App, FluvioHitStream, KafkaHitStream, Settings,
+    adapters::{HitStreamSourceType, kafka::KafkaClickAggsRegistrar},
+    core::{
+        pipe::modules::clicks::{ClickModules, aggregate::AggregateModule, init::InitModule},
+        tracking_pipe::TrackingPipe,
+    },
+};
+
+#[derive(Parser, Debug)]
+#[command(version)]
+pub struct Args {
+    #[arg(short, long, default_value_t = String::from("production"), env("APP_RUN_MODE"))]
+    pub run_mode: String,
+    #[arg(short, long, default_value_t = String::from("./config"), env("APP_CONFIG_PATH"))]
+    pub config_path: String,
+}
+
+fn init_modules() -> Vec<ClickModules<KafkaClickAggsRegistrar>> {
+    let init = InitModule;
+    vec![
+        ClickModules::Init(init),
+        ClickModules::Aggregate(KafkaClickAggsRegistrar::new(sett)),
+    ]
+}
+
+fn init_sources() -> Vec<HitStreamSourceType> {
+    let kafka_stream = KafkaHitStream;
+    let fluvio_stream = FluvioHitStream;
+    vec![
+        HitStreamSourceType::Fluvio(fluvio_stream),
+        HitStreamSourceType::Kafka(kafka_stream),
+    ]
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // let kafka_stream = KafkaHitStream;
-    // let fluvio_stream = FluvioHitStream;
+    tracing_subscriber::fmt().init();
 
-    // let app = App::builder()
-    //     .with_stream_sources(vec![
-    //         HitStreamSourceType::Fluvio(fluvio_stream),
-    //         HitStreamSourceType::Kafka(kafka_stream),
-    //     ])
-    //     .build();
+    dotenv::from_filename("./click-tracker/.env").ok();
 
-    // //starting the app
-    // let handler = app.run().await?;
+    let args = Args::parse();
 
-    // //waiting for the app to finish
-    // handler.await?;
+    let settings = Settings::new(
+        Some(args.run_mode.as_str()),
+        Some(args.config_path.as_str()),
+    )
+    .unwrap();
+
+    let pipe = TrackingPipe::builder()
+        .with_stream_sources(init_sources())
+        .with_modules(init_modules())
+        .build();
+
+    let app = App::builder().with_pipe(pipe).build();
+
+    //starting the app
+    let handler = app.run().await?;
+
+    //waiting for the app to finish
+    handler.await?;
 
     Ok(())
 }

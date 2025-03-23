@@ -5,17 +5,25 @@ use typed_builder::TypedBuilder;
 
 use crate::{
     adapters::HitStreamSourceType,
-    core::{pipe::modules::clicks::ClickModules, tracking_pipe::TrackingPipe},
+    core::{
+        aggs::ClickAggsRegistrar, pipe::modules::clicks::ClickModules, tracking_pipe::TrackingPipe,
+    },
 };
 
 #[derive(TypedBuilder)]
 #[builder(field_defaults(setter(prefix = "with_")))]
-pub struct App {
-    pipe: TrackingPipe<HitStreamSourceType, ClickModules>,
+pub struct App<A>
+where
+    A: ClickAggsRegistrar + Sync + Send + 'static,
+{
+    pipe: TrackingPipe<HitStreamSourceType, ClickModules<A>>,
 }
 
-impl App {
-    pub fn new(pipe: TrackingPipe<HitStreamSourceType, ClickModules>) -> Self {
+impl<A> App<A>
+where
+    A: ClickAggsRegistrar + Sync + Send + Clone + 'static,
+{
+    pub fn new(pipe: TrackingPipe<HitStreamSourceType, ClickModules<A>>) -> Self {
         App { pipe }
     }
 
