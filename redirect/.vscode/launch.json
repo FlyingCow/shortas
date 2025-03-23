@@ -170,6 +170,43 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'click-tracker-ref'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=click-tracker-ref",
+                    "--package=click-tracker-ref"
+                ],
+                "filter": {
+                    "name": "click-tracker-ref",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'click-tracker-ref'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=click-tracker-ref",
+                    "--package=click-tracker-ref"
+                ],
+                "filter": {
+                    "name": "click-tracker-ref",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

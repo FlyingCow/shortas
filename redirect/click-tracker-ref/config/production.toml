@@ -1,0 +1,28 @@
+[aws]
+local = false
+
+[aws.dynamo]
+encryption_table = "core-routes-encryption-main"
+routes_table = "core-routes-main"
+hostname_mappings_table = "core-routes-hostname-mapping-main"
+user_settings_table = "core-user-settings-main"
+
+[kafka]
+[kafka.hit_stream]
+topic = "hit-stream-main"
+hosts = ["localhost"]
+
+[kafka.click_aggs]
+topic = "click-aggs-main"
+hosts = ["localhost:9092", "localhost:9093"]
+ack_timeout_secs = 60
+
+[uaparser]
+yaml = "./data/ua-parser/regexes.yaml"
+
+[geo_ip]
+mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"
+
+[redis]
+initial_nodes = ["redis://:eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81@cache"]
+password = "eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81"
