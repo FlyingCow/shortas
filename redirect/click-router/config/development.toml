@@ -2,7 +2,7 @@ debug = true
 
 [aws]
 local = true
-localstack_endpoint="http://localhost:4566"
+localstack_endpoint = "http://localhost:4566"
 
 [aws.dynamo]
 encryption_table = "core-routes-encryption-local"
@@ -20,9 +20,17 @@ batch_size = 100
 consumers_count = 2
 iteration_seconds = 1
 
+[fluvio]
+[fluvio.hit_stream]
+topic = "hit-stream-local"
+host = "sc:9103"
+batch_size = 100
+linger = 500
+
 
 [uaparser]
 yaml = "./data/ua-parser/regexes.yaml"
 
 [geo_ip]
 mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"
+topic = "hit-stream-main"

@@ -1,5 +1,7 @@
 use std::{
-    io::{Error as IoError, Result as IoResult}, ops::Deref, sync::Arc
+    io::{Error as IoError, Result as IoResult},
+    ops::Deref,
+    sync::Arc,
 };
 
 use click_router::{
@@ -123,7 +125,7 @@ async fn main() {
     let app = AppBuilder::new(settings)
         .with_dynamo_stores()
         .await
-        .with_rdkafka()
+        .with_fluvio()
         .await
         .with_moka()
         .with_defaults()
@@ -136,8 +138,8 @@ async fn main() {
 
     let _ = FLOW_ROUTER.set(app);
 
-    //let router = Router::with_path("<**rest_path>").get(Redirect);
-    let router = Router::with_path("conds").get(Redirect);
+    let router = Router::with_path("{**rest_path}").get(Redirect);
+    //let router = Router::with_path("conds").get(Redirect);
 
     println!("{:?}", router);
 
@@ -146,6 +148,6 @@ async fn main() {
         .bind()
         .await;
 
-        // let acceptor = TcpListener::new("127.0.0.1:5800").bind().await;
+    // let acceptor = TcpListener::new("127.0.0.1:5800").bind().await;
     Server::new(acceptor).serve(router).await;
 }

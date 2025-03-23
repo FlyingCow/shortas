@@ -17,6 +17,19 @@ topic = "click-aggs-main"
 hosts = ["localhost:9092", "localhost:9093"]
 ack_timeout_secs = 60
 
+
+[fluvio]
+[fluvio.hit_stream]
+topic = "hit-stream-main"
+host = "localhost:9003"
+
+[fluvio.click_aggs]
+topic = "click-aggs-local"
+host = "localhost:9003"
+batch_size = 100
+linger = 500
+
+
 [uaparser]
 yaml = "./data/ua-parser/regexes.yaml"
 
