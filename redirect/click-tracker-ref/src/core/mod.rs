@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 pub mod hit_stream;
 pub mod location;
 pub mod pipe;
+pub mod tracking_pipe;
 pub mod session;
 pub mod user_agent;
 pub mod user_settings;

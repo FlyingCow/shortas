@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::ops::DerefMut;
 
 use anyhow::Result;
 use tokio::task::JoinHandle;
@@ -8,7 +8,7 @@ use super::{HitStreamSource, TrackingPipeContext};
 
 const BUFFER_SIZE: usize = 3;
 
-#[async_trait::async_trait()]
+#[async_trait::async_trait]
 pub trait TrackingModule {
     async fn execute(&mut self, _context: &mut TrackingPipeContext) -> Result<()>;
 }
@@ -25,7 +25,7 @@ where
 impl<S, M> TrackingPipe<S, M>
 where
     S: HitStreamSource,
-    M: TrackingModule,
+    M: TrackingModule + Send + Sync + Clone + 'static,
 {
     pub fn new(stream_sources: Vec<S>, modules: Vec<M>) -> Self {
         TrackingPipe {
@@ -45,13 +45,14 @@ where
 
             let _ = stream.pull(tx, token).await?;
         }
+        let mut modules = self.modules.clone();
 
-        let mut modules = Arc::new(self.modules).clone();
         let handler = tokio::spawn(async move {
             while let Ok(hit) = rx.recv() {
                 let mut context = TrackingPipeContext::new(hit);
 
-                for module in modules.iter_mut() {
+                let mut modules = modules.deref_mut();
+                for module in modules.deref_mut() {
                     let _result = module.execute(&mut context).await;
                 }
 
