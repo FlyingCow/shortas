@@ -34,9 +34,7 @@ where
         }
     }
 
-    pub async fn run(&self) -> Result<JoinHandle<()>> {
-        let token: CancellationToken = CancellationToken::new();
-
+    pub async fn run(&self, token: CancellationToken) -> Result<JoinHandle<()>> {
         let (tx, rx) = std::sync::mpsc::sync_channel(BUFFER_SIZE);
 
         for stream in &self.stream_sources {
