@@ -55,3 +55,4 @@ vendor/pkg/
 pyenv
 Vagrantfile
 volume/
+fs/

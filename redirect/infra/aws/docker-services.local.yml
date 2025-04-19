@@ -9,8 +9,8 @@ services:
     container_name: "${LOCALSTACK_DOCKER_NAME-localstack_main}"
     image: localstack/localstack
     ports:
-      - "127.0.0.1:4566:4566"            # LocalStack Gateway
-      - "127.0.0.1:4510-4559:4510-4559"  # external services port range
+      - "127.0.0.1:4566:4566" # LocalStack Gateway
+      - "127.0.0.1:4510-4559:4510-4559" # external services port range
     environment:
       - DEBUG=${DEBUG-}
       - DOCKER_HOST=unix:///var/run/docker.sock
@@ -45,7 +45,7 @@ services:
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
       - KAFKA_ADVERTISED_HOST_NAME=kafka
     restart: always
-    
+
     networks:
       - core-net
 
@@ -63,7 +63,7 @@ services:
       - "9000:9000"
     networks:
       - core-net
-      
+
   vector:
     image: timberio/vector:latest-alpine
     container_name: vector
@@ -82,9 +82,9 @@ services:
     container_name: cache
     restart: always
     ports:
-      - '6379:6379'
+      - "6379:6379"
     command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
-    volumes: 
+    volumes:
       - cache:/data
     networks:
       - core-net
@@ -99,11 +99,13 @@ services:
       - RUST_LOG=info
     command: "./fluvio-run sc --local /fluvio/metadata"
     volumes:
-      - ./fluvio-metadata:/fluvio/metadata
+      - ./fs/fluvio-metadata:/fluvio/metadata
+    networks:
+      - core-net
   sc-setup:
     build:
       context: .
-      dockerfile: fluvio-dockerfile
+      dockerfile: fluvio/Dockerfile
     container_name: sc-setup
     environment:
       - RUST_LOG=info
@@ -111,6 +113,8 @@ services:
       /bin/sh -c "
       fluvio profile add docker sc:9003 docker;
       fluvio cluster spu register --id 5001 -p 0.0.0.0:9110 -l spu:9010 --private-server spu:9011;
+      fluvio topic create hit-stream-local;
+      fluvio topic create click-aggs-local;
       exit 0;
       "
     depends_on:
@@ -122,7 +126,7 @@ services:
     container_name: spu
     hostname: spu
     volumes:
-      - ./fluvio-data:/fluvio/data
+      - ./fs/fluvio-data:/fluvio/data
     environment:
       - RUST_LOG=info
     ports:
@@ -133,7 +137,7 @@ services:
       - sc
     networks:
       - core-net
-      
+
 volumes:
   kafka_data:
     driver: local

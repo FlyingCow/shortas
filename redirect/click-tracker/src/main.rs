@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
     let mut app = AppBuilder::new(settings)
         .with_aws()
         .await
-        .with_kafka()
+        .with_fluvio()
         .await
         .with_moka()
         .with_defaults()

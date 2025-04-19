@@ -1,4 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{mpsc::Sender, Arc},
+    time::Duration,
+};
 
 use super::settings::HitStreamConfig;
 use crate::{core::hit_stream::BaseHitStream, model::Hit};
@@ -7,10 +10,8 @@ use kafka::{
     client::{FetchOffset, GroupOffsetStorage},
     consumer::Consumer,
 };
-use tokio::{
-    sync::Mutex,
-    time::sleep,
-};
+use tokio::{sync::Mutex, time::sleep};
+use tokio_util::sync::CancellationToken;
 
 const TRACKERS_GROUP: &str = "trackers";
 const IDLE_TIMEOUT: u64 = 500;
@@ -40,23 +41,38 @@ impl KafkaHitStream {
 
 #[async_trait::async_trait()]
 impl BaseHitStream for KafkaHitStream {
-    async fn pull(&mut self) -> Result<Vec<Hit>> {
+    async fn pull(&mut self, tx: Sender<Hit>, cancelation_token: CancellationToken) -> Result<()> {
         let mut consumer = self.consumer.lock().await;
 
-        let mut hits: Vec<Hit> = vec![];
-        for ms in consumer.poll()?.iter() {
-            for m in ms.messages() {
-                let hit = serde_json::from_slice(m.value)?;
-                hits.push(hit);
-            }
-            let _ = consumer.consume_messageset(ms);
-        }
-        consumer.commit_consumed().unwrap();
+        // while let Some(Ok(record)) = stream.next().await {
+        //     let string = String::from_utf8_lossy(record.value());
+        //     let hit = serde_json::from_slice(string.as_bytes())?;
 
-        if hits.len() == 0 {
-            sleep(Duration::from_millis(IDLE_TIMEOUT)).await;
-        }
+        //     tx.send(hit);
 
-        Ok(hits)
+        //     if cancelation_token.is_cancelled() {
+        //         break;
+        //     }
+        // }
+
+        // let mut hits: Vec<Hit> = vec![];
+        // for ms in consumer.poll()?.iter() {
+        //     for m in ms.messages() {
+        //         let hit = serde_json::from_slice(m.value)?;
+        //         hits.push(hit);
+        //     }
+        //     let _ = consumer.consume_messageset(ms);
+        // }
+        // consumer.commit_consumed().unwrap();
+
+        // if hits.len() == 0 {
+        //     sleep(Duration::from_millis(IDLE_TIMEOUT)).await;
+        // }
+
+        // if cancelation_token.is_cancelled() {
+        //     break;
+        // }
+
+        Ok(())
     }
 }

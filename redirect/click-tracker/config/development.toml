@@ -2,7 +2,7 @@ debug = true
 
 [aws]
 local = true
-localstack_endpoint="http://localhost:4566"
+localstack_endpoint = "http://localhost:4566"
 
 [aws.dynamo]
 encryption_table = "core-routes-encryption-local"
@@ -20,6 +20,18 @@ hosts = ["kafka:9092", "kafka:9093"]
 topic = "click-aggs-local"
 hosts = ["kafka:9092", "kafka:9093"]
 ack_timeout_secs = 60
+
+
+[fluvio]
+[fluvio.hit_stream]
+topic = "hit-stream-local"
+host = "sc:9103"
+
+[fluvio.click_aggs]
+topic = "click-aggs-local"
+host = "sc:9103"
+batch_size = 100
+linger = 500
 
 
 [uaparser]

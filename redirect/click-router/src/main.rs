@@ -125,7 +125,7 @@ async fn main() {
     let app = AppBuilder::new(settings)
         .with_dynamo_stores()
         .await
-        .with_kafka()
+        .with_fluvio()
         .await
         .with_moka()
         .with_defaults()
@@ -138,8 +138,8 @@ async fn main() {
 
     let _ = FLOW_ROUTER.set(app);
 
-    //let router = Router::with_path("<**rest_path>").get(Redirect);
-    let router = Router::with_path("conds").get(Redirect);
+    let router = Router::with_path("{**rest_path}").get(Redirect);
+    //let router = Router::with_path("conds").get(Redirect);
 
     println!("{:?}", router);
 

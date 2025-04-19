@@ -22,6 +22,20 @@ iteration_seconds = 1
 
 [fluvio]
 [fluvio.hit_stream]
+topic = "hit-stream-local"
+host = "sc:9103"
+batch_size = 100
+linger = 500
+
+[fluvio]
+[fluvio.hit_stream]
+topic = "hit-stream-local"
+host = "sc:9103"
+batch_size = 100
+linger = 500
+
+[fluvio]
+[fluvio.hit_stream]
 topic = "hit-stream-main"
 host = "sc:9010"
 linger_millis = 200
