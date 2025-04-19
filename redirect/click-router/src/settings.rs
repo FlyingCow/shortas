@@ -2,7 +2,6 @@ use config::{Config, ConfigError, Environment, File};
 use serde_derive::Deserialize;
 
 use crate::adapters::aws::settings::AWS;
-use crate::adapters::fluvio::settings::Fluvio;
 use crate::adapters::geo_ip::settings::GeoIP;
 use crate::adapters::kafka::settings::Kafka;
 use crate::adapters::moka::settings::Moka;
@@ -21,7 +20,6 @@ pub struct Server {
 pub struct Settings {
     pub aws: AWS,
     pub kafka: Kafka,
-    pub fluvio: Fluvio,
     pub moka: Moka,
     pub uaparser: UAParser,
     pub geo_ip: GeoIP,

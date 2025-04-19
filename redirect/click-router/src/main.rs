@@ -125,7 +125,7 @@ async fn main() {
     let app = AppBuilder::new(settings)
         .with_dynamo_stores()
         .await
-        .with_fluvio()
+        .with_kafka()
         .await
         .with_moka()
         .with_defaults()
