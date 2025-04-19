@@ -1,24 +1,21 @@
 use anyhow::Result;
 use tracing::info;
 
-use crate::core::{
-    ClickStreamItem, HitData, TrackingPipeContext, aggs::ClickAggsRegistrar,
-    tracking_pipe::TrackingModule,
+use crate::{
+    adapters::ClickAggsRegistrarType,
+    core::{
+        ClickStreamItem, HitData, TrackingPipeContext, aggs::ClickAggsRegistrar,
+        tracking_pipe::TrackingModule,
+    },
 };
 
 #[derive(Clone)]
-pub struct AggregateModule<R>
-where
-    R: ClickAggsRegistrar + Sync + Send + 'static,
-{
-    click_aggs_registrar: R,
+pub struct AggregateModule {
+    click_aggs_registrar: ClickAggsRegistrarType,
 }
 
 #[async_trait::async_trait()]
-impl<R> TrackingModule for AggregateModule<R>
-where
-    R: ClickAggsRegistrar + Sync + Send + 'static,
-{
+impl TrackingModule for AggregateModule {
     async fn execute(&mut self, context: &mut TrackingPipeContext) -> Result<()> {
         let mut stream_item = ClickStreamItem {
             id: context.hit.id.clone(),
@@ -76,11 +73,8 @@ where
     }
 }
 
-impl<R> AggregateModule<R>
-where
-    R: ClickAggsRegistrar + Sync + Send + 'static,
-{
-    pub fn new(click_aggs_registrar: R) -> Self {
+impl AggregateModule {
+    pub fn new(click_aggs_registrar: ClickAggsRegistrarType) -> Self {
         Self {
             click_aggs_registrar,
         }

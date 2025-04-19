@@ -30,3 +30,5 @@ clap = { version = "4.5.4", features = ["derive", "env"] }
 tracing-subscriber = "0.3.18"
 dotenv = "0.15.0"
 config = "0.15.11"
+fluvio = "0.26.2"
+futures-lite = "2.6.0"

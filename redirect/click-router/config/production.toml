@@ -16,6 +16,13 @@ batch_size = 100
 consumers_count = 2
 iteration_seconds = 1
 
+[fluvio]
+[fluvio.hit_stream]
+topic = "hit-stream-main"
+host = "localhost"
+linger_millis = 200
+batch_size_bytes = 16536
+
 [uaparser]
 yaml = "./data/ua-parser/regexes.yaml"
 

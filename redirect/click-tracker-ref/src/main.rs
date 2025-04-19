@@ -3,7 +3,10 @@ use anyhow::Result;
 use clap::Parser;
 use click_tracker_ref::{
     App, FluvioHitStream, KafkaHitStream, Settings,
-    adapters::{HitStreamSourceType, kafka::KafkaClickAggsRegistrar},
+    adapters::{
+        ClickAggsRegistrarType, HitStreamSourceType, fluvio::FluvioClickAggsRegistrar,
+        kafka::KafkaClickAggsRegistrar,
+    },
     core::{
         pipe::modules::clicks::{ClickModules, aggregate::AggregateModule, init::InitModule},
         tracking_pipe::TrackingPipe,
@@ -19,17 +22,20 @@ pub struct Args {
     pub config_path: String,
 }
 
-fn init_modules() -> Vec<ClickModules<KafkaClickAggsRegistrar>> {
+async fn init_modules(settings: Settings) -> Vec<ClickModules> {
     let init = InitModule;
-    vec![
-        ClickModules::Init(init),
-        ClickModules::Aggregate(KafkaClickAggsRegistrar::new(sett)),
-    ]
+    let aggregate = AggregateModule::new(ClickAggsRegistrarType::Fluvio(
+        FluvioClickAggsRegistrar::new(settings.fluvio.click_aggs).await,
+    ));
+
+    vec![ClickModules::Init(init), ClickModules::Aggregate(aggregate)]
 }
 
-fn init_sources() -> Vec<HitStreamSourceType> {
+fn init_sources(settings: Settings) -> Vec<HitStreamSourceType> {
     let kafka_stream = KafkaHitStream;
-    let fluvio_stream = FluvioHitStream;
+    let fluvio_stream = FluvioHitStream {
+        settings: settings.fluvio.hit_stream,
+    };
     vec![
         HitStreamSourceType::Fluvio(fluvio_stream),
         HitStreamSourceType::Kafka(kafka_stream),
@@ -51,8 +57,8 @@ async fn main() -> Result<()> {
     .unwrap();
 
     let pipe = TrackingPipe::builder()
-        .with_stream_sources(init_sources())
-        .with_modules(init_modules())
+        .with_stream_sources(init_sources(settings.clone()))
+        .with_modules(init_modules(settings.clone()).await)
         .build();
 
     let app = App::builder().with_pipe(pipe).build();

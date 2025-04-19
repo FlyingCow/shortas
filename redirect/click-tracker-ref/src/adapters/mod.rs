@@ -9,7 +9,9 @@ pub mod uaparser;
 use anyhow::Result;
 use aws::user_settings_store::DynamoUserSettingsStore;
 use chrono::{DateTime, Utc};
+use fluvio::FluvioClickAggsRegistrar;
 use geo_ip::geo_ip_location_detector::GeoIPLocationDetector;
+use kafka::KafkaClickAggsRegistrar;
 use moka::user_settings_store::MokaDecoratedUserSettingsStore;
 use redis::session_detector::RedisSessionDetector;
 use std::{net::IpAddr, sync::mpsc::SyncSender};
@@ -20,11 +22,29 @@ use uaparser::user_agent_detector::UAParserUserAgentDetector;
 use crate::{
     FluvioHitStream, KafkaHitStream,
     core::{
-        Country, Hit, HitStreamSource, UserAgent, UserAgentDetector, UserSettingsStore,
+        ClickStreamItem, Country, Hit, HitStreamSource, UserAgent, UserAgentDetector,
+        UserSettingsStore,
+        aggs::ClickAggsRegistrar,
         location::LocationDetector,
         session::{Session, SessionDetector},
     },
 };
+
+#[derive(Clone)]
+pub enum ClickAggsRegistrarType {
+    Kafka(KafkaClickAggsRegistrar),
+    Fluvio(FluvioClickAggsRegistrar),
+}
+
+#[async_trait::async_trait]
+impl ClickAggsRegistrar for ClickAggsRegistrarType {
+    async fn register(&self, click: ClickStreamItem) -> Result<()> {
+        match self {
+            ClickAggsRegistrarType::Kafka(registrar) => registrar.register(click).await,
+            ClickAggsRegistrarType::Fluvio(registrar) => registrar.register(click).await,
+        }
+    }
+}
 
 pub enum HitStreamSourceType {
     Kafka(KafkaHitStream),

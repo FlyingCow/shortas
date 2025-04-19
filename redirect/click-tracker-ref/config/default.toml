@@ -13,11 +13,22 @@ topic = "click-aggs-local"
 hosts = ["localhost:9092", "localhost:9093"]
 ack_timeout_secs = 60
 
+[fluvio]
+[fluvio.hit_stream]
+topic = "hit-stream-main"
+host = "sc:9003"
+
+[fluvio.click_aggs]
+topic = "click-aggs-local"
+host = "sc:9003"
+linger_millis = 200
+batch_size_bytes = 16536
+
 
 [moka]
 [moka.user_settings_cache]
 max_capacity = 10_000
-time_to_live_minutes = 60 
+time_to_live_minutes = 60
 time_to_idle_minutes = 20
 
 [uaparser]

@@ -12,18 +12,12 @@ use crate::{
 
 #[derive(TypedBuilder)]
 #[builder(field_defaults(setter(prefix = "with_")))]
-pub struct App<A>
-where
-    A: ClickAggsRegistrar + Sync + Send + 'static,
-{
-    pipe: TrackingPipe<HitStreamSourceType, ClickModules<A>>,
+pub struct App {
+    pipe: TrackingPipe<HitStreamSourceType, ClickModules>,
 }
 
-impl<A> App<A>
-where
-    A: ClickAggsRegistrar + Sync + Send + Clone + 'static,
-{
-    pub fn new(pipe: TrackingPipe<HitStreamSourceType, ClickModules<A>>) -> Self {
+impl App {
+    pub fn new(pipe: TrackingPipe<HitStreamSourceType, ClickModules>) -> Self {
         App { pipe }
     }
 
