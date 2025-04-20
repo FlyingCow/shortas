@@ -75,8 +75,8 @@ pub struct FluvioClickAggsRegistrar {
 }
 
 impl FluvioClickAggsRegistrar {
-    pub async fn new(settings: ClickAggsConfig) -> Self {
-        let fluvio = Fluvio::connect_with_config(&FluvioClusterConfig::new(settings.host.clone()))
+    pub async fn new(settings: &ClickAggsConfig) -> Self {
+        let fluvio = Fluvio::connect_with_config(&FluvioClusterConfig::new(&settings.host))
             .await
             .expect("Can not connect to fluvio cluster.");
 

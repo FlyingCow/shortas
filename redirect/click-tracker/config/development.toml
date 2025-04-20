@@ -41,5 +41,5 @@ yaml = "./data/ua-parser/regexes.yaml"
 mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"
 
 [redis]
-initial_nodes = ["redis://:eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81@cache"]
+host = "redis://:eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81@cache"
 password = "eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81"

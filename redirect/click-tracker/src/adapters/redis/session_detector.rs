@@ -8,6 +8,8 @@ use tracing::info;
 
 use crate::core::session::{Session, SessionDetector};
 
+use super::settings::Redis;
+
 const EXPIRATION_OFFSET: i64 = 30 * 60;
 
 #[derive(Clone)]
@@ -16,10 +18,10 @@ pub struct RedisSessionDetector {
 }
 
 impl RedisSessionDetector {
-    pub fn new(initial_nodes: Vec<String>) -> Self {
-        info!("  redis -> {}", initial_nodes.first().unwrap());
+    pub fn new(settings: &Redis) -> Self {
+        info!("  redis -> {}", &settings.host);
 
-        let client = Client::open(initial_nodes.first().unwrap().as_str()).unwrap();
+        let client = Client::open(settings.host.as_str()).unwrap();
 
         let _con = client.get_connection().unwrap();
 

@@ -19,19 +19,7 @@ impl App {
         App { pipe }
     }
 
-    pub async fn run(&self) -> Result<JoinHandle<()>> {
-        let token: CancellationToken = CancellationToken::new();
-
-        // Setup and execute subsystem tree
-        // Toplevel::new(|s| async move {
-        //     token.cancel();
-        //     // s.start(SubsystemBuilder::new("Countdown", countdown_subsystem));
-        // })
-        // .catch_signals()
-        // .handle_shutdown_requests(Duration::from_millis(1000))
-        // .await
-        // .map_err(Into::into);
-
+    pub async fn run(&self, token: CancellationToken) -> Result<JoinHandle<()>> {
         self.pipe.run(token).await
     }
 }
