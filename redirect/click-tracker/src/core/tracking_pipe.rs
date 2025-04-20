@@ -1,129 +1,69 @@
+use std::ops::DerefMut;
+
 use anyhow::Result;
-use chrono::{DateTime, Utc};
-use std::{self, collections::HashMap};
+use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
-use ulid::Ulid;
+use typed_builder::TypedBuilder;
 
-use crate::model::Hit;
+use super::{HitStreamSource, TrackingPipeContext};
 
-use super::{
-    location_detect::Country, session_detect::Session, user_agent_detect::{Device, UserAgent, OS}
-};
+const BUFFER_SIZE: usize = 3;
 
-#[derive(Clone, Debug)]
-pub enum TrackingPipeData {
-    Bool(bool),
-    Number(f64),
-    String(&'static str),
+#[async_trait::async_trait]
+pub trait TrackingModule {
+    async fn execute(&mut self, _context: &mut TrackingPipeContext) -> Result<()>;
 }
 
-impl TrackingPipeData {
-    pub fn is_bool(&self, value: bool) -> bool {
-        if let TrackingPipeData::Bool(bool_value) = &self {
-            return *bool_value == value;
-        }
-
-        false
-    }
-
-    pub fn is_string(&self, value: &str) -> bool {
-        if let TrackingPipeData::String(str_value) = &self {
-            return value.eq_ignore_ascii_case(str_value);
-        }
-
-        false
-    }
-
-    pub fn is_num(&self, value: f64) -> bool {
-        if let TrackingPipeData::Number(num_value) = &self {
-            return *num_value == value;
-        }
-
-        false
-    }
+#[derive(TypedBuilder)]
+#[builder(field_defaults(setter(prefix = "with_")))]
+pub struct TrackingPipe<S, M>
+where
+    S: HitStreamSource,
+    M: TrackingModule,
+{
+    stream_sources: Vec<S>,
+    modules: Vec<M>,
 }
 
-#[derive(Debug)]
-pub struct TrackingError {
-    pub utc: DateTime<Utc>,
-    pub tries: u16,
-    pub error: String,
-    pub stack_trace: String 
-}
-
-#[derive(Debug)]
-pub enum TrackingState {
-    Ok,
-    Error(TrackingError),
-}
-
-#[derive(Debug)]
-pub struct TrackingPipeContext {
-    pub id: String,
-    pub utc: DateTime<Utc>,
-    pub hit: Hit,
-    pub data: HashMap<&'static str, TrackingPipeData>,
-    pub client_os: Option<OS>,
-    pub client_ua: Option<UserAgent>,
-    pub client_device: Option<Device>,
-    pub client_country: Option<Country>,
-    pub spider: bool,
-    pub session: Option<Session>,
-    pub state: TrackingState,
-}
-
-impl TrackingPipeContext {
-    pub fn new(hit: Hit) -> Self {
-        Self {
-            id: Ulid::new().to_string(),
-            utc: Utc::now(),
-            hit: hit,
-            data: HashMap::new(),
-            client_os: None,
-            client_ua: None,
-            client_device: None,
-            client_country: None,
-            session: None,
-            state: TrackingState::Ok,
-            spider: false
+impl<S, M> TrackingPipe<S, M>
+where
+    S: HitStreamSource,
+    M: TrackingModule + Send + Sync + Clone + 'static,
+{
+    pub fn new(stream_sources: Vec<S>, modules: Vec<M>) -> Self {
+        TrackingPipe {
+            stream_sources,
+            modules,
         }
     }
-}
 
-impl TrackingPipeContext {
-    pub fn is_data_true(&self, bool_key: &'static str) -> bool {
-        let data_value = self.data.get(&bool_key);
+    pub async fn run(&self, token: CancellationToken) -> Result<JoinHandle<()>> {
+        let (tx, rx) = std::sync::mpsc::sync_channel(BUFFER_SIZE);
 
-        if let Some(i) = data_value {
-            return i.is_bool(true);
+        for stream in &self.stream_sources {
+            let tx = tx.clone();
+            let token = token.clone();
+
+            let _ = stream.pull(tx, token).await?;
         }
+        let mut modules = self.modules.clone();
 
-        false
+        let handler = tokio::spawn(async move {
+            while let Ok(hit) = rx.recv() {
+                let mut context = TrackingPipeContext::new(hit);
+
+                let mut modules = modules.deref_mut();
+                for module in modules.deref_mut() {
+                    let _result = module.execute(&mut context).await;
+                }
+
+                //println!("received: {}", msg);
+                if token.is_cancelled() {
+                    break;
+                }
+            }
+        });
+
+        Ok(handler)
     }
-
-    ///
-    /// Adds a bool value to the context's data
-    ///
-    pub fn add_bool(&mut self, bool_key: &'static str, value: bool) {
-        let _ = &self.data.insert(bool_key, TrackingPipeData::Bool(value));
-    }
-
-    ///
-    /// Adds a string value to the context's data
-    ///
-    pub fn add_string(&mut self, bool_key: &'static str, value: &'static str) {
-        let _ = &self.data.insert(bool_key, TrackingPipeData::String(value));
-    }
-
-    ///
-    /// Adds a num value to the context's data
-    ///
-    pub fn add_num(&mut self, bool_key: &'static str, value: f64) {
-        let _ = &self.data.insert(bool_key, TrackingPipeData::Number(value));
-    }
-}
-
-#[async_trait::async_trait()]
-pub trait BaseTrackingPipe {
-    async fn start(&mut self, cnacelation_token: CancellationToken) -> Result<()>;
 }

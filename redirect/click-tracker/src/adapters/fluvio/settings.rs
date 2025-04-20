@@ -5,6 +5,7 @@ use serde_derive::Deserialize;
 pub struct HitStreamConfig {
     pub host: String,
     pub topic: String,
+    pub consumer: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -12,8 +13,8 @@ pub struct HitStreamConfig {
 pub struct ClickAggsConfig {
     pub host: String,
     pub topic: String,
+    pub linger_millis: u64,
     pub batch_size: usize,
-    pub linger: u64,
 }
 
 #[derive(Debug, Deserialize, Clone)]

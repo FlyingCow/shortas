@@ -22,12 +22,13 @@ ack_timeout_secs = 60
 [fluvio.hit_stream]
 topic = "hit-stream-main"
 host = "localhost:9003"
+consumer = "tracker"
 
 [fluvio.click_aggs]
 topic = "click-aggs-local"
 host = "localhost:9003"
 batch_size = 100
-linger = 500
+linger_millis = 500
 
 
 [uaparser]

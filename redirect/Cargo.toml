@@ -6,4 +6,4 @@ members = [
     "click-aggregator-api",
     "click-router-api",
     "click-tracker",
-    "click-tracker-ref"]
+]

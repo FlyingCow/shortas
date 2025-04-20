@@ -3,8 +3,7 @@ use std::time::Duration;
 use anyhow::Result;
 use moka::future::Cache;
 
-use crate::core::BaseUserSettingsStore;
-use crate::model::UserSettings;
+use crate::core::{UserSettings, UserSettingsStore};
 
 const KEY_PREFIX: &'static str = "settings";
 
@@ -13,15 +12,20 @@ pub struct UserSettingsCacheItem {
     value: Option<UserSettings>,
 }
 
-#[derive(Clone)]
-pub struct MokaDecoratedUserSettingsStore {
+pub struct MokaDecoratedUserSettingsStore<S>
+where
+    S: UserSettingsStore + Send + Sync,
+{
     cache: Cache<String, UserSettingsCacheItem>,
-    user_settings_store: Box<dyn BaseUserSettingsStore + Send + Sync>,
+    user_settings_store: S,
 }
 
-impl MokaDecoratedUserSettingsStore {
+impl<S> MokaDecoratedUserSettingsStore<S>
+where
+    S: UserSettingsStore + Send + Sync,
+{
     pub fn new(
-        user_settings_store: Box<dyn BaseUserSettingsStore + Send + Sync>,
+        user_settings_store: S,
         max_capacity: u64,
         time_to_live_minutes: u64,
         time_to_idle_minutes: u64,
@@ -49,14 +53,17 @@ fn get_key(user_id: &str) -> String {
 }
 
 #[async_trait::async_trait()]
-impl BaseUserSettingsStore for MokaDecoratedUserSettingsStore {
-    async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
+impl<S> UserSettingsStore for MokaDecoratedUserSettingsStore<S>
+where
+    S: UserSettingsStore + Send + Sync,
+{
+    async fn get(&self, user_id: &str) -> Result<Option<UserSettings>> {
         let key = get_key(user_id);
 
         let cache_result = self
             .cache
             .get_with(key, async move {
-                let user_settings_result = self.user_settings_store.get_user_settings(user_id).await;
+                let user_settings_result = self.user_settings_store.get(user_id).await;
                 UserSettingsCacheItem {
                     value: user_settings_result.unwrap(),
                 }

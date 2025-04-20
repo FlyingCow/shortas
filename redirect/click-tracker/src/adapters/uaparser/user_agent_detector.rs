@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tracing::info;
 use uaparser::{Parser, UserAgentParser};
 
-use crate::core::user_agent_detect::{BaseUserAgentDetector, Device, UserAgent, OS};
+use crate::core::{Device, OS, UserAgent, UserAgentDetector};
 
 #[derive(Clone, Debug)]
 pub struct UAParserUserAgentDetector {
@@ -24,7 +24,7 @@ impl UAParserUserAgentDetector {
     }
 }
 
-impl BaseUserAgentDetector for UAParserUserAgentDetector {
+impl UserAgentDetector for UAParserUserAgentDetector {
     fn parse_device(&self, user_agent: &str) -> Device {
         let uaparser_device = self.parser.parse_device(user_agent);
 

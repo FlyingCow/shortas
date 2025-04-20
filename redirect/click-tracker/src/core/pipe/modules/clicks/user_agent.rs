@@ -1,19 +1,18 @@
 use anyhow::Result;
 
 use crate::{
-    core::{tracking_pipe::TrackingPipeContext, user_agent_detect::BaseUserAgentDetector},
-    tracking_pipe::tracking_module::BaseTrackingModule,
+    adapters::UserAgentDetectorType,
+    core::{TrackingPipeContext, UserAgentDetector, tracking_pipe::TrackingModule},
 };
-
 const SPIDER_DEVICE_BRAND: &'static str = "Spider";
 
 #[derive(Clone)]
 pub struct EnrichUserAgentModule {
-    user_agent_detector: Box<dyn BaseUserAgentDetector + Sync + Send + 'static>,
+    user_agent_detector: UserAgentDetectorType,
 }
 
 #[async_trait::async_trait()]
-impl BaseTrackingModule for EnrichUserAgentModule {
+impl TrackingModule for EnrichUserAgentModule {
     async fn execute(&mut self, context: &mut TrackingPipeContext) -> Result<()> {
         if let Some(user_agent_string) = context.hit.user_agent.clone() {
             let user_agent = &self
@@ -39,9 +38,7 @@ impl BaseTrackingModule for EnrichUserAgentModule {
 }
 
 impl EnrichUserAgentModule {
-    pub fn new(
-        user_agent_detector: Box<dyn BaseUserAgentDetector + Sync + Send + 'static>,
-    ) -> Self {
+    pub fn new(user_agent_detector: UserAgentDetectorType) -> Self {
         Self {
             user_agent_detector,
         }

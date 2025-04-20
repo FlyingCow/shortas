@@ -1,17 +1,17 @@
 use anyhow::Result;
 
 use crate::{
-    core::{location_detect::BaseLocationDetector, tracking_pipe::TrackingPipeContext},
-    tracking_pipe::tracking_module::BaseTrackingModule,
+    adapters::LocationDetectorType,
+    core::{TrackingPipeContext, location::LocationDetector, tracking_pipe::TrackingModule},
 };
 
 #[derive(Clone)]
 pub struct EnrichLocationModule {
-    location_detector: Box<dyn BaseLocationDetector + Sync + Send + 'static>,
+    location_detector: LocationDetectorType,
 }
 
 #[async_trait::async_trait()]
-impl BaseTrackingModule for EnrichLocationModule {
+impl TrackingModule for EnrichLocationModule {
     async fn execute(&mut self, context: &mut TrackingPipeContext) -> Result<()> {
         if let Some(ip) = context.hit.ip.clone() {
             let country = &self.location_detector.detect_country(&ip);
@@ -27,7 +27,7 @@ impl BaseTrackingModule for EnrichLocationModule {
     }
 }
 impl EnrichLocationModule {
-    pub fn new(location_detector: Box<dyn BaseLocationDetector + Sync + Send + 'static>) -> Self {
+    pub fn new(location_detector: LocationDetectorType) -> Self {
         Self { location_detector }
     }
 }

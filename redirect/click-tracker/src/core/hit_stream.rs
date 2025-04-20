@@ -1,14 +1,12 @@
-use std::sync::mpsc::Sender;
-
-use anyhow::Result;
-use dyn_clone::{clone_trait_object, DynClone};
+use std::sync::mpsc::SyncSender;
+use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
-use crate::model::Hit;
+use anyhow::Result;
+
+use super::Hit;
 
 #[async_trait::async_trait]
-pub trait BaseHitStream: DynClone {
-    async fn pull(&mut self, tx: Sender<Hit>, cancelation_token: CancellationToken) -> Result<()>;
+pub trait HitStreamSource {
+    async fn pull(&self, ts: SyncSender<Hit>, token: CancellationToken) -> Result<JoinHandle<()>>;
 }
-
-clone_trait_object!(BaseHitStream);

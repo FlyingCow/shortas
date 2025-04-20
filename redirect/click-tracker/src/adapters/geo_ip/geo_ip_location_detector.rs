@@ -1,9 +1,9 @@
 use std::{net::IpAddr, sync::Arc};
 
-use maxminddb::{geoip2, MaxMindDBError, Reader};
+use maxminddb::{MaxMindDBError, Reader, geoip2};
 use tracing::info;
 
-use crate::core::location_detect::{BaseLocationDetector, Country};
+use crate::core::{location::LocationDetector, Country};
 
 #[derive(Clone, Debug)]
 pub struct GeoIPLocationDetector {
@@ -22,19 +22,21 @@ impl GeoIPLocationDetector {
     }
 }
 
-impl BaseLocationDetector for GeoIPLocationDetector {
+impl LocationDetector for GeoIPLocationDetector {
     fn detect_country(&self, &ip_addr: &IpAddr) -> Option<Country> {
+        let country_detect_result: Result<geoip2::Country, MaxMindDBError> =
+            self.reader.lookup(ip_addr);
 
-        let country_detect_result: Result<geoip2::Country, MaxMindDBError> = self.reader.lookup(ip_addr);
-
-        if country_detect_result.is_err(){
+        if country_detect_result.is_err() {
             return None;
         }
 
         let country = country_detect_result.unwrap();
 
         match country.country {
-            Some(country) => Some(Country{ iso_code: country.iso_code.unwrap_or_default().to_ascii_lowercase() }),
+            Some(country) => Some(Country {
+                iso_code: country.iso_code.unwrap_or_default().to_ascii_lowercase(),
+            }),
             None => None,
         }
     }

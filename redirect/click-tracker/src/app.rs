@@ -1,58 +1,37 @@
 use anyhow::Result;
-use tracing::info;
+use tokio::task::JoinHandle;
+use tokio_util::sync::CancellationToken;
+use typed_builder::TypedBuilder;
 
 use crate::{
-    core::{
-        click_aggs_register::BaseClickAggsRegistrar, hit_stream::BaseHitStream,
-        location_detect::BaseLocationDetector, session_detect::BaseSessionDetector,
-        user_agent_detect::BaseUserAgentDetector, BaseUserSettingsManager, BaseUserSettingsStore,
-    },
-    settings::Settings,
-    tracking_pipe::{
-        default_tracking_pipe::DefaultTrackingPipe, tracking_module::BaseTrackingModule,
-    },
+    adapters::HitStreamSourceType,
+    core::{pipe::modules::clicks::ClickModules, tracking_pipe::TrackingPipe},
 };
 
-#[derive(Clone)]
-pub struct AppBuilder {
-    pub(super) settings: Settings,
-    pub(super) user_settings_store: Option<Box<dyn BaseUserSettingsStore + Send + Sync + 'static>>,
-    pub(super) user_settings_manager:
-        Option<Box<dyn BaseUserSettingsManager + Send + Sync + 'static>>,
-    pub(super) user_agent_detector: Option<Box<dyn BaseUserAgentDetector + Send + Sync + 'static>>,
-
-    pub(super) location_detector: Option<Box<dyn BaseLocationDetector + Send + Sync + 'static>>,
-    pub(super) session_detector: Option<Box<dyn BaseSessionDetector + Send + Sync + 'static>>,
-
-    pub(super) hit_stream: Option<Box<dyn BaseHitStream + Send + Sync + 'static>>,
-    pub(super) click_aggs_registrar:
-        Option<Box<dyn BaseClickAggsRegistrar + Send + Sync + 'static>>,
-
-    pub(super) modules: Vec<Box<dyn BaseTrackingModule + Send + Sync + 'static>>,
+#[derive(TypedBuilder)]
+#[builder(field_defaults(setter(prefix = "with_")))]
+pub struct App {
+    pipe: TrackingPipe<HitStreamSourceType, ClickModules>,
 }
 
-impl AppBuilder {
-    pub fn new(settings: Settings) -> Self {
-        Self {
-            settings,
-            user_settings_store: None,
-            user_settings_manager: None,
-            user_agent_detector: None,
-            location_detector: None,
-            session_detector: None,
-            hit_stream: None,
-            click_aggs_registrar: None,
-            modules: vec![],
-        }
+impl App {
+    pub fn new(pipe: TrackingPipe<HitStreamSourceType, ClickModules>) -> Self {
+        App { pipe }
     }
 
-    pub fn build(&self) -> Result<DefaultTrackingPipe> {
-        info!("{}", "BUILDING");
+    pub async fn run(&self) -> Result<JoinHandle<()>> {
+        let token: CancellationToken = CancellationToken::new();
 
-        let hit_stream = &self.hit_stream.clone().unwrap();
+        // Setup and execute subsystem tree
+        // Toplevel::new(|s| async move {
+        //     token.cancel();
+        //     // s.start(SubsystemBuilder::new("Countdown", countdown_subsystem));
+        // })
+        // .catch_signals()
+        // .handle_shutdown_requests(Duration::from_millis(1000))
+        // .await
+        // .map_err(Into::into);
 
-        let router = DefaultTrackingPipe::new(hit_stream.to_owned(), self.modules.clone());
-
-        Ok(router)
+        self.pipe.run(token).await
     }
 }

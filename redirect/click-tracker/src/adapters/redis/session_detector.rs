@@ -6,7 +6,7 @@ use redis::Client;
 use redis::Script;
 use tracing::info;
 
-use crate::core::session_detect::{BaseSessionDetector, Session};
+use crate::core::session::{Session, SessionDetector};
 
 const EXPIRATION_OFFSET: i64 = 30 * 60;
 
@@ -16,10 +16,10 @@ pub struct RedisSessionDetector {
 }
 
 impl RedisSessionDetector {
-    pub fn new(initial_nodes: Vec<&str>) -> Self {
+    pub fn new(initial_nodes: Vec<String>) -> Self {
         info!("  redis -> {}", initial_nodes.first().unwrap());
 
-        let client = Client::open(*initial_nodes.first().unwrap()).unwrap();
+        let client = Client::open(initial_nodes.first().unwrap().as_str()).unwrap();
 
         let _con = client.get_connection().unwrap();
 
@@ -29,8 +29,9 @@ impl RedisSessionDetector {
     }
 }
 
-impl BaseSessionDetector for RedisSessionDetector {
-    fn detect_session(
+#[async_trait::async_trait]
+impl SessionDetector for RedisSessionDetector {
+    async fn detect(
         &self,
         route_id: &str,
         ip_addr: &IpAddr,
@@ -72,7 +73,7 @@ impl BaseSessionDetector for RedisSessionDetector {
 
         let script = Script::new(script_value);
 
-        let mut connection = self.redis_client.get_connection().unwrap();
+        let mut connection = self.redis_client.get_connection()?;
 
         let result: Result<Option<String>, redis::RedisError> = script
             .key(root_key)
