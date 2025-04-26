@@ -7,7 +7,7 @@ use aws_sdk_dynamodb::operation::get_item::GetItemOutput;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 
-use crate::core::BaseUserSettingsStore;
+use crate::core::UserSettingsStore;
 use crate::model::{ActiveStatus, UserSettings};
 
 const ACTIVE: &'static str = "active";
@@ -80,10 +80,7 @@ impl DynamoUserSettingsStore {
 }
 
 #[async_trait::async_trait()]
-impl BaseUserSettingsStore for DynamoUserSettingsStore {
-    async fn invalidate(&self, _: &str) -> Result<()> {
-        Ok(())
-    }
+impl UserSettingsStore for DynamoUserSettingsStore {
     async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
         let item = self
             .client

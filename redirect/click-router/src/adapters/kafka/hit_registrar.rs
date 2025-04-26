@@ -8,7 +8,7 @@ use kafka::{
 use tracing::info;
 
 use crate::{
-    core::hits_register::BaseHitRegistrar,
+    core::hits_register::HitRegistrar,
     model::Hit,
     utils::async_queue::{AsyncQueue, BatchProcess},
 };
@@ -27,15 +27,15 @@ impl BatchProcess<Hit> for KafkaHitsProducer {
 
         let mut records: Vec<Record<(), Vec<u8>>> = vec![];
 
-        for hit in batch{
+        for hit in batch {
             let record = Record::from_value(
-                    self.settings.topic.as_str(),
-                    serde_json::to_vec(&hit).unwrap(),
-                );
+                self.settings.topic.as_str(),
+                serde_json::to_vec(&hit).unwrap(),
+            );
 
             records.push(record)
         }
-        
+
         self.producer.send_all(records.as_slice())?;
 
         Ok(())
@@ -78,7 +78,7 @@ impl KafkaHitRegistrar {
 }
 
 #[async_trait::async_trait()]
-impl BaseHitRegistrar for KafkaHitRegistrar {
+impl HitRegistrar for KafkaHitRegistrar {
     async fn register(&self, hit: Hit) -> Result<()> {
         self.queue.enqueue(hit).await
     }

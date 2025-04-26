@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use click_router::core::flow_router::{RequestData, ResponseData};
 use click_router::core::BaseFlowRouter;
-use click_router::flow_router::default_flow_router::DefaultFlowRouter;
+use click_router::flow_router::flow_router::DefaultFlowRouter;
 use click_router::{settings::Settings, AppBuilder};
 
 use criterion::async_executor::FuturesExecutor;

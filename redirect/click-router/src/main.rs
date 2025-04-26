@@ -4,13 +4,36 @@ use std::{
     sync::Arc,
 };
 
+use aws_config::SdkConfig;
 use click_router::{
-    app::AppBuilder,
-    core::{
-        flow_router::{RequestData, ResponseData},
-        BaseFlowRouter,
+    adapters::{
+        aws::{
+            dynamo::{
+                crypto_store::DynamoCryptoStore, routes_store::DynamoRoutesStore,
+                user_settings_store::DynamoUserSettingsStore,
+            },
+            settings::AWS,
+        },
+        fluvio::hit_registrar::FluvioHitRegistrar,
+        geo_ip::geo_ip_location_detector::GeoIPLocationDetector,
+        moka::{
+            crypto_cache::MokaCryptoCache, routes_cache::MokaRoutesCache,
+            user_settings_cache::MokaUserSettingsCache,
+        },
+        uaparser::user_agent_detector::UAParserUserAgentDetector,
+        CryptoCacheType, CryptoStoreType, HitRegistrarType, LocationDetectorType, RoutesCacheType,
+        RoutesStoreType, UserAgentDetectorType, UserSettingsCacheType, UserSettingsStoreType,
     },
-    flow_router::default_flow_router::DefaultFlowRouter,
+    app::App,
+    core::{
+        expression::ExpressionEvaluator,
+        flow_router::{FlowRouter, RequestData, ResponseData},
+        modules::{
+            conditional::ConditionalModule, not_found::NotFoundModule,
+            redirect_only::RedirectOnlyModule, root::RootModule, FlowModules,
+        },
+        user_settings::UserSettingsManager,
+    },
     settings::Settings,
 };
 
@@ -26,6 +49,7 @@ use salvo::{
     writing::Text,
     Depot, FlowCtrl, Handler, Listener, Request, Response, Router, Server,
 };
+use tracing::info;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -36,7 +60,7 @@ pub struct Args {
     pub config_path: String,
 }
 
-static FLOW_ROUTER: OnceCell<DefaultFlowRouter> = OnceCell::new();
+static FLOW_ROUTER: OnceCell<FlowRouter> = OnceCell::new();
 
 struct Redirect;
 
@@ -85,7 +109,7 @@ impl Handler for Redirect {
 }
 
 #[inline]
-pub fn get_flow_router() -> &'static DefaultFlowRouter {
+pub fn get_flow_router() -> &'static FlowRouter {
     FLOW_ROUTER.get().unwrap()
 }
 
@@ -102,6 +126,21 @@ impl ResolvesServerConfig<IoError> for ServerConfigResolverMock {
 
         Ok(Arc::new(config))
     }
+}
+
+async fn load_aws_config(settings: AWS) -> SdkConfig {
+    let mut shared_config = aws_config::defaults(aws_config::BehaviorVersion::latest());
+
+    if settings.local {
+        let endpoint = settings
+            .localstack_endpoint
+            .unwrap_or("http://localhost:4566".to_string());
+
+        info!("  {} -> {}", "localstack", endpoint);
+        shared_config = shared_config.endpoint_url(endpoint);
+    }
+
+    shared_config.load().await
 }
 
 #[tokio::main]
@@ -122,19 +161,64 @@ async fn main() {
     )
     .unwrap();
 
-    let app = AppBuilder::new(settings)
-        .with_dynamo_stores()
-        .await
-        .with_fluvio()
-        .await
-        .with_moka()
-        .with_defaults()
-        .with_uaparser()
-        .with_geo_ip()
-        .with_flow_defaults()
-        .with_default_modules()
+    let aws_config = load_aws_config(settings.aws.clone()).await;
+
+    let routes_store =
+        DynamoRoutesStore::new(&aws_config, settings.aws.dynamo.routes_table.clone());
+
+    let crypto_store =
+        DynamoCryptoStore::new(&aws_config, settings.aws.dynamo.encryption_table.clone());
+
+    let user_settings_store =
+        DynamoUserSettingsStore::new(&aws_config, settings.aws.dynamo.user_settings_table.clone());
+
+    let crypto_cache = CryptoCacheType::Moka(MokaCryptoCache::new(
+        CryptoStoreType::Dynamo(crypto_store),
+        settings.moka.crypto_cache,
+    ));
+
+    let routes_cache = RoutesCacheType::Moka(MokaRoutesCache::new(
+        RoutesStoreType::Dynamo(routes_store),
+        settings.moka.routes_cache,
+    ));
+
+    let user_settings_cache = UserSettingsCacheType::Moka(MokaUserSettingsCache::new(
+        UserSettingsStoreType::Dynamo(user_settings_store),
+        settings.moka.user_settings_cache,
+    ));
+
+    let hit_registrar =
+        HitRegistrarType::Fluvio(FluvioHitRegistrar::new(&settings.fluvio.hit_stream).await);
+
+    let location_detector =
+        LocationDetectorType::GeoIP(GeoIPLocationDetector::new(&settings.geo_ip));
+
+    let user_agent_detector =
+        UserAgentDetectorType::UAParser(UAParserUserAgentDetector::new(&settings.uaparser));
+
+    let root_module = FlowModules::Root(RootModule {});
+    let conditional_module =
+        FlowModules::Conditional(ConditionalModule::new(ExpressionEvaluator {}));
+    let not_found_module = FlowModules::NotFound(NotFoundModule {});
+    let redirect_only_module = FlowModules::RedirectOnly(RedirectOnlyModule::new(
+        UserSettingsManager::new(user_settings_cache.clone()),
+    ));
+
+    let app = App::builder()
+        .with_crypto_cache(crypto_cache)
+        .with_routes_cache(routes_cache)
+        .with_user_settings_cache(user_settings_cache)
+        .with_hit_registrar(hit_registrar)
+        .with_location_detector(location_detector)
+        .with_user_agent_detector(user_agent_detector)
+        .with_modules(vec![
+            root_module,
+            conditional_module,
+            not_found_module,
+            redirect_only_module,
+        ])
         .build()
-        .unwrap();
+        .get_router();
 
     let _ = FLOW_ROUTER.set(app);
 

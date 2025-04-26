@@ -4,7 +4,7 @@ use anyhow::{Ok, Result};
 use fluvio::{spu::SpuSocketPool, RecordKey, TopicProducer};
 use fluvio::{Compression, Fluvio, FluvioClusterConfig, TopicProducerConfigBuilder};
 
-use crate::{core::hits_register::BaseHitRegistrar, model::Hit};
+use crate::{core::hits_register::HitRegistrar, model::Hit};
 
 use crate::adapters::fluvio::settings::HitStreamConfig;
 
@@ -14,7 +14,7 @@ pub struct FluvioHitRegistrar {
 }
 
 impl FluvioHitRegistrar {
-    pub async fn new(settings: HitStreamConfig) -> Self {
+    pub async fn new(settings: &HitStreamConfig) -> Self {
         // Use config builder to create a topic producer config
         let producer_config = TopicProducerConfigBuilder::default()
             .batch_size(settings.batch_size)
@@ -23,7 +23,7 @@ impl FluvioHitRegistrar {
             .build()
             .expect("Failed to create topic producer config");
 
-        let config = FluvioClusterConfig::new(settings.host);
+        let config = FluvioClusterConfig::new(&settings.host);
 
         // Connet to fluvio cluster & create a producer
         let fluvio = Fluvio::connect_with_config(&config)
@@ -31,7 +31,7 @@ impl FluvioHitRegistrar {
             .expect("Failed to connect to Fluvio");
 
         let producer = fluvio
-            .topic_producer_with_config(settings.topic, producer_config)
+            .topic_producer_with_config(&settings.topic, producer_config)
             .await
             .expect("Failed to create a producer");
 
@@ -42,7 +42,7 @@ impl FluvioHitRegistrar {
 }
 
 #[async_trait::async_trait()]
-impl BaseHitRegistrar for FluvioHitRegistrar {
+impl HitRegistrar for FluvioHitRegistrar {
     async fn register(&self, hit: Hit) -> Result<()> {
         let record = serde_json::to_vec(&hit).unwrap();
         self.producer

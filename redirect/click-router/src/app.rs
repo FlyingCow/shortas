@@ -1,85 +1,79 @@
 use anyhow::Result;
 use tracing::info;
+use typed_builder::TypedBuilder;
 
 use crate::{
+    adapters::{
+        CryptoCacheType, HitRegistrarType, LocationDetectorType, RoutesCacheType,
+        UserAgentDetectorType, UserSettingsCacheType,
+    },
     core::{
-        hits_register::BaseHitRegistrar, location_detect::BaseLocationDetector,
-        user_agent_detect::BaseUserAgentDetector, BaseCryptoManager, BaseCryptoStore,
-        BaseRoutesManager, BaseRoutesStore, BaseUserSettingsManager, BaseUserSettingsStore,
+        expression::ExpressionEvaluator,
+        flow_router::FlowRouter,
+        host::HostExtractor,
+        ip::IPExtractor,
+        language::LanguageExtractor,
+        modules::{
+            conditional::ConditionalModule, not_found::NotFoundModule,
+            redirect_only::RedirectOnlyModule, root::RootModule, FlowModules,
+        },
+        protocol::ProtocolExtractor,
+        routes::RoutesManager,
+        user_agent_string::UserAgentStringExtractor,
+        user_settings::UserSettingsManager,
     },
-    flow_router::{
-        default_flow_router::DefaultFlowRouter, expression_evaluate::BaseExpressionEvaluator,
-        flow_module::BaseFlowModule, host_extract::BaseHostExtractor, ip_extract::BaseIPExtractor,
-        language_extract::BaseLanguageExtractor, protocol_extract::BaseProtocolExtractor,
-        user_agent_string_extract::BaseUserAgentStringExtractor,
-    },
-    settings::Settings,
 };
-#[derive(Clone)]
-pub struct AppBuilder {
-    pub(super) settings: Settings,
-    pub(super) routes_store: Option<Box<dyn BaseRoutesStore + Send + Sync + 'static>>,
-    pub(super) routes_manager: Option<Box<dyn BaseRoutesManager + Send + Sync + 'static>>,
-    pub(super) host_extractor: Option<Box<dyn BaseHostExtractor + Send + Sync + 'static>>,
-    pub(super) protocol_extractor: Option<Box<dyn BaseProtocolExtractor + Send + Sync + 'static>>,
-    pub(super) ip_extractor: Option<Box<dyn BaseIPExtractor + Send + Sync + 'static>>,
-    pub(super) user_agent_string_extractor:
-        Option<Box<dyn BaseUserAgentStringExtractor + Send + Sync + 'static>>,
-    pub(super) language_extractor: Option<Box<dyn BaseLanguageExtractor + Send + Sync + 'static>>,
 
-    pub(super) crypto_store: Option<Box<dyn BaseCryptoStore + Send + Sync + 'static>>,
-    pub(super) crypto_manager: Option<Box<dyn BaseCryptoManager + Send + Sync + 'static>>,
-    pub(super) user_settings_store: Option<Box<dyn BaseUserSettingsStore + Send + Sync + 'static>>,
-    pub(super) user_settings_manager:
-        Option<Box<dyn BaseUserSettingsManager + Send + Sync + 'static>>,
-    pub(super) user_agent_detector: Option<Box<dyn BaseUserAgentDetector + Send + Sync + 'static>>,
-    pub(super) expression_evaluator:
-        Option<Box<dyn BaseExpressionEvaluator + Send + Sync + 'static>>,
-    pub(super) hit_registrar: Option<Box<dyn BaseHitRegistrar + Send + Sync + 'static>>,
-
-    pub(super) location_detector: Option<Box<dyn BaseLocationDetector + Send + Sync + 'static>>,
-    pub(super) modules: Vec<Box<dyn BaseFlowModule + Send + Sync + 'static>>,
+#[derive(TypedBuilder)]
+#[builder(field_defaults(setter(prefix = "with_")))]
+pub struct App {
+    modules: Vec<FlowModules>,
+    user_settings_cache: UserSettingsCacheType,
+    routes_cache: RoutesCacheType,
+    crypto_cache: CryptoCacheType,
+    user_agent_detector: UserAgentDetectorType,
+    location_detector: LocationDetectorType,
+    hit_registrar: HitRegistrarType,
 }
 
-impl AppBuilder {
-    pub fn new(settings: Settings) -> Self {
-        Self {
-            settings,
-            routes_store: None,
-            routes_manager: None,
-            crypto_store: None,
-            crypto_manager: None,
-            user_settings_store: None,
-            user_settings_manager: None,
-            hit_registrar: None,
-            host_extractor: None,
-            ip_extractor: None,
-            user_agent_string_extractor: None,
-            language_extractor: None,
-            protocol_extractor: None,
-            user_agent_detector: None,
-            location_detector: None,
-            expression_evaluator: None,
-            modules: vec![],
-        }
-    }
+impl App {
+    pub fn get_router(&self) -> FlowRouter {
+        let routes_manager = RoutesManager::new(self.routes_cache.clone());
+        let settings_manager = UserSettingsManager::new(self.user_settings_cache.clone());
+        let host_extractor = HostExtractor::new();
+        let protocol_extractor = ProtocolExtractor::new();
+        let ip_extractor = IPExtractor::new();
+        let user_agent_string_extractor = UserAgentStringExtractor::new();
+        let language_extractor = LanguageExtractor::new();
 
-    pub fn build(&self) -> Result<DefaultFlowRouter> {
-        info!("{}", "BUILDING");
+        let root_module = FlowModules::Root(RootModule {});
+        let conditional_module =
+            FlowModules::Conditional(ConditionalModule::new(ExpressionEvaluator::new()));
+        let not_found_module = FlowModules::NotFound(NotFoundModule {});
+        let redirect_only =
+            FlowModules::RedirectOnly(RedirectOnlyModule::new(settings_manager.clone()));
 
-        let router = DefaultFlowRouter::new(
-            self.routes_manager.clone().unwrap(),
-            self.hit_registrar.clone().unwrap(),
-            self.host_extractor.clone().unwrap(),
-            self.protocol_extractor.clone().unwrap(),
-            self.ip_extractor.clone().unwrap(),
-            self.user_agent_string_extractor.clone().unwrap(),
-            self.language_extractor.clone().unwrap(),
-            self.user_agent_detector.clone().unwrap(),
-            self.location_detector.clone().unwrap(),
-            self.modules.clone(),
-        );
+        let hit_registrar = self.hit_registrar.clone();
+        let user_agent_detector = self.user_agent_detector.clone();
+        let location_detector = self.location_detector.clone();
 
-        Ok(router)
+        FlowRouter::new(
+            routes_manager,
+            settings_manager,
+            hit_registrar,
+            host_extractor,
+            protocol_extractor,
+            ip_extractor,
+            user_agent_string_extractor,
+            language_extractor,
+            user_agent_detector,
+            location_detector,
+            vec![
+                root_module,
+                not_found_module,
+                conditional_module,
+                redirect_only,
+            ],
+        )
     }
 }
