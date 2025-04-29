@@ -2,6 +2,7 @@ use anyhow::{Ok, Result};
 use http::Method;
 
 use crate::{
+    adapters::UserSettingsCacheType,
     core::{
         flow_module::{FlowModule, FlowStepContinuation},
         flow_router::{FlowRouter, FlowRouterContext, FlowStep},
@@ -17,9 +18,9 @@ pub struct RedirectOnlyModule {
 }
 
 impl RedirectOnlyModule {
-    pub fn new(user_settings_manager: UserSettingsManager) -> Self {
+    pub fn new(user_settings_cache: UserSettingsCacheType) -> Self {
         Self {
-            user_settings_manager,
+            user_settings_manager: UserSettingsManager::new(user_settings_cache),
         }
     }
 

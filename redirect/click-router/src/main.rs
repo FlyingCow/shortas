@@ -196,13 +196,14 @@ async fn main() {
     let user_agent_detector =
         UserAgentDetectorType::UAParser(UAParserUserAgentDetector::new(&settings.uaparser));
 
-    let root_module = FlowModules::Root(RootModule {});
-    let conditional_module =
-        FlowModules::Conditional(ConditionalModule::new(ExpressionEvaluator {}));
-    let not_found_module = FlowModules::NotFound(NotFoundModule {});
-    let redirect_only_module = FlowModules::RedirectOnly(RedirectOnlyModule::new(
-        UserSettingsManager::new(user_settings_cache.clone()),
-    ));
+    let root_module = FlowModules::Root(RootModule::new());
+
+    let conditional_module = FlowModules::Conditional(ConditionalModule::new());
+
+    let not_found_module = FlowModules::NotFound(NotFoundModule::new());
+
+    let redirect_only_module =
+        FlowModules::RedirectOnly(RedirectOnlyModule::new(user_settings_cache.clone()));
 
     let app = App::builder()
         .with_crypto_cache(crypto_cache)

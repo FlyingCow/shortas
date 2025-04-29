@@ -8,7 +8,6 @@ use crate::{
         UserAgentDetectorType, UserSettingsCacheType,
     },
     core::{
-        expression::ExpressionEvaluator,
         flow_router::FlowRouter,
         host::HostExtractor,
         ip::IPExtractor,
@@ -47,11 +46,10 @@ impl App {
         let language_extractor = LanguageExtractor::new();
 
         let root_module = FlowModules::Root(RootModule {});
-        let conditional_module =
-            FlowModules::Conditional(ConditionalModule::new(ExpressionEvaluator::new()));
+        let conditional_module = FlowModules::Conditional(ConditionalModule::new());
         let not_found_module = FlowModules::NotFound(NotFoundModule {});
         let redirect_only =
-            FlowModules::RedirectOnly(RedirectOnlyModule::new(settings_manager.clone()));
+            FlowModules::RedirectOnly(RedirectOnlyModule::new(self.user_settings_cache.clone()));
 
         let hit_registrar = self.hit_registrar.clone();
         let user_agent_detector = self.user_agent_detector.clone();
@@ -69,10 +67,10 @@ impl App {
             user_agent_detector,
             location_detector,
             vec![
-                root_module,
+                redirect_only,
                 not_found_module,
                 conditional_module,
-                redirect_only,
+                root_module,
             ],
         )
     }

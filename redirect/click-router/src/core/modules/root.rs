@@ -13,6 +13,12 @@ static IS_ROOT: &str = "is_root";
 #[derive(Debug, Clone)]
 pub struct RootModule {}
 
+impl RootModule {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
 #[async_trait::async_trait()]
 impl FlowModule for RootModule {
     async fn handle_start(

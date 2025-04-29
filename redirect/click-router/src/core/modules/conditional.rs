@@ -16,8 +16,10 @@ pub struct ConditionalModule {
 }
 
 impl ConditionalModule {
-    pub fn new(evaluator: ExpressionEvaluator) -> Self {
-        Self { evaluator }
+    pub fn new() -> Self {
+        Self {
+            evaluator: ExpressionEvaluator::new(),
+        }
     }
 }
 
