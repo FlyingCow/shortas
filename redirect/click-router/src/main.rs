@@ -17,7 +17,7 @@ use click_router::{
         fluvio::hit_registrar::FluvioHitRegistrar,
         geo_ip::geo_ip_location_detector::GeoIPLocationDetector,
         moka::{
-            crypto_cache::MokaCryptoCache, routes_cache::MokaRoutesCache,
+            crypto_cache::MokaCryptoCache, routes_cache::MokaRoutesCache, settings::Moka,
             user_settings_cache::MokaUserSettingsCache,
         },
         uaparser::user_agent_detector::UAParserUserAgentDetector,
@@ -26,13 +26,11 @@ use click_router::{
     },
     app::App,
     core::{
-        expression::ExpressionEvaluator,
         flow_router::{FlowRouter, RequestData, ResponseData},
         modules::{
             conditional::ConditionalModule, not_found::NotFoundModule,
             redirect_only::RedirectOnlyModule, root::RootModule, FlowModules,
         },
-        user_settings::UserSettingsManager,
     },
     settings::Settings,
 };
@@ -143,6 +141,49 @@ async fn load_aws_config(settings: AWS) -> SdkConfig {
     shared_config.load().await
 }
 
+async fn init_dynamo_stores(
+    settings: &AWS,
+) -> (
+    DynamoRoutesStore,
+    DynamoCryptoStore,
+    DynamoUserSettingsStore,
+) {
+    let aws_config = load_aws_config(settings.clone()).await;
+
+    let routes_store = DynamoRoutesStore::new(&aws_config, settings.dynamo.routes_table.clone());
+
+    let crypto_store =
+        DynamoCryptoStore::new(&aws_config, settings.dynamo.encryption_table.clone());
+
+    let user_settings_store =
+        DynamoUserSettingsStore::new(&aws_config, settings.dynamo.user_settings_table.clone());
+
+    (routes_store, crypto_store, user_settings_store)
+}
+
+async fn init_moka_cache_with_dynamo_stores(
+    moka_settings: &Moka,
+    aws_settings: &AWS,
+) -> (RoutesCacheType, CryptoCacheType, UserSettingsCacheType) {
+    let (routes_store, crypto_store, user_settings_store) = init_dynamo_stores(&aws_settings).await;
+
+    let routes_cache = RoutesCacheType::Moka(MokaRoutesCache::new(
+        RoutesStoreType::Dynamo(routes_store),
+        moka_settings.routes_cache.clone(),
+    ));
+
+    let crypto_cache = CryptoCacheType::Moka(MokaCryptoCache::new(
+        CryptoStoreType::Dynamo(crypto_store),
+        moka_settings.crypto_cache.clone(),
+    ));
+
+    let user_settings_cache = UserSettingsCacheType::Moka(MokaUserSettingsCache::new(
+        UserSettingsStoreType::Dynamo(user_settings_store),
+        moka_settings.user_settings_cache.clone(),
+    ));
+
+    (routes_cache, crypto_cache, user_settings_cache)
+}
 #[tokio::main]
 async fn main() {
     rustls::crypto::ring::default_provider()
@@ -161,31 +202,8 @@ async fn main() {
     )
     .unwrap();
 
-    let aws_config = load_aws_config(settings.aws.clone()).await;
-
-    let routes_store =
-        DynamoRoutesStore::new(&aws_config, settings.aws.dynamo.routes_table.clone());
-
-    let crypto_store =
-        DynamoCryptoStore::new(&aws_config, settings.aws.dynamo.encryption_table.clone());
-
-    let user_settings_store =
-        DynamoUserSettingsStore::new(&aws_config, settings.aws.dynamo.user_settings_table.clone());
-
-    let crypto_cache = CryptoCacheType::Moka(MokaCryptoCache::new(
-        CryptoStoreType::Dynamo(crypto_store),
-        settings.moka.crypto_cache,
-    ));
-
-    let routes_cache = RoutesCacheType::Moka(MokaRoutesCache::new(
-        RoutesStoreType::Dynamo(routes_store),
-        settings.moka.routes_cache,
-    ));
-
-    let user_settings_cache = UserSettingsCacheType::Moka(MokaUserSettingsCache::new(
-        UserSettingsStoreType::Dynamo(user_settings_store),
-        settings.moka.user_settings_cache,
-    ));
+    let (routes_cache, crypto_cache, user_settings_cache) =
+        init_moka_cache_with_dynamo_stores(&settings.moka, &settings.aws).await;
 
     let hit_registrar =
         HitRegistrarType::Fluvio(FluvioHitRegistrar::new(&settings.fluvio.hit_stream).await);
@@ -196,16 +214,7 @@ async fn main() {
     let user_agent_detector =
         UserAgentDetectorType::UAParser(UAParserUserAgentDetector::new(&settings.uaparser));
 
-    let root_module = FlowModules::Root(RootModule::new());
-
-    let conditional_module = FlowModules::Conditional(ConditionalModule::new());
-
-    let not_found_module = FlowModules::NotFound(NotFoundModule::new());
-
-    let redirect_only_module =
-        FlowModules::RedirectOnly(RedirectOnlyModule::new(user_settings_cache.clone()));
-
-    let app = App::builder()
+    let flow_router = App::builder()
         .with_crypto_cache(crypto_cache)
         .with_routes_cache(routes_cache)
         .with_user_settings_cache(user_settings_cache)
@@ -213,18 +222,17 @@ async fn main() {
         .with_location_detector(location_detector)
         .with_user_agent_detector(user_agent_detector)
         .with_modules(vec![
-            root_module,
-            conditional_module,
-            not_found_module,
-            redirect_only_module,
+            FlowModules::Root(RootModule::new()),
+            FlowModules::Conditional(ConditionalModule::new()),
+            FlowModules::NotFound(NotFoundModule::new()),
+            FlowModules::RedirectOnly(RedirectOnlyModule::new()),
         ])
         .build()
         .get_router();
 
-    let _ = FLOW_ROUTER.set(app);
+    let _ = FLOW_ROUTER.set(flow_router);
 
     let router = Router::with_path("{**rest_path}").get(Redirect);
-    //let router = Router::with_path("conds").get(Redirect);
 
     println!("{:?}", router);
 

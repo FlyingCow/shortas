@@ -15,10 +15,13 @@ use std::{
 use ulid::Ulid;
 
 use crate::{
-    adapters::{HitRegistrarType, LocationDetectorType, UserAgentDetectorType},
+    adapters::{
+        CryptoCacheType, HitRegistrarType, LocationDetectorType, RoutesCacheType,
+        UserAgentDetectorType, UserSettingsCacheType,
+    },
     model::{
         hit::{Click, HitRoute},
-        Hit, Route,
+        Hit, Route, UserSettings,
     },
 };
 
@@ -293,28 +296,23 @@ pub struct FlowRouter {
 }
 
 impl FlowRouter {
-    pub fn new(
-        routes_manager: RoutesManager,
-        settings_manager: UserSettingsManager,
-        hit_registrar: HitRegistrarType,
-        host_extractor: HostExtractor,
-        protocol_extractor: ProtocolExtractor,
-        ip_extractor: IPExtractor,
-        user_agent_string_extractor: UserAgentStringExtractor,
-        language_extractor: LanguageExtractor,
+    pub fn default(
+        routes_cache: RoutesCacheType,
+        user_settings_cache: UserSettingsCacheType,
         user_agent_detector: UserAgentDetectorType,
         location_detector: LocationDetectorType,
+        hit_registrar: HitRegistrarType,
         modules: Vec<FlowModules>,
     ) -> Self {
         FlowRouter {
-            routes_manager,
-            settings_manager,
+            routes_manager: RoutesManager::new(routes_cache),
+            settings_manager: UserSettingsManager::new(user_settings_cache),
             hit_registrar,
-            host_extractor,
-            protocol_extractor,
-            ip_extractor,
-            user_agent_string_extractor,
-            language_extractor,
+            host_extractor: HostExtractor::new(),
+            protocol_extractor: ProtocolExtractor::new(),
+            ip_extractor: IPExtractor::new(),
+            user_agent_string_extractor: UserAgentStringExtractor::new(),
+            language_extractor: LanguageExtractor::new(),
             user_agent_detector,
             location_detector,
             modules,
@@ -421,6 +419,12 @@ impl FlowRouter {
         Ok(())
     }
 
+    pub async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
+        let user_settings = self.settings_manager.get_user_settings(user_id).await?;
+
+        Ok(user_settings)
+    }
+
     pub async fn get_route(
         &self,
         switch: &str,
@@ -433,9 +437,9 @@ impl FlowRouter {
                 context.in_route.host.as_str(),
                 context.in_route.path.as_str(),
             )
-            .await;
+            .await?;
 
-        Ok(route?)
+        Ok(route)
     }
 
     async fn start(&self, req: RequestData, res: ResponseData) -> Result<FlowRouterContext> {

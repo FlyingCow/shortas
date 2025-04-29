@@ -13,18 +13,18 @@ use crate::{
 const IS_REDIRECT_ONLY: &'static str = "is_redirect_only";
 
 #[derive(Clone)]
-pub struct RedirectOnlyModule {
-    user_settings_manager: UserSettingsManager,
-}
+pub struct RedirectOnlyModule {}
 
 impl RedirectOnlyModule {
-    pub fn new(user_settings_cache: UserSettingsCacheType) -> Self {
-        Self {
-            user_settings_manager: UserSettingsManager::new(user_settings_cache),
-        }
+    pub fn new() -> Self {
+        Self {}
     }
 
-    async fn is_tracking_allowed(&self, context: &mut FlowRouterContext) -> Result<bool> {
+    async fn is_tracking_allowed(
+        &self,
+        flow_router: &FlowRouter,
+        context: &mut FlowRouterContext,
+    ) -> Result<bool> {
         if context
             .main_route
             .as_ref()
@@ -36,8 +36,7 @@ impl RedirectOnlyModule {
             return Ok(false);
         }
 
-        let settings = &self
-            .user_settings_manager
+        let settings = &flow_router
             .get_user_settings(
                 context
                     .main_route
@@ -63,7 +62,11 @@ impl RedirectOnlyModule {
         Ok(true)
     }
 
-    async fn is_redirect_only(&self, context: &mut FlowRouterContext) -> Result<bool> {
+    async fn is_redirect_only(
+        &self,
+        flow_router: &FlowRouter,
+        context: &mut FlowRouterContext,
+    ) -> Result<bool> {
         //no need to register,
         //since it will be handle by not found module
         if context.main_route.is_none() {
@@ -74,7 +77,7 @@ impl RedirectOnlyModule {
             return Ok(true);
         }
 
-        if !self.is_tracking_allowed(context).await? {
+        if !self.is_tracking_allowed(&flow_router, context).await? {
             return Ok(true);
         }
 
@@ -87,9 +90,9 @@ impl FlowModule for RedirectOnlyModule {
     async fn handle_start(
         &self,
         context: &mut FlowRouterContext,
-        _: &FlowRouter,
+        flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
-        if self.is_redirect_only(context).await? {
+        if self.is_redirect_only(&flow_router, context).await? {
             context.add_bool(IS_REDIRECT_ONLY, true);
         }
 
