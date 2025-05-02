@@ -16,8 +16,8 @@ use ulid::Ulid;
 
 use crate::{
     adapters::{
-        CryptoCacheType, HitRegistrarType, LocationDetectorType, RoutesCacheType,
-        UserAgentDetectorType, UserSettingsCacheType,
+        HitRegistrarType, LocationDetectorType, RoutesCacheType, UserAgentDetectorType,
+        UserSettingsCacheType,
     },
     model::{
         hit::{Click, HitRoute},
