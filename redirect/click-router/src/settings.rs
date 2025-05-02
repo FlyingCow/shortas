@@ -7,16 +7,14 @@ use crate::adapters::geo_ip::settings::GeoIP;
 use crate::adapters::kafka::settings::Kafka;
 use crate::adapters::moka::settings::Moka;
 use crate::adapters::uaparser::settings::UAParser;
-
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Default, Debug, Deserialize, Clone)]
 #[allow(unused)]
 pub struct Server {
     pub threads: usize,
     pub listen_os_signals: bool,
     pub exit: bool,
 }
-
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Default, Debug, Deserialize, Clone)]
 #[allow(unused)]
 pub struct Settings {
     pub aws: AWS,

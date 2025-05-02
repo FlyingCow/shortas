@@ -1,7 +1,6 @@
 use serde_derive::Deserialize;
-
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Default, Debug, Deserialize, Clone)]
 #[allow(unused)]
 pub struct GeoIP {
-    pub mmdb: String, 
+    pub mmdb: String,
 }

@@ -42,8 +42,9 @@ impl HitStreamSource for FluvioHitStream {
                     ConsumerConfigExtBuilder::default()
                         .topic(settings.topic)
                         .offset_consumer(settings.consumer)
-                        .offset_start(Offset::end())
+                        .offset_start(Offset::beginning())
                         .offset_strategy(OffsetManagementStrategy::Auto)
+                        .offset_flush(Duration::from_millis(1000))
                         .build()
                         .expect("Can not create fluvio hits consumer config."),
                 )

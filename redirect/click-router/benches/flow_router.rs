@@ -1,6 +1,7 @@
+use std::env;
 use std::sync::Arc;
 
-use click_router::core::flow_router::{RequestData, ResponseData};
+use click_router::core::flow_router::{FlowRouter, RequestData, ResponseData};
 use click_router::{settings::Settings, AppBuilder};
 
 use criterion::async_executor::FuturesExecutor;
@@ -9,24 +10,22 @@ use criterion::*;
 const APP_CONFIG_PATH: &'static str = "./config";
 const APP_RUN_MODE: &'static str = "test";
 
-async fn init_flow_router() -> DefaultFlowRouter {
+async fn init_flow_router() -> FlowRouter {
     let settings = Settings::new(Some(APP_RUN_MODE), Some(APP_CONFIG_PATH)).unwrap();
+    let path = env::current_dir().ok().unwrap();
+    println!("The current directory is {}", path.display());
 
-    let app: DefaultFlowRouter = AppBuilder::new(settings)
-        .with_dynamo_stores()
-        .await
-        .with_rdkafka()
-        .await
-        .with_moka()
-        .with_defaults()
-        .with_uaparser()
-        .with_geo_ip()
-        .with_flow_defaults()
+    let flow_router = AppBuilder::new(settings)
         .with_default_modules()
-        .build()
-        .unwrap();
+        .with_geo_ip()
+        .with_ua_parser()
+        .with_fluvio()
+        .await
+        .with_dynamo()
+        .await
+        .build();
 
-    app
+    flow_router
 }
 
 #[tokio::main]

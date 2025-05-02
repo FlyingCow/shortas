@@ -1,6 +1,5 @@
 use aws_config::SdkConfig;
 use tracing::info;
-use typed_builder::TypedBuilder;
 
 use crate::{
     adapters::{
@@ -31,16 +30,18 @@ use crate::{
     settings::Settings,
 };
 
-#[derive(TypedBuilder)]
-#[builder(field_defaults(setter(prefix = "with_")))]
-pub struct App {
+// #[derive(TypedBuilder)]
+// #[builder(field_defaults(setter(prefix = "with_")))]
+#[derive(Default)]
+pub struct AppBuilder {
+    settings: Settings,
     modules: Vec<FlowModules>,
-    user_settings_cache: UserSettingsCacheType,
-    routes_cache: RoutesCacheType,
-    crypto_cache: CryptoCacheType,
-    user_agent_detector: UserAgentDetectorType,
-    location_detector: LocationDetectorType,
-    hit_registrar: HitRegistrarType,
+    user_settings_cache: Option<UserSettingsCacheType>,
+    routes_cache: Option<RoutesCacheType>,
+    crypto_cache: Option<CryptoCacheType>,
+    user_agent_detector: Option<UserAgentDetectorType>,
+    location_detector: Option<LocationDetectorType>,
+    hit_registrar: Option<HitRegistrarType>,
 }
 
 impl AppBuilder {
@@ -107,44 +108,76 @@ impl AppBuilder {
         (routes_cache, crypto_cache, user_settings_cache)
     }
 
-    pub async fn dynamo(&self, settings: Settings) -> Self {
-        let (routes_cache, crypto_cache, user_settings_cache) = &self
-            .init_moka_cache_with_dynamo_stores(&settings.moka, &settings.aws)
+    pub async fn with_dynamo(mut self) -> Self {
+        let (routes_cache, crypto_cache, user_settings_cache) = self
+            .init_moka_cache_with_dynamo_stores(&self.settings.moka, &self.settings.aws)
             .await;
 
-        let hit_registrar =
-            HitRegistrarType::Fluvio(FluvioHitRegistrar::new(&settings.fluvio.hit_stream).await);
+        self.crypto_cache = Some(crypto_cache);
+        self.routes_cache = Some(routes_cache);
+        self.user_settings_cache = Some(user_settings_cache);
 
-        let location_detector =
-            LocationDetectorType::GeoIP(GeoIPLocationDetector::new(&settings.geo_ip));
-
-        let user_agent_detector =
-            UserAgentDetectorType::UAParser(UAParserUserAgentDetector::new(&settings.uaparser));
-
-        self.with_crypto_cache(crypto_cache)
-            .with_routes_cache(routes_cache)
-            .with_user_settings_cache(user_settings_cache)
-            .with_hit_registrar(hit_registrar)
-            .with_location_detector(location_detector)
-            .with_user_agent_detector(user_agent_detector)
-            .with_modules(vec![
-                FlowModules::Root(RootModule::new()),
-                FlowModules::Conditional(ConditionalModule::new()),
-                FlowModules::NotFound(NotFoundModule::new()),
-                FlowModules::RedirectOnly(RedirectOnlyModule::new()),
-            ])
-            .clone()
+        self
     }
-}
 
-impl App {
-    pub fn get_router(&self) -> FlowRouter {
+    pub async fn with_fluvio(mut self) -> Self {
+        let hit_registrar = HitRegistrarType::Fluvio(
+            FluvioHitRegistrar::new(&self.settings.fluvio.hit_stream).await,
+        );
+
+        self.hit_registrar = Some(hit_registrar);
+
+        self
+    }
+
+    pub fn with_geo_ip(mut self) -> Self {
+        let location_detector =
+            LocationDetectorType::GeoIP(GeoIPLocationDetector::new(&self.settings.geo_ip));
+
+        self.location_detector = Some(location_detector);
+
+        self
+    }
+
+    pub fn with_ua_parser(mut self) -> Self {
+        let user_agent_detector = UserAgentDetectorType::UAParser(UAParserUserAgentDetector::new(
+            &self.settings.uaparser,
+        ));
+
+        self.user_agent_detector = Some(user_agent_detector);
+
+        self
+    }
+
+    pub fn with_default_modules(mut self) -> Self {
+        self.modules.push(FlowModules::Root(RootModule::new()));
+
+        self.modules
+            .push(FlowModules::Conditional(ConditionalModule::new()));
+
+        self.modules
+            .push(FlowModules::NotFound(NotFoundModule::new()));
+
+        self.modules
+            .push(FlowModules::RedirectOnly(RedirectOnlyModule::new()));
+
+        self
+    }
+
+    pub fn new(settings: Settings) -> Self {
+        Self {
+            settings,
+            ..Default::default()
+        }
+    }
+
+    pub fn build(self) -> FlowRouter {
         FlowRouter::default(
-            self.routes_cache.clone(),
-            self.user_settings_cache.clone(),
-            self.user_agent_detector.clone(),
-            self.location_detector.clone(),
-            self.hit_registrar.clone(),
+            self.routes_cache.clone().unwrap(),
+            self.user_settings_cache.clone().unwrap(),
+            self.user_agent_detector.clone().unwrap(),
+            self.location_detector.clone().unwrap(),
+            self.hit_registrar.clone().unwrap(),
             self.modules.clone(),
         )
     }

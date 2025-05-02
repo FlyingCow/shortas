@@ -31,49 +31,87 @@ pub enum FlowModules {
 impl FlowModule for FlowModules {
     async fn init(
         &self,
-        _context: &mut FlowRouterContext,
-        _flow_router: &FlowRouter,
+        context: &mut FlowRouterContext,
+        flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
-        Ok(FlowStepContinuation::Continue)
+        match self {
+            FlowModules::Root(module) => module.init(context, flow_router).await,
+            FlowModules::Conditional(module) => module.init(context, flow_router).await,
+            FlowModules::NotFound(module) => module.init(context, flow_router).await,
+            FlowModules::RedirectOnly(module) => module.init(context, flow_router).await,
+        }
     }
 
     async fn handle_start(
         &self,
-        _context: &mut FlowRouterContext,
-        _flow_router: &FlowRouter,
+        context: &mut FlowRouterContext,
+        flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
-        Ok(FlowStepContinuation::Continue)
+        match self {
+            FlowModules::Root(module) => module.handle_start(context, flow_router).await,
+            FlowModules::Conditional(module) => module.handle_start(context, flow_router).await,
+            FlowModules::NotFound(module) => module.handle_start(context, flow_router).await,
+            FlowModules::RedirectOnly(module) => module.handle_start(context, flow_router).await,
+        }
     }
 
     async fn handle_url_extract(
         &self,
-        _context: &mut FlowRouterContext,
-        _flow_router: &FlowRouter,
+        context: &mut FlowRouterContext,
+        flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
-        Ok(FlowStepContinuation::Continue)
+        match self {
+            FlowModules::Root(module) => module.handle_url_extract(context, flow_router).await,
+            FlowModules::Conditional(module) => {
+                module.handle_url_extract(context, flow_router).await
+            }
+            FlowModules::NotFound(module) => module.handle_url_extract(context, flow_router).await,
+            FlowModules::RedirectOnly(module) => {
+                module.handle_url_extract(context, flow_router).await
+            }
+        }
     }
 
     async fn handle_register(
         &self,
-        _context: &mut FlowRouterContext,
-        _flow_router: &FlowRouter,
+        context: &mut FlowRouterContext,
+        flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
-        Ok(FlowStepContinuation::Continue)
+        match self {
+            FlowModules::Root(module) => module.handle_register(context, flow_router).await,
+            FlowModules::Conditional(module) => module.handle_register(context, flow_router).await,
+            FlowModules::NotFound(module) => module.handle_register(context, flow_router).await,
+            FlowModules::RedirectOnly(module) => module.handle_register(context, flow_router).await,
+        }
     }
 
     async fn handle_build_result(
         &self,
-        _context: &mut FlowRouterContext,
-        _flow_router: &FlowRouter,
+        context: &mut FlowRouterContext,
+        flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
-        Ok(FlowStepContinuation::Continue)
+        match self {
+            FlowModules::Root(module) => module.handle_build_result(context, flow_router).await,
+            FlowModules::Conditional(module) => {
+                module.handle_build_result(context, flow_router).await
+            }
+            FlowModules::NotFound(module) => module.handle_build_result(context, flow_router).await,
+            FlowModules::RedirectOnly(module) => {
+                module.handle_build_result(context, flow_router).await
+            }
+        }
     }
 
     async fn handle_end(
         &self,
-        _context: &mut FlowRouterContext,
-        _flow_router: &FlowRouter,
+        context: &mut FlowRouterContext,
+        flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
-        Ok(FlowStepContinuation::Continue)
+        match self {
+            FlowModules::Root(module) => module.handle_end(context, flow_router).await,
+            FlowModules::Conditional(module) => module.handle_end(context, flow_router).await,
+            FlowModules::NotFound(module) => module.handle_end(context, flow_router).await,
+            FlowModules::RedirectOnly(module) => module.handle_end(context, flow_router).await,
+        }
     }
 }

@@ -23,7 +23,7 @@ consumer = "tracker"
 topic = "click-aggs-local"
 host = "sc:9003"
 linger_millis = 200
-batch_size_ = 16536
+batch_size = 16536
 
 
 [moka]
