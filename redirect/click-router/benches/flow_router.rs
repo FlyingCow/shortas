@@ -17,10 +17,13 @@ async fn init_flow_router() -> FlowRouter {
 
     let flow_router = AppBuilder::new(settings)
         .with_default_modules()
-        .with_geo_ip()
-        .with_ua_parser()
-        .with_fluvio()
-        .await
+        //.with_geo_ip()
+        .with_none_location_detector()
+        // .with_ua_parser()
+        .with_none_user_agent_detector()
+        .with_none_hit_registrar()
+        // .with_fluvio()
+        // .await
         .with_dynamo()
         .await
         .build();

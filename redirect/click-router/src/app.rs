@@ -129,6 +129,13 @@ impl AppBuilder {
 
         self
     }
+    pub fn with_none_hit_registrar(mut self) -> Self {
+        let hit_registrar = HitRegistrarType::None();
+
+        self.hit_registrar = Some(hit_registrar);
+
+        self
+    }
 
     pub fn with_geo_ip(mut self) -> Self {
         let location_detector =
@@ -139,10 +146,26 @@ impl AppBuilder {
         self
     }
 
+    pub fn with_none_location_detector(mut self) -> Self {
+        let location_detector = LocationDetectorType::None();
+
+        self.location_detector = Some(location_detector);
+
+        self
+    }
+
     pub fn with_ua_parser(mut self) -> Self {
         let user_agent_detector = UserAgentDetectorType::UAParser(UAParserUserAgentDetector::new(
             &self.settings.uaparser,
         ));
+
+        self.user_agent_detector = Some(user_agent_detector);
+
+        self
+    }
+
+    pub fn with_none_user_agent_detector(mut self) -> Self {
+        let user_agent_detector = UserAgentDetectorType::None();
 
         self.user_agent_detector = Some(user_agent_detector);
 

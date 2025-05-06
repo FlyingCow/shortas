@@ -39,6 +39,7 @@ pub mod uaparser;
 pub enum HitRegistrarType {
     Kafka(KafkaHitRegistrar),
     Fluvio(FluvioHitRegistrar),
+    None(),
 }
 
 #[async_trait::async_trait]
@@ -47,6 +48,7 @@ impl HitRegistrar for HitRegistrarType {
         match self {
             HitRegistrarType::Kafka(registrar) => registrar.register(hit).await,
             HitRegistrarType::Fluvio(registrar) => registrar.register(hit).await,
+            HitRegistrarType::None() => Ok(()),
         }
     }
 }
@@ -156,6 +158,7 @@ impl RoutesCache for RoutesCacheType {
 #[derive(Clone)]
 pub enum LocationDetectorType {
     GeoIP(GeoIPLocationDetector),
+    None(),
 }
 
 #[async_trait::async_trait]
@@ -163,6 +166,7 @@ impl LocationDetector for LocationDetectorType {
     fn detect_country(&self, &ip_addr: &IpAddr) -> Option<Country> {
         match self {
             LocationDetectorType::GeoIP(locator) => locator.detect_country(&ip_addr),
+            LocationDetectorType::None() => None,
         }
     }
 }
@@ -170,6 +174,7 @@ impl LocationDetector for LocationDetectorType {
 #[derive(Clone)]
 pub enum UserAgentDetectorType {
     UAParser(UAParserUserAgentDetector),
+    None(),
 }
 
 #[async_trait::async_trait]
@@ -177,16 +182,19 @@ impl UserAgentDetector for UserAgentDetectorType {
     fn parse_device(&self, user_agent: &str) -> Device {
         match self {
             UserAgentDetectorType::UAParser(detector) => detector.parse_device(user_agent),
+            UserAgentDetectorType::None() => Device::default(),
         }
     }
     fn parse_os(&self, user_agent: &str) -> OS {
         match self {
             UserAgentDetectorType::UAParser(detector) => detector.parse_os(user_agent),
+            UserAgentDetectorType::None() => OS::default(),
         }
     }
     fn parse_user_agent(&self, user_agent: &str) -> UserAgent {
         match self {
             UserAgentDetectorType::UAParser(detector) => detector.parse_user_agent(user_agent),
+            UserAgentDetectorType::None() => UserAgent::default(),
         }
     }
 }
