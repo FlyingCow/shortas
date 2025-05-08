@@ -5,7 +5,6 @@ use cookie::CookieJar;
 use http::{uri::Scheme, Extensions, HeaderMap, Method, StatusCode, Uri, Version};
 use indexmap::IndexMap;
 use multimap::MultiMap;
-use once_cell::sync::OnceCell;
 use std::{
     self,
     collections::HashMap,
@@ -16,8 +15,8 @@ use ulid::Ulid;
 
 use crate::{
     adapters::{
-        HitRegistrarType, LocationDetectorType, RoutesCacheType, UserAgentDetectorType,
-        UserSettingsCacheType,
+        HitRegistrarType, LocationDetectorType, RequestType, RoutesCacheType,
+        UserAgentDetectorType, UserSettingsCacheType,
     },
     model::{
         hit::{Click, HitRoute},
@@ -114,7 +113,7 @@ impl FlowRouterData {
     }
 }
 
-impl FlowRouterContext {
+impl<'a> FlowRouterContext<'a> {
     pub fn is_data_true(&self, bool_key: &'static str) -> bool {
         let data_value = self.data.get(&bool_key);
 
@@ -168,11 +167,10 @@ impl FlowInRoute {
     }
 }
 
-#[derive(Debug)]
-pub struct FlowRouterContext {
+pub struct FlowRouterContext<'a> {
     pub id: String,
     pub utc: DateTime<Utc>,
-    pub data: HashMap<&'static str, FlowRouterData>,
+    pub data: HashMap<&'a str, FlowRouterData>,
     pub client_os: InitOnce<Option<OS>>,
     pub client_ua: InitOnce<Option<UserAgent>>,
     pub client_device: InitOnce<Option<Device>>,
@@ -186,14 +184,18 @@ pub struct FlowRouterContext {
     pub out_route: Option<Route>,
     pub main_route: Option<Route>,
     pub in_route: FlowInRoute,
-    pub request: RequestData,
-    pub response: ResponseData,
+    pub request: &'a RequestType<'a>,
+    pub response: &'a ResponseData,
 
     pub result: Option<FlowRouterResult>,
 }
 
-impl FlowRouterContext {
-    pub fn new(in_route: FlowInRoute, request: RequestData, response: ResponseData) -> Self {
+impl<'a> FlowRouterContext<'a> {
+    pub fn new(
+        in_route: FlowInRoute,
+        request: &'a RequestType,
+        response: &'a ResponseData,
+    ) -> Self {
         Self {
             id: Ulid::new().to_string(),
             utc: Utc::now(),
@@ -258,7 +260,7 @@ pub struct RequestData {
     pub params: IndexMap<String, String>,
 
     // accept: Option<Vec<Mime>>,
-    pub queries: OnceCell<MultiMap<String, String>>,
+    pub queries: MultiMap<String, String>,
 
     /// The version of the HTTP protocol used.
     pub version: Version,
@@ -270,6 +272,16 @@ pub struct RequestData {
     pub remote_addr: Option<SocketAddr>,
 
     pub tls_info: Option<TlsInfo>,
+}
+
+pub trait Request {
+    fn get_uri(&self) -> &Uri;
+    fn get_headers(&self) -> &HeaderMap;
+    fn get_method(&self) -> &Method;
+    fn get_scheme(&self) -> &Scheme;
+    fn get_params(&self) -> &IndexMap<String, String>;
+    fn get_queries(&self) -> &MultiMap<String, String>;
+    fn get_remote_addr(&self) -> Option<SocketAddr>;
 }
 
 #[derive(Clone, Debug)]
@@ -333,7 +345,7 @@ impl FlowRouter {
         }
     }
 
-    async fn handle_start(&self, context: &mut FlowRouterContext) -> Result<()> {
+    async fn handle_start(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
         for module in &self.modules {
             let result = module.handle_start(context, &self).await?;
 
@@ -345,7 +357,7 @@ impl FlowRouter {
         self.router_to(context, FlowStep::UrlExtract).await
     }
 
-    async fn handle_url_extract(&self, context: &mut FlowRouterContext) -> Result<()> {
+    async fn handle_url_extract(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
         for module in &self.modules {
             let result = module.handle_url_extract(context, &self).await?;
 
@@ -357,7 +369,7 @@ impl FlowRouter {
         self.router_to(context, FlowStep::Register).await
     }
 
-    async fn handle_register(&self, context: &mut FlowRouterContext) -> Result<()> {
+    async fn handle_register(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
         for module in &self.modules {
             let result = module.handle_register(context, &self).await?;
 
@@ -380,7 +392,7 @@ impl FlowRouter {
         self.router_to(context, FlowStep::BuildResult).await
     }
 
-    async fn handle_build_result(&self, context: &mut FlowRouterContext) -> Result<()> {
+    async fn handle_build_result(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
         for module in &self.modules {
             let result = module.handle_build_result(context, &self).await?;
 
@@ -407,7 +419,7 @@ impl FlowRouter {
         self.router_to(context, FlowStep::End).await
     }
 
-    async fn handle_end(&self, context: &mut FlowRouterContext) -> Result<()> {
+    async fn handle_end(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
         for module in &self.modules {
             let result = module.handle_end(context, &self).await?;
 
@@ -428,7 +440,7 @@ impl FlowRouter {
     pub async fn get_route(
         &self,
         switch: &str,
-        context: &FlowRouterContext,
+        context: &FlowRouterContext<'_>,
     ) -> Result<Option<Route>> {
         let route = self
             .routes_manager
@@ -442,7 +454,11 @@ impl FlowRouter {
         Ok(route)
     }
 
-    async fn start(&self, req: RequestData, res: ResponseData) -> Result<FlowRouterContext> {
+    async fn start<'a>(
+        &self,
+        req: &'a RequestType<'a>,
+        res: &'a ResponseData,
+    ) -> Result<FlowRouterContext<'a>> {
         let mut context = self.build_context(&req, &res);
 
         for module in &self.modules {
@@ -465,14 +481,18 @@ impl FlowRouter {
         Ok(context)
     }
 
-    fn build_route_uri(&self, request: &RequestData) -> FlowInRoute {
-        let path = &request.uri.path()[1..];
+    fn build_route_uri(&self, request: &RequestType) -> FlowInRoute {
+        let path = &request.get_uri().path()[1..];
 
         let host_info = self.host_extractor.detect(&request, false).unwrap();
 
-        let query = request.uri.query().unwrap_or_default();
+        let query = request.get_uri().query().unwrap_or_default();
 
-        let scheme = request.uri.scheme().unwrap_or(&Scheme::HTTP).to_string();
+        let scheme = request
+            .get_uri()
+            .scheme()
+            .unwrap_or(&Scheme::HTTP)
+            .to_string();
 
         let in_route = FlowInRoute {
             host: host_info.host,
@@ -569,7 +589,7 @@ impl FlowRouter {
         }
 
         context.host = self.host_extractor.detect(&context.request, true);
-        context.protocol = self.protocol_extractor.detect(&context.request, true);
+        context.protocol = self.protocol_extractor.detect(context.request, true);
         context.client_ip = self.ip_extractor.detect(&context.request, true);
         context.user_agent = self
             .user_agent_string_extractor
@@ -577,7 +597,11 @@ impl FlowRouter {
         context.client_langs = self.language_extractor.detect(&context.request, true);
     }
 
-    fn build_context(&self, req: &RequestData, res: &ResponseData) -> FlowRouterContext {
+    fn build_context<'a>(
+        &self,
+        req: &'a RequestType,
+        res: &'a ResponseData,
+    ) -> FlowRouterContext<'a> {
         let mut context = FlowRouterContext {
             id: Ulid::new().to_string(),
             utc: Utc::now(),
@@ -596,8 +620,8 @@ impl FlowRouter {
             out_route: None,
             main_route: None,
             result: None,
-            request: req.clone(),
-            response: res.clone(),
+            request: req,
+            response: res,
         };
 
         context.host = self.host_extractor.detect(&context.request, false);
@@ -611,7 +635,11 @@ impl FlowRouter {
         context
     }
 
-    pub async fn handle(&self, req: RequestData, res: ResponseData) -> Result<FlowRouterResult> {
+    pub async fn handle<'a>(
+        &self,
+        req: &RequestType<'a>,
+        res: &ResponseData,
+    ) -> Result<FlowRouterResult> {
         let context = self.start(req, res).await?;
         Ok(context.result.unwrap())
     }

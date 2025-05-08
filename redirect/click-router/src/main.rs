@@ -1,12 +1,12 @@
 use std::{
     io::{Error as IoError, Result as IoResult},
-    ops::Deref,
     sync::Arc,
 };
 
 use click_router::{
+    adapters::salvo::SalvoRequest,
     app::AppBuilder,
-    core::flow_router::{FlowRouter, RequestData, ResponseData},
+    core::flow_router::{FlowRouter, ResponseData},
     settings::Settings,
 };
 
@@ -51,21 +51,8 @@ impl Handler for Redirect {
 
         let result = router
             .handle(
-                RequestData {
-                    headers: req.headers().clone(),
-                    uri: req.uri().clone(),
-                    extensions: req.extensions().clone(),
-                    method: req.method().clone(),
-                    cookies: req.cookies().clone(),
-                    params: req.params().deref().clone(),
-                    queries: OnceCell::with_value(req.queries().clone()),
-                    version: req.version().clone(),
-                    scheme: Some(req.scheme().clone()),
-                    local_addr: req.local_addr().clone().into_std(),
-                    remote_addr: req.remote_addr().clone().into_std(),
-                    tls_info: None,
-                },
-                ResponseData {
+                &click_router::adapters::RequestType::Salvo(&SalvoRequest::new(&req)),
+                &ResponseData {
                     cookies: res.cookies.clone(),
                     extensions: res.extensions.clone(),
                     headers: res.headers.clone(),

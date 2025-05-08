@@ -1,4 +1,6 @@
-use crate::core::flow_router::RequestData;
+use crate::adapters::RequestType;
+
+use super::flow_router::Request;
 
 const DEBUG_UA_PARAM: &'static str = "x_debug_ua";
 const USER_AGENT_HEADER: &str = "User-Agent";
@@ -12,18 +14,16 @@ impl UserAgentStringExtractor {
     }
 }
 
-fn get_debug(request: &RequestData) -> Option<String> {
-    let queries = request.queries.get();
+fn get_debug(request: &RequestType) -> Option<String> {
+    let queries = request.get_queries();
 
-    if let Some(queries) = queries {
-        let param_value = queries.get(DEBUG_UA_PARAM);
+    let param_value = queries.get(DEBUG_UA_PARAM);
 
-        if param_value.is_some() {
-            return param_value.cloned();
-        }
+    if param_value.is_some() {
+        return param_value.cloned();
     }
 
-    let header_value = request.headers.get(DEBUG_UA_PARAM).cloned();
+    let header_value = request.get_headers().get(DEBUG_UA_PARAM).cloned();
 
     if let Some(header) = header_value {
         return Some(header.to_str().unwrap_or_default().to_string());
@@ -32,8 +32,8 @@ fn get_debug(request: &RequestData) -> Option<String> {
     None
 }
 
-fn detect_from_headers(request: &RequestData) -> Option<String> {
-    if let Some(user_agent_header) = *&request.headers.get(USER_AGENT_HEADER) {
+fn detect_from_headers(request: &RequestType) -> Option<String> {
+    if let Some(user_agent_header) = *&request.get_headers().get(USER_AGENT_HEADER) {
         let client_details = user_agent_header.to_str().unwrap_or_default();
 
         if client_details.is_empty() {
@@ -47,7 +47,7 @@ fn detect_from_headers(request: &RequestData) -> Option<String> {
 }
 
 impl UserAgentStringExtractor {
-    pub fn detect(&self, request: &RequestData, debug: bool) -> Option<String> {
+    pub fn detect(&self, request: &RequestType, debug: bool) -> Option<String> {
         if debug {
             if let Some(debug_ua) = get_debug(&request) {
                 return Some(debug_ua);
@@ -61,18 +61,21 @@ impl UserAgentStringExtractor {
 #[cfg(test)]
 mod tests {
 
+    use crate::core::flow_router::RequestData;
+
     use super::*;
 
     #[test]
     fn should_extract_from_user_agent_header_when_present() {
-        let mut request: RequestData = RequestData {
+        let mut request_data = RequestData {
             ..Default::default()
         };
 
-        request
+        request_data
             .headers
             .insert(USER_AGENT_HEADER, "test user agent 0.1".parse().unwrap());
 
+        let request: RequestType = RequestType::Test(request_data);
         let result = UserAgentStringExtractor::new().detect(&request, false);
 
         assert!(result.is_some());
@@ -82,18 +85,19 @@ mod tests {
 
     #[test]
     fn should_extract_from_debug_when_present() {
-        let mut request: RequestData = RequestData {
+        let mut request_data = RequestData {
             ..Default::default()
         };
 
-        request
+        request_data
             .headers
             .insert(USER_AGENT_HEADER, "test user agent 0.1".parse().unwrap());
 
-        request
+        request_data
             .headers
             .insert(DEBUG_UA_PARAM, "test user agent 0.2".parse().unwrap());
 
+        let request = RequestType::Test(request_data);
         let result = UserAgentStringExtractor::new().detect(&request, true);
 
         assert!(result.is_some());

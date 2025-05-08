@@ -1,4 +1,6 @@
-use crate::core::flow_router::RequestData;
+use crate::{adapters::RequestType, core::flow_router::RequestData};
+
+use super::flow_router::Request;
 
 #[derive(Clone, Debug)]
 pub struct ProtoInfo {
@@ -21,24 +23,24 @@ impl ProtocolExtractor {
     }
 }
 
-fn detect_proto_uri(request: &RequestData) -> Option<String> {
-    if let Some(scheme) = *&request.uri.scheme_str() {
+fn detect_proto_uri(request: &RequestType) -> Option<String> {
+    if let Some(scheme) = *&request.get_uri().scheme_str() {
         return Some(scheme.to_ascii_lowercase());
     }
 
     None
 }
 
-fn detect_ssl_on_uri(request: &RequestData) -> Option<bool> {
-    if let Some(scheme) = *&request.uri.scheme_str() {
+fn detect_ssl_on_uri(request: &RequestType) -> Option<bool> {
+    if let Some(scheme) = request.get_uri().scheme_str() {
         return Some(scheme.to_ascii_lowercase() == HTTPS);
     }
 
     None
 }
 
-fn detect_proto_headers(request: &RequestData) -> Option<String> {
-    if let Some(proto_header) = *&request.headers.get(X_FORWARDED_PROTO_HEADER) {
+fn detect_proto_headers(request: &RequestType) -> Option<String> {
+    if let Some(proto_header) = request.get_headers().get(X_FORWARDED_PROTO_HEADER) {
         return Some(
             proto_header
                 .to_str()
@@ -50,8 +52,8 @@ fn detect_proto_headers(request: &RequestData) -> Option<String> {
     None
 }
 
-fn detect_ssl_on_headers(request: &RequestData) -> Option<bool> {
-    if let Some(proto_header) = *&request.headers.get(X_FORWARDED_SSL_HEADER) {
+fn detect_ssl_on_headers(request: &RequestType) -> Option<bool> {
+    if let Some(proto_header) = *&request.get_headers().get(X_FORWARDED_SSL_HEADER) {
         return Some(
             proto_header
                 .to_str()
@@ -65,7 +67,7 @@ fn detect_ssl_on_headers(request: &RequestData) -> Option<bool> {
 }
 
 impl ProtocolExtractor {
-    pub fn detect(&self, request: &RequestData, _debug: bool) -> Option<ProtoInfo> {
+    pub fn detect(&self, request: &RequestType, _debug: bool) -> Option<ProtoInfo> {
         let mut proto: String = HTTP.to_string();
         let mut ssl_on: bool = false;
 
@@ -94,17 +96,19 @@ mod tests {
 
     #[test]
     fn should_extract_proto_header_when_present() {
-        let mut request = RequestData {
+        let mut request_data = RequestData {
             ..Default::default()
         };
 
-        request
+        request_data
             .headers
             .insert("X-Forwarded-Proto", "https".parse().unwrap());
 
-        request
+        request_data
             .headers
             .insert("X-Forwarded-Ssl", "on".parse().unwrap());
+
+        let request = RequestType::Test(request_data);
 
         let result = ProtocolExtractor::new().detect(&request, false);
 
@@ -116,10 +120,10 @@ mod tests {
 
     #[test]
     fn should_extract_https_uri_proto_when_host_header_not_present() {
-        let request = RequestData {
+        let request = RequestType::Test(RequestData {
             uri: "https://www.rust-lang.org:443/".parse().unwrap(),
             ..Default::default()
-        };
+        });
 
         let result = ProtocolExtractor::new().detect(&request, false);
 
@@ -131,10 +135,10 @@ mod tests {
 
     #[test]
     fn should_extract_http_uri_proto_when_host_header_not_present() {
-        let request = RequestData {
+        let request = RequestType::Test(RequestData {
             uri: "http://www.rust-lang.org/".parse().unwrap(),
             ..Default::default()
-        };
+        });
 
         let result = ProtocolExtractor::new().detect(&request, false);
 

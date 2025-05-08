@@ -37,7 +37,7 @@ async fn benchmark_flow_router(c: &mut Criterion) {
 
     let app = Arc::new(init_flow_router().await);
 
-    let mut request = RequestData {
+    let mut request_data = RequestData {
         uri: "/test".parse().unwrap(),
         local_addr: Some("192.168.0.100:80".parse().unwrap()),
         remote_addr: Some("188.138.135.18:80".parse().unwrap()),
@@ -45,13 +45,17 @@ async fn benchmark_flow_router(c: &mut Criterion) {
         ..Default::default()
     };
 
-    request.headers.append("Host", "localhost".parse().unwrap());
-    request.headers.append(
+    request_data
+        .headers
+        .append("Host", "localhost".parse().unwrap());
+    request_data.headers.append(
         "User-Agent",
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0"
             .parse()
             .unwrap(),
     );
+
+    let request = click_router::adapters::RequestType::Test(request_data);
 
     let response = ResponseData {
         ..Default::default()
@@ -65,7 +69,7 @@ async fn benchmark_flow_router(c: &mut Criterion) {
             let app_binding = app.as_ref();
 
             app_binding
-                .handle(request.as_ref().clone(), response.as_ref().clone())
+                .handle(request.as_ref(), response.as_ref())
                 .await
                 .unwrap();
         })

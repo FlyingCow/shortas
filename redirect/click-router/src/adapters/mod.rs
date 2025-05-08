@@ -7,16 +7,19 @@ use aws::dynamo::{
 };
 use fluvio::hit_registrar::FluvioHitRegistrar;
 use geo_ip::geo_ip_location_detector::GeoIPLocationDetector;
+use http::uri::Scheme;
 use moka::{
     crypto_cache::MokaCryptoCache, routes_cache::MokaRoutesCache,
     user_settings_cache::MokaUserSettingsCache,
 };
 use rdkafka::hit_registrar::KafkaHitRegistrar;
+use salvo::SalvoRequest;
 use uaparser::user_agent_detector::UAParserUserAgentDetector;
 
 use crate::{
     core::{
         crypto::CryptoCache,
+        flow_router::{Request, RequestData},
         hits_register::HitRegistrar,
         location::{Country, LocationDetector},
         routes::RoutesCache,
@@ -33,6 +36,7 @@ pub mod geo_ip;
 pub mod kafka;
 pub mod moka;
 pub mod rdkafka;
+pub mod salvo;
 pub mod uaparser;
 
 #[derive(Clone)]
@@ -49,6 +53,63 @@ impl HitRegistrar for HitRegistrarType {
             HitRegistrarType::Kafka(registrar) => registrar.register(hit).await,
             HitRegistrarType::Fluvio(registrar) => registrar.register(hit).await,
             HitRegistrarType::None() => Ok(()),
+        }
+    }
+}
+
+pub enum RequestType<'a> {
+    //hyper,
+    Salvo(&'a SalvoRequest<'a>),
+    Test(RequestData),
+}
+
+impl<'a> Request for RequestType<'a> {
+    fn get_uri(&self) -> &http::Uri {
+        match self {
+            RequestType::Salvo(request) => request.get_uri(),
+            RequestType::Test(request) => &request.uri,
+        }
+    }
+
+    fn get_headers(&self) -> &http::HeaderMap {
+        match self {
+            RequestType::Salvo(request) => request.get_headers(),
+            RequestType::Test(request) => &request.headers,
+        }
+    }
+
+    fn get_method(&self) -> &http::Method {
+        match self {
+            RequestType::Salvo(request) => request.get_method(),
+            RequestType::Test(request) => &request.method,
+        }
+    }
+
+    fn get_scheme(&self) -> &http::uri::Scheme {
+        match self {
+            RequestType::Salvo(request) => request.get_scheme(),
+            RequestType::Test(_) => &Scheme::HTTP,
+        }
+    }
+
+    fn get_remote_addr(&self) -> Option<std::net::SocketAddr> {
+        match self {
+            RequestType::Salvo(request) => request.get_remote_addr(),
+            RequestType::Test(request) => request.remote_addr,
+        }
+    }
+
+    fn get_params(&self) -> &indexmap::IndexMap<String, String> {
+        match self {
+            RequestType::Salvo(request) => request.get_params(),
+            RequestType::Test(request) => &request.params,
+        }
+    }
+
+    fn get_queries(&self) -> &multimap::MultiMap<String, String> {
+        match self {
+            RequestType::Salvo(request) => request.get_queries(),
+            RequestType::Test(request) => &request.queries,
         }
     }
 }

@@ -2,11 +2,9 @@ use anyhow::{Ok, Result};
 use http::Method;
 
 use crate::{
-    adapters::UserSettingsCacheType,
     core::{
         flow_module::{FlowModule, FlowStepContinuation},
-        flow_router::{FlowRouter, FlowRouterContext, FlowStep},
-        user_settings::UserSettingsManager,
+        flow_router::{FlowRouter, FlowRouterContext, FlowStep, Request},
     },
     model::user_settings::SKIP_TRACKING,
 };
@@ -23,7 +21,7 @@ impl RedirectOnlyModule {
     async fn is_tracking_allowed(
         &self,
         flow_router: &FlowRouter,
-        context: &mut FlowRouterContext,
+        context: &mut FlowRouterContext<'_>,
     ) -> Result<bool> {
         if context
             .main_route
@@ -65,7 +63,7 @@ impl RedirectOnlyModule {
     async fn is_redirect_only(
         &self,
         flow_router: &FlowRouter,
-        context: &mut FlowRouterContext,
+        context: &mut FlowRouterContext<'_>,
     ) -> Result<bool> {
         //no need to register,
         //since it will be handle by not found module
@@ -73,7 +71,7 @@ impl RedirectOnlyModule {
             return Ok(true);
         }
 
-        if context.request.method == Method::HEAD {
+        if context.request.get_method() == Method::HEAD {
             return Ok(true);
         }
 

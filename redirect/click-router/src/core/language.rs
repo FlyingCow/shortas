@@ -1,6 +1,8 @@
-use crate::core::flow_router::RequestData;
+use crate::adapters::RequestType;
 
 use accept_language::parse_with_quality;
+
+use super::flow_router::Request;
 
 #[derive(Clone, Debug)]
 pub struct Language {
@@ -29,18 +31,16 @@ impl LanguageExtractor {
     }
 }
 
-fn get_debug(request: &RequestData) -> Option<String> {
-    let queries = request.queries.get();
+fn get_debug(request: &RequestType) -> Option<String> {
+    let queries = request.get_queries();
 
-    if let Some(queries) = queries {
-        let param_value = queries.get(DEBUG_LANGS_PARAM);
+    let param_value = queries.get(DEBUG_LANGS_PARAM);
 
-        if param_value.is_some() {
-            return param_value.cloned();
-        }
+    if param_value.is_some() {
+        return param_value.cloned();
     }
 
-    let header_value = request.headers.get(DEBUG_LANGS_PARAM).cloned();
+    let header_value = request.get_headers().get(DEBUG_LANGS_PARAM).cloned();
 
     if let Some(header) = header_value {
         return Some(header.to_str().unwrap_or_default().to_string());
@@ -49,8 +49,8 @@ fn get_debug(request: &RequestData) -> Option<String> {
     None
 }
 
-fn detect_from_headers(request: &RequestData) -> Option<Vec<Language>> {
-    if let Some(accept_language_header) = *&request.headers.get(ACCEPT_LANGUAGE_HEADER) {
+fn detect_from_headers(request: &RequestType) -> Option<Vec<Language>> {
+    if let Some(accept_language_header) = *&request.get_headers().get(ACCEPT_LANGUAGE_HEADER) {
         let languages = accept_language_header.to_str();
 
         if languages.is_err() {
@@ -71,7 +71,7 @@ fn detect_from_headers(request: &RequestData) -> Option<Vec<Language>> {
 }
 
 impl LanguageExtractor {
-    pub fn detect(&self, request: &RequestData, debug: bool) -> Option<Vec<Language>> {
+    pub fn detect(&self, request: &RequestType, debug: bool) -> Option<Vec<Language>> {
         if debug {
             if let Some(debug_lngs) = get_debug(&request) {
                 let debug_lngs = parse_with_quality(debug_lngs.as_str());
@@ -85,7 +85,7 @@ impl LanguageExtractor {
             }
         }
 
-        let header = detect_from_headers(&request);
+        let header = detect_from_headers(request);
 
         if header.is_none() {
             return None;
@@ -98,17 +98,21 @@ impl LanguageExtractor {
 #[cfg(test)]
 mod tests {
 
+    use crate::core::flow_router::RequestData;
+
     use super::*;
 
     #[test]
     fn should_extract_from_accept_language_header_when_present() {
-        let mut request = RequestData {
+        let mut request_data = RequestData {
             ..Default::default()
         };
 
-        request
+        request_data
             .headers
             .insert(ACCEPT_LANGUAGE_HEADER, "en-US,en;q=0.5".parse().unwrap());
+
+        let request = RequestType::Test(request_data);
 
         let result = LanguageExtractor::new().detect(&request, false);
 
@@ -124,17 +128,19 @@ mod tests {
 
     #[test]
     fn should_extract_from_debug_language_header_when_present() {
-        let mut request = RequestData {
+        let mut request_data = RequestData {
             ..Default::default()
         };
 
-        request
+        request_data
             .headers
             .insert(ACCEPT_LANGUAGE_HEADER, "en-US,en;q=0.5".parse().unwrap());
 
-        request
+        request_data
             .headers
             .insert(DEBUG_LANGS_PARAM, "en-UK,en;q=0.5".parse().unwrap());
+
+        let request = RequestType::Test(request_data);
 
         let result = LanguageExtractor::new().detect(&request, true);
 
