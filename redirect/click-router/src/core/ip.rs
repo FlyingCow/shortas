@@ -22,7 +22,7 @@ impl IPExtractor {
 }
 
 fn get_debug(request: &RequestType) -> Option<String> {
-    let queries = request.get_queries();
+    let queries = request.queries();
 
     let param_value = queries.get(DEBUG_IP_PARAM);
 
@@ -30,7 +30,7 @@ fn get_debug(request: &RequestType) -> Option<String> {
         return param_value.cloned();
     }
 
-    let header_value = request.get_headers().get(DEBUG_IP_PARAM).cloned();
+    let header_value = request.headers().get(DEBUG_IP_PARAM).cloned();
 
     if let Some(header) = header_value {
         return Some(header.to_str().unwrap_or_default().to_string());
@@ -40,7 +40,7 @@ fn get_debug(request: &RequestType) -> Option<String> {
 }
 
 fn detect_for_headers(request: &RequestType) -> Option<String> {
-    if let Some(proto_header) = request.get_headers().get(X_FORWARDED_FOR_HEADER) {
+    if let Some(proto_header) = request.headers().get(X_FORWARDED_FOR_HEADER) {
         let header = proto_header.to_str().unwrap_or_default().replace(" ", "");
 
         let client_details = header.split(",").last().unwrap();
@@ -75,7 +75,7 @@ impl IPExtractor {
             }
         }
 
-        if let Some(ip) = request.get_remote_addr() {
+        if let Some(ip) = request.remote_addr() {
             return Some(IPInfo { address: ip.ip() });
         }
 
@@ -87,7 +87,10 @@ impl IPExtractor {
 mod tests {
     use std::net::SocketAddr;
 
-    use crate::core::flow_router::{FlowInRoute, FlowRouterContext, RequestData, ResponseData};
+    use crate::{
+        adapters::ResponseType,
+        core::flow_router::{FlowInRoute, FlowRouterContext, RequestData, ResponseData},
+    };
 
     use super::*;
 
@@ -116,8 +119,8 @@ mod tests {
     }
 
     fn get_default_context<'a>(
-        request: &'a RequestType,
-        response: &'a ResponseData,
+        request: &'a RequestType<'a>,
+        response: &'a mut ResponseType<'a>,
     ) -> FlowRouterContext<'a> {
         FlowRouterContext::new(
             FlowInRoute::new(
@@ -135,9 +138,9 @@ mod tests {
     #[test]
     fn should_extract_debug_from_header_when_present() {
         let req = get_default_request("183.143.0.2", "183.143.0.3", "183.143.0.1");
-        let res = ResponseData::default();
+        let mut res = ResponseType::Test(ResponseData::default());
 
-        let context = get_default_context(&req, &res);
+        let context = get_default_context(&req, &mut res);
 
         let result = IPExtractor::new().detect(&context.request, true);
 
@@ -149,9 +152,9 @@ mod tests {
     #[test]
     fn should_extract_from_header_when_present() {
         let req = get_default_request("183.143.0.2", "183.143.0.3", "183.143.0.1");
-        let res = ResponseData::default();
+        let mut res = ResponseType::Test(ResponseData::default());
 
-        let context = get_default_context(&req, &res);
+        let context = get_default_context(&req, &mut res);
 
         let result = IPExtractor::new().detect(&context.request, false);
 
@@ -167,9 +170,9 @@ mod tests {
             "183.143.0.3",
             "183.143.0.1",
         );
-        let res = ResponseData::default();
+        let mut res = ResponseType::Test(ResponseData::default());
 
-        let context = get_default_context(&req, &res);
+        let context = get_default_context(&req, &mut res);
 
         let result = IPExtractor::new().detect(&context.request, false);
 
@@ -181,9 +184,9 @@ mod tests {
     #[test]
     fn should_use_remote_addr_when_header_not_present() {
         let req = get_default_request("", "183.143.0.3", "183.143.0.1");
-        let res = ResponseData::default();
+        let mut res = ResponseType::Test(ResponseData::default());
 
-        let context = get_default_context(&req, &res);
+        let context = get_default_context(&req, &mut res);
 
         let result = IPExtractor::new().detect(&context.request, false);
 

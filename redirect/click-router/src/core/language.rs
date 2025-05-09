@@ -32,7 +32,7 @@ impl LanguageExtractor {
 }
 
 fn get_debug(request: &RequestType) -> Option<String> {
-    let queries = request.get_queries();
+    let queries = request.queries();
 
     let param_value = queries.get(DEBUG_LANGS_PARAM);
 
@@ -40,7 +40,7 @@ fn get_debug(request: &RequestType) -> Option<String> {
         return param_value.cloned();
     }
 
-    let header_value = request.get_headers().get(DEBUG_LANGS_PARAM).cloned();
+    let header_value = request.headers().get(DEBUG_LANGS_PARAM).cloned();
 
     if let Some(header) = header_value {
         return Some(header.to_str().unwrap_or_default().to_string());
@@ -50,7 +50,7 @@ fn get_debug(request: &RequestType) -> Option<String> {
 }
 
 fn detect_from_headers(request: &RequestType) -> Option<Vec<Language>> {
-    if let Some(accept_language_header) = *&request.get_headers().get(ACCEPT_LANGUAGE_HEADER) {
+    if let Some(accept_language_header) = *&request.headers().get(ACCEPT_LANGUAGE_HEADER) {
         let languages = accept_language_header.to_str();
 
         if languages.is_err() {

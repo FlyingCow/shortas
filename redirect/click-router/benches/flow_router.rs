@@ -1,6 +1,7 @@
 use std::env;
 use std::sync::Arc;
 
+use click_router::adapters::{RequestType, ResponseType};
 use click_router::core::flow_router::{FlowRouter, RequestData, ResponseData};
 use click_router::{settings::Settings, AppBuilder};
 
@@ -37,41 +38,37 @@ async fn benchmark_flow_router(c: &mut Criterion) {
 
     let app = Arc::new(init_flow_router().await);
 
-    let mut request_data = RequestData {
-        uri: "/test".parse().unwrap(),
-        local_addr: Some("192.168.0.100:80".parse().unwrap()),
-        remote_addr: Some("188.138.135.18:80".parse().unwrap()),
-        tls_info: None,
-        ..Default::default()
-    };
-
-    request_data
-        .headers
-        .append("Host", "localhost".parse().unwrap());
-    request_data.headers.append(
-        "User-Agent",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0"
-            .parse()
-            .unwrap(),
-    );
-
-    let request = click_router::adapters::RequestType::Test(request_data);
-
-    let response = ResponseData {
-        ..Default::default()
-    };
-
-    let request = Arc::new(request);
-    let response = Arc::new(response);
-
     c.bench_function("iter", move |b| {
+        let mut request_data = RequestData {
+            uri: "/test".parse().unwrap(),
+            local_addr: Some("192.168.0.100:80".parse().unwrap()),
+            remote_addr: Some("188.138.135.18:80".parse().unwrap()),
+            tls_info: None,
+            ..Default::default()
+        };
+
+        request_data
+            .headers
+            .append("Host", "localhost".parse().unwrap());
+        request_data.headers.append(
+            "User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0"
+                .parse()
+                .unwrap(),
+        );
+
+        let request = RequestType::Test(request_data);
+
+        let response_data = ResponseData {
+            ..Default::default()
+        };
+
+        let response = ResponseType::Test(response_data);
+
         b.to_async(FuturesExecutor).iter(|| async {
             let app_binding = app.as_ref();
 
-            app_binding
-                .handle(request.as_ref(), response.as_ref())
-                .await
-                .unwrap();
+            app_binding.handle(&request, &response).await.unwrap();
         })
     });
 

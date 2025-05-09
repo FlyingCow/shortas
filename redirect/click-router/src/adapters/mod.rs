@@ -1,25 +1,25 @@
 use std::net::IpAddr;
 
-use anyhow::Result;
+use anyhow::{Error, Result};
 use aws::dynamo::{
     crypto_store::DynamoCryptoStore, routes_store::DynamoRoutesStore,
     user_settings_store::DynamoUserSettingsStore,
 };
 use fluvio::hit_registrar::FluvioHitRegistrar;
 use geo_ip::geo_ip_location_detector::GeoIPLocationDetector;
-use http::uri::Scheme;
+use http::{header::IntoHeaderName, uri::Scheme, HeaderValue};
 use moka::{
     crypto_cache::MokaCryptoCache, routes_cache::MokaRoutesCache,
     user_settings_cache::MokaUserSettingsCache,
 };
 use rdkafka::hit_registrar::KafkaHitRegistrar;
-use salvo::SalvoRequest;
+use salvo::{SalvoRequest, SalvoResponse};
 use uaparser::user_agent_detector::UAParserUserAgentDetector;
 
 use crate::{
     core::{
         crypto::CryptoCache,
-        flow_router::{Request, RequestData},
+        flow_router::{Request, RequestData, Response, ResponseData},
         hits_register::HitRegistrar,
         location::{Country, LocationDetector},
         routes::RoutesCache,
@@ -64,52 +64,128 @@ pub enum RequestType<'a> {
 }
 
 impl<'a> Request for RequestType<'a> {
-    fn get_uri(&self) -> &http::Uri {
+    fn uri(&self) -> &http::Uri {
         match self {
-            RequestType::Salvo(request) => request.get_uri(),
+            RequestType::Salvo(request) => request.uri(),
             RequestType::Test(request) => &request.uri,
         }
     }
 
-    fn get_headers(&self) -> &http::HeaderMap {
+    fn headers(&self) -> &http::HeaderMap {
         match self {
-            RequestType::Salvo(request) => request.get_headers(),
+            RequestType::Salvo(request) => request.headers(),
             RequestType::Test(request) => &request.headers,
         }
     }
 
-    fn get_method(&self) -> &http::Method {
+    fn method(&self) -> &http::Method {
         match self {
-            RequestType::Salvo(request) => request.get_method(),
+            RequestType::Salvo(request) => request.method(),
             RequestType::Test(request) => &request.method,
         }
     }
 
-    fn get_scheme(&self) -> &http::uri::Scheme {
+    fn scheme(&self) -> &http::uri::Scheme {
         match self {
-            RequestType::Salvo(request) => request.get_scheme(),
+            RequestType::Salvo(request) => request.scheme(),
             RequestType::Test(_) => &Scheme::HTTP,
         }
     }
 
-    fn get_remote_addr(&self) -> Option<std::net::SocketAddr> {
+    fn remote_addr(&self) -> Option<std::net::SocketAddr> {
         match self {
-            RequestType::Salvo(request) => request.get_remote_addr(),
+            RequestType::Salvo(request) => request.remote_addr(),
             RequestType::Test(request) => request.remote_addr,
         }
     }
 
-    fn get_params(&self) -> &indexmap::IndexMap<String, String> {
+    fn params(&self) -> &indexmap::IndexMap<String, String> {
         match self {
-            RequestType::Salvo(request) => request.get_params(),
+            RequestType::Salvo(request) => request.params(),
             RequestType::Test(request) => &request.params,
         }
     }
 
-    fn get_queries(&self) -> &multimap::MultiMap<String, String> {
+    fn queries(&self) -> &multimap::MultiMap<String, String> {
         match self {
-            RequestType::Salvo(request) => request.get_queries(),
+            RequestType::Salvo(request) => request.queries(),
             RequestType::Test(request) => &request.queries,
+        }
+    }
+
+    fn cookies(&self) -> &cookie::CookieJar {
+        match self {
+            RequestType::Salvo(request) => request.cookies(),
+            RequestType::Test(request) => &request.cookies,
+        }
+    }
+
+    fn cookie<T>(&self, name: T) -> Option<&cookie::Cookie<'static>>
+    where
+        T: AsRef<str>,
+    {
+        match self {
+            RequestType::Salvo(request) => request.cookie(name),
+            RequestType::Test(request) => request.cookies.get(name.as_ref()),
+        }
+    }
+}
+
+pub enum ResponseType<'a> {
+    //hyper,
+    Salvo(&'a mut SalvoResponse<'a>),
+    Test(ResponseData),
+}
+
+impl<'a> Response for ResponseType<'a> {
+    fn add_header<N, V>(&mut self, name: N, value: V, overwrite: bool) -> Result<()>
+    where
+        N: IntoHeaderName,
+        V: TryInto<HeaderValue>,
+    {
+        match self {
+            ResponseType::Salvo(response) => {
+                let _ = &response.add_header(name, value, overwrite)?;
+
+                Ok(())
+            }
+            ResponseType::Test(response) => {
+                let value = value
+                    .try_into()
+                    .map_err(|_| Error::msg("invalid header value"));
+
+                let _ = &mut response.headers.append(name, value.unwrap());
+
+                Ok(())
+            }
+        }
+    }
+
+    fn cookies(&self) -> &cookie::CookieJar {
+        match self {
+            ResponseType::Salvo(response) => response.cookies(),
+            ResponseType::Test(response) => &response.cookies,
+        }
+    }
+
+    fn cookies_mut(&mut self) -> &mut cookie::CookieJar {
+        todo!()
+    }
+
+    fn cookie<T>(&self, name: T) -> Option<&cookie::Cookie<'static>>
+    where
+        T: AsRef<str>,
+    {
+        match self {
+            ResponseType::Salvo(response) => response.cookie(name),
+            ResponseType::Test(response) => response.cookies.get(name.as_ref()),
+        }
+    }
+
+    fn add_cookie(&mut self, cookie: cookie::Cookie<'static>) {
+        match self {
+            ResponseType::Salvo(response) => response.add_cookie(cookie),
+            ResponseType::Test(response) => response.cookies.add(cookie),
         }
     }
 }

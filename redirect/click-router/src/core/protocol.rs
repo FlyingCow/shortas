@@ -24,7 +24,7 @@ impl ProtocolExtractor {
 }
 
 fn detect_proto_uri(request: &RequestType) -> Option<String> {
-    if let Some(scheme) = *&request.get_uri().scheme_str() {
+    if let Some(scheme) = *&request.uri().scheme_str() {
         return Some(scheme.to_ascii_lowercase());
     }
 
@@ -32,7 +32,7 @@ fn detect_proto_uri(request: &RequestType) -> Option<String> {
 }
 
 fn detect_ssl_on_uri(request: &RequestType) -> Option<bool> {
-    if let Some(scheme) = request.get_uri().scheme_str() {
+    if let Some(scheme) = request.uri().scheme_str() {
         return Some(scheme.to_ascii_lowercase() == HTTPS);
     }
 
@@ -40,7 +40,7 @@ fn detect_ssl_on_uri(request: &RequestType) -> Option<bool> {
 }
 
 fn detect_proto_headers(request: &RequestType) -> Option<String> {
-    if let Some(proto_header) = request.get_headers().get(X_FORWARDED_PROTO_HEADER) {
+    if let Some(proto_header) = request.headers().get(X_FORWARDED_PROTO_HEADER) {
         return Some(
             proto_header
                 .to_str()
@@ -53,7 +53,7 @@ fn detect_proto_headers(request: &RequestType) -> Option<String> {
 }
 
 fn detect_ssl_on_headers(request: &RequestType) -> Option<bool> {
-    if let Some(proto_header) = *&request.get_headers().get(X_FORWARDED_SSL_HEADER) {
+    if let Some(proto_header) = *&request.headers().get(X_FORWARDED_SSL_HEADER) {
         return Some(
             proto_header
                 .to_str()

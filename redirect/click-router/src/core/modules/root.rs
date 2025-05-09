@@ -26,8 +26,8 @@ impl FlowModule for RootModule {
         context: &mut FlowRouterContext,
         _flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
-        if context.request.get_uri().path() == "/" {
-            let root_uri = format!("https://{}", context.request.get_uri().host().unwrap());
+        if context.request.uri().path() == "/" {
+            let root_uri = format!("https://{}", context.request.uri().host().unwrap());
 
             context.result = Some(FlowRouterResult::Redirect(
                 Uri::from_str(&root_uri).unwrap(),

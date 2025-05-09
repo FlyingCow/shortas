@@ -1,8 +1,11 @@
 use anyhow::Result;
 use async_recursion::async_recursion;
 use chrono::{DateTime, Utc};
-use cookie::CookieJar;
-use http::{uri::Scheme, Extensions, HeaderMap, Method, StatusCode, Uri, Version};
+use cookie::{Cookie, CookieJar};
+use http::{
+    header::IntoHeaderName, uri::Scheme, Extensions, HeaderMap, HeaderValue, Method, StatusCode,
+    Uri, Version,
+};
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use std::{
@@ -15,7 +18,7 @@ use ulid::Ulid;
 
 use crate::{
     adapters::{
-        HitRegistrarType, LocationDetectorType, RequestType, RoutesCacheType,
+        HitRegistrarType, LocationDetectorType, RequestType, ResponseType, RoutesCacheType,
         UserAgentDetectorType, UserSettingsCacheType,
     },
     model::{
@@ -185,7 +188,7 @@ pub struct FlowRouterContext<'a> {
     pub main_route: Option<Route>,
     pub in_route: FlowInRoute,
     pub request: &'a RequestType<'a>,
-    pub response: &'a ResponseData,
+    pub response: &'a ResponseType<'a>,
 
     pub result: Option<FlowRouterResult>,
 }
@@ -193,8 +196,8 @@ pub struct FlowRouterContext<'a> {
 impl<'a> FlowRouterContext<'a> {
     pub fn new(
         in_route: FlowInRoute,
-        request: &'a RequestType,
-        response: &'a ResponseData,
+        request: &'a RequestType<'a>,
+        response: &'a ResponseType<'a>,
     ) -> Self {
         Self {
             id: Ulid::new().to_string(),
@@ -275,13 +278,39 @@ pub struct RequestData {
 }
 
 pub trait Request {
-    fn get_uri(&self) -> &Uri;
-    fn get_headers(&self) -> &HeaderMap;
-    fn get_method(&self) -> &Method;
-    fn get_scheme(&self) -> &Scheme;
-    fn get_params(&self) -> &IndexMap<String, String>;
-    fn get_queries(&self) -> &MultiMap<String, String>;
-    fn get_remote_addr(&self) -> Option<SocketAddr>;
+    fn uri(&self) -> &Uri;
+    fn headers(&self) -> &HeaderMap;
+    fn method(&self) -> &Method;
+    fn scheme(&self) -> &Scheme;
+    fn params(&self) -> &IndexMap<String, String>;
+    fn queries(&self) -> &MultiMap<String, String>;
+    fn remote_addr(&self) -> Option<SocketAddr>;
+    fn cookies(&self) -> &CookieJar;
+    /// Get `Cookie` from cookies.
+    fn cookie<T>(&self, name: T) -> Option<&Cookie<'static>>
+    where
+        T: AsRef<str>;
+}
+
+pub trait Response {
+    fn add_header<N, V>(&mut self, name: N, value: V, overwrite: bool) -> Result<()>
+    where
+        N: IntoHeaderName,
+        V: TryInto<HeaderValue>;
+
+    /// Get cookies reference.
+    fn cookies(&self) -> &CookieJar;
+
+    /// Get mutable cookies reference.
+    fn cookies_mut(&mut self) -> &mut CookieJar;
+
+    /// Helper function for get cookie.
+    fn cookie<T>(&self, name: T) -> Option<&Cookie<'static>>
+    where
+        T: AsRef<str>;
+
+    /// Helper function for add cookie.
+    fn add_cookie(&mut self, cookie: Cookie<'static>);
 }
 
 #[derive(Clone, Debug)]
@@ -457,9 +486,9 @@ impl FlowRouter {
     async fn start<'a>(
         &self,
         req: &'a RequestType<'a>,
-        res: &'a ResponseData,
+        res: &'a ResponseType<'a>,
     ) -> Result<FlowRouterContext<'a>> {
-        let mut context = self.build_context(&req, &res);
+        let mut context = self.build_context(req, res);
 
         for module in &self.modules {
             let result = module.init(&mut context, &self).await?;
@@ -482,17 +511,13 @@ impl FlowRouter {
     }
 
     fn build_route_uri(&self, request: &RequestType) -> FlowInRoute {
-        let path = &request.get_uri().path()[1..];
+        let path = &request.uri().path()[1..];
 
         let host_info = self.host_extractor.detect(&request, false).unwrap();
 
-        let query = request.get_uri().query().unwrap_or_default();
+        let query = request.uri().query().unwrap_or_default();
 
-        let scheme = request
-            .get_uri()
-            .scheme()
-            .unwrap_or(&Scheme::HTTP)
-            .to_string();
+        let scheme = request.uri().scheme().unwrap_or(&Scheme::HTTP).to_string();
 
         let in_route = FlowInRoute {
             host: host_info.host,
@@ -599,8 +624,8 @@ impl FlowRouter {
 
     fn build_context<'a>(
         &self,
-        req: &'a RequestType,
-        res: &'a ResponseData,
+        req: &'a RequestType<'a>,
+        res: &'a ResponseType<'a>,
     ) -> FlowRouterContext<'a> {
         let mut context = FlowRouterContext {
             id: Ulid::new().to_string(),
@@ -637,8 +662,8 @@ impl FlowRouter {
 
     pub async fn handle<'a>(
         &self,
-        req: &RequestType<'a>,
-        res: &ResponseData,
+        req: &'a RequestType<'a>,
+        res: &'a ResponseType<'a>,
     ) -> Result<FlowRouterResult> {
         let context = self.start(req, res).await?;
         Ok(context.result.unwrap())

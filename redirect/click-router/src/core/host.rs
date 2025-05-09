@@ -21,14 +21,14 @@ impl HostExtractor {
 }
 
 fn detect_from_uri(request: &RequestType) -> Option<HostInfo> {
-    if let Some(authority) = request.get_uri().authority() {
+    if let Some(authority) = request.uri().authority() {
         return Some(HostInfo {
             host: authority.host().to_ascii_lowercase(),
             port: authority.port_u16().unwrap_or(DEFAULT_PORT),
         });
     }
 
-    if let Some(host) = request.get_uri().host() {
+    if let Some(host) = request.uri().host() {
         return Some(HostInfo {
             host: host.to_ascii_lowercase(),
             port: DEFAULT_PORT,
@@ -39,7 +39,7 @@ fn detect_from_uri(request: &RequestType) -> Option<HostInfo> {
 }
 
 fn detect_from_headers(request: &RequestType) -> Option<HostInfo> {
-    if let Some(host_header) = request.get_headers().get(HOST_HEADER) {
+    if let Some(host_header) = request.headers().get(HOST_HEADER) {
         let mut host_and_port = host_header.to_str().unwrap_or_default().split(":");
 
         let host = host_and_port.next().unwrap_or_default();

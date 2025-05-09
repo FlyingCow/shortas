@@ -15,7 +15,7 @@ impl UserAgentStringExtractor {
 }
 
 fn get_debug(request: &RequestType) -> Option<String> {
-    let queries = request.get_queries();
+    let queries = request.queries();
 
     let param_value = queries.get(DEBUG_UA_PARAM);
 
@@ -23,7 +23,7 @@ fn get_debug(request: &RequestType) -> Option<String> {
         return param_value.cloned();
     }
 
-    let header_value = request.get_headers().get(DEBUG_UA_PARAM).cloned();
+    let header_value = request.headers().get(DEBUG_UA_PARAM).cloned();
 
     if let Some(header) = header_value {
         return Some(header.to_str().unwrap_or_default().to_string());
@@ -33,7 +33,7 @@ fn get_debug(request: &RequestType) -> Option<String> {
 }
 
 fn detect_from_headers(request: &RequestType) -> Option<String> {
-    if let Some(user_agent_header) = *&request.get_headers().get(USER_AGENT_HEADER) {
+    if let Some(user_agent_header) = *&request.headers().get(USER_AGENT_HEADER) {
         let client_details = user_agent_header.to_str().unwrap_or_default();
 
         if client_details.is_empty() {

@@ -71,7 +71,7 @@ impl RedirectOnlyModule {
             return Ok(true);
         }
 
-        if context.request.get_method() == Method::HEAD {
+        if context.request.method() == Method::HEAD {
             return Ok(true);
         }
 

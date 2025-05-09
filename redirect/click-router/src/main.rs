@@ -4,9 +4,12 @@ use std::{
 };
 
 use click_router::{
-    adapters::salvo::SalvoRequest,
+    adapters::{
+        salvo::{SalvoRequest, SalvoResponse},
+        RequestType, ResponseType,
+    },
     app::AppBuilder,
-    core::flow_router::{FlowRouter, ResponseData},
+    core::flow_router::FlowRouter,
     settings::Settings,
 };
 
@@ -51,14 +54,8 @@ impl Handler for Redirect {
 
         let result = router
             .handle(
-                &click_router::adapters::RequestType::Salvo(&SalvoRequest::new(&req)),
-                &ResponseData {
-                    cookies: res.cookies.clone(),
-                    extensions: res.extensions.clone(),
-                    headers: res.headers.clone(),
-                    status_code: res.status_code,
-                    version: res.version,
-                },
+                &RequestType::Salvo(&SalvoRequest::new(&req)),
+                &ResponseType::Salvo(&mut SalvoResponse::new(res)),
             )
             .await
             .unwrap();
