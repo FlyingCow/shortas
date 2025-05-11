@@ -33,7 +33,6 @@ use crate::{
 pub mod aws;
 pub mod fluvio;
 pub mod geo_ip;
-pub mod kafka;
 pub mod moka;
 pub mod rdkafka;
 pub mod salvo;
@@ -48,7 +47,7 @@ pub enum HitRegistrarType {
 
 #[async_trait::async_trait]
 impl HitRegistrar for HitRegistrarType {
-    async fn register(&self, hit: Hit) -> Result<()> {
+    async fn register(&self, hit: &Hit) -> Result<()> {
         match self {
             HitRegistrarType::Kafka(registrar) => registrar.register(hit).await,
             HitRegistrarType::Fluvio(registrar) => registrar.register(hit).await,

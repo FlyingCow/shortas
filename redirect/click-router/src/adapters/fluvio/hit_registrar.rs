@@ -43,7 +43,7 @@ impl FluvioHitRegistrar {
 
 #[async_trait::async_trait()]
 impl HitRegistrar for FluvioHitRegistrar {
-    async fn register(&self, hit: Hit) -> Result<()> {
+    async fn register(&self, hit: &Hit) -> Result<()> {
         let record = serde_json::to_vec(&hit).unwrap();
         self.producer
             .send(RecordKey::NULL, record)

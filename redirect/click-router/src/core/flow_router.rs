@@ -408,12 +408,21 @@ impl FlowRouter {
         }
 
         self.hit_registrar
-            .register(Hit::click(
-                context.id.clone(),
+            .register(&Hit::click(
+                &context.id,
                 context.utc,
-                context.user_agent.clone(),
+                context.user_agent.as_deref(),
                 Some(context.client_ip.clone().unwrap().address),
-                Click::new(context.out_route.clone().unwrap().dest.unwrap()),
+                &Click::new(
+                    context
+                        .out_route
+                        .as_ref()
+                        .unwrap()
+                        .dest
+                        .as_ref()
+                        .unwrap()
+                        .as_str(),
+                ),
                 HitRoute::from_route(&context.main_route),
             ))
             .await?;

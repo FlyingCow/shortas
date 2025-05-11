@@ -6,19 +6,19 @@ use serde::{Deserialize, Serialize};
 use super::Route;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Click {
-    pub dest: Option<String>,
+pub struct Click<'a> {
+    pub dest: Option<&'a str>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Event {
-    pub click: String,
+pub struct Event<'a> {
+    pub click: &'a str,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum HitData {
-    Click(Click),
-    Event(Event),
+#[derive(Clone, Debug, Serialize)]
+pub enum HitData<'a> {
+    Click(&'a Click<'a>),
+    Event(&'a Event<'a>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -46,35 +46,35 @@ impl HitRoute {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Hit {
-    pub id: String,
-    pub data: HitData,
+#[derive(Clone, Debug, Serialize)]
+pub struct Hit<'a> {
+    pub id: &'a str,
+    pub data: HitData<'a>,
     pub route: Option<HitRoute>,
-    pub user_agent: Option<String>,
+    pub user_agent: Option<&'a str>,
     pub ip: Option<IpAddr>,
     pub utc: DateTime<Utc>,
 }
 
-impl Click {
-    pub fn new(dest: String) -> Self {
+impl<'a> Click<'a> {
+    pub fn new(dest: &'a str) -> Self {
         Click { dest: Some(dest) }
     }
 }
 
-impl Event {
-    pub fn new(click: String) -> Self {
+impl<'a> Event<'a> {
+    pub fn new(click: &'a str) -> Self {
         Event { click }
     }
 }
 
-impl Hit {
+impl<'a> Hit<'a> {
     pub fn click(
-        id: String,
+        id: &'a str,
         utc: DateTime<Utc>,
-        user_agent: Option<String>,
+        user_agent: Option<&'a str>,
         ip: Option<IpAddr>,
-        click: Click,
+        click: &'a Click,
         route: Option<HitRoute>,
     ) -> Self {
         Self {
@@ -83,16 +83,16 @@ impl Hit {
             user_agent,
             ip,
             route,
-            data: HitData::Click(click),
+            data: HitData::Click(&click),
         }
     }
 
     pub fn event(
-        id: String,
+        id: &'a str,
         utc: DateTime<Utc>,
-        user_agent: Option<String>,
+        user_agent: Option<&'a str>,
         ip: Option<IpAddr>,
-        event: Event,
+        event: &'a Event,
         route: Option<HitRoute>,
     ) -> Self {
         Self {
@@ -101,7 +101,7 @@ impl Hit {
             user_agent,
             ip,
             route,
-            data: HitData::Event(event),
+            data: HitData::Event(&event),
         }
     }
 }
