@@ -5,15 +5,16 @@ use std::{
 
 use click_router::{
     adapters::{
-        salvo::{SalvoRequest, SalvoResponse},
+        salvo::{salvo_proxy, SalvoRequest, SalvoResponse},
         RequestType, ResponseType,
     },
     app::AppBuilder,
-    core::flow_router::FlowRouter,
+    core::flow_router::{FlowRouter, FlowRouterResult, RedirectType},
     settings::Settings,
 };
 
 use clap::Parser;
+use http::StatusCode;
 use once_cell::sync::OnceCell;
 use rustls::server::ClientHello;
 use salvo::{
@@ -22,9 +23,10 @@ use salvo::{
         rustls_async::{Keycert, ResolvesServerConfig, RustlsConfig},
         TcpListener,
     },
-    writing::Text,
+    writing::Json,
     Depot, FlowCtrl, Handler, Listener, Request, Response, Router, Server,
 };
+use salvo_proxy::{hyper_client::HyperClient, Proxy};
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -46,9 +48,9 @@ impl Handler for Redirect {
     async fn handle(
         &self,
         req: &mut Request,
-        _depot: &mut Depot,
+        depot: &mut Depot,
         res: &mut Response,
-        _ctrl: &mut FlowCtrl,
+        ctrl: &mut FlowCtrl,
     ) {
         let router = get_flow_router();
 
@@ -60,7 +62,35 @@ impl Handler for Redirect {
             .await
             .unwrap();
 
-        res.render(Text::Plain(result.to_string()));
+        match result {
+            FlowRouterResult::Empty(statu_code) => res.status_code(statu_code).render(""),
+            FlowRouterResult::Json(content, statu_code) => {
+                res.status_code(statu_code).render(Json(content))
+            }
+            FlowRouterResult::PlainText(content, statu_code) => {
+                res.status_code(statu_code).render(content)
+            }
+            FlowRouterResult::Proxied(url, statu_code) => {
+                res.status_code(statu_code);
+
+                Proxy::new(url.to_string(), HyperClient::default())
+                    .handle(req, depot, res, ctrl)
+                    .await;
+            }
+            FlowRouterResult::Redirect(url, redirect_type) => {
+                match redirect_type {
+                    RedirectType::Permanent => res.status_code(StatusCode::PERMANENT_REDIRECT),
+                    RedirectType::Temporary => res.status_code(StatusCode::TEMPORARY_REDIRECT),
+                };
+                res.add_header("Location", url.to_string(), true)
+                    .unwrap()
+                    .render("");
+            }
+            FlowRouterResult::Retargeting(url, _script_urls) => res.render(url.to_string()),
+            FlowRouterResult::Error => res
+                .status_code(StatusCode::INTERNAL_SERVER_ERROR)
+                .render(""),
+        }
     }
 }
 

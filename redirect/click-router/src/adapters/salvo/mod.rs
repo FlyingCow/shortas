@@ -9,6 +9,8 @@ use salvo::Response as SalvoInternalResponse;
 use crate::core::flow_router::Request;
 use crate::core::flow_router::Response;
 
+pub mod salvo_proxy;
+
 pub struct SalvoRequest<'a> {
     request: &'a SalvoInternalRequest,
 }
