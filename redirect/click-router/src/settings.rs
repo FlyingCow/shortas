@@ -8,6 +8,12 @@ use crate::adapters::moka::settings::Moka;
 use crate::adapters::uaparser::settings::UAParser;
 #[derive(Default, Debug, Deserialize, Clone)]
 #[allow(unused)]
+pub struct Redirect {
+    pub not_found_url: String,
+    pub index_url: String,
+}
+#[derive(Default, Debug, Deserialize, Clone)]
+#[allow(unused)]
 pub struct Server {
     pub threads: usize,
     pub listen_os_signals: bool,
@@ -22,6 +28,7 @@ pub struct Settings {
     pub uaparser: UAParser,
     pub geo_ip: GeoIP,
     pub server: Server,
+    pub redirect: Redirect,
 }
 const DEV_RUN_MODE: &'static str = "development";
 

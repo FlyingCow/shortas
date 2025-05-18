@@ -1,21 +1,27 @@
 use std::str::FromStr;
 
 use anyhow::Result;
-use http::Uri;
+use http::{StatusCode, Uri};
+use string_format::*;
 
-use crate::core::{
-    flow_module::{FlowModule, FlowStepContinuation},
-    flow_router::{FlowRouter, FlowRouterContext, FlowRouterResult, RedirectType, Request},
+use crate::{
+    core::{
+        flow_module::{FlowModule, FlowStepContinuation},
+        flow_router::{FlowRouter, FlowRouterContext, FlowRouterResult, RedirectType, Request},
+    },
+    settings::Redirect,
 };
 
 static IS_ROOT: &str = "is_root";
 
 #[derive(Debug, Clone)]
-pub struct RootModule {}
+pub struct RootModule {
+    redirect: Redirect,
+}
 
 impl RootModule {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(redirect: Redirect) -> Self {
+        Self { redirect }
     }
 }
 
@@ -27,11 +33,14 @@ impl FlowModule for RootModule {
         _flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
         if context.request.uri().path() == "/" {
-            let root_uri = format!("https://{}", context.request.uri().host().unwrap());
+            let root_uri = string_format!(
+                self.redirect.index_url.clone(),
+                context.request.uri().host().unwrap().to_string()
+            );
 
-            context.result = Some(FlowRouterResult::Redirect(
+            context.result = Some(FlowRouterResult::Proxied(
                 Uri::from_str(&root_uri).unwrap(),
-                RedirectType::Temporary,
+                StatusCode::OK,
             ));
 
             context.add_bool(IS_ROOT, true);

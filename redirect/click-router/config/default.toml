@@ -44,6 +44,10 @@ yaml = "../data/ua-parser/user-agents.yaml"
 [geo_ip]
 mmdb = "../data/geo-ip/GeoLite2-Country.mmdb"
 
+[redirect]
+not_found_url = "http://localhost:5801/404/{}"
+index_url = "http://localhost:5801/index/{}"
+
 [server]
 threads = 8
 listen_os_signals = true

@@ -23,8 +23,9 @@ use salvo::{
         rustls_async::{Keycert, ResolvesServerConfig, RustlsConfig},
         TcpListener,
     },
+    prelude::Logger,
     writing::Json,
-    Depot, FlowCtrl, Handler, Listener, Request, Response, Router, Server,
+    Depot, FlowCtrl, Handler, Listener, Request, Response, Router, Server, Service,
 };
 use salvo_proxy::{hyper_client::HyperClient, Proxy};
 
@@ -70,12 +71,11 @@ impl Handler for Redirect {
             FlowRouterResult::PlainText(content, statu_code) => {
                 res.status_code(statu_code).render(content)
             }
-            FlowRouterResult::Proxied(url, statu_code) => {
-                res.status_code(statu_code);
+            FlowRouterResult::Proxied(url, _statu_code) => {
+                let url = url.to_string();
+                let proxy = Proxy::new(url, HyperClient::default());
 
-                Proxy::new(url.to_string(), HyperClient::default())
-                    .handle(req, depot, res, ctrl)
-                    .await;
+                proxy.handle(req, depot, res, ctrl).await;
             }
             FlowRouterResult::Redirect(url, redirect_type) => {
                 match redirect_type {
@@ -153,6 +153,7 @@ async fn main() {
         .bind()
         .await;
 
+    let service = Service::new(router).hoop(Logger::new());
     // let acceptor = TcpListener::new("127.0.0.1:5800").bind().await;
-    Server::new(acceptor).serve(router).await;
+    Server::new(acceptor).serve(service).await;
 }

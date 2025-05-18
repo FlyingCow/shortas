@@ -1,19 +1,29 @@
-use anyhow::{Ok, Result};
-use http::Uri;
+use std::str::FromStr;
 
-use crate::core::{
-    flow_module::{FlowModule, FlowStepContinuation},
-    flow_router::{FlowRouter, FlowRouterContext, FlowRouterResult, FlowStep, RedirectType},
+use anyhow::{Ok, Result};
+use http::{StatusCode, Uri};
+use string_format::*;
+
+use crate::{
+    core::{
+        flow_module::{FlowModule, FlowStepContinuation},
+        flow_router::{
+            FlowRouter, FlowRouterContext, FlowRouterResult, FlowStep, RedirectType, Request,
+        },
+    },
+    settings::Redirect,
 };
 
 const IS_404: &'static str = "is_404";
 
 #[derive(Debug, Clone)]
-pub struct NotFoundModule {}
+pub struct NotFoundModule {
+    redirect: Redirect,
+}
 
 impl NotFoundModule {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(redirect: Redirect) -> Self {
+        Self { redirect }
     }
 }
 
@@ -27,9 +37,14 @@ impl FlowModule for NotFoundModule {
         if let None = context.main_route {
             context.add_bool(IS_404, true);
 
-            context.result = Some(FlowRouterResult::Redirect(
-                Uri::from_static("https://notfound.com"),
-                RedirectType::Temporary,
+            let not_found_uri = string_format!(
+                self.redirect.not_found_url.clone(),
+                context.request.uri().host().unwrap().to_string()
+            );
+
+            context.result = Some(FlowRouterResult::Proxied(
+                Uri::from_str(&not_found_uri).unwrap(),
+                StatusCode::OK,
             ));
 
             flow_router.router_to(context, FlowStep::End).await?;

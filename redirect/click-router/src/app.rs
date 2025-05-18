@@ -173,13 +173,16 @@ impl AppBuilder {
     }
 
     pub fn with_default_modules(mut self) -> Self {
-        self.modules.push(FlowModules::Root(RootModule::new()));
+        self.modules.push(FlowModules::Root(RootModule::new(
+            self.settings.redirect.clone(),
+        )));
 
         self.modules
             .push(FlowModules::Conditional(ConditionalModule::new()));
 
-        self.modules
-            .push(FlowModules::NotFound(NotFoundModule::new()));
+        self.modules.push(FlowModules::NotFound(NotFoundModule::new(
+            self.settings.redirect.clone(),
+        )));
 
         self.modules
             .push(FlowModules::RedirectOnly(RedirectOnlyModule::new()));

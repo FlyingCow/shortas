@@ -8,9 +8,6 @@ export AWS_ACCESS_KEY_ID="local"
 export AWS_SECRET_ACCESS_KEY="local"
 awslocal dynamodb list-tables
 
-awslocal s3 mb s3://my-bucket
-awslocal sqs create-queue --queue-name my-queue
-
 echo "------INITIALIZING DYNAMO TABLE"
 
 awslocal dynamodb put-item \
