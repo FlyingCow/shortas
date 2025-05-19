@@ -1,6 +1,6 @@
 use std::{net::IpAddr, sync::Arc};
 
-use maxminddb::{MaxMindDBError, Reader, geoip2};
+use maxminddb::{MaxMindDbError, Reader, geoip2};
 use tracing::info;
 
 use crate::core::{Country, location::LocationDetector};
@@ -26,19 +26,22 @@ impl GeoIPLocationDetector {
 
 impl LocationDetector for GeoIPLocationDetector {
     fn detect_country(&self, &ip_addr: &IpAddr) -> Option<Country> {
-        let country_detect_result: Result<geoip2::Country, MaxMindDBError> =
+        let country_detect_result: Result<Option<geoip2::Country>, MaxMindDbError> =
             self.reader.lookup(ip_addr);
 
         if country_detect_result.is_err() {
             return None;
         }
 
-        let country = country_detect_result.unwrap();
+        let country_lookup_result = country_detect_result.unwrap();
 
-        match country.country {
-            Some(country) => Some(Country {
-                iso_code: country.iso_code.unwrap_or_default().to_ascii_lowercase(),
-            }),
+        match country_lookup_result {
+            Some(country) => match country.country {
+                Some(country) => Some(Country {
+                    iso_code: country.iso_code.unwrap_or_default().to_ascii_lowercase(),
+                }),
+                None => None,
+            },
             None => None,
         }
     }

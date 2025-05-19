@@ -1,0 +1,15 @@
+[kafka]
+[kafka.click_stream]
+topic = "click-aggs-local"
+hosts = ["localhost:9092", "localhost:9093"]
+
+[fluvio]
+[fluvio.click_stream]
+topic = "click-aggs-local"
+host = "sc:9003"
+consumer = "aggs"
+
+[server]
+threads = 8
+listen_os_signals = true
+exit = true
