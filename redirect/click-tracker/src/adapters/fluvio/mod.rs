@@ -73,10 +73,11 @@ impl HitStreamSource for FluvioHitStream {
 #[derive(Clone)]
 pub struct FluvioClickAggsRegistrar {
     producer: TopicProducer<SpuSocketPool>,
+    token: CancellationToken,
 }
 
 impl FluvioClickAggsRegistrar {
-    pub async fn new(settings: &ClickAggsConfig) -> Self {
+    pub async fn new(settings: &ClickAggsConfig, token: CancellationToken) -> Self {
         let fluvio = Fluvio::connect_with_config(&FluvioClusterConfig::new(&settings.host))
             .await
             .expect("Can not connect to fluvio cluster.");
@@ -93,7 +94,7 @@ impl FluvioClickAggsRegistrar {
             .await
             .expect("Can not build click aggs registrar topic producer.");
 
-        Self { producer }
+        Self { producer, token }
     }
 }
 
@@ -102,8 +103,12 @@ impl ClickAggsRegistrar for FluvioClickAggsRegistrar {
     async fn register(&self, click: ClickStreamItem) -> Result<()> {
         self.producer
             .send(click.id.as_str(), serde_json::to_string(&click)?)
-            .await
-            .map_err(anyhow::Error::msg)?;
+            .await?;
+
+        if self.token.is_cancelled() {
+            self.producer.flush().await?
+        }
+
         Ok(())
     }
 }

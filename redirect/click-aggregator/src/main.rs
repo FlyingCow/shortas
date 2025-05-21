@@ -3,6 +3,8 @@ use std::time::Duration;
 use anyhow::{Ok, Result};
 
 use clap::Parser;
+use click_aggregator::adapters::clickhouse::ClickhouseClickStreamStore;
+use click_aggregator::adapters::ClickStreamStoreType;
 use click_aggregator::core::aggs_pipe::AggsPipe;
 use click_aggregator::core::pipe::modules::clicks::store::StoreModule;
 use click_aggregator::core::pipe::modules::clicks::AggsModules;
@@ -22,9 +24,13 @@ pub struct Args {
     pub config_path: String,
 }
 
-async fn init_modules(_settings: &Settings) -> Vec<AggsModules> {
+async fn init_modules(settings: &Settings, token: CancellationToken) -> Vec<AggsModules> {
     let init = InitModule;
-    let store = StoreModule;
+    let store = StoreModule::new(ClickStreamStoreType::Clickhouse(
+        ClickhouseClickStreamStore::new(settings.clickhouse.click_stream_store.clone(), token)
+            .await
+            .expect("Can not load clickhouse click store"),
+    ));
 
     vec![AggsModules::Init(init), AggsModules::Store(store)]
 }
@@ -47,7 +53,7 @@ async fn start(token: CancellationToken) -> Result<()> {
     )
     .expect("Can not load settings toml.");
 
-    let modules = init_modules(&settings).await;
+    let modules = init_modules(&settings, token.clone()).await;
 
     let pipe = AggsPipe::builder()
         .with_stream_sources(init_sources(settings))

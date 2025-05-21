@@ -14,3 +14,8 @@ pub trait ClickStreamSource {
         token: CancellationToken,
     ) -> Result<JoinHandle<()>>;
 }
+
+#[async_trait::async_trait]
+pub trait ClickStreamStore {
+    async fn register(&self, click: &ClickStreamItem) -> Result<()>;
+}

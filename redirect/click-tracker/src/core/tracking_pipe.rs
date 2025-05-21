@@ -1,5 +1,3 @@
-use std::ops::DerefMut;
-
 use anyhow::Result;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -11,7 +9,7 @@ const BUFFER_SIZE: usize = 3;
 
 #[async_trait::async_trait]
 pub trait TrackingModule {
-    async fn execute(&mut self, _context: &mut TrackingPipeContext) -> Result<()>;
+    async fn execute(&mut self, context: &mut TrackingPipeContext) -> Result<()>;
 }
 
 #[derive(TypedBuilder)]
@@ -52,8 +50,7 @@ where
             while let Ok(hit) = rx.recv() {
                 let mut context = TrackingPipeContext::new(hit);
 
-                let mut modules = modules.deref_mut();
-                for module in modules.deref_mut() {
+                for module in modules.iter_mut() {
                     let _result = module.execute(&mut context).await;
                 }
 

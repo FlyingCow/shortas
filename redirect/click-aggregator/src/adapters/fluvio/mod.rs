@@ -13,7 +13,6 @@ use crate::core::{ClickStreamItem, ClickStreamSource};
 
 pub mod settings;
 
-#[allow(dead_code)]
 pub struct FluvioHitStream {
     settings: ClickStreamConfig,
 }

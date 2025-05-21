@@ -33,11 +33,11 @@ pub struct Args {
     pub config_path: String,
 }
 
-async fn init_modules(settings: &Settings) -> Vec<ClickModules> {
+async fn init_modules(settings: &Settings, token: CancellationToken) -> Vec<ClickModules> {
     let init = InitModule;
 
     let aggregate = AggregateModule::new(ClickAggsRegistrarType::Fluvio(
-        FluvioClickAggsRegistrar::new(&settings.fluvio.click_aggs).await,
+        FluvioClickAggsRegistrar::new(&settings.fluvio.click_aggs, token).await,
     ));
 
     let location = EnrichLocationModule::new(LocationDetectorType::GeoIP(
@@ -79,7 +79,7 @@ async fn start(token: CancellationToken) -> Result<()> {
     )
     .expect("Can not load settings toml.");
 
-    let modules = init_modules(&settings).await;
+    let modules = init_modules(&settings, token.clone()).await;
 
     let pipe = TrackingPipe::builder()
         .with_stream_sources(init_sources(settings))

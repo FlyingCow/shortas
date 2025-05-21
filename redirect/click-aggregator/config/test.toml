@@ -11,6 +11,15 @@ topic = "click-aggs-local"
 host = "localhost:9103"
 consumer = "aggs"
 
+[clickhouse]
+[clickhouse.click_stream_store]
+url = "http://localhost:8123"
+max_rows = 100_000
+period_millis = 100
+period_bias = 0.1
+database = "shortas"
+table = "click_stream"
+
 [server]
 threads = 8
 listen_os_signals = true
