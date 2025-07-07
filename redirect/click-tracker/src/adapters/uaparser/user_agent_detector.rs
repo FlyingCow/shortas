@@ -1,26 +1,27 @@
-use std::sync::Arc;
-
+use std::sync::OnceLock;
 use tracing::info;
 use uaparser::{Parser, UserAgentParser};
 
 use crate::core::{Device, OS, UserAgent, UserAgentDetector};
 
+static USER_AGENT_PARSER: OnceLock<UserAgentParser> = OnceLock::new();
+
 #[derive(Clone, Debug)]
 pub struct UAParserUserAgentDetector {
-    parser: Arc<UserAgentParser>,
+    parser: &'static UserAgentParser,
 }
 
 impl UAParserUserAgentDetector {
     pub fn new(path: &str) -> Self {
         info!("  yaml -> {}", path);
 
-        let parser = UserAgentParser::builder()
-            .build_from_yaml(path)
-            .expect("Parser creation failed");
+        let parser = USER_AGENT_PARSER.get_or_init(|| {
+            UserAgentParser::builder()
+                .build_from_yaml(path)
+                .expect("Parser creation failed")
+        });
 
-        UAParserUserAgentDetector {
-            parser: Arc::new(parser),
-        }
+        UAParserUserAgentDetector { parser }
     }
 }
 

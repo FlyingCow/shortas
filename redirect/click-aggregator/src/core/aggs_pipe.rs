@@ -52,8 +52,7 @@ where
             while let Ok(hit) = rx.recv() {
                 let mut context = AggsPipeContext::new(hit);
 
-                let mut modules = modules.deref_mut();
-                for module in modules.deref_mut() {
+                for module in modules.iter_mut() {
                     let _result = module.execute(&mut context).await;
                 }
 

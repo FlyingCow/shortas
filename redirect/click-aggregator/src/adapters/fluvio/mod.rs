@@ -46,7 +46,8 @@ impl ClickStreamSource for FluvioHitStream {
                         .offset_consumer(settings.consumer)
                         .offset_start(Offset::beginning())
                         .offset_strategy(OffsetManagementStrategy::Auto)
-                        .offset_flush(Duration::from_millis(1000))
+                        .offset_flush(Duration::from_millis(30000))
+                        .max_bytes(10000000)
                         .build()
                         .expect("Can not create fluvio hits consumer config."),
                 )

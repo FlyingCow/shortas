@@ -1,6 +1,8 @@
 use std::time::Duration;
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
+
+use std::result::Result::Ok;
 
 use clap::Parser;
 use click_tracker::{
@@ -61,12 +63,12 @@ async fn init_modules(settings: &Settings, token: CancellationToken) -> Vec<Clic
     ]
 }
 
-fn init_sources(settings: Settings) -> Vec<HitStreamSourceType> {
-    let kafka_stream = KafkaHitStream;
-    let fluvio_stream = FluvioHitStream::new(settings.fluvio.hit_stream);
+async fn init_sources(settings: Settings) -> Vec<HitStreamSourceType> {
+    let _kafka_stream = KafkaHitStream;
+    let fluvio_stream = FluvioHitStream::connect(settings.fluvio.hit_stream).await;
     vec![
         HitStreamSourceType::Fluvio(fluvio_stream),
-        HitStreamSourceType::Kafka(kafka_stream),
+        // HitStreamSourceType::Kafka(kafka_stream),
     ]
 }
 
@@ -81,17 +83,23 @@ async fn start(token: CancellationToken) -> Result<()> {
 
     let modules = init_modules(&settings, token.clone()).await;
 
-    let pipe = TrackingPipe::builder()
-        .with_stream_sources(init_sources(settings))
-        .with_modules(modules)
-        .build();
+    let pipe = TrackingPipe::new(modules);
 
-    let app = App::builder().with_pipe(pipe).build();
+    let mut threads = App::run(init_sources(settings).await, pipe, token)
+        .await
+        .expect("Could not run app");
 
-    //starting the app
-    let handler = app.run(token).await?;
-
-    handler.await.map_err(anyhow::Error::msg)?;
+    while let Some(res) = threads.join_next().await {
+        match res {
+            Ok(_) => {
+                println!("Task finished");
+            }
+            Err(err) => {
+                println!("Task failed: {:?}", err);
+                // Handle the error appropriately
+            }
+        }
+    }
 
     Ok(())
 }

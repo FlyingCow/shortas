@@ -1,11 +1,9 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
 use clickhouse::{inserter::Inserter, sql::Identifier, Client, Row};
 use settings::ClickStreamStoreConfig;
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::core::ClickStreamItem;
@@ -27,24 +25,22 @@ impl Row for ClickStreamItem {
         "creator_id",
         "route_id",
         "workspace_id",
-        "inserted",
-        "created",
-        "dest",
-        "ip",
-        "continent",
-        "country",
-        "location",
-        "os_family",
-        "os_version",
-        "user_agent_family",
-        "user_agent_version",
-        "device_brand",
-        "device_family",
-        "device_model",
-        "session_first",
-        "session_clicks",
-        "is_unique",
-        "is_bot",
+        // "dest",
+        // "ip",
+        // "continent",
+        // "country",
+        // "location",
+        // "os_family",
+        // "os_version",
+        // "user_agent_family",
+        // "user_agent_version",
+        // "device_brand",
+        // "device_family",
+        // "device_model",
+        // "session_first",
+        // "session_clicks",
+        // "is_unique",
+        // "is_bot",
     ];
 }
 
@@ -71,29 +67,11 @@ impl ClickhouseClickStreamStore {
                 "
                 CREATE OR REPLACE TABLE ?
                 (
-                    id FixedString(26),
-                    owner_id FixedString(26),
-                    creator_id FixedString(26),
-                    route_id FixedString(26),
-                    workspace_id FixedString(26),
-                    inserted DateTime MATERIALIZED now(),
-                    created DateTime,
-                    dest Nullable(String),
-                    ip LowCardinality(Nullable(String)),
-                    continent LowCardinality(Nullable(String)),
-                    country LowCardinality(Nullable(FixedString(2))),
-                    location LowCardinality(Nullable(String)),
-                    os_family LowCardinality(Nullable(String)),
-                    os_version LowCardinality(Nullable(String)),
-                    user_agent_family LowCardinality(Nullable(String)),
-                    user_agent_version LowCardinality(Nullable(String)),
-                    device_brand LowCardinality(Nullable(String)),
-                    device_family LowCardinality(Nullable(String)),
-                    device_model LowCardinality(Nullable(String)),
-                    session_first Nullable(DateTime),
-                    session_clicks Nullable(UInt128),
-                    is_unique Bool,
-                    is_bot Bool
+                    id String,
+                    owner_id String,
+                    creator_id String,
+                    route_id String,
+                    workspace_id String
                 )
                 ENGINE = MergeTree
                 ORDER BY id",
@@ -115,11 +93,21 @@ impl ClickhouseClickStreamStore {
 
 #[async_trait::async_trait]
 impl ClickStreamStore for ClickhouseClickStreamStore {
-    async fn register(&mut self, click: &ClickStreamItem) -> Result<()> {
-        //self.inserter.get_mut()?.write(click)?;
+    async fn register(&mut self, click: ClickStreamItem) -> Result<()> {
+        let mut inserter = self.inserter.lock().await;
+
+        let r = inserter.write(&click);
+        if r.is_err() {
+            println!("{}", "error");
+        }
+
+        let r = inserter.commit().await;
+        if r.is_err() {
+            println!("{}", "error");
+        }
 
         if self.token.is_cancelled() {
-            //&self.inserter.get_mut()?.commit().await?;
+            inserter.commit().await?;
         }
 
         Ok(())

@@ -1,25 +1,58 @@
-use anyhow::Result;
-use tokio::task::JoinHandle;
-use tokio_util::sync::CancellationToken;
-use typed_builder::TypedBuilder;
+use std::{sync::OnceLock, thread::available_parallelism};
 
 use crate::{
     adapters::HitStreamSourceType,
-    core::{pipe::modules::clicks::ClickModules, tracking_pipe::TrackingPipe},
+    core::{HitStreamSource, pipe::modules::clicks::ClickModules, tracking_pipe::TrackingPipe},
 };
+use anyhow::Result;
+use flume::bounded;
+use tokio::task::JoinSet;
+use tokio_util::sync::CancellationToken;
+use tracing::info;
 
-#[derive(TypedBuilder)]
-#[builder(field_defaults(setter(prefix = "with_")))]
-pub struct App {
-    pipe: TrackingPipe<HitStreamSourceType, ClickModules>,
-}
+static TRACKING_PIPE: OnceLock<TrackingPipe<ClickModules>> = OnceLock::new();
+
+pub struct App;
 
 impl App {
-    pub fn new(pipe: TrackingPipe<HitStreamSourceType, ClickModules>) -> Self {
-        App { pipe }
-    }
+    pub async fn run(
+        stream_sources: Vec<HitStreamSourceType>,
+        pipe: TrackingPipe<ClickModules>,
+        token: CancellationToken,
+    ) -> Result<JoinSet<()>> {
+        if TRACKING_PIPE.get().is_some() {
+            panic!("Only one instance of app is allowed")
+        }
 
-    pub async fn run(&self, token: CancellationToken) -> Result<JoinHandle<()>> {
-        self.pipe.run(token).await
+        let mut set = JoinSet::new();
+
+        let _ = TRACKING_PIPE.set(pipe);
+
+        let parallelism = usize::from(available_parallelism().unwrap()) / 2;
+
+        let (tx, rx) = bounded(parallelism);
+
+        for stream in stream_sources {
+            let tx = tx.clone();
+            let token = token.clone();
+
+            set.spawn(async move {
+                let _ = stream
+                    .pull(tx, token)
+                    .await
+                    .expect("Can not start pulling from source stream");
+            });
+        }
+
+        for n in 0..parallelism {
+            let token = token.clone();
+            let rx = rx.clone();
+
+            info!("Starting thread: {}", n);
+
+            set.spawn(TRACKING_PIPE.get().unwrap().run(n, rx.clone(), token));
+        }
+
+        Ok(set)
     }
 }

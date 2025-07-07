@@ -1,66 +1,46 @@
 use anyhow::Result;
-use tokio::task::JoinHandle;
+use flume::Receiver;
 use tokio_util::sync::CancellationToken;
-use typed_builder::TypedBuilder;
 
-use super::{HitStreamSource, TrackingPipeContext};
+use crate::core::Hit;
 
-const BUFFER_SIZE: usize = 3;
+use super::TrackingPipeContext;
 
 #[async_trait::async_trait]
 pub trait TrackingModule {
     async fn execute(&mut self, context: &mut TrackingPipeContext) -> Result<()>;
 }
 
-#[derive(TypedBuilder)]
-#[builder(field_defaults(setter(prefix = "with_")))]
-pub struct TrackingPipe<S, M>
+pub struct TrackingPipe<M>
 where
-    S: HitStreamSource,
     M: TrackingModule,
 {
-    stream_sources: Vec<S>,
     modules: Vec<M>,
 }
 
-impl<S, M> TrackingPipe<S, M>
+impl<M> TrackingPipe<M>
 where
-    S: HitStreamSource,
-    M: TrackingModule + Send + Sync + Clone + 'static,
+    M: TrackingModule + Clone + 'static,
 {
-    pub fn new(stream_sources: Vec<S>, modules: Vec<M>) -> Self {
-        TrackingPipe {
-            stream_sources,
-            modules,
-        }
+    pub fn new(modules: Vec<M>) -> Self {
+        TrackingPipe { modules }
     }
 
-    pub async fn run(&self, token: CancellationToken) -> Result<JoinHandle<()>> {
-        let (tx, rx) = std::sync::mpsc::sync_channel(BUFFER_SIZE);
-
-        for stream in &self.stream_sources {
-            let tx = tx.clone();
-            let token = token.clone();
-
-            let _ = stream.pull(tx, token).await?;
-        }
+    pub async fn run(&self, _thread_id: usize, rx: Receiver<Hit>, token: CancellationToken) {
         let mut modules = self.modules.clone();
 
-        let handler = tokio::spawn(async move {
-            while let Ok(hit) = rx.recv() {
-                let mut context = TrackingPipeContext::new(hit);
+        while let Ok(hit) = rx.recv() {
+            // println!("{}", thread_id);
+            let mut context = TrackingPipeContext::new(hit);
 
-                for module in modules.iter_mut() {
-                    let _result = module.execute(&mut context).await;
-                }
-
-                //println!("received: {}", msg);
-                if token.is_cancelled() {
-                    break;
-                }
+            for module in modules.iter_mut() {
+                let _result = module.execute(&mut context).await;
             }
-        });
 
-        Ok(handler)
+            if token.is_cancelled() {
+                println!("{}", "terminated!!!");
+                break;
+            }
+        }
     }
 }

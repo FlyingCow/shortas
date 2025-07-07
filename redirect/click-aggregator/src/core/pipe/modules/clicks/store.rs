@@ -15,7 +15,9 @@ pub struct StoreModule {
 impl AggsModule for StoreModule {
     async fn execute(&mut self, context: &mut AggsPipeContext) -> Result<()> {
         info!("{}", serde_json::json!(context.click));
-        self.click_stream_store.register(&context.click).await
+        self.click_stream_store
+            .register(context.click.clone())
+            .await
     }
 }
 

@@ -34,7 +34,7 @@ impl ClickStreamSource for ClickStreamSourceType {
 
 #[async_trait::async_trait]
 pub trait ClickStreamStore {
-    async fn register(&mut self, click: &ClickStreamItem) -> Result<()>;
+    async fn register(&mut self, click: ClickStreamItem) -> Result<()>;
 }
 
 #[derive(Clone)]
@@ -44,9 +44,9 @@ pub enum ClickStreamStoreType {
 
 #[async_trait::async_trait]
 impl ClickStreamStore for ClickStreamStoreType {
-    async fn register(&mut self, click: &ClickStreamItem) -> Result<()> {
+    async fn register(&mut self, click: ClickStreamItem) -> Result<()> {
         match self {
-            ClickStreamStoreType::Clickhouse(store) => store.register(&click).await,
+            ClickStreamStoreType::Clickhouse(store) => store.register(click).await,
         }
     }
 }
