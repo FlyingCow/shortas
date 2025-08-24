@@ -1,5 +1,3 @@
-use std::ops::DerefMut;
-
 use anyhow::Result;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;

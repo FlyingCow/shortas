@@ -6,7 +6,7 @@ use kafka::{
 };
 use settings::ClickAggsConfig;
 use std::{sync::Arc, time::Duration};
-use tokio::{sync::Mutex, task::JoinHandle};
+use tokio::sync::Mutex;
 
 use tokio_util::sync::CancellationToken;
 
