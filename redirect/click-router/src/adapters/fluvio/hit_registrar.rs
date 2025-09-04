@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::{Ok, Result};
 use fluvio::{spu::SpuSocketPool, RecordKey, TopicProducer};
@@ -10,7 +10,7 @@ use crate::adapters::fluvio::settings::HitStreamConfig;
 
 #[derive(Clone)]
 pub struct FluvioHitRegistrar {
-    producer: TopicProducer<SpuSocketPool>,
+    producer: Arc<TopicProducer<SpuSocketPool>>,
 }
 
 impl FluvioHitRegistrar {
@@ -34,6 +34,8 @@ impl FluvioHitRegistrar {
             .topic_producer_with_config(&settings.topic, producer_config)
             .await
             .expect("Failed to create a producer");
+
+        let producer = Arc::new(producer);
 
         Self { producer }
     }

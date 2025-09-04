@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clickhouse = { version = "0.13.2", features = ["inserter", "chrono"] }
+clickhouse = "0.13.2"
 anyhow = "1.0.97"
 async-trait = "0.1.88"
 signal-hook = "0.3.17"
@@ -17,7 +17,7 @@ aws-config = "1.3.0"
 aws-sdk-dynamodb = "1.25.0"
 aws-sdk-kinesis = "1.25.0"
 chrono = { version = "0.4.38", features = ["serde"] }
-redis = { version = "0.32.5", features = ["cluster"] }
+redis = { version = "0.31.0", features = ["cluster"] }
 tracing = "0.1.40"
 moka = { version = "0.12.7", features = ["future"] }
 uaparser = "0.6.3"
@@ -31,7 +31,6 @@ clap = { version = "4.5.4", features = ["derive", "env"] }
 tracing-subscriber = "0.3.18"
 dotenv = "0.15.0"
 config = "0.15.11"
-fluvio = "0.50.1"
+fluvio = "0.28.0"
+futures-lite = "2.6.0"
 tokio-graceful-shutdown = "0.16.0"
-flume = "0.11.1"
-futures = "0.3.31"

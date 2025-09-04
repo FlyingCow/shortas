@@ -1,5 +1,6 @@
 use anyhow::Result;
-use flume::Sender;
+use std::sync::mpsc::SyncSender;
+use tokio::task::JoinHandle;
 
 use tokio_util::sync::CancellationToken;
 
@@ -12,20 +13,26 @@ pub struct KafkaHitStream;
 
 #[async_trait::async_trait]
 impl ClickStreamSource for KafkaHitStream {
-    async fn pull(&self, _ts: Sender<ClickStreamItem>, token: CancellationToken) -> Result<()> {
-        let mut iteration = 0u64;
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));
-        loop {
-            interval.tick().await;
-            if token.is_cancelled() {
-                break;
+    async fn pull(
+        &self,
+        _ts: SyncSender<ClickStreamItem>,
+        token: CancellationToken,
+    ) -> Result<JoinHandle<()>> {
+        let handler = tokio::spawn(async move {
+            let mut iteration = 0u64;
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));
+            loop {
+                interval.tick().await;
+                if token.is_cancelled() {
+                    break;
+                }
+                iteration = iteration + 1;
+
+                //println!("sending {}-{}", "kafka", iteration);
+                //ts.send().unwrap();
             }
-            iteration = iteration + 1;
+        });
 
-            //println!("sending {}-{}", "kafka", iteration);
-            //ts.send().unwrap();
-        }
-
-        Ok(())
+        Ok(handler)
     }
 }

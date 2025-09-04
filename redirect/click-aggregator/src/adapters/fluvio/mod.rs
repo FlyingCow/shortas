@@ -1,12 +1,11 @@
 use anyhow::Result;
-use flume::Sender;
 use fluvio::{
     consumer::{ConsumerConfigExtBuilder, ConsumerStream, OffsetManagementStrategy},
     Fluvio, FluvioClusterConfig, Offset,
 };
-use futures::StreamExt;
 use settings::ClickStreamConfig;
-use std::time::Duration;
+use std::{sync::mpsc::SyncSender, time::Duration};
+use tokio::task::JoinHandle;
 
 use tokio_util::sync::CancellationToken;
 
@@ -14,54 +13,62 @@ use crate::core::{ClickStreamItem, ClickStreamSource};
 
 pub mod settings;
 
+#[allow(dead_code)]
 pub struct FluvioHitStream {
     settings: ClickStreamConfig,
-    fluvio: Fluvio,
 }
+
 impl FluvioHitStream {
-    pub async fn connect(settings: ClickStreamConfig) -> Self {
-        let fluvio = Fluvio::connect_with_config(&FluvioClusterConfig::new(settings.host.clone()))
-            .await
-            .expect("Can not connect to fluvio cluster.");
-        Self { settings, fluvio }
+    pub fn new(settings: ClickStreamConfig) -> Self {
+        Self { settings }
     }
 }
 
 #[async_trait::async_trait]
 impl ClickStreamSource for FluvioHitStream {
-    async fn pull(&self, ts: Sender<ClickStreamItem>, token: CancellationToken) -> Result<()> {
+    async fn pull(
+        &self,
+        ts: SyncSender<ClickStreamItem>,
+        token: CancellationToken,
+    ) -> Result<JoinHandle<()>> {
         let settings = self.settings.clone();
 
-        let config = ConsumerConfigExtBuilder::default()
-            .topic(settings.topic)
-            .offset_consumer(settings.consumer)
-            .offset_start(Offset::beginning())
-            .offset_strategy(OffsetManagementStrategy::Auto)
-            .offset_flush(Duration::from_millis(10000))
-            .max_bytes(100000000)
-            .build()
-            .expect("Failed to build consumer config");
+        let handler = tokio::spawn(async move {
+            use futures_lite::StreamExt;
 
-        let mut stream = self
-            .fluvio
-            .consumer_with_config(config)
-            .await
-            .expect("Can not create fluvio hits consumer.");
+            let fluvio = Fluvio::connect_with_config(&FluvioClusterConfig::new(settings.host))
+                .await
+                .expect("Can not connect to fluvio cluster.");
 
-        while let Some(Ok(record)) = stream.next().await {
-            let hit =
-                serde_json::from_slice(record.as_ref()).expect("Can not deserialize hit object.");
+            let mut stream = fluvio
+                .consumer_with_config(
+                    ConsumerConfigExtBuilder::default()
+                        .topic(settings.topic)
+                        .offset_consumer(settings.consumer)
+                        .offset_start(Offset::beginning())
+                        .offset_strategy(OffsetManagementStrategy::Auto)
+                        .offset_flush(Duration::from_millis(1000))
+                        .build()
+                        .expect("Can not create fluvio hits consumer config."),
+                )
+                .await
+                .expect("Can not create fluvio hits consumer.");
 
-            ts.send(hit).expect("Can not re-send a hit to consumer.");
+            while let Some(Ok(record)) = stream.next().await {
+                let hit = serde_json::from_slice(record.as_ref())
+                    .expect("Can not deserialize hit object.");
 
-            if token.is_cancelled() {
-                break;
+                ts.send(hit).expect("Can not re-send a hit to consumer.");
+
+                if token.is_cancelled() {
+                    break;
+                }
             }
-        }
 
-        // synchronously flush for shutdown (or none if intentionally ending processing)
-        let _ = stream.offset_flush().await;
+            // synchronously flush for shutdown (or none if intentionally ending processing)
+            let _ = stream.offset_flush().await;
+        });
 
-        Ok(())
+        Ok(handler)
     }
 }

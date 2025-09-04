@@ -20,8 +20,8 @@ iteration_seconds = 1
 [fluvio.hit_stream]
 topic = "hit-stream-main"
 host = "localhost:9003"
-batch_size = 10000
-linger = 1000
+batch_size = 100
+linger = 500
 
 [uaparser]
 yaml = "./data/ua-parser/regexes.yaml"

@@ -1,10 +1,11 @@
+use std::ops::DerefMut;
+
 use anyhow::Result;
-use flume::Receiver;
+use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
+use typed_builder::TypedBuilder;
 
-use crate::core::ClickStreamItem;
-
-use super::AggsPipeContext;
+use super::{AggsPipeContext, ClickStreamSource};
 
 const BUFFER_SIZE: usize = 3;
 
@@ -12,41 +13,57 @@ const BUFFER_SIZE: usize = 3;
 pub trait AggsModule {
     async fn execute(&mut self, _context: &mut AggsPipeContext) -> Result<()>;
 }
-pub struct AggsPipe<M>
+
+#[derive(TypedBuilder)]
+#[builder(field_defaults(setter(prefix = "with_")))]
+pub struct AggsPipe<S, M>
 where
+    S: ClickStreamSource,
     M: AggsModule,
 {
+    stream_sources: Vec<S>,
     modules: Vec<M>,
 }
 
-impl<M> AggsPipe<M>
+impl<S, M> AggsPipe<S, M>
 where
-    M: AggsModule + Clone + 'static,
+    S: ClickStreamSource,
+    M: AggsModule + Send + Sync + Clone + 'static,
 {
-    pub fn new(modules: Vec<M>) -> Self {
-        AggsPipe { modules }
+    pub fn new(stream_sources: Vec<S>, modules: Vec<M>) -> Self {
+        AggsPipe {
+            stream_sources,
+            modules,
+        }
     }
 
-    pub async fn run(
-        &self,
-        _thread_id: usize,
-        rx: Receiver<ClickStreamItem>,
-        token: CancellationToken,
-    ) {
+    pub async fn run(&self, token: CancellationToken) -> Result<JoinHandle<()>> {
+        let (tx, rx) = std::sync::mpsc::sync_channel(BUFFER_SIZE);
+
+        for stream in &self.stream_sources {
+            let tx = tx.clone();
+            let token = token.clone();
+
+            let _ = stream.pull(tx, token).await?;
+        }
         let mut modules = self.modules.clone();
 
-        while let Ok(hit) = rx.recv() {
-            // println!("{}", thread_id);
-            let mut context = AggsPipeContext::new(hit);
+        let handler = tokio::spawn(async move {
+            while let Ok(hit) = rx.recv() {
+                let mut context = AggsPipeContext::new(hit);
 
-            for module in modules.iter_mut() {
-                let _result = module.execute(&mut context).await;
-            }
+                let mut modules = modules.deref_mut();
+                for module in modules.deref_mut() {
+                    let _result = module.execute(&mut context).await;
+                }
 
-            if token.is_cancelled() {
-                println!("{}", "terminated!!!");
-                break;
+                //println!("received: {}", msg);
+                if token.is_cancelled() {
+                    break;
+                }
             }
-        }
+        });
+
+        Ok(handler)
     }
 }

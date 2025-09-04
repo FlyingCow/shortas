@@ -1,8 +1,6 @@
 use std::time::Duration;
 
-use anyhow::Result;
-
-use std::result::Result::Ok;
+use anyhow::{Ok, Result};
 
 use clap::Parser;
 use click_tracker::{
@@ -35,11 +33,11 @@ pub struct Args {
     pub config_path: String,
 }
 
-async fn init_modules(settings: &Settings, token: CancellationToken) -> Vec<ClickModules> {
+async fn init_modules(settings: &Settings) -> Vec<ClickModules> {
     let init = InitModule;
 
     let aggregate = AggregateModule::new(ClickAggsRegistrarType::Fluvio(
-        FluvioClickAggsRegistrar::new(&settings.fluvio.click_aggs, token).await,
+        FluvioClickAggsRegistrar::new(&settings.fluvio.click_aggs).await,
     ));
 
     let location = EnrichLocationModule::new(LocationDetectorType::GeoIP(
@@ -63,12 +61,12 @@ async fn init_modules(settings: &Settings, token: CancellationToken) -> Vec<Clic
     ]
 }
 
-async fn init_sources(settings: Settings) -> Vec<HitStreamSourceType> {
-    let _kafka_stream = KafkaHitStream;
-    let fluvio_stream = FluvioHitStream::connect(settings.fluvio.hit_stream).await;
+fn init_sources(settings: Settings) -> Vec<HitStreamSourceType> {
+    let kafka_stream = KafkaHitStream;
+    let fluvio_stream = FluvioHitStream::new(settings.fluvio.hit_stream);
     vec![
         HitStreamSourceType::Fluvio(fluvio_stream),
-        // HitStreamSourceType::Kafka(kafka_stream),
+        HitStreamSourceType::Kafka(kafka_stream),
     ]
 }
 
@@ -81,25 +79,19 @@ async fn start(token: CancellationToken) -> Result<()> {
     )
     .expect("Can not load settings toml.");
 
-    let modules = init_modules(&settings, token.clone()).await;
+    let modules = init_modules(&settings).await;
 
-    let pipe = TrackingPipe::new(modules);
+    let pipe = TrackingPipe::builder()
+        .with_stream_sources(init_sources(settings))
+        .with_modules(modules)
+        .build();
 
-    let mut threads = App::run(init_sources(settings).await, pipe, token)
-        .await
-        .expect("Could not run app");
+    let app = App::builder().with_pipe(pipe).build();
 
-    while let Some(res) = threads.join_next().await {
-        match res {
-            Ok(_) => {
-                println!("Task finished");
-            }
-            Err(err) => {
-                println!("Task failed: {:?}", err);
-                // Handle the error appropriately
-            }
-        }
-    }
+    //starting the app
+    let handler = app.run(token).await?;
+
+    handler.await.map_err(anyhow::Error::msg)?;
 
     Ok(())
 }
@@ -124,7 +116,7 @@ async fn tracking_subsystem(subsys: SubsystemHandle) -> Result<()> {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt().init();
 
-    dotenv::from_filename("./.env").ok();
+    dotenv::from_filename("./click-tracker/.env").ok();
 
     // Setup and execute subsystem tree
     Toplevel::new(|s| async move {

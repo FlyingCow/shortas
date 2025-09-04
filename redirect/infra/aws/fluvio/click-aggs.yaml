@@ -1,6 +1,0 @@
-apiVersion: v1
-type: TopicSpec
-name: click-aggs-local
-spec:
-  replication: 1
-  partition: 1

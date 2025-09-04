@@ -25,7 +25,7 @@ ack_timeout_secs = 60
 [fluvio.hit_stream]
 topic = "hit-stream-local"
 host = "localhost:9103"
-consumer = "hit-tracker"
+consumer = "tracker"
 
 [fluvio.click_aggs]
 topic = "click-aggs-local"
@@ -35,10 +35,10 @@ batch_size = 16536
 
 
 [uaparser]
-yaml = "../data/ua-parser/regexes.yaml"
+yaml = "./data/ua-parser/regexes.yaml"
 
 [geo_ip]
-mmdb = "../data/geo-ip/GeoLite2-Country.mmdb"
+mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"
 
 [redis]
 host = "redis://:eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81@cache"

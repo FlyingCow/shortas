@@ -1,4 +1,5 @@
-use flume::Sender;
+use std::sync::mpsc::SyncSender;
+use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 use anyhow::Result;
@@ -7,10 +8,9 @@ use super::ClickStreamItem;
 
 #[async_trait::async_trait]
 pub trait ClickStreamSource {
-    async fn pull(&self, ts: Sender<ClickStreamItem>, token: CancellationToken) -> Result<()>;
-}
-
-#[async_trait::async_trait]
-pub trait ClickStreamStore {
-    async fn register(&self, click: &ClickStreamItem) -> Result<()>;
+    async fn pull(
+        &self,
+        ts: SyncSender<ClickStreamItem>,
+        token: CancellationToken,
+    ) -> Result<JoinHandle<()>>;
 }

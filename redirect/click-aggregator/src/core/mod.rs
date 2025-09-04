@@ -2,17 +2,15 @@ use std::collections::HashMap;
 
 use chrono::DateTime;
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 
 pub mod aggs;
 pub mod aggs_pipe;
 pub mod click_stream;
 pub mod pipe;
 
-use serde::Deserialize;
-use serde::Serialize;
-use ulid::Ulid;
-
 pub use click_stream::ClickStreamSource;
+use ulid::Ulid;
 
 #[derive(Clone, Debug)]
 pub enum AggsPipeData {
@@ -75,7 +73,7 @@ impl AggsPipeContext {
         Self {
             id: Ulid::new().to_string(),
             utc: Utc::now(),
-            click,
+            click: click,
             data: HashMap::new(),
             state: AggsState::Ok,
         }
@@ -118,13 +116,13 @@ impl AggsPipeContext {
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct ClickStreamItem {
     pub id: String,
-    pub owner_id: String,
-    pub creator_id: String,
-    pub route_id: String,
-    pub workspace_id: String,
+    pub owner_id: Option<String>,
+    pub creator_id: Option<String>,
+    pub route_id: Option<String>,
+    pub workspace_id: Option<String>,
     pub created: DateTime<Utc>,
-    pub dest: String,
-    pub ip: String,
+    pub dest: Option<String>,
+    pub ip: Option<String>,
     pub continent: Option<String>,
     pub country: Option<String>,
     pub location: Option<String>,

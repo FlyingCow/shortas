@@ -6,17 +6,8 @@ hosts = ["localhost:9092", "localhost:9093"]
 [fluvio]
 [fluvio.click_stream]
 topic = "click-aggs-local"
-host = "fluvio:9103"
-consumer = "click_aggs"
-
-[clickhouse]
-[clickhouse.click_stream_store]
-url = "http://clickhouse:8123"
-max_rows = 100_000
-period_millis = 100
-period_bias = 0.1
-database = "shortas"
-table = "click_stream"
+host = "sc:9003"
+consumer = "aggs"
 
 [server]
 threads = 8

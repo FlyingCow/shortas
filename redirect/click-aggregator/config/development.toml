@@ -9,17 +9,7 @@ hosts = ["kafka:9092", "kafka:9093"]
 [fluvio.click_stream]
 topic = "click-aggs-local"
 host = "localhost:9103"
-consumer = "click_aggs"
-
-
-[clickhouse]
-[clickhouse.click_stream_store]
-url = "http://clickhouse:8123"
-max_rows = 100_000
-period_millis = 100
-period_bias = 0.1
-database = "shortas"
-table = "click_stream"
+consumer = "aggs"
 
 [server]
 threads = 8

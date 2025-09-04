@@ -1,0 +1,17 @@
+!1.0.0
+meta:
+  id: hit-stream-main
+  revision: 2
+key: hit-stream-main
+status:
+  resolution: InsufficientResources
+  replicaMap: {}
+  mirrorMap: {}
+  reason: ''
+spec:
+  replicas: !computed
+    partitions: 1
+    replicationFactor: 1
+    ignoreRackAssignment: false
+  compressionType: Any
+  system: false

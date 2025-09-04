@@ -24,14 +24,14 @@ iteration_seconds = 1
 [fluvio.hit_stream]
 topic = "hit-stream-local"
 host = "sc:9103"
-batch_size = 10000
-linger = 1000
+batch_size = 100
+linger = 500
 
 [uaparser]
-yaml = "../data/ua-parser/regexes.yaml"
+yaml = "./data/ua-parser/regexes.yaml"
 
 [geo_ip]
-mmdb = "../data/geo-ip/GeoLite2-Country.mmdb"
+mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"
 
 [redirect]
 not_found_url = "http://localhost:5801/404/{}"
