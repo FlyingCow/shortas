@@ -1,22 +1,11 @@
-use std::{
-    io::{Error as IoError, Result as IoResult},
-    sync::Arc,
-};
-
-use click_router::{
-    adapters::{
-        salvo::{salvo_proxy, SalvoRequest, SalvoResponse},
-        RequestType, ResponseType,
-    },
-    app::AppBuilder,
-    core::flow_router::{FlowRouter, FlowRouterResult, RedirectType},
-    settings::Settings,
-};
-
 use clap::Parser;
 use http::StatusCode;
-use once_cell::sync::OnceCell;
 use rustls::server::ClientHello;
+use std::{
+    io::{Error as IoError, Result as IoResult},
+    sync::{Arc, OnceLock},
+};
+
 use salvo::{
     async_trait,
     conn::{
@@ -29,6 +18,16 @@ use salvo::{
 };
 use salvo_proxy::{hyper_client::HyperClient, Proxy};
 
+use click_router::{
+    adapters::{
+        salvo::{salvo_proxy, SalvoRequest, SalvoResponse},
+        RequestType, ResponseType,
+    },
+    app::AppBuilder,
+    core::flow_router::{FlowRouter, FlowRouterResult, RedirectType},
+    settings::Settings,
+};
+
 #[derive(Parser, Debug)]
 #[command(version)]
 pub struct Args {
@@ -38,7 +37,7 @@ pub struct Args {
     pub config_path: String,
 }
 
-static FLOW_ROUTER: OnceCell<FlowRouter> = OnceCell::new();
+static FLOW_ROUTER: OnceLock<FlowRouter> = OnceLock::new();
 
 struct Redirect;
 
@@ -122,7 +121,7 @@ async fn main() {
 
     tracing_subscriber::fmt().init();
 
-    dotenv::from_filename("./click-router/.env").ok();
+    dotenv::from_filename("./.env").ok();
 
     let args = Args::parse();
 
@@ -142,7 +141,7 @@ async fn main() {
         .await
         .build();
 
-    let _ = FLOW_ROUTER.set(flow_router);
+    let _ = FLOW_ROUTER.get_or_init(|| flow_router);
 
     let router = Router::with_path("{**rest_path}").get(Redirect);
 

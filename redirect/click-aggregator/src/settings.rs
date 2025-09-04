@@ -1,7 +1,9 @@
 use config::{Config, ConfigError, Environment, File};
 use serde_derive::Deserialize;
 
-use crate::adapters::{fluvio::settings::Fluvio, kafka::settings::Kafka};
+use crate::adapters::{
+    clickhouse::settings::Clickhouse, fluvio::settings::Fluvio, kafka::settings::Kafka,
+};
 
 #[derive(Debug, Deserialize, Clone)]
 #[allow(unused)]
@@ -14,6 +16,7 @@ pub struct Server {
 #[derive(Debug, Deserialize, Clone)]
 #[allow(unused)]
 pub struct Settings {
+    pub clickhouse: Clickhouse,
     pub kafka: Kafka,
     pub fluvio: Fluvio,
 }

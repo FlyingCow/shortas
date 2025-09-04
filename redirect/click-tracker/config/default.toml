@@ -17,7 +17,7 @@ ack_timeout_secs = 60
 [fluvio.hit_stream]
 topic = "hit-stream-local"
 host = "sc:9003"
-consumer = "tracker"
+consumer = "hit-tracker"
 
 [fluvio.click_aggs]
 topic = "click-aggs-local"

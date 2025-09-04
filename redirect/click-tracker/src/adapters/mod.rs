@@ -9,13 +9,13 @@ pub mod uaparser;
 use anyhow::Result;
 use aws::user_settings_store::DynamoUserSettingsStore;
 use chrono::{DateTime, Utc};
+use flume::Sender;
 use fluvio::FluvioClickAggsRegistrar;
 use geo_ip::geo_ip_location_detector::GeoIPLocationDetector;
 use kafka::KafkaClickAggsRegistrar;
 use moka::user_settings_store::MokaDecoratedUserSettingsStore;
 use redis::session_detector::RedisSessionDetector;
-use std::{net::IpAddr, sync::mpsc::SyncSender};
-use tokio::task::JoinHandle;
+use std::net::IpAddr;
 use tokio_util::sync::CancellationToken;
 use uaparser::user_agent_detector::UAParserUserAgentDetector;
 
@@ -66,7 +66,7 @@ pub enum HitStreamSourceType {
 
 #[async_trait::async_trait]
 impl HitStreamSource for HitStreamSourceType {
-    async fn pull(&self, ts: SyncSender<Hit>, token: CancellationToken) -> Result<JoinHandle<()>> {
+    async fn pull(&self, ts: Sender<Hit>, token: CancellationToken) -> Result<()> {
         match self {
             HitStreamSourceType::Kafka(stream) => stream.pull(ts, token).await,
             HitStreamSourceType::Fluvio(stream) => stream.pull(ts, token).await,

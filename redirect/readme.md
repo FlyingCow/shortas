@@ -1,10 +1,23 @@
 TODO:
-    - Add kubernetes terraform for the needed services
-    - Add datadog vector as data aggregator
-    - Add click tracker enriching hits data
-    - Add click aggregator modeling and saving reports data 
-    - Add aggregator api extracting reports data
-    - Add router api to create/modify/delete links/settings data
+    JWT authorization for api
+
+    Click Router
+        - Add SSL support (key storage, ACME http verification)
+        - Deep links
+        - API to create/modify/delete links/settings data
+
+    Tracker
+        - Click source detection
+        - Data centers detection
+        - Bot detection
+    
+    Aggs
+        - API (reports, click stream)
+        - S3 support for clickhouse
+
+    SSL Bot
+        - Domains Monitoring
+
 
 HOW TO:
 

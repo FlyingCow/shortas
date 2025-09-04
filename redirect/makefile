@@ -11,6 +11,12 @@ build: build-click-tracker
 build: build-click-aggregator
 build: build-click-aggregator-api
 
+release: release-click-router
+release: release-click-router-api
+release: release-click-tracker
+release: release-click-aggregator
+release: release-click-aggregator-api
+
 test: test-click-router
 test: test-click-router-api
 test: test-click-tracker
