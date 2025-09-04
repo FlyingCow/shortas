@@ -9,7 +9,8 @@ hosts = ["kafka:9092", "kafka:9093"]
 [fluvio.click_stream]
 topic = "click-aggs-local"
 host = "localhost:9103"
-consumer = "aggs"
+consumer = "click_aggs"
+
 
 [clickhouse]
 [clickhouse.click_stream_store]

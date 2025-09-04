@@ -8,10 +8,11 @@ pub mod aggs_pipe;
 pub mod click_stream;
 pub mod pipe;
 
-pub use click_stream::ClickStreamSource;
 use serde::Deserialize;
 use serde::Serialize;
 use ulid::Ulid;
+
+pub use click_stream::ClickStreamSource;
 
 #[derive(Clone, Debug)]
 pub enum AggsPipeData {
@@ -74,7 +75,7 @@ impl AggsPipeContext {
         Self {
             id: Ulid::new().to_string(),
             utc: Utc::now(),
-            click: click,
+            click,
             data: HashMap::new(),
             state: AggsState::Ok,
         }
@@ -121,21 +122,21 @@ pub struct ClickStreamItem {
     pub creator_id: String,
     pub route_id: String,
     pub workspace_id: String,
-    //pub created: DateTime<Utc>,
-    // pub dest: String,
-    //pub ip: String,
-    // pub continent: Option<String>,
-    // pub country: Option<String>,
-    // pub location: Option<String>,
-    // pub os_family: Option<String>,
-    // pub os_version: Option<String>,
-    // pub user_agent_family: Option<String>,
-    // pub user_agent_version: Option<String>,
-    // pub device_brand: Option<String>,
-    // pub device_family: Option<String>,
-    // pub device_model: Option<String>,
-    // pub session_first: Option<DateTime<Utc>>,
-    // pub session_clicks: Option<u128>,
-    // pub is_unique: bool,
-    // pub is_bot: bool,
+    pub created: DateTime<Utc>,
+    pub dest: String,
+    pub ip: String,
+    pub continent: Option<String>,
+    pub country: Option<String>,
+    pub location: Option<String>,
+    pub os_family: Option<String>,
+    pub os_version: Option<String>,
+    pub user_agent_family: Option<String>,
+    pub user_agent_version: Option<String>,
+    pub device_brand: Option<String>,
+    pub device_family: Option<String>,
+    pub device_model: Option<String>,
+    pub session_first: Option<DateTime<Utc>>,
+    pub session_clicks: Option<u128>,
+    pub is_unique: bool,
+    pub is_bot: bool,
 }

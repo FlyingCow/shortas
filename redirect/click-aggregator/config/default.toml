@@ -6,8 +6,8 @@ hosts = ["localhost:9092", "localhost:9093"]
 [fluvio]
 [fluvio.click_stream]
 topic = "click-aggs-local"
-host = "sc:9003"
-consumer = "aggs"
+host = "fluvio:9103"
+consumer = "click_aggs"
 
 [clickhouse]
 [clickhouse.click_stream_store]

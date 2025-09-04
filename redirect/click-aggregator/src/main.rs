@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
+use std::result::Result::Ok;
 
 use clap::Parser;
 use click_aggregator::adapters::clickhouse::ClickhouseClickStreamStore;
@@ -35,9 +36,9 @@ async fn init_modules(settings: &Settings, token: CancellationToken) -> Vec<Aggs
     vec![AggsModules::Init(init), AggsModules::Store(store)]
 }
 
-fn init_sources(settings: Settings) -> Vec<ClickStreamSourceType> {
+async fn init_sources(settings: Settings) -> Vec<ClickStreamSourceType> {
     let kafka_stream = KafkaHitStream;
-    let fluvio_stream = FluvioHitStream::new(settings.fluvio.click_stream);
+    let fluvio_stream = FluvioHitStream::connect(settings.fluvio.click_stream).await;
     vec![
         ClickStreamSourceType::Fluvio(fluvio_stream),
         ClickStreamSourceType::Kafka(kafka_stream),
@@ -55,17 +56,23 @@ async fn start(token: CancellationToken) -> Result<()> {
 
     let modules = init_modules(&settings, token.clone()).await;
 
-    let pipe = AggsPipe::builder()
-        .with_stream_sources(init_sources(settings))
-        .with_modules(modules)
-        .build();
+    let pipe = AggsPipe::new(modules);
 
-    let app = App::builder().with_pipe(pipe).build();
+    let mut threads = App::run(init_sources(settings).await, pipe, token)
+        .await
+        .expect("Could not run app");
 
-    //starting the app
-    let handler = app.run(token).await?;
-
-    handler.await.map_err(anyhow::Error::msg)?;
+    while let Some(res) = threads.join_next().await {
+        match res {
+            Ok(_) => {
+                println!("Task finished");
+            }
+            Err(err) => {
+                println!("Task failed: {:?}", err);
+                // Handle the error appropriately
+            }
+        }
+    }
 
     Ok(())
 }

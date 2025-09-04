@@ -8,6 +8,13 @@ docker compose -f ./docker-services.local.yml up -d
 
 echo " -> DONE RUNNING DOCKER."
 
+echo " -> ADDING FLUVIO TOPICS..."
+
+fluvio topic create hit-stream-local --partitions 1 --replication 1
+fluvio topic create click-aggs-local --partitions 1 --replication 1
+
+echo " -> DONE ADDING FLUVIO TOPICS..."
+
 echo " -> INITIATING LOCAL ENVIRONMENT..."
 
 tflocal -chdir=./terraform apply -auto-approve -var-file="local.tfvars"

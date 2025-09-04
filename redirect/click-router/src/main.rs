@@ -121,7 +121,7 @@ async fn main() {
 
     tracing_subscriber::fmt().init();
 
-    dotenv::from_filename("./click-router/.env").ok();
+    dotenv::from_filename("./.env").ok();
 
     let args = Args::parse();
 

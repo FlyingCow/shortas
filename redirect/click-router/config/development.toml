@@ -28,10 +28,10 @@ batch_size = 10000
 linger = 1000
 
 [uaparser]
-yaml = "./data/ua-parser/regexes.yaml"
+yaml = "../data/ua-parser/regexes.yaml"
 
 [geo_ip]
-mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"
+mmdb = "../data/geo-ip/GeoLite2-Country.mmdb"
 
 [redirect]
 not_found_url = "http://localhost:5801/404/{}"

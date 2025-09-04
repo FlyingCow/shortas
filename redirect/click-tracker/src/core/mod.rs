@@ -256,7 +256,7 @@ impl TrackingPipeContext {
         Self {
             id: Ulid::new().to_string(),
             utc: Utc::now(),
-            hit: hit,
+            hit,
             data: HashMap::new(),
             client_os: None,
             client_ua: None,

@@ -1,7 +1,8 @@
 use anyhow::Result;
 use flume::Sender;
 use fluvio::{
-    Fluvio, FluvioClusterConfig, Offset, TopicProducer, TopicProducerConfigBuilder,
+    Compression, Fluvio, FluvioClusterConfig, Offset, RecordKey, TopicProducer,
+    TopicProducerConfigBuilder,
     consumer::{ConsumerConfigExtBuilder, ConsumerStream, OffsetManagementStrategy},
     spu::SpuSocketPool,
 };
@@ -50,13 +51,6 @@ impl HitStreamSource for FluvioHitStream {
             .await
             .expect("Can not create fluvio hits consumer.");
 
-        if let Some(Ok(record)) = stream.next().await {
-            let hit =
-                serde_json::from_slice(record.as_ref()).expect("Can not deserialize hit object.");
-
-            ts.send(hit).expect("Can not re-send a hit to consumer.");
-        }
-
         while let Some(Ok(record)) = stream.next().await {
             let hit =
                 serde_json::from_slice(record.as_ref()).expect("Can not deserialize hit object.");
@@ -83,21 +77,25 @@ pub struct FluvioClickAggsRegistrar {
 
 impl FluvioClickAggsRegistrar {
     pub async fn new(settings: &ClickAggsConfig, token: CancellationToken) -> Self {
-        let fluvio = Fluvio::connect_with_config(&FluvioClusterConfig::new(&settings.host))
+        // Use config builder to create a topic producer config
+        let producer_config = TopicProducerConfigBuilder::default()
+            .batch_size(settings.batch_size)
+            .linger(Duration::from_millis(settings.linger_millis))
+            .compression(Compression::Gzip)
+            .build()
+            .expect("Failed to create topic producer config");
+
+        let config = FluvioClusterConfig::new(&settings.host);
+
+        // Connet to fluvio cluster & create a producer
+        let fluvio = Fluvio::connect_with_config(&config)
             .await
-            .expect("Can not connect to fluvio cluster.");
+            .expect("Failed to connect to Fluvio");
 
         let producer = fluvio
-            .topic_producer_with_config(
-                settings.topic.clone(),
-                TopicProducerConfigBuilder::default()
-                    .linger(Duration::from_millis(settings.linger_millis))
-                    .batch_size(settings.batch_size)
-                    .build()
-                    .expect("Can not build click aggs registrar topic config."),
-            )
+            .topic_producer_with_config(&settings.topic, producer_config)
             .await
-            .expect("Can not build click aggs registrar topic producer.");
+            .expect("Failed to create a producer");
 
         Self { producer, token }
     }
@@ -106,9 +104,11 @@ impl FluvioClickAggsRegistrar {
 #[async_trait::async_trait()]
 impl ClickAggsRegistrar for FluvioClickAggsRegistrar {
     async fn register(&self, click: ClickStreamItem) -> Result<()> {
+        let record = serde_json::to_vec(&click).unwrap();
         self.producer
-            .send(click.id.as_str(), serde_json::to_string(&click)?)
-            .await?;
+            .send(RecordKey::NULL, record)
+            .await
+            .expect("Failed to send record");
 
         if self.token.is_cancelled() {
             self.producer.flush().await?

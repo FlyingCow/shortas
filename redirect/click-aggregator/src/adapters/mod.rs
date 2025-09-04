@@ -4,7 +4,7 @@ pub mod kafka;
 
 use anyhow::Result;
 use clickhouse::ClickhouseClickStreamStore;
-use std::sync::mpsc::SyncSender;
+use flume::Sender;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
@@ -20,11 +20,7 @@ pub enum ClickStreamSourceType {
 
 #[async_trait::async_trait]
 impl ClickStreamSource for ClickStreamSourceType {
-    async fn pull(
-        &self,
-        ts: SyncSender<ClickStreamItem>,
-        token: CancellationToken,
-    ) -> Result<JoinHandle<()>> {
+    async fn pull(&self, ts: Sender<ClickStreamItem>, token: CancellationToken) -> Result<()> {
         match self {
             ClickStreamSourceType::Kafka(stream) => stream.pull(ts, token).await,
             ClickStreamSourceType::Fluvio(stream) => stream.pull(ts, token).await,

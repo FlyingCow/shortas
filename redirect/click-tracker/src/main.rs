@@ -124,7 +124,7 @@ async fn tracking_subsystem(subsys: SubsystemHandle) -> Result<()> {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt().init();
 
-    dotenv::from_filename("./click-tracker/.env").ok();
+    dotenv::from_filename("./.env").ok();
 
     // Setup and execute subsystem tree
     Toplevel::new(|s| async move {
