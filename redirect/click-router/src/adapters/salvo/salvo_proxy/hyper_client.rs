@@ -107,6 +107,7 @@ impl Client for HyperClient {
 // Unit tests for Proxy
 #[cfg(test)]
 mod tests {
+    use rustls::crypto::CryptoProvider;
     use salvo::core::prelude::*;
     use salvo::core::test::*;
 
@@ -115,6 +116,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_upstreams_elect() {
+        let _result = CryptoProvider::install_default(rustls::crypto::ring::default_provider());
         let upstreams = vec!["https://www.example.com", "https://www.example2.com"];
         let proxy = Proxy::new(upstreams.clone(), HyperClient::default());
         let elected_upstream = proxy.upstreams().elect().await.unwrap();
@@ -123,6 +125,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_hyper_client() {
+        let _result = CryptoProvider::install_default(rustls::crypto::ring::default_provider());
         let router = Router::new().push(Router::with_path("rust/{**rest}").goal(Proxy::new(
             vec!["https://www.rust-lang.org"],
             HyperClient::default(),
@@ -140,6 +143,7 @@ mod tests {
 
     #[test]
     fn test_others() {
+        let _result = CryptoProvider::install_default(rustls::crypto::ring::default_provider());
         let mut handler = Proxy::new(["https://www.bing.com"], HyperClient::default());
         assert_eq!(handler.upstreams().len(), 1);
         assert_eq!(handler.upstreams_mut().len(), 1);

@@ -150,7 +150,7 @@ services:
       - RUST_LOG=info
     command: "./fluvio-run sc --local /fluvio/metadata"
     volumes:
-      - ./fs/fluvio-metadata:/fluvio/metadata
+      - ${PWD}/fs/fluvio-metadata:/fluvio/metadata
     networks:
       - core-net
   sc-setup:
@@ -164,11 +164,6 @@ services:
       /bin/sh -c "
       fluvio profile add docker sc:9003 docker;
       fluvio cluster spu register --id 5001 -p 0.0.0.0:9110 -l spu:9010 --private-server spu:9011;
-      # fluvio topic create hit-stream-local --partitions 1 --replication 1
-      # fluvio topic create click-aggs-local --partitions 1 --replication 1
-
-      # fluvio topic create hit-stream-local;
-      # fluvio topic create click-aggs-local;
       exit 0;
       "
     depends_on:
