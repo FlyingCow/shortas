@@ -10,6 +10,14 @@ routes_table = "core-routes-local"
 hostname_mappings_table = "core-routes-hostname-mapping-local"
 user_settings_table = "core-user-settings-local"
 
+[mongodb]
+uri = "mongodb://root:example@mongo:27017/"
+database = "shortas"
+encryption_collection = "core_routes_encryption_local"
+routes_collection = "core_routes_local"
+hostname_mappings_collection = "core_routes_hostname_mapping_local"
+user_settings_collection = "core_user_settings_local"
+
 [kafka]
 [kafka.hit_stream]
 topic = "hit-stream-main"

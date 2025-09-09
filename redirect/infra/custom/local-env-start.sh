@@ -1,14 +1,32 @@
 #!/usr/bin/env bash
 cd "$(dirname "$0")"
 
-echo "BUILDING LOCAL INFRASTRUCTURE..."
+echo "# BUILDING LOCAL INFRASTRUCTURE##################################################"
+echo ""
+echo "# INSTALLING TOOLS---------------------------------------------------------------"
 
-echo " -> INITIATING LOCAL ENVIRONMENT..."
 
-terraform -chdir=./terraform apply -auto-approve -var-file="local.tfvars"
+chmod u+x ./install-software.sh
+./install-software.sh
 
-# helm install --generate-name --namespace shortas-core oci://registry-1.docker.io/bitnamicharts/kafka
+echo ""
+echo "# RUNNING DOCKER------------------------------------------------------------------"
 
-echo " -> DONE INITIATING LOCAL ENVIRONMENT."
+docker compose -f ./docker-services.local.yml up -d 
 
-echo "DONE BUILDING LOCAL INFRASTRUCTURE."
+echo ""
+echo "# CREATING ENVIRONMENT------------------------------------------------------------"
+
+chmod u+x ./install-environment.sh
+./install-environment.sh
+
+echo ""
+echo "# SEEDING SOME DATA---------------------------------------------------------------"
+
+chmod u+x ./seed-test-data.sh
+./seed-test-data.sh
+
+echo "# DONE BUILDING LOCAL INFRASTRUCTURE##############################################"
+
+cd ../domains/
+cargo run

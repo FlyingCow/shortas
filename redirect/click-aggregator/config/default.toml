@@ -11,7 +11,9 @@ consumer = "click_aggs"
 
 [clickhouse]
 [clickhouse.click_stream_store]
-url = "http://clickhouse:8123"
+url = "http://localhost:8123"
+user = "default"
+password = "clickhouse"
 max_rows = 100_000
 period_millis = 100
 period_bias = 0.1

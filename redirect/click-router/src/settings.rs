@@ -5,6 +5,7 @@ use crate::adapters::aws::settings::AWS;
 use crate::adapters::fluvio::settings::Fluvio;
 use crate::adapters::geo_ip::settings::GeoIP;
 use crate::adapters::moka::settings::Moka;
+use crate::adapters::mongodb::settings::Mongodb;
 use crate::adapters::uaparser::settings::UAParser;
 #[derive(Default, Debug, Deserialize, Clone)]
 #[allow(unused)]
@@ -23,6 +24,7 @@ pub struct Server {
 #[allow(unused)]
 pub struct Settings {
     pub aws: AWS,
+    pub mongodb: Mongodb,
     pub fluvio: Fluvio,
     pub moka: Moka,
     pub uaparser: UAParser,

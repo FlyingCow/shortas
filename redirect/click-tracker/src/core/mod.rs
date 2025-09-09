@@ -21,7 +21,7 @@ pub use user_agent::UserAgentDetector;
 pub use user_settings::UserSettingsManager;
 pub use user_settings::UserSettingsStore;
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub enum ActiveStatus {
     #[default]
     Active,
@@ -45,16 +45,22 @@ impl Default for Location {
 
 pub const SKIP_TRACKING: &'static str = "tracking";
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct UserSettings {
     pub user_id: String,
     pub user_email: String,
     pub api_key: Option<String>,
+    #[serde(default)]
     pub active_status: ActiveStatus,
+    #[serde(default)]
     pub debug: bool,
+    #[serde(default)]
     pub overflow: bool,
+    #[serde(default)]
     pub skip: Vec<String>,
+    #[serde(default)]
     pub allowed_request_params: Vec<String>,
+    #[serde(default)]
     pub allowed_destination_params: Vec<String>,
 }
 

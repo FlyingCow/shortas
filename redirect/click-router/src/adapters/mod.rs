@@ -17,6 +17,10 @@ use salvo::{SalvoRequest, SalvoResponse};
 use uaparser::user_agent_detector::UAParserUserAgentDetector;
 
 use crate::{
+    adapters::mongodb::{
+        crypto_store::MongodbCryptoStore, routes_store::MongodbRoutesStore,
+        user_settings_store::MongodbUserSettingsStore,
+    },
     core::{
         crypto::CryptoCache,
         flow_router::{Request, RequestData, Response, ResponseData},
@@ -194,6 +198,7 @@ impl<'a> Response for ResponseType<'a> {
 pub enum UserSettingsStoreType {
     //Redis,
     Dynamo(DynamoUserSettingsStore),
+    Mongodb(MongodbUserSettingsStore),
 }
 
 #[async_trait::async_trait]
@@ -201,6 +206,7 @@ impl UserSettingsStore for UserSettingsStoreType {
     async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
         match self {
             UserSettingsStoreType::Dynamo(store) => store.get_user_settings(user_id).await,
+            UserSettingsStoreType::Mongodb(store) => store.get_user_settings(user_id).await,
         }
     }
 }
@@ -228,6 +234,7 @@ impl UserSettingsCache for UserSettingsCacheType {
 #[derive(Clone)]
 pub enum CryptoStoreType {
     Dynamo(DynamoCryptoStore),
+    Mongodb(MongodbCryptoStore),
 }
 
 #[async_trait::async_trait]
@@ -235,6 +242,7 @@ impl CryptoStore for CryptoStoreType {
     async fn get_certificate(&self, server_name: &str) -> Result<Option<Keycert>> {
         match self {
             CryptoStoreType::Dynamo(store) => store.get_certificate(server_name).await,
+            CryptoStoreType::Mongodb(store) => store.get_certificate(server_name).await,
         }
     }
 }
@@ -261,6 +269,7 @@ impl CryptoCache for CryptoCacheType {
 #[derive(Clone)]
 pub enum RoutesStoreType {
     Dynamo(DynamoRoutesStore),
+    Mongodb(MongodbRoutesStore),
 }
 
 #[async_trait::async_trait]
@@ -268,6 +277,7 @@ impl RoutesStore for RoutesStoreType {
     async fn get_route(&self, switch: &str, path: &str) -> Result<Option<Route>> {
         match self {
             RoutesStoreType::Dynamo(store) => store.get_route(switch, path).await,
+            RoutesStoreType::Mongodb(store) => store.get_route(switch, path).await,
         }
     }
 }

@@ -1,0 +1,181 @@
+version: "3.8"
+networks:
+  core-net:
+    driver: bridge
+    external: false
+
+services:
+  mongo:
+    image: mongo
+    container_name: mongo
+    restart: always
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    networks:
+      - core-net
+
+  mongo-express:
+    image: mongo-express
+    container_name: mongo-express
+    restart: always
+    ports:
+      - 8081:8081
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://root:example@mongo:27017/
+      ME_CONFIG_BASICAUTH_ENABLED: true
+      ME_CONFIG_BASICAUTH_USERNAME: mongoexpressuser
+      ME_CONFIG_BASICAUTH_PASSWORD: mongoexpresspass
+    networks:
+      - core-net
+
+  # minio:
+  #   image: minio/minio
+  #   container_name: minio
+  #   ports:
+  #     - "9000:9000"
+  #     - "9001:9001"
+  #   networks:
+  #     - core-net
+  #   volumes:
+  #     - minio_data:/data
+  #   environment:
+  #     - MINIO_ROOT_USER=root
+  #     - MINIO_ROOT_PASSWORD=Passw0rd1!
+  #     - MINIO_DEFAULT_BUCKETS=data
+  #   command: server --console-address ":9001" /data
+
+  clickhouse:
+    image: clickhouse/clickhouse-server
+    environment:
+      - CLICKHOUSE_PASSWORD=clickhouse
+    container_name: clickhouse
+    hostname: clickhouse
+    volumes:
+      - ${PWD}/fs/volumes/clickhouse/etc/clickhouse-server/config.d/config.xml:/etc/clickhouse-server/config.d/config.xml
+      - ${PWD}/fs/volumes/clickhouse/etc/clickhouse-server/users.d/users.xml:/etc/clickhouse-server/users.d/users.xml
+      - ${PWD}/fs/volumes/clickhouse/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    networks:
+      - core-net
+
+  clickhouse-init:
+    image: clickhouse/clickhouse-server
+    volumes:
+      - ${PWD}/clickhouse:/var/clickhouse
+    depends_on:
+      - clickhouse
+    networks:
+      - core-net
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      while ! clickhouse-client --host clickhouse -q \"SHOW databases;\"; do
+          echo waiting for clickhouse up
+          sleep 1
+      done
+
+      clickhouse-client --host clickhouse -n <<-EOSQL
+        CREATE DATABASE IF NOT EXISTS shortas;
+
+        CREATE OR REPLACE TABLE shortas.click_stream
+        (
+            id FixedString(26),
+            owner_id FixedString(26),
+            creator_id FixedString(26),
+            route_id FixedString(26),
+            workspace_id FixedString(26),
+            inserted DateTime MATERIALIZED now(),
+            created DateTime,
+            dest Nullable(String),
+            ip LowCardinality(Nullable(String)),
+            continent LowCardinality(Nullable(String)),
+            country LowCardinality(Nullable(FixedString(2))),
+            location LowCardinality(Nullable(String)),
+            os_family LowCardinality(Nullable(String)),
+            os_version LowCardinality(Nullable(String)),
+            user_agent_family LowCardinality(Nullable(String)),
+            user_agent_version LowCardinality(Nullable(String)),
+            device_brand LowCardinality(Nullable(String)),
+            device_family LowCardinality(Nullable(String)),
+            device_model LowCardinality(Nullable(String)),
+            session_first Nullable(DateTime),
+            session_clicks Nullable(UInt128),
+            is_unique Bool,
+            is_bot Bool
+        )
+        ENGINE = MergeTree
+        ORDER BY id;
+      EOSQL
+      tail -f /dev/null
+      exit 0;
+      "
+
+  cache:
+    image: "redis/redis-stack:edge"
+    container_name: cache
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    volumes:
+      - cache:/data
+    networks:
+      - core-net
+
+  sc:
+    image: infinyon/fluvio:stable
+    container_name: sc
+    hostname: sc
+    ports:
+      - "9103:9003"
+    environment:
+      - RUST_LOG=info
+    command: "./fluvio-run sc --local /fluvio/metadata"
+    volumes:
+      - ${PWD}/fs/fluvio-metadata:/fluvio/metadata
+    networks:
+      - core-net
+  sc-setup:
+    build:
+      context: .
+      dockerfile: fluvio/Dockerfile
+    container_name: sc-setup
+    environment:
+      - RUST_LOG=info
+    entrypoint: >
+      /bin/sh -c "
+      fluvio profile add docker sc:9003 docker;
+      fluvio cluster spu register --id 5001 -p 0.0.0.0:9110 -l spu:9010 --private-server spu:9011;
+      exit 0;
+      "
+    depends_on:
+      - sc
+    networks:
+      - core-net
+  spu:
+    image: infinyon/fluvio:stable
+    container_name: spu
+    hostname: spu
+    volumes:
+      - ${PWD}/fs/fluvio-data:/fluvio/data
+    environment:
+      - RUST_LOG=info
+    ports:
+      - "9110:9010"
+      - "9111:9011"
+    command: "./fluvio-run spu -i 5001 -p spu:9010 -v spu:9011 --sc-addr sc:9004 --log-base-dir /fluvio/data"
+    depends_on:
+      - sc
+    networks:
+      - core-net
+
+volumes:
+  cache:
+    driver: local
+  minio_data:
+    driver: local

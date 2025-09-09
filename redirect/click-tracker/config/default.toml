@@ -3,6 +3,11 @@
 [aws.dynamo]
 user_settings_table = "core-user-settings-main"
 
+[mongodb]
+uri = "mongodb://root:example@mongo:27017/"
+database = "shortas"
+user_settings_collection = "core_user_settings_main"
+
 [kafka]
 [kafka.hit_stream]
 topic = "hit-stream-main"

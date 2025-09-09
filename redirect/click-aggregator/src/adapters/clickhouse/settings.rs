@@ -9,6 +9,8 @@ pub struct ClickStreamStoreConfig {
     pub period_bias: f64,
     pub database: String,
     pub table: String,
+    pub user: Option<String>,
+    pub password: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

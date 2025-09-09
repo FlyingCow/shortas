@@ -59,8 +59,10 @@ pub struct RouteProperties {
     pub custom: Option<Value>,
     pub native: Option<Value>,
     pub bundling: Option<Value>,
+    #[serde(default)]
     pub opengraph: bool,
-    pub allow_debug: bool
+    #[serde(default)]
+    pub allow_debug: bool,
 }
 
 impl Default for RouteProperties {
@@ -101,13 +103,17 @@ pub struct Route {
     pub switch: String,
     pub link: String,
     pub dest: Option<String>,
+    #[serde(default)]
     pub dest_format: DestinationFormat,
     pub code: Option<u16>,
     pub ttl: Option<u128>,
-
+    #[serde(default)]
     pub status: RouteStatus,
+    #[serde(default)]
     pub terminal: RoutingTerminal,
+    #[serde(default)]
     pub policy: RoutingPolicy,
+    #[serde(default)]
     pub properties: RouteProperties,
 }
 

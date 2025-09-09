@@ -1,0 +1,38 @@
+use anyhow::Result;
+use mongodb::bson::doc;
+use mongodb::{Client, Collection};
+
+use crate::adapters::mongodb::settings::Mongodb;
+use crate::core::{UserSettings, UserSettingsStore};
+
+#[derive(Clone, Debug)]
+pub struct MongodbUserSettingsStore {
+    collection: Collection<UserSettings>,
+}
+
+impl MongodbUserSettingsStore {
+    pub async fn new(settings: &Mongodb) -> Self {
+        let client = Client::with_uri_str(&settings.uri)
+            .await
+            .expect("can not connect to mongodb");
+
+        let db = client.database(&settings.database);
+        let collection = db.collection::<UserSettings>(&settings.user_settings_collection);
+        Self { collection }
+    }
+}
+
+#[async_trait::async_trait()]
+impl UserSettingsStore for MongodbUserSettingsStore {
+    async fn invalidate(&self, _: &str) -> Result<()> {
+        Ok(())
+    }
+    async fn get(&self, user_id: &str) -> Result<Option<UserSettings>> {
+        let filter = doc! { "user_id": user_id };
+
+        Ok(match self.collection.find_one(filter).await? {
+            Some(settings) => Some(settings),
+            None => None,
+        })
+    }
+}

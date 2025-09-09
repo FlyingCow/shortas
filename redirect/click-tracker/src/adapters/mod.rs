@@ -3,6 +3,7 @@ pub mod fluvio;
 pub mod geo_ip;
 pub mod kafka;
 pub mod moka;
+pub mod mongodb;
 pub mod redis;
 pub mod uaparser;
 
@@ -21,6 +22,7 @@ use uaparser::user_agent_detector::UAParserUserAgentDetector;
 
 use crate::{
     FluvioHitStream, KafkaHitStream,
+    adapters::mongodb::user_settings_store::MongodbUserSettingsStore,
     core::{
         ClickStreamItem, Country, Hit, HitStreamSource, UserAgent, UserAgentDetector,
         UserSettingsStore,
@@ -79,6 +81,7 @@ where
     S: UserSettingsStore + Send + Sync,
 {
     //Redis,
+    Mongodb(MongodbUserSettingsStore),
     Dynamo(DynamoUserSettingsStore),
     Moka(MokaDecoratedUserSettingsStore<S>),
 }
@@ -90,6 +93,7 @@ where
 {
     async fn get(&self, user_id: &str) -> Result<Option<crate::core::UserSettings>> {
         match self {
+            UserSettingsStoreType::Mongodb(store) => store.get(user_id).await,
             UserSettingsStoreType::Dynamo(store) => store.get(user_id).await,
             UserSettingsStoreType::Moka(store) => store.get(user_id).await,
         }
@@ -97,6 +101,7 @@ where
 
     async fn invalidate(&self, user_id: &str) -> Result<()> {
         match self {
+            UserSettingsStoreType::Mongodb(store) => store.invalidate(user_id).await,
             UserSettingsStoreType::Dynamo(store) => store.invalidate(user_id).await,
             UserSettingsStoreType::Moka(store) => store.invalidate(user_id).await,
         }

@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use clickhouse::{inserter::Inserter, sql::Identifier, Client, Row};
+use clickhouse::{inserter::Inserter, Client, Row};
 use serde::{Deserialize, Serialize};
 use settings::ClickStreamStoreConfig;
 use tokio::sync::Mutex;
@@ -77,9 +77,17 @@ impl Row for ClickStreamItemRow {
 
 impl ClickhouseClickStreamStore {
     pub async fn new(settings: ClickStreamStoreConfig, token: CancellationToken) -> Result<Self> {
-        let client = Client::default()
+        let mut client = Client::default()
             .with_url(&settings.url)
-            .with_database(settings.database);
+            .with_database(&settings.database);
+
+        if let Some(user) = &settings.user {
+            client = client.with_user(user);
+        }
+
+        if let Some(password) = &settings.password {
+            client = client.with_password(password);
+        }
 
         let inserter = client
             .inserter::<ClickStreamItemRow>(&settings.table)?
@@ -93,45 +101,6 @@ impl ClickhouseClickStreamStore {
             // recovered after a long time of inactivity (e.g. restart of service or CH).
             .with_max_rows(settings.max_rows);
 
-        client
-            .query(
-                "
-                CREATE OR REPLACE TABLE ?
-                (
-                    id String,
-                    owner_id String,
-                    creator_id String,
-                    route_id String,
-                    workspace_id String,
-                    created DateTime64(3),
-                    dest String,
-                    ip String,
-                    continent Nullable(String),
-                    country Nullable(String),
-                    location Nullable(String),
-                    os_family Nullable(String),
-                    os_version Nullable(String),
-                    user_agent_family Nullable(String),
-                    user_agent_version Nullable(String),
-                    device_brand Nullable(String),
-                    device_family Nullable(String),
-                    device_model Nullable(String),
-                    session_first Nullable(DateTime64(3)),
-                    session_clicks Nullable(UInt128),
-                    is_unique Bool,
-                    is_bot Bool
-                )
-                ENGINE = MergeTree
-                ORDER BY id",
-            )
-            .bind(Identifier(&settings.table))
-            .with_option("allow_experimental_variant_type", "1")
-            // This is required only if we are mixing similar types in the Variant definition
-            // In this case, this is various Int/UInt types, Float32/Float64, and String/FixedString
-            // Omit this option if there are no similar types in the definition
-            .with_option("allow_suspicious_variant_types", "1")
-            .execute()
-            .await?;
         Ok(Self {
             inserter: Arc::new(Mutex::new(inserter)),
             token,

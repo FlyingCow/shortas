@@ -2,10 +2,12 @@
 local = false
 
 [aws.dynamo]
-encryption_table = "core-routes-encryption-main"
-routes_table = "core-routes-main"
-hostname_mappings_table = "core-routes-hostname-mapping-main"
 user_settings_table = "core-user-settings-main"
+
+[mongodb]
+uri = "mongodb://root:example@mongo:27017/"
+database = "shortas"
+user_settings_collection = "core_user_settings_main"
 
 [kafka]
 [kafka.hit_stream]

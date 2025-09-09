@@ -16,6 +16,10 @@ use crate::{
             crypto_cache::MokaCryptoCache, routes_cache::MokaRoutesCache, settings::Moka,
             user_settings_cache::MokaUserSettingsCache,
         },
+        mongodb::{
+            crypto_store::MongodbCryptoStore, routes_store::MongodbRoutesStore, settings::Mongodb,
+            user_settings_store::MongodbUserSettingsStore,
+        },
         uaparser::user_agent_detector::UAParserUserAgentDetector,
         CryptoCacheType, CryptoStoreType, HitRegistrarType, LocationDetectorType, RoutesCacheType,
         RoutesStoreType, UserAgentDetectorType, UserSettingsCacheType, UserSettingsStoreType,
@@ -111,6 +115,61 @@ impl AppBuilder {
     pub async fn with_dynamo(mut self) -> Self {
         let (routes_cache, crypto_cache, user_settings_cache) = self
             .init_moka_cache_with_dynamo_stores(&self.settings.moka, &self.settings.aws)
+            .await;
+
+        self.crypto_cache = Some(crypto_cache);
+        self.routes_cache = Some(routes_cache);
+        self.user_settings_cache = Some(user_settings_cache);
+
+        self
+    }
+
+    async fn init_mongodb_stores(
+        &self,
+        settings: &Mongodb,
+    ) -> (
+        MongodbRoutesStore,
+        MongodbCryptoStore,
+        MongodbUserSettingsStore,
+    ) {
+        let routes_store = MongodbRoutesStore::new(&settings).await;
+
+        let crypto_store = MongodbCryptoStore::new(&settings).await;
+
+        let user_settings_store = MongodbUserSettingsStore::new(&settings).await;
+
+        (routes_store, crypto_store, user_settings_store)
+    }
+
+    async fn init_moka_cache_with_mongodb_stores(
+        &self,
+        moka_settings: &Moka,
+        mongodb_settings: &Mongodb,
+    ) -> (RoutesCacheType, CryptoCacheType, UserSettingsCacheType) {
+        let (routes_store, crypto_store, user_settings_store) =
+            self.init_mongodb_stores(&mongodb_settings).await;
+
+        let routes_cache = RoutesCacheType::Moka(MokaRoutesCache::new(
+            RoutesStoreType::Mongodb(routes_store),
+            moka_settings.routes_cache.clone(),
+        ));
+
+        let crypto_cache = CryptoCacheType::Moka(MokaCryptoCache::new(
+            CryptoStoreType::Mongodb(crypto_store),
+            moka_settings.crypto_cache.clone(),
+        ));
+
+        let user_settings_cache = UserSettingsCacheType::Moka(MokaUserSettingsCache::new(
+            UserSettingsStoreType::Mongodb(user_settings_store),
+            moka_settings.user_settings_cache.clone(),
+        ));
+
+        (routes_cache, crypto_cache, user_settings_cache)
+    }
+
+    pub async fn with_mongodb(mut self) -> Self {
+        let (routes_cache, crypto_cache, user_settings_cache) = self
+            .init_moka_cache_with_mongodb_stores(&self.settings.moka, &self.settings.mongodb)
             .await;
 
         self.crypto_cache = Some(crypto_cache);

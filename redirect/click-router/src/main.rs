@@ -137,8 +137,10 @@ async fn main() {
         .with_ua_parser()
         .with_fluvio()
         .await
-        .with_dynamo()
+        .with_mongodb()
         .await
+        //.with_dynamo()
+        // .await
         .build();
 
     let _ = FLOW_ROUTER.get_or_init(|| flow_router);
