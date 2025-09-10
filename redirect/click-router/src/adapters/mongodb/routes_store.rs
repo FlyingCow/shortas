@@ -29,9 +29,11 @@ impl RoutesStore for MongodbRoutesStore {
     async fn get_route(&self, switch: &str, path: &str) -> Result<Option<Route>> {
         let filter = doc! { "switch": switch, "link": path};
 
-        Ok(match self.collection.find_one(filter).await? {
+        let result = Ok(match self.collection.find_one(filter).await? {
             Some(mongo_route) => Some(mongo_route),
             None => None,
-        })
+        });
+
+        result
     }
 }

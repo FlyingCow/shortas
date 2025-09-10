@@ -83,10 +83,7 @@ impl ProtocolExtractor {
             ssl_on = ssl_on_uri;
         }
 
-        Some(ProtoInfo {
-            proto: proto,
-            ssl_on: ssl_on,
-        })
+        Some(ProtoInfo { proto, ssl_on })
     }
 }
 

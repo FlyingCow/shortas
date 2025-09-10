@@ -93,3 +93,68 @@ impl FlowModule for ConditionalModule {
         return Ok(FlowStepContinuation::Continue);
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::model::{
+        expression::{DayOfMonth, Expression, OS, UA},
+        route::{ConditionalRouting, RouteProperties},
+        Route,
+    };
+
+    use super::*;
+
+    #[test]
+    fn should_be_serilizable() {
+        let route: Route = Route {
+            switch: "main".to_string(),
+            link: "localhost%2ftest".to_string(),
+            dest: Some("http://google.com".to_string()),
+            properties: RouteProperties {
+                route_id: Some("route_id".to_string()),
+                domain_id: Some("route_id".to_string()),
+                owner_id: Some("route_id".to_string()),
+                creator_id: Some("route_id".to_string()),
+                workspace_id: Some("route_id".to_string()),
+                scripts: None,
+                tags: None,
+                custom: None,
+                native: None,
+                bundling: None,
+                opengraph: false,
+                allow_debug: true,
+            },
+            policy: RoutingPolicy::Conditional(
+                [ConditionalRouting {
+                    key: "test".to_string(),
+                    condition: Expression {
+                        ua: Some(UA::IN(
+                            [
+                                "Edge".to_string(),
+                                "Chrome".to_string(),
+                                "Firefox".to_string(),
+                            ]
+                            .to_vec(),
+                        )),
+                        day_of_month: Some(DayOfMonth::IN([1, 7, 10, 30].to_vec())),
+                        and: Some(
+                            [Box::new(Expression {
+                                os: Some(OS::EQ("Windows".to_string())),
+                                ..Default::default()
+                            })]
+                            .to_vec(),
+                        ),
+                        ..Default::default()
+                    },
+                }]
+                .to_vec(),
+            ),
+
+            ..Default::default()
+        };
+
+        let serialized = serde_json::to_string(&route).unwrap().to_string();
+        println!("serialized = {}", serialized);
+    }
+}
