@@ -1,16 +1,16 @@
 # Shortas Documentation
 
-This directory contains the documentation for the Shortas project, built with Jekyll and styled with a professional theme.
+This directory contains the documentation for the Shortas project, built with Jekyll and styled with a Vector.dev inspired theme.
 
-## 🎨 Professional Theme
+## 🎨 Vector.dev Inspired Theme
 
-The documentation uses a custom professional theme featuring:
+The documentation uses a custom theme inspired by [Vector.dev](https://vector.dev), featuring:
 
-- **Blue Color Scheme**: Professional `#2563eb` primary color
+- **Teal Color Scheme**: Vector's signature `#00d4aa` primary color
 - **Modern Cards**: Enhanced cards with hover effects and accent bars
 - **Gradient Buttons**: Animated buttons with shimmer effects
-- **Professional Typography**: Clean, modern font hierarchy
-- **Smooth Animations**: Professional transitions and hover states
+- **Professional Typography**: Clean, modern font hierarchy with Inter font
+- **Smooth Animations**: Vector-style transitions and hover states
 - **Dark Theme**: Deep background with high contrast text
 - **Responsive Design**: Works perfectly on all devices
 
@@ -56,7 +56,7 @@ docs/
 ## 🎯 Features
 
 - **GitHub Pages Compatible**: Ready for automatic deployment
-- **Professional Styling**: Modern, clean design
+- **Vector.dev Styling**: Professional, modern design inspired by Vector.dev
 - **Responsive**: Works on all devices
 - **Fast Loading**: Optimized for performance
 - **SEO Friendly**: Proper meta tags and sitemap
@@ -87,7 +87,7 @@ To contribute to the documentation:
 
 ## 🎨 Customization
 
-The professional theme can be customized by modifying:
+The Vector.dev inspired theme can be customized by modifying:
 
 - `_layouts/professional-theme.html` - Main layout and CSS
 - `_config.yml` - Site configuration and theme settings
