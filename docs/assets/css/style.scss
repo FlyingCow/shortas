@@ -240,6 +240,9 @@ a:hover {
   position: sticky;
   top: 0;
   z-index: 100;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .site-title {
@@ -247,25 +250,19 @@ a:hover {
   align-items: center;
   gap: 0.5rem;
   text-decoration: none;
-  color: var(--text-primary);
+  color: white !important;
+  margin-top: 1rem;
+  text-transform: uppercase;
 }
 
 .site-title-text {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--primary-color);
+  color: white !important;
+  text-transform: uppercase;
 }
 
-.site-title-badge {
-  background: var(--primary-color);
-  color: white;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
+/* Site title badge removed */
 
 .site-nav {
   .page-link {
@@ -347,6 +344,67 @@ a:hover {
 /* Content layout */
 .wrapper {
   max-width: 1200px;
+}
+
+/* Full width header override */
+.site-header .wrapper {
+  max-width: none !important;
+  width: 100% !important;
+  padding: 1rem 2rem !important;
+  margin: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 2rem !important;
+  padding-right: 2rem !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure header spans full viewport width */
+.site-header {
+  left: 0 !important;
+  right: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Remove all padding from header container */
+.site-header * {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Override any body or html margins that might affect header */
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+html {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Force remove any left padding from header elements */
+.site-header,
+.site-header > *,
+.site-header .wrapper,
+.site-header .site-title,
+.site-header .site-nav {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+  left: 0 !important;
+}
+
+/* Ensure header content has proper padding but header itself is full width */
+.site-header .wrapper {
+  padding-left: 2rem !important;
+  padding-right: 2rem !important;
 }
 
 .page-content {
