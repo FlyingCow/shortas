@@ -19,374 +19,80 @@ graph TB
     B --> C[Click Router]
     C --> D[Click Tracker]
     D --> E[Click Aggregator]
-    E --> F[Analytics Storage]
-    
-    G[Click Router API] --> H[Route Management]
-    I[Click Aggregator API] --> J[Analytics API]
-    
-    K[Database Layer] --> L[MongoDB]
-    K --> M[ClickHouse]
-    K --> N[Redis]
-    
-    O[Message Queue] --> P[Kafka/Fluvio]
-    
-    C --> K
-    D --> O
-    E --> K
-    G --> K
-    I --> K
+    E --> F[Analytics Storage - ClickHouse]
+    C --> G[Route & Settings DB - MongoDB/DynamoDB]
+    C --> H[Cache - Redis/Moka]
+    D --> I[Message Queue - Kafka/Fluvio]
+    E --> I
+    J(Click Router API) --> G
+    K(Click Aggregator API) --> F
+    L(Admin/User UI) --> J
+    L --> K
 ```
 
-### Core Components
+## 🧩 Core Microservices
 
-Shortas consists of five main microservices:
+Shortas is built around five primary microservices:
 
-1. **[Click Router](microservices/click-router/)** - Main redirect service
-2. **[Click Tracker](microservices/click-tracker/)** - Real-time click processing
-3. **[Click Aggregator](microservices/click-aggregator/)** - Analytics data processing
-4. **[Click Router API](microservices/click-router-api/)** - Route management API
-5. **[Click Aggregator API](microservices/click-aggregator-api/)** - Analytics API
+1.  **Click Router**:
+    -   **Function**: The main service responsible for handling incoming short URL requests, resolving them to their long destinations, and performing the actual HTTP redirection.
+    -   **Key Features**: High-performance routing, conditional redirects (based on device, geo-location, time), A/B testing, SSL certificate management.
+    -   **Technologies**: Rust, Salvo, MongoDB/DynamoDB, Moka (in-memory cache).
+
+2.  **Click Tracker**:
+    -   **Function**: Processes and enriches click event data in real-time. It captures details like user agent, IP address, geographic location, and device information.
+    -   **Key Features**: Real-time data enrichment, bot detection, unique visitor tracking.
+    -   **Technologies**: Rust, Kafka/Fluvio, GeoIP, UA Parser.
+
+3.  **Click Aggregator**:
+    -   **Function**: Consumes enriched click data from the message queue, aggregates it, and stores it in the analytics database for reporting and analysis.
+    -   **Key Features**: Data aggregation, OLAP storage, scalable data ingestion.
+    -   **Technologies**: Rust, ClickHouse, Kafka/Fluvio.
+
+4.  **Click Router API**:
+    -   **Function**: Provides a RESTful interface for managing routing configurations, SSL certificates, and user-specific settings. This API is used by administrative tools and user interfaces.
+    -   **Key Features**: CRUD operations for routes, JWT authentication, OpenAPI documentation.
+    -   **Technologies**: Rust, Salvo, MongoDB/DynamoDB, Keycloak (for JWT).
+
+5.  **Click Aggregator API**:
+    -   **Function**: Offers a RESTful interface for querying and retrieving aggregated analytics data and raw click stream data.
+    -   **Key Features**: Analytics reporting, click stream access, JWT authentication, OpenAPI documentation.
+    -   **Technologies**: Rust, Salvo, ClickHouse, Keycloak (for JWT).
 
 ## 🔄 Data Flow
 
-### Request Processing Flow
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Router
-    participant Tracker
-    participant Aggregator
-    participant Storage
-    
-    Client->>Router: HTTP Request
-    Router->>Router: Route Resolution
-    Router->>Client: HTTP Redirect
-    Router->>Tracker: Click Event
-    Tracker->>Aggregator: Processed Data
-    Aggregator->>Storage: Analytics Data
-```
-
-### Analytics Flow
-
-```mermaid
-graph LR
-    A[Click Event] --> B[Click Tracker]
-    B --> C[Data Enrichment]
-    C --> D[Message Queue]
-    D --> E[Click Aggregator]
-    E --> F[ClickHouse]
-    E --> G[Analytics API]
-```
-
-## 🧩 Microservices Architecture
-
-### Click Router
-
-**Purpose**: Main redirect service handling URL routing and redirects
-
-**Key Features**:
-- High-performance request routing
-- Conditional routing based on user characteristics
-- SSL certificate management
-- Multi-database support (MongoDB, DynamoDB)
-- Advanced caching with TTL
-
-**Technology Stack**:
-- Rust with Salvo web framework
-- Async/await architecture
-- Moka caching
-- MongoDB/DynamoDB integration
-
-### Click Tracker
-
-**Purpose**: Real-time click processing and data enrichment
-
-**Key Features**:
-- Real-time click tracking
-- Geographic data enrichment
-- Device and browser analytics
-- Bot detection and filtering
-- Session tracking
-
-**Technology Stack**:
-- Rust with async processing
-- GeoIP database integration
-- User agent parsing
-- Kafka/Fluvio streaming
-
-### Click Aggregator
-
-**Purpose**: Analytics data processing and storage
-
-**Key Features**:
-- Batch processing of click data
-- Data aggregation and summarization
-- ClickHouse integration
-- Real-time analytics
-- Historical data processing
-
-**Technology Stack**:
-- Rust with batch processing
-- ClickHouse for OLAP
-- Kafka/Fluvio consumption
-- Data compression and optimization
-
-### Click Router API
-
-**Purpose**: REST API for route and settings management
-
-**Key Features**:
-- CRUD operations for routes
-- SSL certificate management
-- User settings management
-- JWT authentication
-- OpenAPI documentation
-
-**Technology Stack**:
-- Rust with Salvo
-- JWT authentication
-- OpenAPI/Swagger integration
-- MongoDB/DynamoDB integration
-
-### Click Aggregator API
-
-**Purpose**: Analytics and reporting API
-
-**Key Features**:
-- Click stream analytics
-- Route-specific analytics
-- Aggregated statistics
-- Real-time metrics
-- Historical reporting
-
-**Technology Stack**:
-- Rust with Salvo
-- ClickHouse integration
-- JWT authentication
-- Real-time data processing
-
-## 🗄️ Data Architecture
-
-### Database Layer
-
-#### MongoDB
-- **Purpose**: Primary document storage
-- **Collections**: Routes, user settings, certificates
-- **Features**: High availability, horizontal scaling
-- **Use Cases**: Route management, user data, configuration
-
-#### ClickHouse
-- **Purpose**: Analytics and OLAP database
-- **Tables**: Click stream data, aggregated metrics
-- **Features**: Columnar storage, fast aggregations
-- **Use Cases**: Analytics, reporting, data warehousing
-
-#### Redis
-- **Purpose**: Caching and session storage
-- **Features**: In-memory storage, high performance
-- **Use Cases**: Route caching, session management, rate limiting
-
-### Message Queue Layer
-
-#### Apache Kafka
-- **Purpose**: Distributed streaming platform
-- **Topics**: Hit stream, analytics events
-- **Features**: High throughput, fault tolerance
-- **Use Cases**: Real-time data streaming, event processing
-
-#### Fluvio
-- **Purpose**: Modern streaming platform
-- **Topics**: Hit stream, analytics events
-- **Features**: Cloud-native, easy management
-- **Use Cases**: Real-time analytics, event streaming
-
-## 🔒 Security Architecture
-
-### Authentication & Authorization
-
-```mermaid
-graph TB
-    A[Client] --> B[JWT Token]
-    B --> C[Keycloak]
-    C --> D[Token Validation]
-    D --> E[API Access]
-    
-    F[Role-Based Access] --> G[User Permissions]
-    G --> H[Resource Access]
-```
-
-### Security Features
-
-- **JWT Authentication**: Secure token-based authentication
-- **Role-Based Access Control**: Fine-grained permissions
-- **Rate Limiting**: Protection against abuse
-- **Input Validation**: Comprehensive request validation
-- **Security Headers**: Automatic security header injection
-- **TLS/SSL**: End-to-end encryption
-
-## 📊 Performance Architecture
-
-### Caching Strategy
-
-```mermaid
-graph TB
-    A[Request] --> B[L1 Cache]
-    B --> C{Cache Hit?}
-    C -->|Yes| D[Return Cached Data]
-    C -->|No| E[L2 Cache]
-    E --> F{Cache Hit?}
-    F -->|Yes| G[Return Cached Data]
-    F -->|No| H[Database Query]
-    H --> I[Cache Result]
-    I --> J[Return Data]
-```
-
-### Performance Optimizations
-
-- **Multi-Level Caching**: L1 (Moka), L2 (Redis), L3 (Database)
-- **Connection Pooling**: Efficient database connections
-- **Async Processing**: Non-blocking I/O operations
-- **Batch Processing**: Efficient data processing
-- **Compression**: Data compression for storage and transmission
-
-## 🌐 Deployment Architecture
-
-### Container Architecture
-
-```mermaid
-graph TB
-    A[Docker Compose] --> B[Click Router]
-    A --> C[Click Tracker]
-    A --> D[Click Aggregator]
-    A --> E[Click Router API]
-    A --> F[Click Aggregator API]
-    
-    G[Infrastructure] --> H[MongoDB]
-    G --> I[ClickHouse]
-    G --> J[Redis]
-    G --> K[Kafka]
-```
-
-### Kubernetes Architecture
-
-```mermaid
-graph TB
-    A[Kubernetes Cluster] --> B[Ingress Controller]
-    B --> C[Click Router Service]
-    B --> D[API Services]
-    
-    E[StatefulSets] --> F[MongoDB]
-    E --> G[ClickHouse]
-    
-    H[Deployments] --> I[Click Router]
-    H --> J[Click Tracker]
-    H --> K[Click Aggregator]
-```
-
-## 🔧 Configuration Architecture
-
-### Environment-Based Configuration
-
-```toml
-# Base configuration
-[default]
-server.threads = 8
-database.url = "mongodb://localhost:27017/"
-
-# Environment-specific overrides
-[development]
-server.threads = 4
-debug.enabled = true
-
-[production]
-server.threads = 16
-debug.enabled = false
-```
-
-### Service Discovery
-
-- **Consul**: Service discovery and configuration
-- **Kubernetes**: Native service discovery
-- **Docker Compose**: Service networking
-- **Load Balancers**: Traffic distribution
-
-## 📈 Monitoring Architecture
-
-### Observability Stack
-
-```mermaid
-graph TB
-    A[Applications] --> B[Metrics]
-    A --> C[Logs]
-    A --> D[Traces]
-    
-    B --> E[Prometheus]
-    C --> F[ELK Stack]
-    D --> G[Jaeger]
-    
-    E --> H[Grafana]
-    F --> I[Kibana]
-    G --> J[Jaeger UI]
-```
-
-### Monitoring Components
-
-- **Prometheus**: Metrics collection and storage
-- **Grafana**: Metrics visualization and dashboards
-- **ELK Stack**: Log aggregation and analysis
-- **Jaeger**: Distributed tracing
-- **Health Checks**: Service health monitoring
-
-## 🔄 Scalability Architecture
-
-### Horizontal Scaling
-
-```mermaid
-graph TB
-    A[Load Balancer] --> B[Click Router 1]
-    A --> C[Click Router 2]
-    A --> D[Click Router N]
-    
-    E[Message Queue] --> F[Click Tracker 1]
-    E --> G[Click Tracker 2]
-    E --> H[Click Tracker N]
-```
-
-### Auto-Scaling
-
-- **Kubernetes HPA**: Horizontal Pod Autoscaler
-- **Kubernetes VPA**: Vertical Pod Autoscaler
-- **Custom Metrics**: Application-specific scaling
-- **Load Testing**: Performance validation
-
-## 🚀 Development Architecture
-
-### Development Workflow
-
-```mermaid
-graph LR
-    A[Code] --> B[Build]
-    B --> C[Test]
-    C --> D[Deploy]
-    D --> E[Monitor]
-    E --> A
-```
-
-### CI/CD Pipeline
-
-- **GitHub Actions**: Continuous integration
-- **Docker**: Containerization
-- **Kubernetes**: Deployment
-- **Monitoring**: Health checks and alerts
-
-## 📚 Additional Resources
-
-- [Microservices Details](microservices/) - Detailed microservice documentation
-- [Data Flow](data-flow/) - Data flow patterns and processing
-- [Security](security/) - Security architecture and implementation
-- [Deployment](../deployment/) - Deployment strategies and configurations
+The data flow within Shortas is designed for high throughput and real-time processing:
+
+1.  **Incoming Request**: A user clicks a short URL, sending an HTTP request to the **Click Router**.
+2.  **Route Resolution**: The Click Router resolves the short URL to its long destination, potentially applying conditional logic based on request parameters (e.g., user agent, geo-location). It queries MongoDB/DynamoDB for route information, utilizing Redis/Moka for caching.
+3.  **Hit Tracking**: Before redirection, the Click Router sends a raw click event to the **Click Tracker** via a message queue (Kafka/Fluvio).
+4.  **Data Enrichment**: The Click Tracker enriches the raw click event with additional metadata (e.g., device type, OS, browser, country from GeoIP/UA Parser) and publishes the enriched event back to the message queue.
+5.  **Data Aggregation**: The **Click Aggregator** consumes the enriched click events from the message queue, performs necessary aggregations, and stores the data in ClickHouse.
+6.  **Redirection**: The Click Router issues an HTTP redirect (301, 302, etc.) to the user's browser, sending them to the long destination URL.
+7.  **API Access**:
+    -   The **Click Router API** is used by administrators or user interfaces to create, update, or delete short URLs and manage settings.
+    -   The **Click Aggregator API** is used to retrieve analytics reports and raw click stream data from ClickHouse.
+
+## 🗄️ Data Storage and Caching
+
+-   **MongoDB / AWS DynamoDB**: Primary databases for storing route configurations, user settings, and SSL certificates. Chosen for their flexibility and scalability.
+-   **ClickHouse**: An analytical column-oriented database used for storing and querying large volumes of click stream data. Optimized for OLAP queries.
+-   **Redis**: Used for distributed caching of frequently accessed data (e.g., session data, hot routes) and potentially for rate limiting.
+-   **Moka**: An in-memory cache used within individual services (like Click Router) for very fast access to hot routes and other critical data.
+
+## 🌐 Network and Communication
+
+-   **HTTP/HTTPS**: All external and internal API communication uses HTTP/HTTPS.
+-   **Apache Kafka / Fluvio**: Distributed streaming platforms for high-throughput, low-latency communication between Click Router, Click Tracker, and Click Aggregator. This ensures reliable event delivery and decouples services.
+
+## 🔒 Security Considerations
+
+-   **JWT Authentication**: Used for securing API endpoints, typically integrated with an identity provider like Keycloak.
+-   **Role-Based Access Control (RBAC)**: Ensures users only access resources they are authorized for.
+-   **Input Validation**: Prevents common web vulnerabilities like injection attacks.
+-   **Rate Limiting**: Protects against abuse and DDoS attacks.
+-   **TLS/SSL**: Encrypts all data in transit.
 
 ---
 
-**Need more details?** Check out our [microservices documentation](microservices/) or [deployment guide](../deployment/).
+**Next Steps**: Explore the [API Reference](/api/) for detailed information on interacting with Shortas services.

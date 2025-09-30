@@ -9,6 +9,8 @@ permalink: /deployment/
   <p class="lead">This guide covers deployment strategies, configuration, and operational considerations for Shortas in various environments.</p>
 </div>
 
+## 🚀 Deployment Options
+
 <div class="feature-grid">
   <div class="feature-card">
     <div class="feature-icon">💻</div>
@@ -43,615 +45,245 @@ permalink: /deployment/
 
 ### System Requirements
 
-- **Operating System**: Linux, macOS, or Windows (with WSL2)
-- **Memory**: Minimum 4GB RAM (8GB recommended for production)
-- **Storage**: 10GB free space (50GB+ for production)
-- **Network**: Internet connection for downloading dependencies
+-   **Rust**: Version 1.75+ (stable)
+-   **Docker & Docker Compose**: For containerized deployments
+-   **Make**: Build automation tool
+-   **curl**: For health checks and API testing
 
-### Required Software
+## 🚀 Quick Start Deployment
 
-- **Rust**: 1.75+ (stable channel)
-- **Docker**: 20.10+ with Docker Compose
-- **Make**: GNU Make 4.0+
-- **Git**: 2.30+
-- **curl**: 7.68+
-
-## 🐳 Docker Deployment
-
-### Quick Start
+For a rapid local deployment, use the `make` commands from the project root:
 
 ```bash
-# Clone the repository
-git clone https://github.com/FlyingCow/shortas.git
-cd shortas
+# Complete development setup (installs deps, starts infra, builds, tests)
+make dev-setup
 
-# Build all Docker images
-make build-docker
+# Start all services in development mode
+make dev-start
 
-# Deploy with Docker Compose
-make deploy-docker
-
-# Check health
+# Check if all services are healthy
 make health-check
 ```
 
-### Docker Compose Configuration
+## 🐳 Docker Deployment
 
-```yaml
-version: '3.8'
+Docker is the recommended way to run Shortas in development and staging environments.
 
-services:
-  click-router:
-    build: .
-    ports:
-      - "8080:8080"
-    environment:
-      - APP_RUN_MODE=production
-      - MONGODB_URI=mongodb://mongodb:27017/shortas
-      - REDIS_URL=redis://redis:6379
-      - CLICKHOUSE_URL=http://clickhouse:8123
-    depends_on:
-      - mongodb
-      - redis
-      - clickhouse
-    restart: unless-stopped
+### Building Docker Images
 
-  click-router-api:
-    build: ./redirect/click-router-api
-    ports:
-      - "8081:8080"
-    environment:
-      - MONGODB_URI=mongodb://mongodb:27017/shortas
-      - KEYCLOAK_URL=http://keycloak:8080
-    depends_on:
-      - mongodb
-      - keycloak
-    restart: unless-stopped
-
-  click-aggregator-api:
-    build: ./redirect/click-aggregator-api
-    ports:
-      - "8082:8080"
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - KEYCLOAK_URL=http://keycloak:8080
-    depends_on:
-      - clickhouse
-      - keycloak
-    restart: unless-stopped
-
-  mongodb:
-    image: mongo:latest
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=example
-    restart: unless-stopped
-
-  clickhouse:
-    image: clickhouse/clickhouse-server:latest
-    ports:
-      - "8123:8123"
-    volumes:
-      - clickhouse_data:/var/lib/clickhouse
-    environment:
-      - CLICKHOUSE_DB=shortas
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=clickhouse
-    restart: unless-stopped
-
-  redis:
-    image: redis:latest
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
-    restart: unless-stopped
-
-  keycloak:
-    image: quay.io/keycloak/keycloak:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - KEYCLOAK_ADMIN=admin
-      - KEYCLOAK_ADMIN_PASSWORD=admin
-    command: start-dev
-    restart: unless-stopped
-
-volumes:
-  mongodb_data:
-  clickhouse_data:
-  redis_data:
+From the project root, build all service images:
+```bash
+make build-docker
 ```
+This will create images for `click-router`, `click-tracker`, `click-aggregator`, `click-router-api`, and `click-aggregator-api`.
+
+### Deploying with Docker Compose
+
+The `docker-compose.yml` file in the `redirect/` directory orchestrates all Shortas services and their dependencies (MongoDB, ClickHouse, Redis, Kafka/Fluvio).
+
+1.  **Navigate to the `redirect` directory**:
+    ```bash
+    cd redirect
+    ```
+
+2.  **Start the services**:
+    ```bash
+    docker-compose up -d
+    ```
+    This command will pull necessary images, create containers, and start all services in detached mode.
+
+3.  **Verify services**:
+    ```bash
+    docker-compose ps
+    # Or use the project's health check
+    cd .. # Go back to root
+    make health-check
+    ```
+
+4.  **Stop services**:
+    ```bash
+    cd redirect
+    docker-compose down
+    ```
 
 ## ☸️ Kubernetes Deployment
 
-### Namespace
+For production environments, Kubernetes provides robust orchestration, scaling, and self-healing capabilities. Example manifests are provided in `infra/aws/terraform`.
 
-```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: shortas
-```
+### Prerequisites
 
-### ConfigMap
+-   A running Kubernetes cluster.
+-   `kubectl` configured to connect to your cluster.
+-   Docker images pushed to a registry accessible by your cluster.
 
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: shortas-config
-  namespace: shortas
-data:
-  default.toml: |
-    [server]
-    threads = 8
-    listen_os_signals = true
-    exit = true
-    
-    [mongodb]
-    uri = "mongodb://mongodb:27017/shortas"
-    
-    [clickhouse]
-    url = "http://clickhouse:8123"
-    user = "default"
-    password = "clickhouse"
-    database = "shortas"
-    
-    [redis]
-    url = "redis://redis:6379"
-    password = "eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81"
-```
+### Deployment Steps
 
-### Click Router Deployment
+1.  **Create Namespace**:
+    ```bash
+    kubectl apply -f infra/aws/terraform/namespace.yaml
+    ```
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: click-router
-  namespace: shortas
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: click-router
-  template:
-    metadata:
-      labels:
-        app: click-router
-    spec:
-      containers:
-      - name: click-router
-        image: shortas/click-router:latest
-        ports:
-        - containerPort: 8080
-        env:
-        - name: APP_RUN_MODE
-          value: "production"
-        - name: APP_CONFIG_PATH
-          value: "/app/config"
-        volumeMounts:
-        - name: config
-          mountPath: /app/config
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-      volumes:
-      - name: config
-        configMap:
-          name: shortas-config
-```
+2.  **Create ConfigMaps**:
+    Define application configurations as ConfigMaps.
+    ```bash
+    kubectl apply -f infra/aws/terraform/click-router-configmap.yaml
+    # Repeat for other services (click-tracker, click-aggregator, etc.)
+    ```
 
-### Service
+3.  **Deploy Databases**:
+    Deploy MongoDB, ClickHouse, and Redis using their respective Kubernetes manifests or Helm charts. Ensure persistent storage is configured.
 
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: click-router-service
-  namespace: shortas
-spec:
-  selector:
-    app: click-router
-  ports:
-  - port: 80
-    targetPort: 8080
-  type: LoadBalancer
-```
+4.  **Deploy Message Queues**:
+    Deploy Kafka/Fluvio using their Kubernetes manifests or Helm charts.
 
-### Ingress
+5.  **Deploy Shortas Services**:
+    Apply the deployment manifests for each Shortas microservice.
+    ```bash
+    kubectl apply -f infra/aws/terraform/click-router-deployment.yaml
+    kubectl apply -f infra/aws/terraform/click-router-service.yaml
+    kubectl apply -f infra/aws/terraform/click-router-ingress.yaml
+    # Repeat for other services
+    ```
 
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: shortas-ingress
-  namespace: shortas
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-spec:
-  tls:
-  - hosts:
-    - short.ly
-    - www.short.ly
-    secretName: shortas-tls
-  rules:
-  - host: short.ly
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: click-router-service
-            port:
-              number: 80
-```
+6.  **Monitor Deployment**:
+    ```bash
+    kubectl get pods -n shortas
+    kubectl get services -n shortas
+    kubectl get ingress -n shortas
+    ```
 
 ## ☁️ AWS Production Deployment
 
-### Infrastructure Setup
+Shortas can be deployed on AWS using Terraform for infrastructure as code. The `infra/aws/terraform` directory contains example Terraform configurations.
 
-```bash
-# Initialize Terraform
-cd infra/aws/terraform
-terraform init
+### Prerequisites
 
-# Plan deployment
-terraform plan
+-   AWS account configured with necessary permissions.
+-   Terraform CLI installed.
 
-# Apply configuration
-terraform apply
-```
+### Deployment Steps
 
-### Terraform Configuration
+1.  **Initialize Terraform**:
+    ```bash
+    cd infra/aws/terraform
+    terraform init
+    ```
 
-```hcl
-# main.tf
-provider "aws" {
-  region = var.aws_region
-}
+2.  **Review and Plan**:
+    ```bash
+    terraform plan
+    ```
 
-# VPC
-resource "aws_vpc" "shortas_vpc" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support   = true
+3.  **Apply Terraform**:
+    ```bash
+    terraform apply
+    ```
+    This will provision AWS resources including:
+    -   EKS Cluster (Kubernetes)
+    -   EC2 instances for services
+    -   RDS for MongoDB (or DynamoDB tables)
+    -   MSK for Kafka (or Fluvio on EC2)
+    -   ElastiCache for Redis
+    -   Load Balancers, Security Groups, etc.
 
-  tags = {
-    Name = "shortas-vpc"
-  }
-}
+## ⚙️ Configuration Management
 
-# EKS Cluster
-resource "aws_eks_cluster" "shortas_cluster" {
-  name     = "shortas-cluster"
-  role_arn = aws_iam_role.eks_cluster.arn
-  version  = "1.28"
+Refer to the [Configuration Guide](../getting-started/configuration.md) for detailed information on environment variables and TOML configuration files.
 
-  vpc_config {
-    subnet_ids = aws_subnet.shortas_subnets[*].id
-  }
+## 🗄️ Database Setup
 
-  depends_on = [
-    aws_iam_role_policy_attachment.eks_cluster_policy,
-    aws_iam_role_policy_attachment.eks_vpc_resource_controller,
-  ]
-}
+Ensure your databases are properly set up and accessible by Shortas services.
 
-# RDS for MongoDB (DocumentDB)
-resource "aws_docdb_cluster" "shortas_mongodb" {
-  cluster_identifier      = "shortas-mongodb"
-  engine                 = "docdb"
-  master_username        = "shortas"
-  master_password        = var.mongodb_password
-  backup_retention_period = 7
-  preferred_backup_window = "07:00-09:00"
-  skip_final_snapshot    = true
-}
+### MongoDB
+-   **Local**: Use `docker-compose` or manual installation.
+-   **Production**: AWS DocumentDB, MongoDB Atlas, or self-hosted cluster.
+-   [MongoDB Setup Details](deployment.md#mongodb-setup)
 
-# ElastiCache for Redis
-resource "aws_elasticache_replication_group" "shortas_redis" {
-  replication_group_id         = "shortas-redis"
-  description                  = "Redis cluster for Shortas"
-  node_type                   = "cache.t3.micro"
-  port                        = 6379
-  parameter_group_name        = "default.redis7"
-  num_cache_clusters          = 2
-  automatic_failover_enabled  = true
-  multi_az_enabled           = true
-}
-```
+### ClickHouse
+-   **Local**: Use `docker-compose` or manual installation.
+-   **Production**: AWS EC2, ClickHouse Cloud, or self-hosted cluster.
+-   [ClickHouse Setup Details](deployment.md#clickhouse-setup)
 
-## 🔧 Configuration Management
+### Redis
+-   **Local**: Use `docker-compose` or manual installation.
+-   **Production**: AWS ElastiCache or self-hosted Redis cluster.
 
-### Environment Variables
+## 📊 Analytics Setup
 
-```bash
-# Production environment
-export APP_RUN_MODE=production
-export MONGODB_URI=mongodb://prod-cluster:27017/shortas_prod
-export CLICKHOUSE_URL=http://clickhouse-prod:8123
-export REDIS_URL=redis://redis-cluster:6379
-export KEYCLOAK_URL=https://keycloak.example.com
-```
+Configure your message queues for click stream processing.
 
-### Secrets Management
+### Kafka
+-   **Local**: Use `docker-compose`.
+-   **Production**: AWS MSK or self-hosted Kafka cluster.
+-   [Kafka Setup Details](deployment.md#kafka-setup)
 
-#### Kubernetes Secrets
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: shortas-secrets
-  namespace: shortas
-type: Opaque
-data:
-  mongodb-password: <base64-encoded-password>
-  redis-password: <base64-encoded-password>
-  keycloak-secret: <base64-encoded-secret>
-```
-
-#### AWS Secrets Manager
-
-```bash
-# Store secrets
-aws secretsmanager create-secret \
-  --name "shortas/mongodb" \
-  --description "MongoDB connection string" \
-  --secret-string "mongodb://user:password@cluster:27017/shortas"
-
-# Retrieve secrets
-aws secretsmanager get-secret-value \
-  --secret-id "shortas/mongodb" \
-  --query SecretString --output text
-```
-
-## 📊 Monitoring & Observability
-
-### Prometheus Configuration
-
-```yaml
-# prometheus.yml
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: 'shortas'
-    static_configs:
-      - targets: ['click-router:8080', 'click-router-api:8080', 'click-aggregator-api:8080']
-    metrics_path: /metrics
-    scrape_interval: 5s
-```
-
-### Grafana Dashboard
-
-```json
-{
-  "dashboard": {
-    "title": "Shortas Metrics",
-    "panels": [
-      {
-        "title": "Request Rate",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "rate(http_requests_total[5m])"
-          }
-        ]
-      },
-      {
-        "title": "Response Time",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Logging Configuration
-
-```yaml
-# fluentd-config.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: fluentd-config
-data:
-  fluent.conf: |
-    <source>
-      @type tail
-      path /var/log/containers/*shortas*.log
-      pos_file /var/log/fluentd-containers.log.pos
-      tag kubernetes.*
-      format json
-    </source>
-    
-    <match kubernetes.**>
-      @type elasticsearch
-      host elasticsearch.logging.svc.cluster.local
-      port 9200
-      index_name shortas
-    </match>
-```
+### Fluvio
+-   **Local**: Use `docker-compose` or `fluvio cluster start`.
+-   **Production**: Fluvio on EC2 or other cloud instances.
+-   [Fluvio Setup Details](deployment.md#fluvio-setup)
 
 ## 🔒 Security Configuration
 
-### TLS/SSL Setup
+Implement robust security measures for your deployments.
 
-```bash
-# Generate certificates
-openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
+### TLS/SSL
+-   Configure SSL certificates for all public-facing services.
+-   Use Certbot for Let's Encrypt certificates in production.
+-   [TLS/SSL Setup Details](deployment.md#tls-ssl-setup)
 
-# Configure TLS in Kubernetes
-apiVersion: v1
-kind: Secret
-metadata:
-  name: shortas-tls
-type: kubernetes.io/tls
-data:
-  tls.crt: <base64-encoded-cert>
-  tls.key: <base64-encoded-key>
-```
+### Firewall Configuration
+-   Restrict access to necessary ports only.
+-   Use security groups (AWS) or network policies (Kubernetes).
 
-### Network Policies
+### Authentication & Authorization
+-   Integrate JWT with Keycloak or other identity providers.
+-   Implement role-based access control (RBAC).
 
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: shortas-network-policy
-  namespace: shortas
-spec:
-  podSelector:
-    matchLabels:
-      app: shortas
-  policyTypes:
-  - Ingress
-  - Egress
-  ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          name: ingress-nginx
-  egress:
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          name: database
-```
+## 📈 Monitoring & Logging
+
+Set up comprehensive monitoring and logging for observability.
+
+### Health Checks
+-   All services expose `/health` and `/metrics` endpoints.
+-   Integrate with Prometheus and Grafana.
+-   [Health Checks Details](deployment.md#health-checks)
+
+### Logging
+-   Structured JSON logging.
+-   Centralized logging with ELK stack or AWS CloudWatch.
+-   [Logging Configuration Details](deployment.md#logging-configuration)
 
 ## 🚀 Performance Optimization
 
-### Resource Limits
+Tune your environment and application for maximum performance.
 
-```yaml
-resources:
-  requests:
-    memory: "256Mi"
-    cpu: "250m"
-  limits:
-    memory: "512Mi"
-    cpu: "500m"
-```
+### System Tuning
+-   Adjust Linux kernel parameters (`sysctl.conf`).
+-   Increase file descriptor limits (`limits.conf`).
 
-### Horizontal Pod Autoscaler
-
-```yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: click-router-hpa
-  namespace: shortas
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: click-router
-  minReplicas: 3
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-```
+### Application Tuning
+-   Configure thread pools, cache sizes, and database connection pools.
+-   [Performance Optimization Details](deployment.md#performance-optimization)
 
 ## 🔄 Backup & Recovery
 
+Implement backup strategies for critical data.
+
 ### Database Backup
-
-```bash
-# MongoDB backup
-mongodump --host mongodb:27017 --db shortas --out /backup/mongodb/
-
-# ClickHouse backup
-clickhouse-backup create --config /etc/clickhouse-backup/config.yml
-```
+-   Regular backups for MongoDB (mongodump) and ClickHouse.
+-   AWS DynamoDB backups.
+-   [Database Backup Details](deployment.md#database-backup)
 
 ### Application Backup
-
-```bash
-# Backup configuration
-kubectl get configmap shortas-config -o yaml > shortas-config-backup.yaml
-
-# Backup secrets
-kubectl get secret shortas-secrets -o yaml > shortas-secrets-backup.yaml
-```
+-   Backup configuration files and static data.
 
 ## 🚨 Troubleshooting
 
-### Common Issues
+Common issues and debugging tips.
 
-**Service not starting:**
-```bash
-# Check pod status
-kubectl get pods -n shortas
-
-# Check logs
-kubectl logs -n shortas deployment/click-router
-
-# Check events
-kubectl get events -n shortas
-```
-
-**Database connection issues:**
-```bash
-# Test MongoDB connection
-kubectl exec -it deployment/mongodb -- mongosh "mongodb://localhost:27017/shortas"
-
-# Test ClickHouse connection
-kubectl exec -it deployment/clickhouse -- curl http://localhost:8123/ping
-```
-
-**Performance issues:**
-```bash
-# Check resource usage
-kubectl top pods -n shortas
-
-# Check metrics
-kubectl port-forward svc/prometheus 9090:9090
-```
-
-## 📚 Additional Resources
-
-- [Local Development](local/) - Development environment setup
-- [Docker Deployment](docker/) - Containerized deployment
-- [Kubernetes](kubernetes/) - Container orchestration
-- [AWS Production](aws/) - Cloud deployment
-- [Troubleshooting](troubleshooting/) - Common issues and solutions
+-   [Troubleshooting Guide](deployment.md#troubleshooting)
+-   Enable debug logging (`RUST_LOG=debug`).
 
 ---
 
-**Need help with deployment?** Check our [troubleshooting guide](troubleshooting/) or [open an issue](https://github.com/FlyingCow/shortas/issues) on GitHub.
+**Need help with deployment?** Check the [Issue Tracker](https://github.com/FlyingCow/shortas/issues) or our [Support](#support) section.

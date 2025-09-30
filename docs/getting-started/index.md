@@ -56,145 +56,61 @@ make dev-start
 
 If you prefer to set up manually or need to troubleshoot:
 
-### 1. Validate System
+### 1. Clone the Repository
 
 ```bash
-make validate
+git clone https://github.com/FlyingCow/shortas.git
+cd shortas
 ```
 
-### 2. Start Infrastructure
+### 2. Install Rust
 
+Ensure you have Rust 1.75+ installed.
 ```bash
-# Custom infrastructure (MongoDB, ClickHouse, Redis, Fluvio)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+### 3. Install Docker & Docker Compose
+
+For containerized infrastructure and services.
+```bash
+# Install Docker
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Install Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+```
+
+### 4. Start Infrastructure
+
+Start MongoDB, ClickHouse, Redis, and Fluvio using Docker Compose.
+```bash
 make infra-start-custom
-
-# OR AWS LocalStack infrastructure
-make infra-start-aws
 ```
 
-### 3. Build All Services
+### 5. Build Services
 
+Build all Shortas microservices.
 ```bash
 make build
 ```
 
-### 4. Run Tests
+### 6. Run Tests
 
+Ensure everything is working correctly.
 ```bash
 make test
 ```
 
-### 5. Check Health
+### 7. Start Services
 
+Start all Shortas services.
 ```bash
-make health-check
+make dev-start
 ```
-
-## 🐳 Docker Deployment
-
-### Complete Docker Setup
-
-```bash
-# Build all Docker images
-make build-docker
-
-# Deploy with Docker Compose
-make deploy-docker
-
-# Check health
-make health-check
-```
-
-## 🔧 Service Management
-
-### Development Services
-
-```bash
-make dev-start    # Start all services
-make dev-stop     # Stop all services
-make dev-restart  # Restart all services
-```
-
-### View Logs
-
-```bash
-make logs                    # All services
-make logs-router            # Click Router only
-make logs-tracker           # Click Tracker only
-make logs-aggregator        # Click Aggregator only
-```
-
-## 🌐 Service Ports
-
-- **Click Router**: 8080
-- **Click Router API**: 8080
-- **Click Aggregator API**: 8080
-- **MongoDB**: 27017
-- **ClickHouse**: 8123
-- **Redis**: 6379
-- **Kafka**: 9092
-
-## 📊 Health Checks
-
-All services provide health check endpoints:
-
-```bash
-# Check all services
-curl http://localhost:8080/health
-
-# Check specific service
-curl http://localhost:8080/health
-curl http://localhost:8081/health  # Router API
-curl http://localhost:8082/health  # Aggregator API
-```
-
-## 🔍 Next Steps
-
-Now that you have Shortas running, explore these guides:
-
-- [Installation Guide](installation/) - Detailed installation instructions
-- [Configuration](configuration/) - Configure your deployment
-- [First Steps](first-steps/) - Create your first shortened URL
-- [Architecture Overview](../architecture/) - Understand the system architecture
-- [API Reference](../api/) - Learn about the APIs
-
-## 🆘 Troubleshooting
-
-### Common Issues
-
-**Port conflicts:**
-```bash
-# Check what's using a port
-sudo netstat -tlnp | grep 8080
-
-# Kill process using port
-sudo kill -9 $(sudo lsof -t -i:8080)
-```
-
-**Database connection issues:**
-```bash
-# Test MongoDB connection
-mongosh "mongodb://localhost:27017/shortas"
-
-# Test ClickHouse connection
-curl http://localhost:8123/ping
-```
-
-**Service not starting:**
-```bash
-# Check logs
-make logs
-
-# Restart services
-make dev-restart
-```
-
-### Getting Help
-
-- Check the [troubleshooting section](../deployment/troubleshooting/)
-- Review service logs: `make logs`
-- Open an issue on [GitHub](https://github.com/FlyingCow/shortas/issues)
 
 ---
 
-**Ready to dive deeper?** Check out our [Architecture Overview](../architecture/) or [API Documentation](../api/).
+**Next Steps**: Once installed, proceed to the [Configuration Guide](configuration.md) to customize your Shortas instance.

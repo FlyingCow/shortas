@@ -1,5 +1,5 @@
 # Shortas Documentation Configuration
-# Jekyll configuration for Shortas documentation site
+# GitHub Pages compatible Jekyll configuration
 
 # Site settings
 title: Shortas Documentation
@@ -8,7 +8,7 @@ description: >-
   Comprehensive documentation for Shortas - a fast and scalable URL shortener 
   with advanced analytics, multi-tenancy, and real-time click tracking capabilities.
 baseurl: "" # the subpath of your site, e.g. /blog
-url: "https://docs.shortas.com" # the base hostname & protocol for your site, e.g. http://example.com
+url: "https://flyingcow.github.io" # the base hostname & protocol for your site
 twitter_username: shortas
 github_username: FlyingCow
 
@@ -20,11 +20,15 @@ plugins:
   - jekyll-sitemap
   - jekyll-seo-tag
 
+# GitHub Pages specific settings
+github: [metadata]
+
 # Vector.dev inspired theme settings
 theme_settings:
   primary_color: "#00d4aa"
   background_color: "#0a0e1a"
   text_color: "#ffffff"
+  accent_color: "#ff6b6b"
 
 # Collections
 collections:
@@ -41,17 +45,17 @@ defaults:
       path: ""
       type: "pages"
     values:
-      layout: "page"
+      layout: "vector-theme"
   - scope:
       path: ""
       type: "guides"
     values:
-      layout: "page"
+      layout: "vector-theme"
   - scope:
       path: ""
       type: "api"
     values:
-      layout: "page"
+      layout: "vector-theme"
 
 # Navigation
 navigation:
@@ -80,3 +84,6 @@ exclude:
   - vendor/gems/
   - vendor/ruby/
   - vendor/
+  - README.md
+  - LICENSE
+  - .gitignore
