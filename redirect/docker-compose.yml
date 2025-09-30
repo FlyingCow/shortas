@@ -171,3 +171,4 @@ volumes:
     driver: local
   fluvio_data:
     driver: local
+
