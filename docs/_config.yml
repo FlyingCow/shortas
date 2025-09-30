@@ -20,6 +20,12 @@ plugins:
   - jekyll-sitemap
   - jekyll-seo-tag
 
+# Vector.dev inspired theme settings
+theme_settings:
+  primary_color: "#00d4aa"
+  background_color: "#0a0e1a"
+  text_color: "#ffffff"
+
 # Collections
 collections:
   guides:

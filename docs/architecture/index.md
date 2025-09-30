@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: vector-theme
 title: Architecture Overview
 permalink: /architecture/
 ---

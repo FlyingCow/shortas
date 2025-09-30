@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: vector-theme
 title: Deployment Guide
 permalink: /deployment/
 ---

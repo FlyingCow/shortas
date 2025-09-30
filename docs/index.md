@@ -1,5 +1,5 @@
 ---
-layout: home
+layout: vector-theme
 title: Shortas Documentation
 description: Comprehensive documentation for Shortas - a fast and scalable URL shortener with advanced analytics, multi-tenancy, and real-time click tracking capabilities.
 ---
