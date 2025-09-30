@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="{{ page.lang | default: site.lang | default: "en" }}">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title | default: site.title | escape }}</title>
+  <meta name="description" content="{{ page.excerpt | default: site.description | strip_html | normalize_whitespace | truncate: 160 | escape }}">
+  
+  <!-- Professional theme CSS -->
+  <style>
+    /* Vector.dev inspired color scheme */
+    :root {
+      --primary-color: #00d4aa;
+      --primary-dark: #00b894;
+      --secondary-color: #a0aec0;
+      --accent-color: #ff6b6b;
+      --success-color: #00d4aa;
+      --warning-color: #ffa726;
+      --error-color: #ff6b6b;
+      --text-primary: #ffffff;
+      --text-secondary: #a0aec0;
+      --bg-primary: #0a0e1a;
+      --bg-secondary: #1a1f2e;
+      --bg-tertiary: #2d3748;
+      --border-color: #4a5568;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+      --gradient-primary: linear-gradient(135deg, #00d4aa 0%, #00b894 100%);
+      --gradient-secondary: linear-gradient(135deg, #1a1f2e 0%, #2d3748 100%);
+    }
+
+    * {
+      color-scheme: dark;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Inter', sans-serif;
+      line-height: 1.6;
+      color: var(--text-primary);
+      background-color: var(--bg-primary);
+      margin: 0;
+      padding: 0;
+      font-feature-settings: 'liga' 1, 'kern' 1;
+      text-rendering: optimizeLegibility;
+    }
+
+    .wrapper {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    .site-header {
+      background: rgba(10, 14, 26, 0.95);
+      border-bottom: 1px solid var(--border-color);
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .site-header .wrapper {
+      max-width: none;
+      width: 100%;
+      padding: 1rem 2rem;
+      margin: 0;
+    }
+
+    .site-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+      color: white;
+      margin-top: 1rem;
+      text-transform: uppercase;
+    }
+
+    .site-title-text {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.025em;
+    }
+
+    .hero-section {
+      text-align: center;
+      padding: 4rem 0;
+      background: var(--gradient-secondary);
+      color: white;
+      margin: -2rem -2rem 3rem -2rem;
+      border-radius: 0 0 1rem 1rem;
+      border: 1px solid var(--border-color);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle at 30% 20%, rgba(0, 212, 170, 0.1) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .hero-section h1 {
+      color: white;
+      border: none;
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .hero-section .lead {
+      font-size: 1.25rem;
+      margin-bottom: 2rem;
+      opacity: 0.9;
+    }
+
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2rem;
+      margin: 1.5rem 0;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+      transition: all 0.2s ease;
+      color: var(--text-primary);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--gradient-primary);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .card:hover::before {
+      opacity: 1;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+      background: var(--bg-tertiary);
+      transform: translateY(-4px);
+    }
+
+    .card-header {
+      font-weight: 600;
+      color: var(--primary-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.75rem 1.5rem;
+      background: var(--gradient-primary);
+      color: white;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+      border: none;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .btn:hover::before {
+      left: 100%;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+      color: white;
+      text-decoration: none;
+    }
+
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .alert {
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+      border-left: 4px solid;
+    }
+
+    .alert-info {
+      background: rgba(0, 212, 170, 0.1);
+      border-color: var(--primary-color);
+      color: #93c5fd;
+    }
+
+    .alert-success {
+      background: rgba(0, 212, 170, 0.1);
+      border-color: var(--success-color);
+      color: #6ee7b7;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin: 3rem 0;
+    }
+
+    .feature-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      color: var(--text-primary);
+      padding: 2rem;
+      text-align: center;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--gradient-primary);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .feature-card:hover::before {
+      opacity: 1;
+    }
+
+    .feature-card:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--primary-color);
+      transform: translateY(-8px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .feature-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      color: var(--text-primary);
+      font-weight: 600;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      border-bottom: 3px solid var(--primary-color);
+      padding-bottom: 0.5rem;
+      margin-bottom: 2rem;
+    }
+
+    h2 {
+      font-size: 2rem;
+      color: var(--primary-color);
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 0.25rem;
+    }
+
+    pre {
+      background: var(--bg-secondary);
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 1.5rem;
+      overflow-x: auto;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+    }
+
+    code {
+      background: var(--bg-tertiary);
+      color: #fbbf24;
+      padding: 0.125rem 0.375rem;
+      border-radius: 4px;
+      font-size: 0.875em;
+    }
+
+    a {
+      color: var(--primary-color);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    a:hover {
+      color: #60a5fa;
+      text-decoration: underline;
+    }
+
+    .site-footer {
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border-color);
+      margin-top: 3rem;
+      padding: 3rem 0 2rem 0;
+      color: var(--text-primary);
+    }
+
+    .footer-content {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .footer-section h3,
+    .footer-section h4 {
+      color: var(--primary-color);
+      margin-bottom: 1rem;
+    }
+
+    .footer-section ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .footer-section li {
+      margin-bottom: 0.5rem;
+    }
+
+    .footer-section a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .footer-section a:hover {
+      color: var(--primary-color);
+    }
+
+    .footer-bottom {
+      border-top: 1px solid var(--border-color);
+      padding-top: 2rem;
+      text-align: center;
+      color: var(--text-secondary);
+    }
+
+    .footer-bottom p {
+      margin: 0.5rem 0;
+    }
+
+    .text-center { text-align: center; }
+    .mt-3 { margin-top: 1rem; }
+    .mt-4 { margin-top: 1.5rem; }
+
+    @media (max-width: 768px) {
+      h1 { font-size: 2rem; }
+      h2 { font-size: 1.75rem; }
+      .feature-grid { grid-template-columns: 1fr; }
+      .wrapper { padding: 0 1rem; }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="site-header">
+    <div class="wrapper">
+      <a class="site-title" href="{{ '/' | relative_url }}">
+        <span class="site-title-text">{{ site.title | escape }}</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="page-content" aria-label="Content">
+    <div class="wrapper">
+      {{ content }}
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrapper">
+      <div class="footer-content">
+        <div class="footer-section">
+          <h3>Shortas</h3>
+          <p>Fast and scalable URL shortener with advanced analytics, multi-tenancy, and real-time click tracking capabilities.</p>
+        </div>
+        
+        <div class="footer-section">
+          <h4>Documentation</h4>
+          <ul>
+            <li><a href="/getting-started/">Getting Started</a></li>
+            <li><a href="/architecture/">Architecture</a></li>
+            <li><a href="/api/">API Reference</a></li>
+            <li><a href="/deployment/">Deployment</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-section">
+          <h4>Development</h4>
+          <ul>
+            <li><a href="/development/">Contributing</a></li>
+            <li><a href="https://github.com/FlyingCow/shortas">GitHub</a></li>
+            <li><a href="https://github.com/FlyingCow/shortas/issues">Issues</a></li>
+            <li><a href="/about/">About</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-section">
+          <h4>Support</h4>
+          <ul>
+            <li><a href="https://github.com/FlyingCow/shortas/issues">Report Bug</a></li>
+            <li><a href="https://github.com/FlyingCow/shortas/discussions">Discussions</a></li>
+            <li><a href="mailto:docs@shortas.com">Contact</a></li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="footer-bottom">
+        <p>&copy; {{ 'now' | date: "%Y" }} Shortas. Licensed under <a href="https://github.com/FlyingCow/shortas/blob/main/LICENSE">MIT License</a>.</p>
+        <p>Built with ❤️ using Rust and modern web technologies.</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
