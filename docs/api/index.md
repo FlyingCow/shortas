@@ -4,16 +4,26 @@ title: API Reference
 permalink: /api/
 ---
 
-# API Reference
+<div class="hero-section">
+  <h1>API Reference</h1>
+  <p class="lead">This section provides comprehensive documentation for all Shortas APIs, including authentication, endpoints, data models, and integration examples.</p>
+</div>
 
-This section provides comprehensive documentation for all Shortas APIs, including authentication, endpoints, data models, and integration examples.
-
-## 🔗 API Overview
-
-Shortas provides two main APIs for different use cases:
-
-- **[Click Router API](click-router/)** - Route and settings management
-- **[Click Aggregator API](click-aggregator/)** - Analytics and reporting
+<div class="feature-grid">
+  <div class="feature-card">
+    <div class="feature-icon">🔧</div>
+    <h3>Click Router API</h3>
+    <p>Route and settings management with comprehensive CRUD operations.</p>
+    <a href="click-router/" class="btn">Learn More</a>
+  </div>
+  
+  <div class="feature-card">
+    <div class="feature-icon">📊</div>
+    <h3>Click Aggregator API</h3>
+    <p>Analytics and reporting with detailed insights and metrics.</p>
+    <a href="click-aggregator/" class="btn">Learn More</a>
+  </div>
+</div>
 
 ## 🔐 Authentication
 

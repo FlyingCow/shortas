@@ -4,18 +4,40 @@ title: Deployment Guide
 permalink: /deployment/
 ---
 
-# Deployment Guide
+<div class="hero-section">
+  <h1>Deployment Guide</h1>
+  <p class="lead">This guide covers deployment strategies, configuration, and operational considerations for Shortas in various environments.</p>
+</div>
 
-This guide covers deployment strategies, configuration, and operational considerations for Shortas in various environments.
-
-## 🚀 Deployment Options
-
-Shortas supports multiple deployment strategies:
-
-- **[Local Development](local/)** - Development environment setup
-- **[Docker Deployment](docker/)** - Containerized deployment
-- **[Kubernetes](kubernetes/)** - Container orchestration
-- **[AWS Production](aws/)** - Cloud deployment
+<div class="feature-grid">
+  <div class="feature-card">
+    <div class="feature-icon">💻</div>
+    <h3>Local Development</h3>
+    <p>Development environment setup with all necessary tools and dependencies.</p>
+    <a href="local/" class="btn">Learn More</a>
+  </div>
+  
+  <div class="feature-card">
+    <div class="feature-icon">🐳</div>
+    <h3>Docker Deployment</h3>
+    <p>Containerized deployment with Docker and Docker Compose.</p>
+    <a href="docker/" class="btn">Learn More</a>
+  </div>
+  
+  <div class="feature-card">
+    <div class="feature-icon">☸️</div>
+    <h3>Kubernetes</h3>
+    <p>Container orchestration for production-scale deployments.</p>
+    <a href="kubernetes/" class="btn">Learn More</a>
+  </div>
+  
+  <div class="feature-card">
+    <div class="feature-icon">☁️</div>
+    <h3>AWS Production</h3>
+    <p>Cloud deployment with AWS services and infrastructure.</p>
+    <a href="aws/" class="btn">Learn More</a>
+  </div>
+</div>
 
 ## 📋 Prerequisites
 

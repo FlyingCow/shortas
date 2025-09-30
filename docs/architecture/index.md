@@ -4,9 +4,10 @@ title: Architecture Overview
 permalink: /architecture/
 ---
 
-# Architecture Overview
-
-Shortas is built as a microservices architecture designed for high performance, scalability, and reliability. This document provides a comprehensive overview of the system architecture.
+<div class="hero-section">
+  <h1>Architecture Overview</h1>
+  <p class="lead">Shortas is built as a microservices architecture designed for high performance, scalability, and reliability. This document provides a comprehensive overview of the system architecture.</p>
+</div>
 
 ## 🏗️ System Architecture
 

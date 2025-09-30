@@ -4,23 +4,27 @@ title: About Shortas
 permalink: /about/
 ---
 
-# About Shortas
+<div class="hero-section">
+  <h1>About Shortas</h1>
+  <p class="lead">**Shortas** is a fast and scalable URL shortener built with Rust, designed for enterprise-grade performance and reliability. It provides advanced analytics, multi-tenancy, and real-time click tracking capabilities.</p>
+</div>
 
-**Shortas** is a fast and scalable URL shortener built with Rust, designed for enterprise-grade performance and reliability. It provides advanced analytics, multi-tenancy, and real-time click tracking capabilities.
+<div class="card">
+  <div class="card-header">🎯 Mission</div>
+  <p>To provide a high-performance, scalable URL shortening service that can handle millions of redirects with comprehensive analytics and enterprise-grade security.</p>
+</div>
 
-## 🎯 Mission
-
-To provide a high-performance, scalable URL shortening service that can handle millions of redirects with comprehensive analytics and enterprise-grade security.
-
-## 🏗️ Architecture Philosophy
-
-Shortas is built on the principles of:
-
-- **Microservices Architecture**: Each component has a single responsibility
-- **High Performance**: Built with Rust for maximum speed and efficiency
-- **Scalability**: Designed to handle massive traffic loads
-- **Observability**: Comprehensive monitoring and analytics
-- **Security**: Enterprise-grade security features
+<div class="card">
+  <div class="card-header">🏗️ Architecture Philosophy</div>
+  <p>Shortas is built on the principles of:</p>
+  <ul>
+    <li><strong>Microservices Architecture</strong>: Each component has a single responsibility</li>
+    <li><strong>High Performance</strong>: Built with Rust for maximum speed and efficiency</li>
+    <li><strong>Scalability</strong>: Designed to handle massive traffic loads</li>
+    <li><strong>Observability</strong>: Comprehensive monitoring and analytics</li>
+    <li><strong>Security</strong>: Enterprise-grade security features</li>
+  </ul>
+</div>
 
 ## 🚀 Key Features
 

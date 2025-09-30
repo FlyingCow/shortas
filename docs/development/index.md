@@ -4,22 +4,26 @@ title: Development Guide
 permalink: /development/
 ---
 
-# Development Guide
+<div class="hero-section">
+  <h1>Development Guide</h1>
+  <p class="lead">This guide covers development practices, contribution guidelines, and technical details for contributing to Shortas.</p>
+</div>
 
-This guide covers development practices, contribution guidelines, and technical details for contributing to Shortas.
+<div class="alert alert-info">
+  <strong>🤝 Contributing to Shortas</strong><br>
+  We welcome contributions from the community! This guide will help you get started with development.
+</div>
 
-## 🤝 Contributing to Shortas
-
-We welcome contributions from the community! This guide will help you get started with development.
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Rust 1.75+ (stable channel)
-- Docker & Docker Compose
-- Make
-- Git
+<div class="card">
+  <div class="card-header">🚀 Getting Started</div>
+  <h4>Prerequisites</h4>
+  <ul>
+    <li>Rust 1.75+ (stable channel)</li>
+    <li>Docker & Docker Compose</li>
+    <li>Make</li>
+    <li>Git</li>
+  </ul>
+</div>
 
 ### Development Setup
 
