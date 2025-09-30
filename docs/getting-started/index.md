@@ -113,4 +113,4 @@ make dev-start
 
 ---
 
-**Next Steps**: Once installed, proceed to the [Configuration Guide](configuration.md) to customize your Shortas instance.
+**Next Steps**: Once installed, proceed to the [Configuration Guide](/getting-started/) to customize your Shortas instance.

@@ -110,7 +110,7 @@ permalink: /about/
 
 ## 🤝 Contributing
 
-We welcome contributions from the community! Please see our [Contributing Guide](development/contributing/) for details on how to get involved.
+We welcome contributions from the community! Please see our [Contributing Guide](/development/) for details on how to get involved.
 
 ### Ways to Contribute
 - **Code**: Bug fixes, new features, performance improvements

@@ -16,28 +16,28 @@ permalink: /deployment/
     <div class="feature-icon">💻</div>
     <h3>Local Development</h3>
     <p>Development environment setup with all necessary tools and dependencies.</p>
-    <a href="local/" class="btn">Learn More</a>
+    <a href="/deployment/" class="btn">Learn More</a>
   </div>
   
   <div class="feature-card">
     <div class="feature-icon">🐳</div>
     <h3>Docker Deployment</h3>
     <p>Containerized deployment with Docker and Docker Compose.</p>
-    <a href="docker/" class="btn">Learn More</a>
+    <a href="/deployment/" class="btn">Learn More</a>
   </div>
   
   <div class="feature-card">
     <div class="feature-icon">☸️</div>
     <h3>Kubernetes</h3>
     <p>Container orchestration for production-scale deployments.</p>
-    <a href="kubernetes/" class="btn">Learn More</a>
+    <a href="/deployment/" class="btn">Learn More</a>
   </div>
   
   <div class="feature-card">
     <div class="feature-icon">☁️</div>
     <h3>AWS Production</h3>
     <p>Cloud deployment with AWS services and infrastructure.</p>
-    <a href="aws/" class="btn">Learn More</a>
+    <a href="/deployment/" class="btn">Learn More</a>
   </div>
 </div>
 
@@ -197,12 +197,12 @@ Ensure your databases are properly set up and accessible by Shortas services.
 ### MongoDB
 -   **Local**: Use `docker-compose` or manual installation.
 -   **Production**: AWS DocumentDB, MongoDB Atlas, or self-hosted cluster.
--   [MongoDB Setup Details](deployment.md#mongodb-setup)
+-   [MongoDB Setup Details](/deployment/)
 
 ### ClickHouse
 -   **Local**: Use `docker-compose` or manual installation.
 -   **Production**: AWS EC2, ClickHouse Cloud, or self-hosted cluster.
--   [ClickHouse Setup Details](deployment.md#clickhouse-setup)
+-   [ClickHouse Setup Details](/deployment/)
 
 ### Redis
 -   **Local**: Use `docker-compose` or manual installation.
@@ -215,12 +215,12 @@ Configure your message queues for click stream processing.
 ### Kafka
 -   **Local**: Use `docker-compose`.
 -   **Production**: AWS MSK or self-hosted Kafka cluster.
--   [Kafka Setup Details](deployment.md#kafka-setup)
+-   [Kafka Setup Details](/deployment/)
 
 ### Fluvio
 -   **Local**: Use `docker-compose` or `fluvio cluster start`.
 -   **Production**: Fluvio on EC2 or other cloud instances.
--   [Fluvio Setup Details](deployment.md#fluvio-setup)
+-   [Fluvio Setup Details](/deployment/)
 
 ## 🔒 Security Configuration
 
@@ -229,7 +229,7 @@ Implement robust security measures for your deployments.
 ### TLS/SSL
 -   Configure SSL certificates for all public-facing services.
 -   Use Certbot for Let's Encrypt certificates in production.
--   [TLS/SSL Setup Details](deployment.md#tls-ssl-setup)
+-   [TLS/SSL Setup Details](/deployment/)
 
 ### Firewall Configuration
 -   Restrict access to necessary ports only.
@@ -246,12 +246,12 @@ Set up comprehensive monitoring and logging for observability.
 ### Health Checks
 -   All services expose `/health` and `/metrics` endpoints.
 -   Integrate with Prometheus and Grafana.
--   [Health Checks Details](deployment.md#health-checks)
+-   [Health Checks Details](/deployment/)
 
 ### Logging
 -   Structured JSON logging.
 -   Centralized logging with ELK stack or AWS CloudWatch.
--   [Logging Configuration Details](deployment.md#logging-configuration)
+-   [Logging Configuration Details](/deployment/)
 
 ## 🚀 Performance Optimization
 
@@ -263,7 +263,7 @@ Tune your environment and application for maximum performance.
 
 ### Application Tuning
 -   Configure thread pools, cache sizes, and database connection pools.
--   [Performance Optimization Details](deployment.md#performance-optimization)
+-   [Performance Optimization Details](/deployment/)
 
 ## 🔄 Backup & Recovery
 
@@ -272,7 +272,7 @@ Implement backup strategies for critical data.
 ### Database Backup
 -   Regular backups for MongoDB (mongodump) and ClickHouse.
 -   AWS DynamoDB backups.
--   [Database Backup Details](deployment.md#database-backup)
+-   [Database Backup Details](/deployment/)
 
 ### Application Backup
 -   Backup configuration files and static data.
@@ -281,7 +281,7 @@ Implement backup strategies for critical data.
 
 Common issues and debugging tips.
 
--   [Troubleshooting Guide](deployment.md#troubleshooting)
+-   [Troubleshooting Guide](/deployment/)
 -   Enable debug logging (`RUST_LOG=debug`).
 
 ---

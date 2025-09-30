@@ -50,35 +50,35 @@ make dev-start
     <div class="feature-icon">🚀</div>
     <h3>Click Router</h3>
     <p>Main redirect service handling URL routing and redirects with intelligent conditional logic.</p>
-    <a href="redirect/click-router/README.md" class="btn">Learn More</a>
+    <a href="https://github.com/FlyingCow/shortas/tree/main/redirect/click-router" class="btn" target="_blank">Learn More</a>
   </div>
   
   <div class="feature-card">
     <div class="feature-icon">📊</div>
     <h3>Click Tracker</h3>
     <p>Real-time click processing and data enrichment with geographic and device analytics.</p>
-    <a href="redirect/click-tracker/" class="btn">Learn More</a>
+    <a href="https://github.com/FlyingCow/shortas/tree/main/redirect/click-tracker" class="btn" target="_blank">Learn More</a>
   </div>
   
   <div class="feature-card">
     <div class="feature-icon">⚡</div>
     <h3>Click Aggregator</h3>
     <p>Analytics data processing and storage with high-performance batch processing.</p>
-    <a href="redirect/click-aggregator/" class="btn">Learn More</a>
+    <a href="https://github.com/FlyingCow/shortas/tree/main/redirect/click-aggregator" class="btn" target="_blank">Learn More</a>
   </div>
   
   <div class="feature-card">
     <div class="feature-icon">🔧</div>
     <h3>Click Router API</h3>
     <p>REST API for route and settings management with JWT authentication.</p>
-    <a href="redirect/click-router-api/README.md" class="btn">Learn More</a>
+    <a href="https://github.com/FlyingCow/shortas/tree/main/redirect/click-router-api" class="btn" target="_blank">Learn More</a>
   </div>
   
   <div class="feature-card">
     <div class="feature-icon">📈</div>
     <h3>Click Aggregator API</h3>
     <p>Analytics and reporting API with comprehensive data insights.</p>
-    <a href="redirect/click-aggregator-api/README.md" class="btn">Learn More</a>
+    <a href="https://github.com/FlyingCow/shortas/tree/main/redirect/click-aggregator-api" class="btn" target="_blank">Learn More</a>
   </div>
 </div>
 
@@ -89,9 +89,9 @@ make dev-start
     <div class="card-header">🚀 Getting Started</div>
     <ul>
       <li><a href="getting-started/">Quick Start Guide</a></li>
-      <li><a href="getting-started/installation/">Installation</a></li>
-      <li><a href="getting-started/configuration/">Configuration</a></li>
-      <li><a href="getting-started/first-steps/">First Steps</a></li>
+      <li><a href="/getting-started/">Installation</a></li>
+      <li><a href="/getting-started/">Configuration</a></li>
+      <li><a href="/getting-started/">First Steps</a></li>
     </ul>
   </div>
   
@@ -99,39 +99,39 @@ make dev-start
     <div class="card-header">🏗️ Architecture</div>
     <ul>
       <li><a href="architecture/">System Overview</a></li>
-      <li><a href="architecture/microservices/">Microservices</a></li>
-      <li><a href="architecture/data-flow/">Data Flow</a></li>
-      <li><a href="architecture/security/">Security</a></li>
+      <li><a href="/architecture/">Microservices</a></li>
+      <li><a href="/architecture/">Data Flow</a></li>
+      <li><a href="/architecture/">Security</a></li>
     </ul>
   </div>
   
   <div class="card">
     <div class="card-header">📡 API Reference</div>
     <ul>
-      <li><a href="api/click-router/">Click Router API</a></li>
-      <li><a href="api/click-aggregator/">Click Aggregator API</a></li>
-      <li><a href="api/authentication/">Authentication</a></li>
-      <li><a href="api/data-models/">Data Models</a></li>
+      <li><a href="/api/">Click Router API</a></li>
+      <li><a href="/api/">Click Aggregator API</a></li>
+      <li><a href="/api/">Authentication</a></li>
+      <li><a href="/api/">Data Models</a></li>
     </ul>
   </div>
   
   <div class="card">
     <div class="card-header">🚀 Deployment</div>
     <ul>
-      <li><a href="deployment/local/">Local Development</a></li>
-      <li><a href="deployment/docker/">Docker Deployment</a></li>
-      <li><a href="deployment/kubernetes/">Kubernetes</a></li>
-      <li><a href="deployment/aws/">AWS Production</a></li>
+      <li><a href="/deployment/">Local Development</a></li>
+      <li><a href="/deployment/">Docker Deployment</a></li>
+      <li><a href="/deployment/">Kubernetes</a></li>
+      <li><a href="/deployment/">AWS Production</a></li>
     </ul>
   </div>
   
   <div class="card">
     <div class="card-header">🛠️ Development</div>
     <ul>
-      <li><a href="development/contributing/">Contributing</a></li>
-      <li><a href="development/code-style/">Code Style</a></li>
-      <li><a href="development/testing/">Testing</a></li>
-      <li><a href="development/debugging/">Debugging</a></li>
+      <li><a href="/development/">Contributing</a></li>
+      <li><a href="/development/">Code Style</a></li>
+      <li><a href="/development/">Testing</a></li>
+      <li><a href="/development/">Debugging</a></li>
     </ul>
   </div>
 </div>
