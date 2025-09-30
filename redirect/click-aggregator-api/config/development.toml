@@ -1,18 +1,7 @@
 debug = true
 
-[aws]
-local = true
-localstack_endpoint = "http://localhost:4566"
-
-[aws.dynamo]
-encryption_table = "core-routes-encryption-local"
-routes_table = "core-routes-local"
-hostname_mappings_table = "core-routes-hostname-mapping-local"
-user_settings_table = "core-user-settings-local"
-
-[mongodb]
-connection_string = "mongodb://root:example@mongo:27017/"
-database_name = "shortas"
-routes_collection = "core_routes_main"
-crypto_collection = "core_routes_encryption_main"
-user_settings_collection = "core_user_settings_main"
+[clickhouse]
+url = "http://clickhouse:8123"
+user = "default"
+password = "clickhouse"
+database = "shortas"

@@ -222,15 +222,6 @@ impl ConfigurationError {
 /// External service errors
 #[derive(Error, Debug, Clone)]
 pub enum ExternalServiceError {
-    #[error("AWS service error: {0}")]
-    Aws(String),
-    
-    #[error("MongoDB service error: {0}")]
-    MongoDB(String),
-    
-    #[error("DynamoDB service error: {0}")]
-    DynamoDB(String),
-    
     #[error("Service unavailable: {0}")]
     Unavailable(String),
     
@@ -244,9 +235,6 @@ pub enum ExternalServiceError {
 impl ExternalServiceError {
     fn get_error_code(&self) -> u16 {
         match self {
-            ExternalServiceError::Aws(_) => 502,
-            ExternalServiceError::MongoDB(_) => 502,
-            ExternalServiceError::DynamoDB(_) => 502,
             ExternalServiceError::Unavailable(_) => 503,
             ExternalServiceError::RateLimited(_) => 429,
             ExternalServiceError::Timeout(_) => 504,
@@ -336,13 +324,8 @@ impl ApiError {
     }
     
     /// Create an external service error
-    pub fn external_service_error(service: String, message: String) -> Self {
-        match service.to_lowercase().as_str() {
-            "mongodb" => ApiError::ExternalService(ExternalServiceError::MongoDB(message)),
-            "dynamodb" => ApiError::ExternalService(ExternalServiceError::DynamoDB(message)),
-            "aws" => ApiError::ExternalService(ExternalServiceError::Aws(message)),
-            _ => ApiError::ExternalService(ExternalServiceError::Unavailable(message)),
-        }
+    pub fn external_service_error(_service: String, message: String) -> Self {
+        ApiError::ExternalService(ExternalServiceError::Unavailable(message))
     }
 }
 
@@ -354,17 +337,6 @@ impl From<anyhow::Error> for ApiError {
             return api_error.clone();
         }
         
-        // Check for common database errors
-        let error_msg = err.to_string().to_lowercase();
-        if error_msg.contains("mongodb") {
-            return ApiError::external_service_error("mongodb".to_string(), err.to_string());
-        }
-        if error_msg.contains("dynamodb") {
-            return ApiError::external_service_error("dynamodb".to_string(), err.to_string());
-        }
-        if error_msg.contains("aws") {
-            return ApiError::external_service_error("aws".to_string(), err.to_string());
-        }
         
         // Default to internal error
         ApiError::Internal(InternalError::Unexpected(err.to_string()))

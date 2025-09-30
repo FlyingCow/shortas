@@ -1,21 +1,11 @@
-[aws]
-
-[aws.dynamo]
-encryption_table = "core-routes-encryption-main"
-routes_table = "core-routes-main"
-hostname_mappings_table = "core-routes-hostname-mapping-main"
-user_settings_table = "core-user-settings-main"
-
-# Mongodb Configuration
-[mongodb]
-connection_string = "mongodb://localhost:27017"
-database_name = "click_aggregator"
-routes_collection = "routes"
-crypto_collection = "crypto"
-user_settings_collection = "user_settings"
-
 [server]
 threads = 8
 listen_os_signals = true
 exit = true
 port = 3000
+
+[clickhouse]
+url = "http://clickhouse:8123"
+user = "default"
+password = "clickhouse"
+database = "shortas"

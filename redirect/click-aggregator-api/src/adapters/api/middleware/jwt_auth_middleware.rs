@@ -187,18 +187,18 @@ impl JwksCache {
             .send()
             .await
             .map_err(|e| ApiError::ExternalService(
-                crate::model::error::ExternalServiceError::Aws(format!("Failed to fetch JWKS: {}", e))
+                crate::model::error::ExternalServiceError::Unavailable(format!("Failed to fetch JWKS: {}", e))
             ))?;
         
         if !response.status().is_success() {
             return Err(ApiError::ExternalService(
-                crate::model::error::ExternalServiceError::Aws("Failed to fetch JWKS from Keycloak".to_string())
+                crate::model::error::ExternalServiceError::Unavailable("Failed to fetch JWKS from Keycloak".to_string())
             ));
         }
         
         let jwks: JwksResponse = response.json().await
             .map_err(|e| ApiError::ExternalService(
-                crate::model::error::ExternalServiceError::Aws(format!("Failed to parse JWKS: {}", e))
+                crate::model::error::ExternalServiceError::Unavailable(format!("Failed to parse JWKS: {}", e))
             ))?;
         
         // Cache the keys
@@ -463,7 +463,7 @@ async fn validate_rpt_token(config: &KeycloakConfig, token: &str) -> Result<JwtA
         .send()
         .await
         .map_err(|e| ApiError::ExternalService(
-            crate::model::error::ExternalServiceError::Aws(format!("Introspection failed: {}", e))
+            crate::model::error::ExternalServiceError::Unavailable(format!("Introspection failed: {}", e))
         ))?;
     
     if !response.status().is_success() {
@@ -472,7 +472,7 @@ async fn validate_rpt_token(config: &KeycloakConfig, token: &str) -> Result<JwtA
     
     let introspection: TokenIntrospection = response.json().await
         .map_err(|e| ApiError::ExternalService(
-            crate::model::error::ExternalServiceError::Aws(format!("Failed to parse introspection: {}", e))
+            crate::model::error::ExternalServiceError::Unavailable(format!("Failed to parse introspection: {}", e))
         ))?;
     
     if !introspection.active {

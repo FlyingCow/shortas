@@ -12,8 +12,18 @@ pub struct Server {
 
 #[derive(Debug, Deserialize, Clone)]
 #[allow(unused)]
+pub struct ClickHouse {
+    pub url: String,
+    pub user: String,
+    pub password: String,
+    pub database: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[allow(unused)]
 pub struct Settings {
     pub server: Server,
+    pub clickhouse: ClickHouse,
 }
 const DEV_RUN_MODE: &str = "development";
 

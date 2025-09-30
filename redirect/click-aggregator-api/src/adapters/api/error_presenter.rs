@@ -1,4 +1,4 @@
-use salvo::{http::StatusCode, Response, Scribe};
+use salvo::{http::StatusCode, Response, Scribe, oapi::ToSchema};
 use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
@@ -7,7 +7,7 @@ use crate::model::error::{
     ApiError, AuthenticationError, DatabaseError, ExternalServiceError, RouteError,
 };
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct ErrorPresenter {
     pub code: u16,
     pub error: String,
@@ -49,23 +49,6 @@ impl ErrorResponse {
             return Self::from_api_error(api_error);
         }
 
-        // If it's a database error from MongoDB or DynamoDB
-        if e.to_string().contains("mongodb") || e.to_string().contains("dynamodb") {
-            return ErrorResponse {
-                status_code: StatusCode::BAD_GATEWAY,
-                error: "Database service error".to_string(),
-                details: Some(e.to_string()),
-            };
-        }
-
-        // If it's an AWS error
-        if e.to_string().contains("aws") || e.to_string().contains("AWS") {
-            return ErrorResponse {
-                status_code: StatusCode::BAD_GATEWAY,
-                error: "External service error".to_string(),
-                details: Some(e.to_string()),
-            };
-        }
 
         // Generic internal server error
         ErrorResponse {
@@ -108,9 +91,6 @@ impl ErrorResponse {
             },
             ApiError::Configuration(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ApiError::ExternalService(ext_error) => match ext_error {
-                ExternalServiceError::Aws(_) => StatusCode::BAD_GATEWAY,
-                ExternalServiceError::MongoDB(_) => StatusCode::BAD_GATEWAY,
-                ExternalServiceError::DynamoDB(_) => StatusCode::BAD_GATEWAY,
                 ExternalServiceError::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
                 ExternalServiceError::RateLimited(_) => StatusCode::TOO_MANY_REQUESTS,
                 ExternalServiceError::Timeout(_) => StatusCode::GATEWAY_TIMEOUT,
@@ -128,5 +108,23 @@ impl ErrorResponse {
     /// Legacy method for backward compatibility
     pub fn map_io_error(e: ApiError) -> ErrorResponse {
         Self::from_api_error(&e)
+    }
+
+    /// Create a bad request error
+    pub fn bad_request(message: &str) -> ErrorResponse {
+        ErrorResponse {
+            status_code: StatusCode::BAD_REQUEST,
+            error: "Bad Request".to_string(),
+            details: Some(message.to_string()),
+        }
+    }
+
+    /// Create an internal server error
+    pub fn internal_server_error(message: &str) -> ErrorResponse {
+        ErrorResponse {
+            status_code: StatusCode::INTERNAL_SERVER_ERROR,
+            error: "Internal Server Error".to_string(),
+            details: Some(message.to_string()),
+        }
     }
 }

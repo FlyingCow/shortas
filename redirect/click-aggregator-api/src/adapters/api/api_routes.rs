@@ -5,6 +5,7 @@ use crate::adapters::api::middleware::{
     jwt_auth_middleware_fn as jwt_auth_middleware, jwt_authorization_middleware,
     rate_limit_middleware, security_headers_middleware, validation_middleware,
 };
+use crate::adapters::api::routes::clickstream_controller;
 
 pub fn routes() -> Router {
     // Public routes (no authentication required)
@@ -18,7 +19,8 @@ pub fn routes() -> Router {
         .hoop(rate_limit_middleware)
         .hoop(validation_middleware)
         .hoop(jwt_auth_middleware)
-        .hoop(jwt_authorization_middleware);
+        .hoop(jwt_authorization_middleware)
+        .push(clickstream_controller::api_routes());
 
     // Combine all routes
     Router::new().push(public_routes).push(protected_routes)

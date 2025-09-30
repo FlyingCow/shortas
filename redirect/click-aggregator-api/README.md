@@ -206,12 +206,11 @@ The API uses DTOs for clean, type-safe data exchange:
 ### Environment Variables
 
 ```bash
-# Database Configuration
-DATABASE_URL=mongodb://localhost:27017/click_aggregator
-# or for DynamoDB
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
+# ClickHouse Configuration
+APP_CLICKHOUSE_URL=http://clickhouse:8123
+APP_CLICKHOUSE_USER=default
+APP_CLICKHOUSE_PASSWORD=clickhouse
+APP_CLICKHOUSE_DATABASE=shortas
 
 # JWT Configuration
 KEYCLOAK_URL=http://keycloak:8080
@@ -229,79 +228,83 @@ LOG_LEVEL=info
 #### `config/development.toml`
 ```toml
 [server]
-host = "0.0.0.0"
-port = 8080
+threads = 8
+listen_os_signals = true
+exit = true
+port = 3000
 
-[database]
-url = "mongodb://localhost:27017/click_aggregator_dev"
-
-[jwt]
-keycloak_url = "http://localhost:8080"
-realm = "click-aggregator"
-client_id = "click-aggregator-api"
+[clickhouse]
+url = "http://clickhouse:8123"
+user = "default"
+password = "clickhouse"
+database = "shortas"
 ```
 
 #### `config/production.toml`
 ```toml
 [server]
-host = "0.0.0.0"
-port = 8080
+threads = 8
+listen_os_signals = true
+exit = true
+port = 3000
 
-[database]
-url = "mongodb://mongodb:27017/click_aggregator"
-
-[jwt]
-keycloak_url = "https://keycloak.example.com"
-realm = "click-aggregator"
-client_id = "click-aggregator-api"
+[clickhouse]
+url = "http://clickhouse:8123"
+user = "default"
+password = "clickhouse"
+database = "shortas"
 ```
 
 ## 🗄️ Database Setup
 
-### MongoDB Setup
+### ClickHouse Setup
 
-1. **Install MongoDB**
+1. **Install ClickHouse**
    ```bash
    # Ubuntu/Debian
-   sudo apt-get install mongodb
+   sudo apt-get install clickhouse-server clickhouse-client
    
    # macOS
-   brew install mongodb-community
+   brew install clickhouse
    ```
 
-2. **Start MongoDB**
+2. **Start ClickHouse**
    ```bash
-   sudo systemctl start mongod
+   sudo systemctl start clickhouse-server
    # or
-   mongod --dbpath /data/db
+   clickhouse-server --config-file=/etc/clickhouse-server/config.xml
    ```
 
-3. **Create Database**
+3. **Create Database and Table**
    ```bash
-   mongo
-   > use click_aggregator
-   > db.createUser({user: "api_user", pwd: "password", roles: ["readWrite"]})
-   ```
-
-### DynamoDB Setup (AWS)
-
-1. **Create DynamoDB Tables**
-   ```bash
-   aws dynamodb create-table \
-     --table-name routes \
-     --attribute-definitions \
-       AttributeName=switch,AttributeType=S \
-       AttributeName=domain,AttributeType=S \
-       AttributeName=path,AttributeType=S \
-     --key-schema \
-       AttributeName=switch,KeyType=HASH \
-       AttributeName=domain,KeyType=RANGE \
-     --billing-mode PAY_PER_REQUEST
-   ```
-
-2. **Configure AWS Credentials**
-   ```bash
-   aws configure
+   clickhouse-client
+   > CREATE DATABASE IF NOT EXISTS shortas;
+   > USE shortas;
+   > CREATE TABLE IF NOT EXISTS click_stream (
+       id String,
+       owner_id String,
+       creator_id String,
+       route_id String,
+       workspace_id String,
+       created DateTime,
+       dest String,
+       ip String,
+       continent Nullable(String),
+       country Nullable(String),
+       location Nullable(String),
+       os_family Nullable(String),
+       os_version Nullable(String),
+       user_agent_family Nullable(String),
+       user_agent_version Nullable(String),
+       device_brand Nullable(String),
+       device_family Nullable(String),
+       device_model Nullable(String),
+       session_first Nullable(DateTime),
+       session_clicks Nullable(UInt128),
+       is_unique UInt8,
+       is_bot UInt8
+   ) ENGINE = MergeTree()
+   ORDER BY id;
    ```
 
 ## 🔒 Security
@@ -546,6 +549,7 @@ All detailed documentation is organized in the `docs/` directory:
 - [OpenAPI Parameters](docs/OPENAPI_PARAMETERS.md) - Detailed parameter specifications
 - [Crypto Endpoints](docs/CRYPTO_ENDPOINTS.md) - SSL certificate management
 - [User Settings Endpoints](docs/USER_SETTINGS_ENDPOINTS.md) - User settings management
+- [ClickStream API](docs/CLICKSTREAM_API.md) - ClickStream analytics API
 
 ### Data Transfer Objects
 - [DTO Usage](docs/DTO_USAGE.md) - General DTO patterns

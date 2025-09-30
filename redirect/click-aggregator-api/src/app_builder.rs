@@ -29,19 +29,19 @@ pub struct Api {
 }
 
 impl Api {
-    fn new(settings: ServerSettings) -> Self {
-        Api {
-            api_pool: AppState::new(),
-            settings,
-        }
+    fn new(settings: Settings) -> Result<Self> {
+        Ok(Api {
+            api_pool: AppState::new(&settings)?,
+            settings: settings.server,
+        })
     }
 
     async fn start_server(self) -> Result<()> {
-        let port = self.settings.port.unwrap_or(8080);
+        let _port = self.settings.port.unwrap_or(8080);
 
         let router = adapters::api::api_routes::routes();
 
-        let app_state = self.api_pool.clone();
+        let _app_state = self.api_pool.clone();
 
         let doc = OpenApi::new("test api", "0.0.1").merge_router(&router);
 
@@ -65,14 +65,14 @@ impl Api {
 
 impl AppBuilder {
     pub fn new(settings: Settings) -> Self {
-        Self { settings }
+        Self {
+            settings,
+        }
     }
 
     pub fn build(&self) -> Result<Api> {
         info!("{}", "BUILDING");
 
-        let router = Api::new(self.settings.server.clone());
-
-        Ok(router)
+        Api::new(self.settings.clone())
     }
 }
