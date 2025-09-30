@@ -1,16 +1,16 @@
 # Shortas Documentation
 
-This directory contains the documentation for the Shortas project, built with Jekyll and styled with a Vector.dev inspired theme.
+This directory contains the documentation for the Shortas project, built with Jekyll and styled with a professional theme.
 
-## 🎨 Vector.dev Inspired Theme
+## 🎨 Professional Theme
 
-The documentation uses a custom theme inspired by [Vector.dev](https://vector.dev), featuring:
+The documentation uses a custom professional theme featuring:
 
-- **Teal Color Scheme**: Vector's signature `#00d4aa` primary color
+- **Blue Color Scheme**: Professional `#2563eb` primary color
 - **Modern Cards**: Enhanced cards with hover effects and accent bars
 - **Gradient Buttons**: Animated buttons with shimmer effects
 - **Professional Typography**: Clean, modern font hierarchy
-- **Smooth Animations**: Vector-style transitions and hover states
+- **Smooth Animations**: Professional transitions and hover states
 - **Dark Theme**: Deep background with high contrast text
 - **Responsive Design**: Works perfectly on all devices
 
@@ -43,7 +43,7 @@ The documentation will be available at `http://localhost:4000`.
 docs/
 ├── _config.yml          # Jekyll configuration
 ├── _layouts/            # Custom layouts
-│   └── vector-theme.html # Main Vector.dev inspired layout
+│   └── professional-theme.html # Main professional layout
 ├── index.md             # Homepage
 ├── getting-started/     # Getting started guides
 ├── architecture/        # Architecture documentation
@@ -56,7 +56,7 @@ docs/
 ## 🎯 Features
 
 - **GitHub Pages Compatible**: Ready for automatic deployment
-- **Vector.dev Styling**: Professional, modern design
+- **Professional Styling**: Modern, clean design
 - **Responsive**: Works on all devices
 - **Fast Loading**: Optimized for performance
 - **SEO Friendly**: Proper meta tags and sitemap
@@ -87,9 +87,9 @@ To contribute to the documentation:
 
 ## 🎨 Customization
 
-The Vector.dev theme can be customized by modifying:
+The professional theme can be customized by modifying:
 
-- `_layouts/vector-theme.html` - Main layout and CSS
+- `_layouts/professional-theme.html` - Main layout and CSS
 - `_config.yml` - Site configuration and theme settings
 - Individual page files for content
 

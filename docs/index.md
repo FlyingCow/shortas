@@ -1,5 +1,5 @@
 ---
-layout: vector-theme
+layout: professional-theme
 title: Shortas Documentation
 description: Comprehensive documentation for Shortas - a fast and scalable URL shortener with advanced analytics, multi-tenancy, and real-time click tracking capabilities.
 ---
@@ -49,7 +49,7 @@ make dev-start
   <div class="feature-card">
     <div class="feature-icon">🚀</div>
     <h3>Click Router</h3>
-    <p>Main redirect service handling URL routing and redirects with intelligent conditional logic.</p>
+    <p>A high-performance, intelligent URL redirection service with advanced routing capabilities, conditional logic, analytics, and multi-database support for enterprise-grade URL shortening.</p>
     <a href="https://github.com/FlyingCow/shortas/tree/main/redirect/click-router" class="btn" target="_blank">Learn More</a>
   </div>
   
@@ -70,14 +70,14 @@ make dev-start
   <div class="feature-card">
     <div class="feature-icon">🔧</div>
     <h3>Click Router API</h3>
-    <p>REST API for route and settings management with JWT authentication.</p>
+    <p>High-performance, secure API with JWT authentication via Keycloak, comprehensive OpenAPI documentation, and support for multiple database backends.</p>
     <a href="https://github.com/FlyingCow/shortas/tree/main/redirect/click-router-api" class="btn" target="_blank">Learn More</a>
   </div>
   
   <div class="feature-card">
     <div class="feature-icon">📈</div>
     <h3>Click Aggregator API</h3>
-    <p>Analytics and reporting API with comprehensive data insights.</p>
+    <p>High-performance, secure click aggregation API with JWT authentication via Keycloak, comprehensive OpenAPI documentation, and ClickHouse integration for analytics.</p>
     <a href="https://github.com/FlyingCow/shortas/tree/main/redirect/click-aggregator-api" class="btn" target="_blank">Learn More</a>
   </div>
 </div>

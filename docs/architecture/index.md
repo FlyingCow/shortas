@@ -1,5 +1,5 @@
 ---
-layout: vector-theme
+layout: professional-theme
 title: Architecture Overview
 permalink: /architecture/
 ---
@@ -34,30 +34,121 @@ graph TB
 
 Shortas is built around five primary microservices:
 
-1.  **Click Router**:
-    -   **Function**: The main service responsible for handling incoming short URL requests, resolving them to their long destinations, and performing the actual HTTP redirection.
-    -   **Key Features**: High-performance routing, conditional redirects (based on device, geo-location, time), A/B testing, SSL certificate management.
-    -   **Technologies**: Rust, Salvo, MongoDB/DynamoDB, Moka (in-memory cache).
+### 1. Click Router
+**Function**: A high-performance, intelligent URL redirection service built in Rust. Provides advanced routing capabilities with conditional logic, analytics, and multi-database support for enterprise-grade URL shortening and redirection services.
 
-2.  **Click Tracker**:
-    -   **Function**: Processes and enriches click event data in real-time. It captures details like user agent, IP address, geographic location, and device information.
-    -   **Key Features**: Real-time data enrichment, bot detection, unique visitor tracking.
-    -   **Technologies**: Rust, Kafka/Fluvio, GeoIP, UA Parser.
+**Key Features**:
+- **High-Performance Routing**: Async/await architecture for maximum throughput
+- **Intelligent Redirection**: Conditional routing based on user characteristics
+- **Analytics & Tracking**: Comprehensive hit tracking and user behavior analysis
+- **Multi-Database Support**: MongoDB and DynamoDB integration
+- **Advanced Caching**: Multi-level caching with TTL and invalidation
+- **TLS Support**: Custom certificate management for HTTPS
 
-3.  **Click Aggregator**:
-    -   **Function**: Consumes enriched click data from the message queue, aggregates it, and stores it in the analytics database for reporting and analysis.
-    -   **Key Features**: Data aggregation, OLAP storage, scalable data ingestion.
-    -   **Technologies**: Rust, ClickHouse, Kafka/Fluvio.
+**Advanced Routing**:
+- **Conditional Routing**: Route users based on:
+  - User Agent (Browser, OS, Device)
+  - Geographic Location (Country-based routing)
+  - Time-based conditions
+  - Custom expressions
+- **Multiple Routing Policies**:
+  - Basic routing
+  - Conditional routing with complex expressions
+  - Challenge-based routing
+  - File serving
+  - Mirroring
+- **A/B Testing**: Built-in support for traffic splitting
 
-4.  **Click Router API**:
-    -   **Function**: Provides a RESTful interface for managing routing configurations, SSL certificates, and user-specific settings. This API is used by administrative tools and user interfaces.
-    -   **Key Features**: CRUD operations for routes, JWT authentication, OpenAPI documentation.
-    -   **Technologies**: Rust, Salvo, MongoDB/DynamoDB, Keycloak (for JWT).
+**Technologies**: Rust, Salvo, MongoDB/DynamoDB, Moka (in-memory cache), Kafka/Fluvio, GeoIP, UA Parser.
 
-5.  **Click Aggregator API**:
-    -   **Function**: Offers a RESTful interface for querying and retrieving aggregated analytics data and raw click stream data.
-    -   **Key Features**: Analytics reporting, click stream access, JWT authentication, OpenAPI documentation.
-    -   **Technologies**: Rust, Salvo, ClickHouse, Keycloak (for JWT).
+### 2. Click Tracker
+**Function**: Processes and enriches click event data in real-time. It captures details like user agent, IP address, geographic location, and device information.
+
+**Key Features**:
+- Real-time data enrichment
+- Bot detection
+- Unique visitor tracking
+- Geographic analytics (country, continent, location)
+- Device analytics (browser, OS, device tracking)
+- Debug mode for development
+
+**Technologies**: Rust, Kafka/Fluvio, GeoIP, UA Parser.
+
+### 3. Click Aggregator
+**Function**: Consumes enriched click data from the message queue, aggregates it, and stores it in the analytics database for reporting and analysis.
+
+**Key Features**:
+- Data aggregation
+- OLAP storage
+- Scalable data ingestion
+- High-performance batch processing
+- Analytics data processing and storage
+
+**Technologies**: Rust, ClickHouse, Kafka/Fluvio.
+
+### 4. Click Router API
+**Function**: A high-performance, secure click aggregation API with JWT authentication via Keycloak, comprehensive OpenAPI documentation, and support for multiple database backends.
+
+**Key Features**:
+- **Route Management**: Complete CRUD operations for routing configurations
+- **SSL Certificate Management**: Automated certificate handling with PEM encoding
+- **User Settings**: Comprehensive user preference management
+- **Bulk Operations**: Efficient batch processing for multiple resources
+- **Security & Authentication**: JWT authentication, role-based access control, rate limiting
+- **API Documentation**: OpenAPI 3.0 with Swagger UI
+
+**Technologies**: Rust, Salvo, MongoDB/DynamoDB, Keycloak (for JWT).
+
+### 5. Click Aggregator API
+**Function**: A high-performance, secure click aggregation API with JWT authentication via Keycloak, comprehensive OpenAPI documentation, and ClickHouse integration for analytics.
+
+**Key Features**:
+- Analytics and reporting endpoints
+- ClickHouse integration for analytics
+- JWT authentication via Keycloak
+- OpenAPI documentation
+- High-performance data querying
+
+**Technologies**: Rust, Salvo, ClickHouse, Keycloak (for JWT).
+
+## 🏗️ Click Router Architecture
+
+Click Router uses a modular, pipeline-based architecture:
+
+```
+Request → Flow Router → Modules → Adapters → Response
+```
+
+### Core Components
+
+- **Flow Router**: Central request processing engine
+- **Modules**: Pluggable processing steps (Root, Conditional, NotFound, etc.)
+- **Adapters**: Service integrations (databases, caches, analytics)
+- **Models**: Data structures for routes, hits, and settings
+
+### Request Processing Pipeline
+
+1. **Start**: Initial request processing and validation
+2. **UrlExtract**: URL analysis and route matching
+3. **Register**: Hit logging and analytics
+4. **BuildResult**: Response generation
+5. **End**: Final response processing
+
+### Project Structure
+
+```
+src/
+├── adapters/          # Service integrations
+│   ├── aws/          # DynamoDB integration
+│   ├── mongodb/      # MongoDB integration
+│   ├── moka/         # Caching layer
+│   └── fluvio/       # Analytics streaming
+├── core/             # Core routing logic
+│   ├── flow_router.rs # Main router
+│   └── modules/      # Processing modules
+├── model/            # Data models
+└── settings.rs       # Configuration
+```
 
 ## 🔄 Data Flow
 

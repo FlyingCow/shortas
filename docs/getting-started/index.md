@@ -1,5 +1,5 @@
 ---
-layout: vector-theme
+layout: professional-theme
 title: Getting Started
 permalink: /getting-started/
 ---
@@ -109,6 +109,128 @@ make test
 Start all Shortas services.
 ```bash
 make dev-start
+```
+
+## 🏗️ Click Router Setup
+
+### Prerequisites
+
+- Rust 1.75+ (stable)
+- MongoDB or DynamoDB
+- Optional: Kafka/Fluvio for analytics
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/FlyingCow/shortas.git
+cd shortas/redirect/click-router
+
+# Build the project
+make build-click-router
+
+# Run tests
+make test-click-router
+
+# Start the server
+cargo run --release
+```
+
+### Docker Deployment
+
+```bash
+# Build Docker image
+docker build -t click-router .
+
+# Run with Docker Compose
+docker-compose up -d
+```
+
+## ⚙️ Configuration
+
+Click Router uses environment-based configuration with TOML files:
+
+### Environment Files
+- `config/default.toml` - Base configuration
+- `config/development.toml` - Development overrides
+- `config/production.toml` - Production settings
+- `config/test.toml` - Test configuration
+
+### Key Configuration Sections
+
+```toml
+# Database Configuration
+[mongodb]
+uri = "mongodb://root:example@mongo:27017/"
+database = "shortas"
+
+# Caching Configuration
+[moka]
+[moka.routes_cache]
+max_capacity = 10_000
+time_to_live_minutes = 60
+
+# Analytics Configuration
+[fluvio]
+[fluvio.hit_stream]
+topic = "hit-stream-main"
+host = "sc:9003"
+
+# GeoIP Configuration
+[geo_ip]
+mmdb = "../data/geo-ip/GeoLite2-Country.mmdb"
+```
+
+## 🔧 Usage
+
+### Basic Redirection
+
+Click Router automatically handles URL redirection based on configured routes. Simply make HTTP requests to your shortened URLs:
+
+```bash
+curl -L https://your-domain.com/abc123
+# Redirects to the configured destination
+```
+
+### Conditional Routing
+
+Configure routes with conditional logic:
+
+```json
+{
+  "switch": "main",
+  "link": "example",
+  "dest": "https://example.com",
+  "policy": {
+    "type": "conditional",
+    "conditions": [
+      {
+        "key": "mobile",
+        "condition": {
+          "device": {"type": "mobile"}
+        }
+      }
+    ]
+  }
+}
+```
+
+### Analytics Integration
+
+Hits are automatically tracked and can be consumed via Kafka or Fluvio:
+
+```rust
+// Hit data structure
+{
+  "id": "01HZ...",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "user_agent": "Mozilla/5.0...",
+  "ip_address": "192.168.1.1",
+  "route": {
+    "switch": "main",
+    "link": "example"
+  }
+}
 ```
 
 ---

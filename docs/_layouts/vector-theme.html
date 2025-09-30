@@ -7,27 +7,27 @@
   <title>{{ page.title | default: site.title | escape }}</title>
   <meta name="description" content="{{ page.excerpt | default: site.description | strip_html | normalize_whitespace | truncate: 160 | escape }}">
   
-  <!-- Vector.dev inspired theme CSS -->
+  <!-- Professional theme CSS -->
   <style>
-    /* Vector.dev inspired color scheme */
+    /* Professional color scheme */
     :root {
-      --primary-color: #00d4aa;
-      --primary-dark: #00b894;
-      --secondary-color: #a0aec0;
-      --accent-color: #ff6b6b;
-      --success-color: #00d4aa;
-      --warning-color: #ffa726;
-      --error-color: #ff6b6b;
+      --primary-color: #2563eb;
+      --primary-dark: #1d4ed8;
+      --secondary-color: #94a3b8;
+      --accent-color: #f59e0b;
+      --success-color: #10b981;
+      --warning-color: #f59e0b;
+      --error-color: #ef4444;
       --text-primary: #ffffff;
-      --text-secondary: #a0aec0;
-      --bg-primary: #0a0e1a;
-      --bg-secondary: #1a1f2e;
-      --bg-tertiary: #2d3748;
-      --border-color: #4a5568;
+      --text-secondary: #94a3b8;
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-tertiary: #334155;
+      --border-color: #475569;
       --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
       --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
-      --gradient-primary: linear-gradient(135deg, #00d4aa 0%, #00b894 100%);
-      --gradient-secondary: linear-gradient(135deg, #1a1f2e 0%, #2d3748 100%);
+      --gradient-primary: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      --gradient-secondary: linear-gradient(135deg, #1e293b 0%, #334155 100%);
     }
 
     * {
@@ -107,7 +107,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: radial-gradient(circle at 30% 20%, rgba(0, 212, 170, 0.1) 0%, transparent 50%);
+      background: radial-gradient(circle at 30% 20%, rgba(37, 99, 235, 0.1) 0%, transparent 50%);
       pointer-events: none;
     }
 
@@ -223,13 +223,13 @@
     }
 
     .alert-info {
-      background: rgba(0, 212, 170, 0.1);
+      background: rgba(37, 99, 235, 0.1);
       border-color: var(--primary-color);
       color: #93c5fd;
     }
 
     .alert-success {
-      background: rgba(0, 212, 170, 0.1);
+      background: rgba(16, 185, 129, 0.1);
       border-color: var(--success-color);
       color: #6ee7b7;
     }

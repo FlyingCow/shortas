@@ -23,12 +23,12 @@ plugins:
 # GitHub Pages specific settings
 github: [metadata]
 
-# Vector.dev inspired theme settings
+# Professional theme settings
 theme_settings:
-  primary_color: "#00d4aa"
-  background_color: "#0a0e1a"
+  primary_color: "#2563eb"
+  background_color: "#0f172a"
   text_color: "#ffffff"
-  accent_color: "#ff6b6b"
+  accent_color: "#f59e0b"
 
 # Collections
 collections:
@@ -45,17 +45,17 @@ defaults:
       path: ""
       type: "pages"
     values:
-      layout: "vector-theme"
+      layout: "professional-theme"
   - scope:
       path: ""
       type: "guides"
     values:
-      layout: "vector-theme"
+      layout: "professional-theme"
   - scope:
       path: ""
       type: "api"
     values:
-      layout: "vector-theme"
+      layout: "professional-theme"
 
 # Navigation
 navigation:
