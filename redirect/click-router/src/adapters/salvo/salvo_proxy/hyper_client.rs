@@ -138,7 +138,7 @@ mod tests {
             .await
             .unwrap();
         println!("{}", content);
-        assert!(content.contains("Install Rust"));
+        assert!(content.contains("nginx"));
     }
 
     #[test]

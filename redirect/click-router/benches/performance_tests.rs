@@ -1,0 +1,518 @@
+use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use std::collections::HashMap;
+use chrono::Utc;
+use http::{Method, StatusCode, Uri, Version};
+use indexmap::IndexMap;
+use multimap::MultiMap;
+use cookie::CookieJar;
+
+use click_router::{
+    adapters::{
+        RequestType, ResponseType, HitRegistrarType, LocationDetectorType, UserAgentDetectorType,
+        RoutesCacheType, UserSettingsCacheType, RoutesStoreType, UserSettingsStoreType,
+        CryptoStoreType, CryptoCacheType,
+    },
+    core::{
+        flow_router::{
+            FlowRouter, FlowRouterContext, FlowRouterResult, FlowInRoute, FlowStep, RedirectType,
+            RequestData, ResponseData
+        },
+        modules::{FlowModules, RootModule, ConditionalModule, NotFoundModule, RedirectOnlyModule},
+    },
+    model::{
+        Route, RouteProperties, RouteStatus, RoutingPolicy, RoutingTerminal, DestinationFormat, BlockedReason,
+        expression::{Expression, UA, OS, DayOfMonth, Device},
+        route::ConditionalRouting,
+    },
+    settings::{Redirect, Settings},
+    app::AppBuilder,
+};
+
+// Test helper functions
+fn create_test_request_data() -> RequestData {
+    RequestData {
+        uri: "https://short.ly/test".parse().unwrap(),
+        headers: http::HeaderMap::new(),
+        extensions: http::Extensions::new(),
+        method: Method::GET,
+        cookies: CookieJar::new(),
+        params: IndexMap::new(),
+        queries: MultiMap::new(),
+        version: Version::HTTP_11,
+        scheme: Some(http::uri::Scheme::HTTPS),
+        local_addr: None,
+        remote_addr: None,
+        tls_info: None,
+    }
+}
+
+fn create_test_response_data() -> ResponseData {
+    ResponseData {
+        status_code: None,
+        headers: http::HeaderMap::new(),
+        version: Version::HTTP_11,
+        cookies: CookieJar::new(),
+        extensions: http::Extensions::new(),
+    }
+}
+
+fn create_test_route() -> Route {
+    Route {
+        switch: "main".to_string(),
+        link: "test".to_string(),
+        dest: Some("https://example.com".to_string()),
+        dest_format: DestinationFormat::Http,
+        code: Some(302),
+        ttl: Some(3600),
+        status: RouteStatus::Active,
+        terminal: RoutingTerminal::External,
+        policy: RoutingPolicy::Basic,
+        properties: RouteProperties {
+            route_id: Some("route_123".to_string()),
+            domain_id: Some("domain_456".to_string()),
+            owner_id: Some("user_789".to_string()),
+            creator_id: Some("user_789".to_string()),
+            workspace_id: Some("workspace_123".to_string()),
+            scripts: None,
+            tags: None,
+            custom: None,
+            native: None,
+            bundling: None,
+            opengraph: false,
+            allow_debug: true,
+        },
+    }
+}
+
+fn create_test_conditional_route() -> Route {
+    Route {
+        switch: "main".to_string(),
+        link: "test".to_string(),
+        dest: Some("https://example.com".to_string()),
+        dest_format: DestinationFormat::Http,
+        code: Some(302),
+        ttl: Some(3600),
+        status: RouteStatus::Active,
+        terminal: RoutingTerminal::External,
+        policy: RoutingPolicy::Conditional(vec![ConditionalRouting {
+            key: "mobile".to_string(),
+            condition: Expression {
+                device: Some(Device::Mobile),
+                ..Default::default()
+            },
+        }]),
+        properties: RouteProperties {
+            route_id: Some("route_123".to_string()),
+            domain_id: Some("domain_456".to_string()),
+            owner_id: Some("user_789".to_string()),
+            creator_id: Some("user_789".to_string()),
+            workspace_id: Some("workspace_123".to_string()),
+            scripts: None,
+            tags: None,
+            custom: None,
+            native: None,
+            bundling: None,
+            opengraph: false,
+            allow_debug: true,
+        },
+    }
+}
+
+fn create_test_flow_router() -> FlowRouter {
+    FlowRouter::default(
+        RoutesCacheType::Moka(click_router::adapters::moka::routes_cache::MokaRoutesCache::new(
+            RoutesStoreType::Mongodb(click_router::adapters::mongodb::routes_store::MongodbRoutesStore::new(&click_router::adapters::mongodb::settings::Mongodb::default()).await),
+            click_router::adapters::moka::settings::MokaCacheSettings::default(),
+        )),
+        UserSettingsCacheType::Moka(click_router::adapters::moka::user_settings_cache::MokaUserSettingsCache::new(
+            UserSettingsStoreType::Mongodb(click_router::adapters::mongodb::user_settings_store::MongodbUserSettingsStore::new(&click_router::adapters::mongodb::settings::Mongodb::default()).await),
+            click_router::adapters::moka::settings::MokaCacheSettings::default(),
+        )),
+        UserAgentDetectorType::None(),
+        LocationDetectorType::None(),
+        HitRegistrarType::None(),
+        vec![
+            FlowModules::Root(RootModule::new(Redirect {
+                not_found_url: "http://localhost:5801/404/{}".to_string(),
+                index_url: "http://localhost:5801/index/{}".to_string(),
+            })),
+            FlowModules::Conditional(ConditionalModule::new()),
+            FlowModules::NotFound(NotFoundModule::new(Redirect {
+                not_found_url: "http://localhost:5801/404/{}".to_string(),
+                index_url: "http://localhost:5801/index/{}".to_string(),
+            })),
+            FlowModules::RedirectOnly(RedirectOnlyModule::new()),
+        ],
+    )
+}
+
+fn bench_flow_router_basic_redirect(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_basic_redirect", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_root_path(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    
+    let mut request_data = create_test_request_data();
+    request_data.uri = "https://short.ly/".parse().unwrap();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_root_path", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_conditional_routing(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_conditional_routing", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_not_found(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    
+    let mut request_data = create_test_request_data();
+    request_data.uri = "https://short.ly/nonexistent".parse().unwrap();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_not_found", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_debug_mode(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_debug_mode", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_with_route(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_with_route", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_with_conditional_route(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_with_conditional_route", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_error_handling(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_error_handling", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_performance(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_performance", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_concurrent_requests(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_concurrent_requests", |b| {
+        b.iter(|| {
+            let router_clone = router.clone();
+            let request_clone = request.clone();
+            let response_clone = response.clone();
+            
+            let result = router_clone.handle(black_box(&request_clone), black_box(&response_clone)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_memory_usage(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_memory_usage", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_error_recovery(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_error_recovery", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_data_consistency(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_data_consistency", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_security(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_security", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_scalability(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_scalability", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_reliability(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_reliability", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_maintainability(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_maintainability", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_extensibility(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_extensibility", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_testability(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_testability", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_documentation(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_documentation", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+fn bench_flow_router_support(c: &mut Criterion) {
+    let router = create_test_flow_router().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    c.bench_function("flow_router_support", |b| {
+        b.iter(|| {
+            let result = router.handle(black_box(&request), black_box(&response)).await;
+            assert!(result.is_ok());
+            result.unwrap()
+        })
+    });
+}
+
+criterion_group!(
+    benches,
+    bench_flow_router_basic_redirect,
+    bench_flow_router_root_path,
+    bench_flow_router_conditional_routing,
+    bench_flow_router_not_found,
+    bench_flow_router_debug_mode,
+    bench_flow_router_with_route,
+    bench_flow_router_with_conditional_route,
+    bench_flow_router_error_handling,
+    bench_flow_router_performance,
+    bench_flow_router_concurrent_requests,
+    bench_flow_router_memory_usage,
+    bench_flow_router_error_recovery,
+    bench_flow_router_data_consistency,
+    bench_flow_router_security,
+    bench_flow_router_scalability,
+    bench_flow_router_reliability,
+    bench_flow_router_maintainability,
+    bench_flow_router_extensibility,
+    bench_flow_router_testability,
+    bench_flow_router_documentation,
+    bench_flow_router_support
+);
+
+criterion_main!(benches);

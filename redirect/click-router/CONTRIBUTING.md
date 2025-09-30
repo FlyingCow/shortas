@@ -588,3 +588,4 @@ Contributors will be recognized in:
 - **GitHub** contributor statistics
 
 Thank you for contributing to Click Router! 🚀
+

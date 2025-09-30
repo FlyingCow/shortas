@@ -1,42 +1,63 @@
-debug = true
+[server]
+threads = 2
+listen_os_signals = true
+exit = true
+
+[debug]
+enabled = true
+verbose = true
+
+[mongodb]
+uri = "mongodb://localhost:27017/"
+database = "shortas_test"
+encryption_collection = "core_routes_encryption_test"
+routes_collection = "core_routes_test"
+hostname_mappings_collection = "core_routes_hostname_mapping_test"
+user_settings_collection = "core_user_settings_test"
 
 [aws]
 local = true
-localstack_endpoint = "http://localhost:4566"
 
 [aws.dynamo]
-encryption_table = "core-routes-encryption-local"
-routes_table = "core-routes-local"
-hostname_mappings_table = "core-routes-hostname-mapping-local"
-user_settings_table = "core-user-settings-local"
-
-[mongodb]
-uri = "mongodb://root:example@mongo:27017/"
-database = "shortas"
-encryption_collection = "core_routes_encryption_local"
-routes_collection = "core_routes_local"
-hostname_mappings_collection = "core_routes_hostname_mapping_local"
-user_settings_collection = "core_user_settings_local"
-
-[kafka]
-[kafka.hit_stream]
-topic = "hit-stream-main"
-hosts = ["localhost"]
-ack_timeout_secs = 60
-batch_size = 100
-consumers_count = 2
-iteration_seconds = 1
-
+encryption_table = "core-routes-encryption-test"
+routes_table = "core-routes-test"
+hostname_mappings_table = "core-routes-hostname-mapping-test"
+user_settings_table = "core-user-settings-test"
 
 [fluvio]
 [fluvio.hit_stream]
-topic = "hit-stream-local"
-host = "sc:9103"
-batch_size = 10000
-linger = 1000
+topic = "hit-stream-test"
+host = "sc:9003"
+batch_size = 100
+linger = 100
+
+[kafka]
+[kafka.hit_stream]
+topic = "hit-stream-test"
+hosts = ["localhost:9092"]
+ack_timeout_secs = 10
+batch_size = 10
+consumers_count = 1
+iteration_seconds = 1
+
+[moka]
+[moka.crypto_cache]
+max_capacity = 100
+time_to_live_minutes = 1
+time_to_idle_minutes = 1
+
+[moka.routes_cache]
+max_capacity = 100
+time_to_live_minutes = 1
+time_to_idle_minutes = 1
+
+[moka.user_settings_cache]
+max_capacity = 100
+time_to_live_minutes = 1
+time_to_idle_minutes = 1
 
 [uaparser]
-yaml = "../data/ua-parser/regexes.yaml"
+yaml = "../data/ua-parser/user-agents.yaml"
 
 [geo_ip]
 mmdb = "../data/geo-ip/GeoLite2-Country.mmdb"

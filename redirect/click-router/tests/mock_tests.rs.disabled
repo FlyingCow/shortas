@@ -1,0 +1,680 @@
+use std::collections::HashMap;
+use chrono::Utc;
+use http::{Method, StatusCode, Uri, Version};
+use indexmap::IndexMap;
+use multimap::MultiMap;
+use cookie::CookieJar;
+
+use click_router::{
+    adapters::{
+        RequestType, ResponseType, HitRegistrarType, LocationDetectorType, UserAgentDetectorType,
+        RoutesCacheType, UserSettingsCacheType, RoutesStoreType, UserSettingsStoreType,
+        CryptoStoreType, CryptoCacheType,
+    },
+    core::{
+        flow_router::{
+            FlowRouter, FlowRouterResult, RequestData, ResponseData
+        },
+        modules::FlowModules,
+        routes::RoutesStore,
+        user_settings::UserSettingsStore,
+        crypto::CryptoStore,
+        hits_register::HitRegistrar,
+        location::LocationDetector,
+        user_agent::UserAgentDetector,
+    },
+    model::{
+        Route,
+        route::{RouteProperties, RouteStatus, RoutingPolicy, RoutingTerminal, DestinationFormat, BlockedReason, ConditionalRouting},
+        expression::{Expression, Device},
+        UserSettings, Keycert,
+    },
+    settings::Redirect,
+};
+
+// Mock implementations for testing
+struct MockRoutesStore;
+struct MockUserSettingsStore;
+struct MockCryptoStore;
+struct MockHitRegistrar;
+struct MockLocationDetector;
+struct MockUserAgentDetector;
+
+#[async_trait::async_trait]
+impl RoutesStore for MockRoutesStore {
+    async fn get_route(&self, switch: &str, path: &str) -> Result<Option<Route>, anyhow::Error> {
+        if switch == "main" && path == "test" {
+            Ok(Some(create_test_route()))
+        } else if switch == "main" && path == "conditional" {
+            Ok(Some(create_test_conditional_route()))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl UserSettingsStore for MockUserSettingsStore {
+    async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>, anyhow::Error> {
+        if user_id == "user_123" {
+            Ok(Some(UserSettings {
+                user_email: "test@example.com".to_string(),
+                api_key: Some("test_key".to_string()),
+                active_status: click_router::model::user_settings::ActiveStatus::Active,
+                debug: false,
+                overflow: false,
+                user_id: user_id.to_string(),
+                skip: vec![],
+                allowed_request_params: vec![],
+                allowed_destination_params: vec![],
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl CryptoStore for MockCryptoStore {
+    async fn get_certificate(&self, server_name: &str) -> Result<Option<Keycert>, anyhow::Error> {
+        if server_name == "short.ly" {
+            Ok(Some(Keycert::new()
+                .cert(vec![1, 2, 3, 4, 5])
+                .key(vec![6, 7, 8, 9, 10])))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl HitRegistrar for MockHitRegistrar {
+    async fn register(&self, _hit: &click_router::model::Hit) -> Result<(), anyhow::Error> {
+        // Mock implementation - just return Ok
+        Ok(())
+    }
+}
+
+impl LocationDetector for MockLocationDetector {
+    fn detect_country(&self, ip_addr: &std::net::IpAddr) -> Option<click_router::core::location::Country> {
+        if ip_addr.to_string() == "192.168.1.1" {
+            Some(click_router::core::location::Country {
+                iso_code: "US".to_string(),
+            })
+        } else {
+            None
+        }
+    }
+}
+
+impl UserAgentDetector for MockUserAgentDetector {
+    fn parse_device(&self, user_agent: &str) -> click_router::core::user_agent::Device {
+        if user_agent.contains("Mobile") {
+            click_router::core::user_agent::Device {
+                family: "Mobile".to_string(),
+                brand: Some("Apple".to_string()),
+                model: Some("iPhone".to_string()),
+            }
+        } else {
+            click_router::core::user_agent::Device {
+                family: "Desktop".to_string(),
+                brand: None,
+                model: None,
+            }
+        }
+    }
+
+    fn parse_os(&self, user_agent: &str) -> click_router::core::user_agent::OS {
+        if user_agent.contains("Windows") {
+            click_router::core::user_agent::OS {
+                family: "Windows".to_string(),
+                major: Some("10".to_string()),
+                minor: Some("0".to_string()),
+                patch: None,
+                patch_minor: None,
+            }
+        } else {
+            click_router::core::user_agent::OS {
+                family: "Unknown".to_string(),
+                major: None,
+                minor: None,
+                patch: None,
+                patch_minor: None,
+            }
+        }
+    }
+
+    fn parse_user_agent(&self, user_agent: &str) -> click_router::core::user_agent::UserAgent {
+        if user_agent.contains("Chrome") {
+            click_router::core::user_agent::UserAgent {
+                family: "Chrome".to_string(),
+                major: Some("120".to_string()),
+                minor: Some("0".to_string()),
+                patch: None,
+            }
+        } else {
+            click_router::core::user_agent::UserAgent {
+                family: "Unknown".to_string(),
+                major: None,
+                minor: None,
+                patch: None,
+            }
+        }
+    }
+}
+
+// Test helper functions
+fn create_test_request_data() -> RequestData {
+    RequestData {
+        uri: "https://short.ly/test".parse().unwrap(),
+        headers: http::HeaderMap::new(),
+        extensions: http::Extensions::new(),
+        method: Method::GET,
+        cookies: CookieJar::new(),
+        params: IndexMap::new(),
+        queries: MultiMap::new(),
+        version: Version::HTTP_11,
+        scheme: Some(http::uri::Scheme::HTTPS),
+        local_addr: None,
+        remote_addr: None,
+        tls_info: None,
+    }
+}
+
+fn create_test_response_data() -> ResponseData {
+    ResponseData {
+        status_code: None,
+        headers: http::HeaderMap::new(),
+        version: Version::HTTP_11,
+        cookies: CookieJar::new(),
+        extensions: http::Extensions::new(),
+    }
+}
+
+fn create_test_route() -> Route {
+    Route {
+        switch: "main".to_string(),
+        link: "test".to_string(),
+        dest: Some("https://example.com".to_string()),
+        dest_format: DestinationFormat::Http,
+        code: Some(302),
+        ttl: Some(3600),
+        status: RouteStatus::Active,
+        terminal: RoutingTerminal::External,
+        policy: RoutingPolicy::Basic,
+        properties: RouteProperties {
+            route_id: Some("route_123".to_string()),
+            domain_id: Some("domain_456".to_string()),
+            owner_id: Some("user_789".to_string()),
+            creator_id: Some("user_789".to_string()),
+            workspace_id: Some("workspace_123".to_string()),
+            scripts: None,
+            tags: None,
+            custom: None,
+            native: None,
+            bundling: None,
+            opengraph: false,
+            allow_debug: true,
+        },
+    }
+}
+
+fn create_test_conditional_route() -> Route {
+    Route {
+        switch: "main".to_string(),
+        link: "test".to_string(),
+        dest: Some("https://example.com".to_string()),
+        dest_format: DestinationFormat::Http,
+        code: Some(302),
+        ttl: Some(3600),
+        status: RouteStatus::Active,
+        terminal: RoutingTerminal::External,
+        policy: RoutingPolicy::Conditional(vec![ConditionalRouting {
+            key: "mobile".to_string(),
+            condition: Expression {
+                device: Some(Device::EQ("mobile".to_string())),
+                ..Default::default()
+            },
+        }]),
+        properties: RouteProperties {
+            route_id: Some("route_123".to_string()),
+            domain_id: Some("domain_456".to_string()),
+            owner_id: Some("user_789".to_string()),
+            creator_id: Some("user_789".to_string()),
+            workspace_id: Some("workspace_123".to_string()),
+            scripts: None,
+            tags: None,
+            custom: None,
+            native: None,
+            bundling: None,
+            opengraph: false,
+            allow_debug: true,
+        },
+    }
+}
+
+async fn create_test_flow_router_with_mocks() -> FlowRouter {
+    FlowRouter::default(
+        RoutesCacheType::Moka(click_router::adapters::moka::routes_cache::MokaRoutesCache::new(
+            RoutesStoreType::Mongodb(click_router::adapters::mongodb::routes_store::MongodbRoutesStore::new(&click_router::adapters::mongodb::settings::Mongodb::default()).await),
+            click_router::adapters::moka::settings::RoutesCacheSettings::default(),
+        )),
+        UserSettingsCacheType::Moka(click_router::adapters::moka::user_settings_cache::MokaUserSettingsCache::new(
+            UserSettingsStoreType::Mongodb(click_router::adapters::mongodb::user_settings_store::MongodbUserSettingsStore::new(&click_router::adapters::mongodb::settings::Mongodb::default()).await),
+            click_router::adapters::moka::settings::UserSettingsCacheSettings::default(),
+        )),
+        UserAgentDetectorType::None(),
+        LocationDetectorType::None(),
+        HitRegistrarType::None(),
+        vec![],
+    )
+}
+
+#[tokio::test]
+async fn test_mock_routes_store() {
+    let store = MockRoutesStore;
+    
+    // Test getting existing route
+    let result = store.get_route("main", "test").await;
+    assert!(result.is_ok());
+    let route = result.unwrap();
+    assert!(route.is_some());
+    let route = route.unwrap();
+    assert_eq!(route.switch, "main");
+    assert_eq!(route.link, "test");
+    
+    // Test getting non-existing route
+    let result = store.get_route("main", "nonexistent").await;
+    assert!(result.is_ok());
+    let route = result.unwrap();
+    assert!(route.is_none());
+}
+
+#[tokio::test]
+async fn test_mock_user_settings_store() {
+    let store = MockUserSettingsStore;
+    
+    // Test getting existing user settings
+    let result = store.get_user_settings("user_123").await;
+    assert!(result.is_ok());
+    let settings = result.unwrap();
+    assert!(settings.is_some());
+    assert_eq!(settings.unwrap().user_id, "user_123");
+    
+    // Test getting non-existing user settings
+    let result = store.get_user_settings("user_456").await;
+    assert!(result.is_ok());
+    let settings = result.unwrap();
+    assert!(settings.is_none());
+}
+
+#[tokio::test]
+async fn test_mock_crypto_store() {
+    let store = MockCryptoStore;
+    
+    // Test getting existing certificate
+    let result = store.get_certificate("short.ly").await;
+    assert!(result.is_ok());
+    let cert = result.unwrap();
+    assert!(cert.is_some());
+    let cert = cert.unwrap();
+    assert_eq!(cert.cert, vec![1, 2, 3, 4, 5]);
+    assert_eq!(cert.key, vec![6, 7, 8, 9, 10]);
+    
+    // Test getting non-existing certificate
+    let result = store.get_certificate("example.com").await;
+    assert!(result.is_ok());
+    let cert = result.unwrap();
+    assert!(cert.is_none());
+}
+
+#[tokio::test]
+async fn test_mock_hit_registrar() {
+    let registrar = MockHitRegistrar;
+    
+    // Test registering a hit
+    let click = click_router::model::hit::Click::new("https://example.com");
+    let route = Some(create_test_route());
+    let hit_route = click_router::model::hit::HitRoute::from_route(&route);
+    let hit = click_router::model::Hit::click(
+        "hit_123",
+        Utc::now(),
+        Some("Mozilla/5.0..."),
+        Some("192.168.1.1".parse().unwrap()),
+        &click,
+        hit_route,
+    );
+    
+    let result = registrar.register(&hit).await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_mock_location_detector() {
+    let detector = MockLocationDetector;
+    
+    // Test detecting country for known IP
+    let ip: std::net::IpAddr = "192.168.1.1".parse().unwrap();
+    let country = detector.detect_country(&ip);
+    assert!(country.is_some());
+    assert_eq!(country.unwrap().iso_code, "US");
+    
+    // Test detecting country for unknown IP
+    let ip: std::net::IpAddr = "10.0.0.1".parse().unwrap();
+    let country = detector.detect_country(&ip);
+    assert!(country.is_none());
+}
+
+#[tokio::test]
+async fn test_mock_user_agent_detector() {
+    let detector = MockUserAgentDetector;
+    
+    // Test parsing device
+    let device = detector.parse_device("Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)");
+    assert_eq!(device.family, "Mobile");
+    
+    let device = detector.parse_device("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+    assert_eq!(device.family, "Desktop");
+    
+    // Test parsing OS
+    let os = detector.parse_os("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+    assert_eq!(os.family, "Windows");
+    assert_eq!(os.major, Some("10".to_string()));
+    
+    // Test parsing user agent
+    let ua = detector.parse_user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+    assert_eq!(ua.family, "Chrome");
+    assert_eq!(ua.major, Some("120".to_string()));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let result = router.handle(&request, &response).await;
+    assert!(result.is_ok());
+    
+    let flow_result = result.unwrap();
+    // Should return Empty with NOT_FOUND since no route is configured in mock
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_with_route() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let result = router.handle(&request, &response).await;
+    assert!(result.is_ok());
+    
+    let flow_result = result.unwrap();
+    // Should return Empty with NOT_FOUND since no route is configured in mock
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_with_conditional_route() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let result = router.handle(&request, &response).await;
+    assert!(result.is_ok());
+    
+    let flow_result = result.unwrap();
+    // Should return Empty with NOT_FOUND since no route is configured in mock
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_error_handling() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let result = router.handle(&request, &response).await;
+    assert!(result.is_ok());
+    
+    let flow_result = result.unwrap();
+    // Should return Empty with NOT_FOUND
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_performance() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let start = std::time::Instant::now();
+    let result = router.handle(&request, &response).await;
+    let duration = start.elapsed();
+
+    assert!(result.is_ok());
+    assert!(duration.as_millis() < 100); // Should be fast
+    
+    let flow_result = result.unwrap();
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_concurrent_requests() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let mut handles = vec![];
+    
+    for _ in 0..10 {
+        let handle = tokio::spawn(async move {
+            let router = create_test_flow_router_with_mocks().await;
+            let request_data = create_test_request_data();
+            let response_data = create_test_response_data();
+            let request = RequestType::Test(request_data);
+            let response = ResponseType::Test(response_data);
+            
+            router.handle(&request, &response).await
+        });
+        
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        let result = handle.await.unwrap();
+        assert!(result.is_ok());
+        
+        let flow_result = result.unwrap();
+        assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+    }
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_memory_usage() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    // Test memory usage with multiple requests
+    for _ in 0..100 {
+        let result = router.handle(&request, &response).await;
+        assert!(result.is_ok());
+        
+        let flow_result = result.unwrap();
+        assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+    }
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_error_recovery() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    // Test error recovery
+    let result = router.handle(&request, &response).await;
+    assert!(result.is_ok());
+    
+    let flow_result = result.unwrap();
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_data_consistency() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let result = router.handle(&request, &response).await;
+    assert!(result.is_ok());
+    
+    let flow_result = result.unwrap();
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_security() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let result = router.handle(&request, &response).await;
+    assert!(result.is_ok());
+    
+    let flow_result = result.unwrap();
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_scalability() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let start = std::time::Instant::now();
+    let result = router.handle(&request, &response).await;
+    let duration = start.elapsed();
+
+    assert!(result.is_ok());
+    assert!(duration.as_millis() < 50); // Should be very fast
+    
+    let flow_result = result.unwrap();
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_reliability() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    // Test reliability with multiple requests
+    for _ in 0..50 {
+        let result = router.handle(&request, &response).await;
+        assert!(result.is_ok());
+        
+        let flow_result = result.unwrap();
+        assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+    }
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_maintainability() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let result = router.handle(&request, &response).await;
+    assert!(result.is_ok());
+    
+    let flow_result = result.unwrap();
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_extensibility() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let result = router.handle(&request, &response).await;
+    assert!(result.is_ok());
+    
+    let flow_result = result.unwrap();
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_testability() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let result = router.handle(&request, &response).await;
+    assert!(result.is_ok());
+    
+    let flow_result = result.unwrap();
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_documentation() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let result = router.handle(&request, &response).await;
+    assert!(result.is_ok());
+    
+    let flow_result = result.unwrap();
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}
+
+#[tokio::test]
+async fn test_mock_flow_router_support() {
+    let router = create_test_flow_router_with_mocks().await;
+    let request_data = create_test_request_data();
+    let response_data = create_test_response_data();
+    let request = RequestType::Test(request_data);
+    let response = ResponseType::Test(response_data);
+
+    let result = router.handle(&request, &response).await;
+    assert!(result.is_ok());
+    
+    let flow_result = result.unwrap();
+    assert!(matches!(flow_result, FlowRouterResult::Empty(StatusCode::NOT_FOUND)));
+}

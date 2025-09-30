@@ -4,18 +4,28 @@ title: Getting Started
 permalink: /getting-started/
 ---
 
-# Getting Started with Shortas
-
-Welcome to Shortas! This guide will help you get up and running quickly with our fast and scalable URL shortener.
+<div class="hero-section">
+  <h1>Getting Started with Shortas</h1>
+  <p class="lead">Welcome to Shortas! This guide will help you get up and running quickly with our fast and scalable URL shortener.</p>
+</div>
 
 ## 🚀 Quick Start
 
+<div class="alert alert-info">
+  <strong>One-Command Setup</strong> - Get up and running with Shortas in minutes using our automated setup process.
+</div>
+
 ### Prerequisites
 
-- Rust 1.75+ (stable)
-- Docker & Docker Compose
-- Make
-- curl (for health checks)
+<div class="card">
+  <div class="card-header">System Requirements</div>
+  <ul>
+    <li><strong>Rust</strong> 1.75+ (stable)</li>
+    <li><strong>Docker</strong> & Docker Compose</li>
+    <li><strong>Make</strong> - GNU Make 4.0+</li>
+    <li><strong>curl</strong> - for health checks</li>
+  </ul>
+</div>
 
 ### One-Command Setup
 
@@ -31,12 +41,16 @@ make dev-setup
 make dev-start
 ```
 
-This will:
-1. Install system dependencies
-2. Start infrastructure (MongoDB, ClickHouse, Redis, Fluvio)
-3. Build all services
-4. Run tests
-5. Validate the setup
+<div class="alert alert-success">
+  <strong>What this does:</strong>
+  <ol>
+    <li>Install system dependencies</li>
+    <li>Start infrastructure (MongoDB, ClickHouse, Redis, Fluvio)</li>
+    <li>Build all services</li>
+    <li>Run tests</li>
+    <li>Validate the setup</li>
+  </ol>
+</div>
 
 ## 📋 Manual Setup Steps
 

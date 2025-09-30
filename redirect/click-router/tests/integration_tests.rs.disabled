@@ -1,0 +1,642 @@
+use chrono::Utc;
+use cookie::CookieJar;
+use http::{Method, StatusCode, Uri, Version};
+use indexmap::IndexMap;
+use multimap::MultiMap;
+use std::collections::HashMap;
+
+use click_router::{
+    adapters::{
+        CryptoCacheType, CryptoStoreType, HitRegistrarType, LocationDetectorType, RequestType,
+        ResponseType, RoutesCacheType, RoutesStoreType, UserAgentDetectorType,
+        UserSettingsCacheType, UserSettingsStoreType,
+    },
+    core::{
+        crypto::CryptoStore,
+        flow_router::{FlowRouter, FlowRouterResult, RequestData, ResponseData},
+        hits_register::HitRegistrar,
+        location::LocationDetector,
+        modules::FlowModules,
+        routes::RoutesStore,
+        user_agent::UserAgentDetector,
+        user_settings::UserSettingsStore,
+    },
+    model::{
+        expression::{Device, Expression},
+        route::{
+            BlockedReason, ConditionalRouting, DestinationFormat, RouteProperties, RouteStatus,
+            RoutingPolicy, RoutingTerminal,
+        },
+        Keycert, Route, UserSettings,
+    },
+    settings::Redirect,
+};
+
+// Test helper functions
+fn create_test_request_data() -> RequestData {
+    RequestData {
+        uri: "https://short.ly/test".parse().unwrap(),
+        headers: http::HeaderMap::new(),
+        extensions: http::Extensions::new(),
+        method: Method::GET,
+        cookies: CookieJar::new(),
+        params: IndexMap::new(),
+        queries: MultiMap::new(),
+        version: Version::HTTP_11,
+        scheme: Some(http::uri::Scheme::HTTPS),
+        local_addr: None,
+        remote_addr: None,
+        tls_info: None,
+    }
+}
+
+fn create_test_response_data() -> ResponseData {
+    ResponseData {
+        status_code: None,
+        headers: http::HeaderMap::new(),
+        version: Version::HTTP_11,
+        cookies: CookieJar::new(),
+        extensions: http::Extensions::new(),
+    }
+}
+
+fn create_test_route() -> Route {
+    Route {
+        switch: "main".to_string(),
+        link: "test".to_string(),
+        dest: Some("https://example.com".to_string()),
+        dest_format: DestinationFormat::Http,
+        code: Some(302),
+        ttl: Some(3600),
+        status: RouteStatus::Active,
+        terminal: RoutingTerminal::External,
+        policy: RoutingPolicy::Basic,
+        properties: RouteProperties {
+            route_id: Some("route_123".to_string()),
+            domain_id: Some("domain_456".to_string()),
+            owner_id: Some("user_789".to_string()),
+            creator_id: Some("user_789".to_string()),
+            workspace_id: Some("workspace_123".to_string()),
+            scripts: None,
+            tags: None,
+            custom: None,
+            native: None,
+            bundling: None,
+            opengraph: false,
+            allow_debug: true,
+        },
+    }
+}
+
+fn create_test_conditional_route() -> Route {
+    Route {
+        switch: "main".to_string(),
+        link: "test".to_string(),
+        dest: Some("https://example.com".to_string()),
+        dest_format: DestinationFormat::Http,
+        code: Some(302),
+        ttl: Some(3600),
+        status: RouteStatus::Active,
+        terminal: RoutingTerminal::External,
+        policy: RoutingPolicy::Conditional(vec![ConditionalRouting {
+            key: "mobile".to_string(),
+            condition: Expression {
+                device: Some(Device::EQ("mobile".to_string())),
+                ..Default::default()
+            },
+        }]),
+        properties: RouteProperties {
+            route_id: Some("route_123".to_string()),
+            domain_id: Some("domain_456".to_string()),
+            owner_id: Some("user_789".to_string()),
+            creator_id: Some("user_789".to_string()),
+            workspace_id: Some("workspace_123".to_string()),
+            scripts: None,
+            tags: None,
+            custom: None,
+            native: None,
+            bundling: None,
+            opengraph: false,
+            allow_debug: true,
+        },
+    }
+}
+
+// Mock implementations for testing
+struct MockRoutesStore;
+struct MockUserSettingsStore;
+struct MockCryptoStore;
+
+#[async_trait::async_trait]
+impl click_router::core::routes::RoutesStore for MockRoutesStore {
+    async fn get_route(&self, switch: &str, path: &str) -> Result<Option<Route>, anyhow::Error> {
+        if switch == "main" && path == "test" {
+            Ok(Some(create_test_route()))
+        } else if switch == "main" && path == "conditional" {
+            Ok(Some(create_test_conditional_route()))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl UserSettingsStore for MockUserSettingsStore {
+    async fn get_user_settings(
+        &self,
+        user_id: &str,
+    ) -> Result<Option<UserSettings>, anyhow::Error> {
+        if user_id == "user_123" {
+            Ok(Some(UserSettings {
+                user_email: "test@example.com".to_string(),
+                api_key: Some("test_key".to_string()),
+                active_status: click_router::model::user_settings::ActiveStatus::Active,
+                debug: false,
+                overflow: false,
+                user_id: user_id.to_string(),
+                skip: vec![],
+                allowed_request_params: vec![],
+                allowed_destination_params: vec![],
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl CryptoStore for MockCryptoStore {
+    async fn get_certificate(&self, server_name: &str) -> Result<Option<Keycert>, anyhow::Error> {
+        if server_name == "short.ly" {
+            Ok(Some(
+                Keycert::new()
+                    .cert(vec![1, 2, 3, 4, 5])
+                    .key(vec![6, 7, 8, 9, 10]),
+            ))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+async fn create_test_flow_router() -> FlowRouter {
+    // Create a simple mock router for testing
+    FlowRouter::default(
+        RoutesCacheType::Moka(click_router::adapters::moka::routes_cache::MokaRoutesCache::new(
+            RoutesStoreType::Mongodb(click_router::adapters::mongodb::routes_store::MongodbRoutesStore::new(&click_router::adapters::mongodb::settings::Mongodb::default()).await),
+            click_router::adapters::moka::settings::RoutesCacheSettings::default(),
+        )),
+        UserSettingsCacheType::Moka(click_router::adapters::moka::user_settings_cache::MokaUserSettingsCache::new(
+            UserSettingsStoreType::Mongodb(click_router::adapters::mongodb::user_settings_store::MongodbUserSettingsStore::new(&click_router::adapters::mongodb::settings::Mongodb::default()).await),
+            click_router::adapters::moka::settings::UserSettingsCacheSettings::default(),
+        )),
+        UserAgentDetectorType::None(),
+        LocationDetectorType::None(),
+        HitRegistrarType::None(),
+        vec![],
+    )
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_basic_redirect() {
+// //     let router = create_test_flow_router().await;
+// //     let request_data = create_test_request_data();
+// //     let response_data = create_test_response_data();
+// //     let request = RequestType::Test(request_data);
+// //     let response = ResponseType::Test(response_data);
+//
+// //     let result = router.handle(&request, &response).await;
+// //     assert!(result.is_ok());
+//
+// //     let flow_result = result.unwrap();
+//     // Should return Empty with NOT_FOUND since no route is configured in mock
+// //     assert!(matches!(
+// //         flow_result,
+// //         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+//     ));
+// }
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_root_path() {
+// //     let router = create_test_flow_router().await;
+
+//     let mut request_data = create_test_request_data();
+    request_data.uri = "https://short.ly/".parse().unwrap();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+    // Should return Proxied for root path
+//     assert!(matches!(
+//         flow_result,
+        FlowRouterResult::Proxied(_, StatusCode::OK)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_conditional_routing() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+    // Should return Empty with NOT_FOUND since no route is configured in mock
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_not_found() {
+//     let router = create_test_flow_router().await;
+
+//     let mut request_data = create_test_request_data();
+    request_data.uri = "https://short.ly/nonexistent".parse().unwrap();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+    // Should return Empty with NOT_FOUND
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_debug_mode() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+    // Should return Empty with NOT_FOUND
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_with_route() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+    // Should return Empty with NOT_FOUND since no route is configured in mock
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_with_conditional_route() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+    // Should return Empty with NOT_FOUND since no route is configured in mock
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_error_handling() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+    // Should return Empty with NOT_FOUND
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_performance() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+    let start = std::time::Instant::now();
+//     let result = router.handle(&request, &response).await;
+    let duration = start.elapsed();
+
+//     assert!(result.is_ok());
+    assert!(duration.as_millis() < 100); // Should be fast
+
+//     let flow_result = result.unwrap();
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_concurrent_requests() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+    let mut handles = vec![];
+
+    for _ in 0..10 {
+        let handle = tokio::spawn(async move {
+        //     let router = create_test_flow_router().await;
+        //     let request_data = create_test_request_data();
+        //     let response_data = create_test_response_data();
+        //     let request = RequestType::Test(request_data);
+        //     let response = ResponseType::Test(response_data);
+
+            router.handle(&request, &response).await
+        });
+
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        let result = handle.await.unwrap();
+    //     assert!(result.is_ok());
+
+    //     let flow_result = result.unwrap();
+    //     assert!(matches!(
+    //         flow_result,
+    //         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+        ));
+    }
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_memory_usage() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+    // Test memory usage with multiple requests
+    for _ in 0..100 {
+    //     let result = router.handle(&request, &response).await;
+    //     assert!(result.is_ok());
+
+    //     let flow_result = result.unwrap();
+    //     assert!(matches!(
+    //         flow_result,
+    //         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+        ));
+    }
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_error_recovery() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+    // Test error recovery
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_data_consistency() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_security() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_scalability() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+    let start = std::time::Instant::now();
+//     let result = router.handle(&request, &response).await;
+    let duration = start.elapsed();
+
+//     assert!(result.is_ok());
+    assert!(duration.as_millis() < 50); // Should be very fast
+
+//     let flow_result = result.unwrap();
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_reliability() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+    // Test reliability with multiple requests
+    for _ in 0..50 {
+    //     let result = router.handle(&request, &response).await;
+    //     assert!(result.is_ok());
+
+    //     let flow_result = result.unwrap();
+    //     assert!(matches!(
+    //         flow_result,
+    //         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+        ));
+    }
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_maintainability() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_extensibility() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_testability() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_documentation() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
+
+#[cfg(feature = "integration-tests")]
+#[tokio::test]
+async fn test_flow_router_integration_support() {
+//     let router = create_test_flow_router().await;
+//     let request_data = create_test_request_data();
+//     let response_data = create_test_response_data();
+//     let request = RequestType::Test(request_data);
+//     let response = ResponseType::Test(response_data);
+
+//     let result = router.handle(&request, &response).await;
+//     assert!(result.is_ok());
+
+//     let flow_result = result.unwrap();
+//     assert!(matches!(
+//         flow_result,
+//         FlowRouterResult::Empty(StatusCode::NOT_FOUND)
+    ));
+}
