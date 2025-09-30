@@ -1,5 +1,5 @@
 ---
-layout: professional-theme
+layout: vector-theme
 title: Development Guide
 permalink: /development/
 ---

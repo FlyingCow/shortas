@@ -1,5 +1,5 @@
 ---
-layout: professional-theme
+layout: vector-theme
 title: API Reference
 permalink: /api/
 ---

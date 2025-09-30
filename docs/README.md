@@ -43,7 +43,7 @@ The documentation will be available at `http://localhost:4000`.
 docs/
 ├── _config.yml          # Jekyll configuration
 ├── _layouts/            # Custom layouts
-│   └── professional-theme.html # Main professional layout
+│   └── vector-theme.html # Main Vector.dev inspired layout
 ├── index.md             # Homepage
 ├── getting-started/     # Getting started guides
 ├── architecture/        # Architecture documentation
@@ -89,7 +89,7 @@ To contribute to the documentation:
 
 The Vector.dev inspired theme can be customized by modifying:
 
-- `_layouts/professional-theme.html` - Main layout and CSS
+- `_layouts/vector-theme.html` - Main layout and CSS
 - `_config.yml` - Site configuration and theme settings
 - Individual page files for content
 

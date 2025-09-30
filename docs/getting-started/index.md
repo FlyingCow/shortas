@@ -1,5 +1,5 @@
 ---
-layout: professional-theme
+layout: vector-theme
 title: Getting Started
 permalink: /getting-started/
 ---

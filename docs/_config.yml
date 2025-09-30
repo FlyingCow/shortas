@@ -45,17 +45,17 @@ defaults:
       path: ""
       type: "pages"
     values:
-      layout: "professional-theme"
+      layout: "vector-theme"
   - scope:
       path: ""
       type: "guides"
     values:
-      layout: "professional-theme"
+      layout: "vector-theme"
   - scope:
       path: ""
       type: "api"
     values:
-      layout: "professional-theme"
+      layout: "vector-theme"
 
 # Navigation
 navigation:
