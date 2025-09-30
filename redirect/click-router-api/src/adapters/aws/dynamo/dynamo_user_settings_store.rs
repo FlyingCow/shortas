@@ -7,11 +7,11 @@ use aws_sdk_dynamodb::operation::get_item::GetItemOutput;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 
-use crate::core::BaseUserSettingsStore;
+use crate::core::UserSettingsStore;
 use crate::model::{ActiveStatus, UserSettings};
 
-const ACTIVE: &'static str = "active";
-const BLOCKED: &'static str = "blocked";
+const ACTIVE: &str = "active";
+const BLOCKED: &str = "blocked";
 
 #[derive(Clone, Debug)]
 pub struct DynamoUserSettingsStore {
@@ -80,7 +80,7 @@ impl DynamoUserSettingsStore {
 }
 
 #[async_trait::async_trait()]
-impl BaseUserSettingsStore for DynamoUserSettingsStore {
+impl UserSettingsStore for DynamoUserSettingsStore {
     async fn store_user_settings(&self, _user_settings: &UserSettings) -> Result<()> {
         todo!()
     }

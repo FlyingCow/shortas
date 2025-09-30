@@ -1,32 +1,61 @@
-use actix_web::{middleware::Logger, web, App, HttpServer};
 use anyhow::Result;
+use salvo::prelude::*;
 use tracing::info;
 
 use crate::adapters;
-use crate::core::{BaseCryptoStore, BaseUserSettingsStore};
-use crate::settings::Server;
-use crate::{adapters::api::app_state::AppState, core::BaseRoutesStore, settings::Settings};
+use crate::adapters::api::middleware::{RateLimitStore, JwtConfig};
+use crate::core::{CryptoStore, RoutesStore, UserSettingsStore};
+use crate::settings::Server as ServerSettings;
+use crate::{adapters::api::app_state::AppState, settings::Settings};
+
+#[handler]
+async fn app_state_middleware(
+    req: &mut Request,
+    depot: &mut Depot,
+    res: &mut Response,
+    ctrl: &mut FlowCtrl,
+) {
+    // The app state will be set by the server setup
+    ctrl.call_next(req, depot, res).await;
+}
+
+#[handler]
+async fn security_middleware(
+    req: &mut Request,
+    depot: &mut Depot,
+    res: &mut Response,
+    ctrl: &mut FlowCtrl,
+) {
+    // Initialize security components
+    depot.insert("rate_limit_store", RateLimitStore::new());
+    
+    // Initialize JWT configuration
+    let jwt_config = JwtConfig::from_env();
+    depot.insert("jwt_config", jwt_config);
+    
+    ctrl.call_next(req, depot, res).await;
+}
 
 #[derive(Clone)]
 pub struct AppBuilder {
     pub(super) settings: Settings,
-    pub(super) routes_store: Option<Box<dyn BaseRoutesStore + Send + Sync + 'static>>,
-    pub(super) crypto_store: Option<Box<dyn BaseCryptoStore + Send + Sync + 'static>>,
-    pub(super) user_settings_store: Option<Box<dyn BaseUserSettingsStore + Send + Sync + 'static>>,
+    pub(super) routes_store: Option<Box<dyn RoutesStore + Send + Sync + 'static>>,
+    pub(super) crypto_store: Option<Box<dyn CryptoStore + Send + Sync + 'static>>,
+    pub(super) user_settings_store: Option<Box<dyn UserSettingsStore + Send + Sync + 'static>>,
 }
 
 #[derive(Clone)]
 pub struct Api {
-    pub settings: Server,
+    pub settings: ServerSettings,
     pub api_pool: AppState,
 }
 
 impl Api {
     fn new(
-        settings: Server,
-        routes_store: Box<dyn BaseRoutesStore + Send + Sync>,
-        crypto_store: Box<dyn BaseCryptoStore + Send + Sync>,
-        user_settings_store: Box<dyn BaseUserSettingsStore + Send + Sync>,
+        settings: ServerSettings,
+        routes_store: Box<dyn RoutesStore + Send + Sync>,
+        crypto_store: Box<dyn CryptoStore + Send + Sync>,
+        user_settings_store: Box<dyn UserSettingsStore + Send + Sync>,
     ) -> Self {
         Api {
             api_pool: AppState::new(routes_store, crypto_store, user_settings_store),
@@ -35,19 +64,36 @@ impl Api {
     }
 
     async fn start_server(self) -> Result<()> {
-        let port = self.settings.port.unwrap_or(8080);
+        let _port = self.settings.port.unwrap_or(8080);
 
-        info!("Server running on port {}", port);
+        let router = adapters::api::api_routes::routes();
 
-        HttpServer::new(move || {
-            App::new()
-                .app_data(web::Data::new(self.api_pool.clone()))
-                .wrap(Logger::default())
-                .configure(adapters::api::api_routes::routes)
-        })
-        .bind(("127.0.0.1", port))?
-        .run()
-        .await?;
+        let _app_state = self.api_pool.clone();
+        
+        // Initialize security components
+        let _rate_limit_store = RateLimitStore::new();
+
+        let doc = OpenApi::new("Click Router API", "0.1.0")
+            .merge_router(&router)
+            .add_security_scheme("Bearer", salvo::oapi::security::ApiKey::Header(salvo::oapi::security::ApiKeyValue::new("Authorization")))
+            .add_security_scheme("RPT", salvo::oapi::security::ApiKey::Header(salvo::oapi::security::ApiKeyValue::new("Authorization")))
+            .info(
+                salvo::oapi::Info::new("Click Router API", "0.1.0")
+                    .description("A high-performance click aggregation API with JWT authentication via Keycloak")
+                    .contact(salvo::oapi::Contact::new().name("API Support").email("support@example.com"))
+                    .license(salvo::oapi::License::new("MIT"))
+            )
+            ;
+
+        let router = router
+            .hoop(app_state_middleware)
+            .hoop(security_middleware)
+            .unshift(doc.into_router("/api-doc/openapi.json"))
+            .unshift(SwaggerUi::new("/api-doc/openapi.json").into_router("/swagger-ui"));
+
+        let acceptor = TcpListener::new("0.0.0.0:5800").bind().await;
+
+        Server::new(acceptor).serve(router).await;
 
         Ok(())
     }
@@ -69,7 +115,6 @@ impl AppBuilder {
     }
 
     pub fn build(&self) -> Result<Api> {
-        env_logger::try_init()?;
         info!("{}", "BUILDING");
 
         let router = Api::new(

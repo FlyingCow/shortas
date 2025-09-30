@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use salvo::oapi::ToSchema;
 
 use super::condition::Condition;
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub enum RoutingTerminal {
     #[default]
     External,
@@ -11,14 +12,14 @@ pub enum RoutingTerminal {
     Middleware,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub enum DestinationFormat {
     #[default]
     Http,
     Native,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub struct FileRouting {
     pub content_type: String,
 }
@@ -29,7 +30,7 @@ pub struct ConditionalRouting {
     pub condition: Condition,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub struct ChallengeRouting {
     pub key: String,
     pub source: String,
@@ -47,7 +48,7 @@ pub enum RoutingPolicy {
     Unknown,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub struct RouteProperties {
     pub route_id: Option<String>,
     pub domain_id: Option<String>,
@@ -59,7 +60,10 @@ pub struct RouteProperties {
     pub custom: Option<Value>,
     pub native: Option<Value>,
     pub bundling: Option<Value>,
+    #[serde(default)]
     pub opengraph: bool,
+    #[serde(default)]
+    pub allow_debug: bool,
 }
 
 impl Default for RouteProperties {
@@ -76,18 +80,19 @@ impl Default for RouteProperties {
             native: Default::default(),
             bundling: Default::default(),
             opengraph: false,
+            allow_debug: false,
         }
     }
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub enum BlockedReason {
     Resoned(String),
     #[default]
     Unknown,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub enum RouteStatus {
     #[default]
     Active,
@@ -99,13 +104,17 @@ pub struct Route {
     pub switch: String,
     pub link: String,
     pub dest: Option<String>,
+    #[serde(default)]
     pub dest_format: DestinationFormat,
     pub code: Option<u16>,
     pub ttl: Option<u128>,
-
+    #[serde(default)]
     pub status: RouteStatus,
+    #[serde(default)]
     pub terminal: RoutingTerminal,
+    #[serde(default)]
     pub policy: RoutingPolicy,
+    #[serde(default)]
     pub properties: RouteProperties,
 }
 

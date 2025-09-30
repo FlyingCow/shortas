@@ -1,0 +1,61 @@
+version: "3.8"
+networks:
+  base-net:
+    driver: bridge
+    external: false
+
+services:
+  db:
+    image: postgres:16.2 # Or a more recent stable version
+    container_name: keycloak-db
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: your_db_password # **Change this to a strong password**
+    volumes:
+      - ${PWD}/fs/postgres_data/var/lib/postgresql/data
+    networks:
+      - base-net
+    restart: unless-stopped
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.6 # Or a more recent stable version
+    container_name: keycloak
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: your_db_password # **Must match POSTGRES_PASSWORD**
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: your_admin_password # **Change this to a strong password**
+      KC_HOSTNAME: localhost # Adjust for your environment
+      KC_HOSTNAME_PORT: 8080 # Adjust if needed
+    ports:
+      - "8080:8080" # Map Keycloak's port
+    depends_on:
+      - db
+    networks:
+      - base-net
+    restart: unless-stopped
+    command: ["start-dev"] # Use "start" for production with proper configuration
+
+  vault:
+    image: hashicorp/vault:latest
+    container_name: vault
+    ports:
+      - "8200:8200"
+    volumes:
+      - ${PWD}/fs/vault_data:/vault/file # For persistent file storage
+      - ${PWD}/fs/config:/vault/config # For mounting custom configuration files
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "myroottoken" # For development mode, not recommended for production
+      VAULT_ADDR: "http://0.0.0.0:8200"
+    cap_add:
+      - IPC_LOCK # Required for Vault's memory locking
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - base-net

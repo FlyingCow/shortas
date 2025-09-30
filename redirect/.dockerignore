@@ -1,0 +1,65 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rust
+target/
+Cargo.lock
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test files
+tests/
+benches/
+*.test
+
+# Build artifacts
+*.o
+*.so
+*.dylib
+*.dll
+
+# Coverage
+coverage/
+*.gcov
+*.gcno
+*.gcda
+
+# Profiling
+*.prof
+perf.data*
+
+# Documentation build
+book/
+target/doc/

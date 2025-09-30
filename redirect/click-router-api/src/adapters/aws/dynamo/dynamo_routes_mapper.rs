@@ -230,19 +230,24 @@ pub fn to_entity(model: GetItemOutput) -> Result<Option<Route>> {
             .get("bundling")
             .map_or(None, |p| Some(from_attribute_value(p.to_owned()).unwrap()));
 
+        let allow_debug = item
+            .get("allow_debug")
+            .map_or(false, |d| d.as_bool().unwrap().to_owned());
+
         let opengraph = item.get("blocked").map_or(false, |d| *d.as_bool().unwrap());
         let properties = RouteProperties {
-            creator_id: creator_id,
-            owner_id: owner_id,
-            domain_id: domain_id,
-            route_id: route_id,
-            workspace_id: workspace_id,
-            scripts: scripts,
-            tags: tags,
-            custom: custom,
-            native: native,
-            bundling: bundling,
-            opengraph: opengraph,
+            creator_id,
+            owner_id,
+            domain_id,
+            route_id,
+            workspace_id,
+            scripts,
+            tags,
+            custom,
+            native,
+            bundling,
+            opengraph,
+            allow_debug,
         };
 
         //policy

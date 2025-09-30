@@ -34,8 +34,6 @@ use crate::{
     settings::Settings,
 };
 
-// #[derive(TypedBuilder)]
-// #[builder(field_defaults(setter(prefix = "with_")))]
 #[derive(Default)]
 pub struct AppBuilder {
     settings: Settings,

@@ -14,3 +14,12 @@ build-redirect:
 		
 test-redirect:
 		cd ./redirect && $(MAKE) test-click-router
+
+start-aws-local:
+	./infra/aws/local-env-start.sh
+	
+start-custom-local:
+	./infra/custom/local-env-start.sh
+	
+start-custom-local:
+	./infra/custom/local-env-start.sh

@@ -1,0 +1,173 @@
+version: '3.8'
+
+networks:
+  shortas-net:
+    driver: bridge
+
+services:
+  # Infrastructure Services
+  mongo:
+    image: mongo:7
+    container_name: shortas-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - shortas-net
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: shortas-clickhouse
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_PASSWORD: clickhouse
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    networks:
+      - shortas-net
+
+  redis:
+    image: redis/redis-stack:latest
+    container_name: shortas-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    volumes:
+      - redis_data:/data
+    networks:
+      - shortas-net
+
+  # Fluvio streaming
+  fluvio-sc:
+    image: infinyon/fluvio:stable
+    container_name: shortas-fluvio-sc
+    restart: unless-stopped
+    ports:
+      - "9103:9003"
+    environment:
+      - RUST_LOG=info
+    command: "./fluvio-run sc --local /fluvio/metadata"
+    volumes:
+      - fluvio_metadata:/fluvio/metadata
+    networks:
+      - shortas-net
+
+  fluvio-spu:
+    image: infinyon/fluvio:stable
+    container_name: shortas-fluvio-spu
+    restart: unless-stopped
+    ports:
+      - "9110:9010"
+      - "9111:9011"
+    environment:
+      - RUST_LOG=info
+    volumes:
+      - fluvio_data:/fluvio/data
+    command: "./fluvio-run spu -i 5001 -p fluvio-spu:9010 -v fluvio-spu:9011 --sc-addr fluvio-sc:9004 --log-base-dir /fluvio/data"
+    depends_on:
+      - fluvio-sc
+    networks:
+      - shortas-net
+
+  # Application Services
+  click-router:
+    build:
+      context: ./click-router
+      dockerfile: Dockerfile
+    container_name: shortas-click-router
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_LOG=info
+      - APP_RUN_MODE=production
+    depends_on:
+      - mongo
+      - redis
+      - clickhouse
+    networks:
+      - shortas-net
+
+  click-router-api:
+    build:
+      context: ./click-router-api
+      dockerfile: Dockerfile
+    container_name: shortas-click-router-api
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      - RUST_LOG=info
+      - APP_RUN_MODE=production
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - shortas-net
+
+  click-tracker:
+    build:
+      context: ./click-tracker
+      dockerfile: Dockerfile
+    container_name: shortas-click-tracker
+    restart: unless-stopped
+    environment:
+      - RUST_LOG=info
+      - APP_RUN_MODE=production
+    depends_on:
+      - redis
+      - fluvio-spu
+    networks:
+      - shortas-net
+
+  click-aggregator:
+    build:
+      context: ./click-aggregator
+      dockerfile: Dockerfile
+    container_name: shortas-click-aggregator
+    restart: unless-stopped
+    environment:
+      - RUST_LOG=info
+      - APP_RUN_MODE=production
+    depends_on:
+      - clickhouse
+      - fluvio-spu
+    networks:
+      - shortas-net
+
+  click-aggregator-api:
+    build:
+      context: ./click-aggregator-api
+      dockerfile: Dockerfile
+    container_name: shortas-click-aggregator-api
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    environment:
+      - RUST_LOG=info
+      - APP_RUN_MODE=production
+    depends_on:
+      - clickhouse
+    networks:
+      - shortas-net
+
+volumes:
+  mongo_data:
+    driver: local
+  clickhouse_data:
+    driver: local
+  redis_data:
+    driver: local
+  fluvio_metadata:
+    driver: local
+  fluvio_data:
+    driver: local

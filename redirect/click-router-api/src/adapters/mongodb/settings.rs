@@ -1,12 +1,11 @@
 use serde_derive::Deserialize;
 
-#[derive(Default, Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 #[allow(unused)]
 pub struct Mongodb {
-    pub uri: String,
-    pub database: String,
-    pub encryption_collection: String,
+    pub connection_string: String,
+    pub database_name: String,
     pub routes_collection: String,
-    pub hostname_mappings_collection: String,
+    pub crypto_collection: String,
     pub user_settings_collection: String,
 }

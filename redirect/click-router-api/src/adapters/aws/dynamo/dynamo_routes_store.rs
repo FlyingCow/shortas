@@ -8,7 +8,7 @@ use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 use serde_dynamo::aws_sdk_dynamodb_1::to_attribute_value;
 
-use crate::core::BaseRoutesStore;
+use crate::core::RoutesStore;
 use crate::model::route::RoutingPolicy;
 use crate::model::Route;
 
@@ -28,7 +28,7 @@ impl DynamoRoutesStore {
 }
 
 #[async_trait::async_trait()]
-impl BaseRoutesStore for DynamoRoutesStore {
+impl RoutesStore for DynamoRoutesStore {
     async fn store_route(&self, route: &Route) -> Result<()> {
         let mut request = self
             .client

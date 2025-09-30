@@ -19,7 +19,7 @@ pub struct Settings {
     pub mongodb: Mongodb,
     pub server: Server,
 }
-const DEV_RUN_MODE: &'static str = "development";
+const DEV_RUN_MODE: &str = "development";
 
 impl Settings {
     pub fn new(run_mode: Option<&str>, path: Option<&str>) -> Result<Self, ConfigError> {

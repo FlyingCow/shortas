@@ -11,6 +11,12 @@ pub struct Keycert {
     pub ocsp_resp: Vec<u8>,
 }
 
+impl Default for Keycert {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Keycert {
     /// Create a new keycert.
     #[inline]

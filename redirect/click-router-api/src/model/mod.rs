@@ -1,4 +1,5 @@
 pub mod error;
+pub mod error_helpers;
 pub mod keycert;
 pub mod route;
 pub mod user_settings;

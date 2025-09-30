@@ -7,7 +7,7 @@ use aws_sdk_dynamodb::operation::get_item::GetItemOutput;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 
-use crate::core::BaseCryptoStore;
+use crate::core::CryptoStore;
 use crate::model::Keycert;
 
 #[derive(Clone, Debug)]
@@ -42,14 +42,14 @@ impl DynamoCryptoStore {
 }
 
 #[async_trait::async_trait()]
-impl BaseCryptoStore for DynamoCryptoStore {
-    async fn store_certificate(&self, _certificate: &Keycert) -> Result<()> {
+impl CryptoStore for DynamoCryptoStore {
+    async fn store_certificate(&self, _hostname: &str, _certificate: &Keycert) -> Result<()> {
         todo!()
     }
-    async fn update_certificate(&self, _certificate: &Keycert) -> Result<()> {
+    async fn update_certificate(&self, _hostname: &str, _certificate: &Keycert) -> Result<()> {
         todo!()
     }
-    async fn delete_certificate(&self, _certificate: &Keycert) -> Result<()> {
+    async fn delete_certificate(&self, _hostname: &str) -> Result<()> {
         todo!()
     }
 
@@ -71,9 +71,7 @@ impl BaseCryptoStore for DynamoCryptoStore {
 
         let result = match item {
             Ok(item_output) => Ok(self.to_entity(item_output)),
-            Err(e) => {
-                Err(e)
-            }
+            Err(e) => Err(e),
         };
 
         Ok(result?)

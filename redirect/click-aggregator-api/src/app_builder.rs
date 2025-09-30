@@ -1,35 +1,37 @@
-use actix_web::{middleware::Logger, web, App, HttpServer};
 use anyhow::Result;
+use salvo::prelude::*;
 use tracing::info;
 
 use crate::adapters;
-use crate::core::{BaseCryptoStore, BaseUserSettingsStore};
-use crate::settings::Server;
-use crate::{adapters::api::app_state::AppState, core::BaseRoutesStore, settings::Settings};
+use crate::settings::Server as ServerSettings;
+use crate::{adapters::api::app_state::AppState, settings::Settings};
+
+#[handler]
+async fn app_state_middleware(
+    req: &mut Request,
+    depot: &mut Depot,
+    res: &mut Response,
+    ctrl: &mut FlowCtrl,
+) {
+    // The app state will be set by the server setup
+    ctrl.call_next(req, depot, res).await;
+}
 
 #[derive(Clone)]
 pub struct AppBuilder {
     pub(super) settings: Settings,
-    pub(super) routes_store: Option<Box<dyn BaseRoutesStore + Send + Sync + 'static>>,
-    pub(super) crypto_store: Option<Box<dyn BaseCryptoStore + Send + Sync + 'static>>,
-    pub(super) user_settings_store: Option<Box<dyn BaseUserSettingsStore + Send + Sync + 'static>>,
 }
 
 #[derive(Clone)]
 pub struct Api {
-    pub settings: Server,
+    pub settings: ServerSettings,
     pub api_pool: AppState,
 }
 
 impl Api {
-    fn new(
-        settings: Server,
-        routes_store: Box<dyn BaseRoutesStore + Send + Sync>,
-        crypto_store: Box<dyn BaseCryptoStore + Send + Sync>,
-        user_settings_store: Box<dyn BaseUserSettingsStore + Send + Sync>,
-    ) -> Self {
+    fn new(settings: ServerSettings) -> Self {
         Api {
-            api_pool: AppState::new(routes_store, crypto_store, user_settings_store),
+            api_pool: AppState::new(),
             settings,
         }
     }
@@ -37,17 +39,20 @@ impl Api {
     async fn start_server(self) -> Result<()> {
         let port = self.settings.port.unwrap_or(8080);
 
-        info!("Server running on port {}", port);
+        let router = adapters::api::api_routes::routes();
 
-        HttpServer::new(move || {
-            App::new()
-                .app_data(web::Data::new(self.api_pool.clone()))
-                .wrap(Logger::default())
-                .configure(adapters::api::api_routes::routes)
-        })
-        .bind(("127.0.0.1", port))?
-        .run()
-        .await?;
+        let app_state = self.api_pool.clone();
+
+        let doc = OpenApi::new("test api", "0.0.1").merge_router(&router);
+
+        let router = router
+            .hoop(app_state_middleware)
+            .unshift(doc.into_router("/api-doc/openapi.json"))
+            .unshift(SwaggerUi::new("/api-doc/openapi.json").into_router("/swagger-ui"));
+
+        let acceptor = TcpListener::new("0.0.0.0:5800").bind().await;
+
+        Server::new(acceptor).serve(router).await;
 
         Ok(())
     }
@@ -60,24 +65,13 @@ impl Api {
 
 impl AppBuilder {
     pub fn new(settings: Settings) -> Self {
-        Self {
-            settings,
-            routes_store: None,
-            crypto_store: None,
-            user_settings_store: None,
-        }
+        Self { settings }
     }
 
     pub fn build(&self) -> Result<Api> {
-        env_logger::try_init()?;
         info!("{}", "BUILDING");
 
-        let router = Api::new(
-            self.settings.server.clone(),
-            self.routes_store.clone().unwrap(),
-            self.crypto_store.clone().unwrap(),
-            self.user_settings_store.clone().unwrap(),
-        );
+        let router = Api::new(self.settings.server.clone());
 
         Ok(router)
     }

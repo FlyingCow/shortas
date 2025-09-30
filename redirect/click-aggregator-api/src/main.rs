@@ -15,7 +15,9 @@ pub struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenv::from_filename("./click-router-api/.env").ok();
+    tracing_subscriber::fmt().init();
+
+    dotenv::from_filename("./.env").ok();
     let args = Args::parse();
 
     let settings = Settings::new(
@@ -24,12 +26,7 @@ async fn main() -> Result<()> {
     )
     .unwrap();
 
-    let _app = AppBuilder::new(settings)
-        .with_aws()
-        .await
-        .build()?
-        .run()
-        .await?;
+    AppBuilder::new(settings).build()?.run().await?;
 
     Ok(())
 }

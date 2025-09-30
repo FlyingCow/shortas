@@ -7,7 +7,7 @@ pub enum ActiveStatus {
     Blocked,
 }
 
-pub const SKIP_TRACKING: &'static str = "tracking"; 
+pub const SKIP_TRACKING: &str = "tracking"; 
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
 pub struct UserSettings {

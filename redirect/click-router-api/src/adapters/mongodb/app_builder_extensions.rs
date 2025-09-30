@@ -1,9 +1,10 @@
+use mongodb::Client;
 use tracing::info;
 
 use crate::{
     adapters::mongodb::{
-        mongodb_crypto_store::MongodbCryptoStore, mongodb_routes_store::MongodbRoutesStore,
-        mongodb_user_settings_store::MongodbUserSettingsStore,
+        crypto_store::MongodbCryptoStore, routes_store::MongodbRoutesStore,
+        user_settings_store::MongodbUserSettingsStore,
     },
     app_builder::AppBuilder,
 };
@@ -12,14 +13,26 @@ impl AppBuilder {
     pub async fn with_mongodb(&mut self) -> &mut Self {
         info!("{}", "WITH MONGODB PROVIDERS");
 
-        let routes_store =
-            Some(Box::new(MongodbRoutesStore::new(&self.settings.mongodb).await) as Box<_>);
+        let client = Client::with_uri_str(&self.settings.mongodb.connection_string)
+            .await
+            .expect("Failed to connect to MongoDB");
 
-        let crypto_store =
-            Some(Box::new(MongodbCryptoStore::new(&self.settings.mongodb).await) as Box<_>);
+        let database = client.database(&self.settings.mongodb.database_name);
 
-        let user_settings_store =
-            Some(Box::new(MongodbUserSettingsStore::new(&self.settings.mongodb).await) as Box<_>);
+        let routes_store = Some(Box::new(MongodbRoutesStore::new(
+            &database,
+            &self.settings.mongodb.routes_collection,
+        )) as Box<_>);
+
+        let crypto_store = Some(Box::new(MongodbCryptoStore::new(
+            &database,
+            &self.settings.mongodb.crypto_collection,
+        )) as Box<_>);
+
+        let user_settings_store = Some(Box::new(MongodbUserSettingsStore::new(
+            &database,
+            &self.settings.mongodb.user_settings_collection,
+        )) as Box<_>);
 
         self.routes_store = routes_store;
         self.crypto_store = crypto_store;

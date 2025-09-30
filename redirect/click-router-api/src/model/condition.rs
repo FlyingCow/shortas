@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct Condition {
     
     #[serde(alias="default_operator", alias="DEFAULT_OPERATOR")]
@@ -45,22 +45,6 @@ pub struct Condition {
     pub or: Option<Vec<Box<Condition>>>
 }
 
-impl Default for Condition {
-    fn default() -> Self {
-        Self { 
-            default_operator: Default::default(),
-            ua: Default::default(),
-            os: Default::default(),
-            date: Default::default(),
-            rnd: Default::default(),
-            day_of_week: Default::default(),
-            day_of_month: Default::default(),
-            month: Default::default(),
-            and: Default::default(),
-            or: Default::default(),
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum DefaultOperator {
