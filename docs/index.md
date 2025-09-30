@@ -6,7 +6,7 @@ description: Comprehensive documentation for Shortas - a fast and scalable URL s
 
 <div class="hero-section">
   <h1>Welcome to Shortas Documentation</h1>
-  <p class="lead">**Shortas** is a fast and scalable URL shortener built with Rust, featuring advanced analytics, multi-tenancy, and real-time click tracking capabilities.</p>
+  <p class="lead">**Shortas** is a high-performance URL shortener built with Rust, featuring advanced analytics, multi-tenancy, and real-time click tracking.</p>
   
   <div class="hero-badges">
     <span class="badge badge-success">Production Ready</span>
