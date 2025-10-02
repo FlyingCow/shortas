@@ -1,3 +1,19 @@
+//! Metrics collection and monitoring for the Click Router
+//!
+//! This module provides comprehensive metrics collection using Prometheus,
+//! tracking performance, request processing, cache efficiency, and system health.
+//!
+//! ## Metrics Categories
+//! - **Request Metrics**: Total requests, success/error rates, processing duration
+//! - **Cache Metrics**: Hit/miss rates for routes and user settings
+//! - **Database Metrics**: Query counts and response times
+//! - **Flow Metrics**: Usage of iterative vs recursive processing
+//! - **System Metrics**: Active requests, processing times
+//!
+//! ## Usage
+//! Metrics are automatically collected throughout the request lifecycle and
+//! exposed via HTTP endpoints for Prometheus scraping.
+
 use lazy_static::lazy_static;
 use prometheus::{
     Counter, Histogram, IntCounter, IntGauge, Registry, Opts, HistogramOpts,

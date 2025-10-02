@@ -1,3 +1,17 @@
+//! Redirect-Only Module
+//!
+//! This module handles requests that should be processed as simple redirects
+//! without going through the full analytics and tracking pipeline.
+//!
+//! ## Functionality
+//! - Detects when a request should be treated as redirect-only
+//! - Skips tracking and analytics for redirect-only requests
+//! - Optimizes performance by bypassing unnecessary processing steps
+//!
+//! ## Usage
+//! The module is automatically invoked during the flow processing and determines
+//! whether to skip to the BuildResult phase for simple redirects.
+
 use anyhow::{Ok, Result};
 use http::Method;
 
@@ -10,10 +24,18 @@ use crate::{
 };
 const IS_REDIRECT_ONLY: &'static str = "is_redirect_only";
 
+/// Module that handles redirect-only request processing
+/// 
+/// This module optimizes performance by identifying requests that only need
+/// simple redirects and skipping unnecessary analytics processing.
 #[derive(Clone)]
 pub struct RedirectOnlyModule {}
 
 impl RedirectOnlyModule {
+    /// Creates a new RedirectOnlyModule instance
+    /// 
+    /// # Returns
+    /// * A new RedirectOnlyModule ready for use in the flow pipeline
     pub fn new() -> Self {
         Self {}
     }
@@ -100,12 +122,11 @@ impl FlowModule for RedirectOnlyModule {
     async fn handle_register(
         &self,
         context: &mut FlowRouterContext,
-        flow_router: &FlowRouter,
+        _flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
         if context.is_data_true(IS_REDIRECT_ONLY) {
-            flow_router
-                .router_to(context, FlowStep::BuildResult)
-                .await?;
+            // Set the step to BuildResult so the iterative flow will handle the build result step
+            context.current_step = FlowStep::BuildResult;
 
             return Ok(FlowStepContinuation::Break);
         }

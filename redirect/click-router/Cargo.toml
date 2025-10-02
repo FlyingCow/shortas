@@ -1,46 +1,68 @@
 [package]
 name = "click-router"
-version = "0.1.0"
-edition = "2021"
-authors = ["Max Cechina <max.cechina@gmail.com>"]
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
 description = "A click redirection server."
 readme = "../README.md"
-license = "MIT"
 keywords = ["shortas", "router", "fast", "http", "redirect"]
-documentation = "https://shortas.tech/"
-homepage = "https://shortas.com"
-repository = "https://github.com/FlyingCow/shortas"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-accept-language = "3.1.0"
-anyhow = "1.0.82"
-async-trait = "0.1.80"
-aws-config = "1.3.0"
-aws-sdk-dynamodb = "1.25.0"
-aws-sdk-kinesis = "1.25.0"
-chrono = { version = "0.4.38", features = ["serde"] }
-clap = { version = "4.5.4", features = ["derive", "env"] }
-config = "0.15.11"
-dotenv = "0.15.0"
-dyn-clone = "1.0.17"
-http = "1.1.0"
-http-body-util = "0.1.1"
-hyper = "1.3.1"
-hyper-util = { version = "0.1.5", features = ["full"] }
-maxminddb = "0.26.0"
-moka = { version = "0.12.7", features = ["future"] }
-rand = "0.9.1"
-serde = "1.0.200"
-serde_derive = "1.0.200"
-serde_dynamo = { version = "4.2.14", features = ["aws-sdk-dynamodb+1"] }
-serde_json = "1.0.117"
-tokio = { version = "1.44.2", features = ["full"] }
-tokio-util = "0.7.11"
-tower = { version = "0.5.2", features = ["full"] }
-tracing = "0.1.40"
-uaparser = "0.6.4"
-urlencoding = "2.1.3"
+# Workspace dependencies
+accept-language.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+aws-config.workspace = true
+aws-sdk-dynamodb.workspace = true
+aws-sdk-kinesis.workspace = true
+chrono.workspace = true
+clap.workspace = true
+config.workspace = true
+dotenv.workspace = true
+dyn-clone.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+maxminddb.workspace = true
+moka.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_derive.workspace = true
+serde_dynamo.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tower.workspace = true
+tracing.workspace = true
+uaparser.workspace = true
+urlencoding.workspace = true
+rustls.workspace = true
+tracing-subscriber.workspace = true
+cookie.workspace = true
+multimap.workspace = true
+indexmap.workspace = true
+uuid.workspace = true
+kafka.workspace = true
+ulid.workspace = true
+rdkafka.workspace = true
+fluvio.workspace = true
+typed-builder.workspace = true
+hyper-rustls.workspace = true
+fastrand.workspace = true
+percent-encoding.workspace = true
+string_format.workspace = true
+futures.workspace = true
+mongodb.workspace = true
+prometheus.workspace = true
+lazy_static.workspace = true
+
+# Project-specific dependencies
 salvo = { path = "../../salvo/crates/salvo", features = [
     "anyhow",
     "proxy",
@@ -49,37 +71,9 @@ salvo = { path = "../../salvo/crates/salvo", features = [
     "test",
     "logging",
 ] }
-rustls = "0.23.9"
-tracing-subscriber = "0.3.18"
-cookie = "0.18.1"
-multimap = "0.10.0"
-indexmap = "2.2.6"
-uuid = "1.8.0"
-kafka = "0.10.0"
-ulid = "1.1.3"
-rdkafka = "0.37.0"
-fluvio = "0.50.0"
-typed-builder = "0.21.0"
-hyper-rustls = { version = "0.27.5", features = [
-    "native-tokio",
-    "rustls-native-certs",
-    "ring",
-    "http1",
-    "http2",
-    "tls12",
-    "logging",
-] }
-fastrand = "2.3.0"
-percent-encoding = "2.3.1"
-string_format = "0.1.0"
-futures = "0.3.31"
-mongodb = "3.2.5"
-# Monitoring and metrics
-prometheus = { version = "0.13.4", features = ["process"] }
-lazy_static = "1.4.0"
 
 [dev-dependencies]
-criterion = { version = "0.6.0", features = ["html_reports", "async_futures"] }
+criterion.workspace = true
 
 [[bench]]
 name = "default"

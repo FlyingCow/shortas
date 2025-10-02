@@ -34,37 +34,35 @@ impl LanguageExtractor {
 fn get_debug(request: &RequestType) -> Option<String> {
     let queries = request.queries();
 
-    let param_value = queries.get(DEBUG_LANGS_PARAM);
-
-    if param_value.is_some() {
-        return param_value.cloned();
+    // Check query parameter first
+    if let Some(param_value) = queries.get(DEBUG_LANGS_PARAM) {
+        return Some(param_value.clone());
     }
 
-    let header_value = request.headers().get(DEBUG_LANGS_PARAM).cloned();
-
-    if let Some(header) = header_value {
-        return Some(header.to_str().unwrap_or_default().to_string());
+    // Check header without cloning first
+    if let Some(header_value) = request.headers().get(DEBUG_LANGS_PARAM) {
+        if let Ok(header_str) = header_value.to_str() {
+            if !header_str.is_empty() {
+                return Some(header_str.to_string());
+            }
+        }
     }
 
     None
 }
 
 fn detect_from_headers(request: &RequestType) -> Option<Vec<Language>> {
-    if let Some(accept_language_header) = *&request.headers().get(ACCEPT_LANGUAGE_HEADER) {
-        let languages = accept_language_header.to_str();
+    if let Some(accept_language_header) = request.headers().get(ACCEPT_LANGUAGE_HEADER) {
+        if let Ok(languages_str) = accept_language_header.to_str() {
+            let languages = parse_with_quality(languages_str);
+            
+            let languages = languages
+                .iter()
+                .map(|f| Language::new(f.0.to_string(), f.1))
+                .collect();
 
-        if languages.is_err() {
-            return None;
+            return Some(languages);
         }
-
-        let languages = parse_with_quality(languages.unwrap());
-
-        let languages = languages
-            .iter()
-            .map(|f| Language::new(f.0.to_string(), f.1))
-            .collect();
-
-        return Some(languages);
     }
 
     None

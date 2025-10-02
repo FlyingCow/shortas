@@ -1,10 +1,19 @@
 [package]
 name = "domains"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
 
 [dependencies]
-tokio = { version = "1.44.2", features = ["full"] }
+# Workspace dependencies
+tokio.workspace = true
+tracing-subscriber.workspace = true
+
+# Project-specific dependencies
 salvo = { path = "../../../salvo/crates/salvo", features = [
     "anyhow",
     "proxy",
@@ -13,4 +22,3 @@ salvo = { path = "../../../salvo/crates/salvo", features = [
     "test",
     "logging",
 ] }
-tracing-subscriber = "0.3.19"

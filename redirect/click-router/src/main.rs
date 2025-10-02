@@ -1,3 +1,21 @@
+//! Click Router - High-Performance URL Routing and Analytics Service
+//!
+//! This is the main entry point for the Click Router application, a high-performance
+//! HTTP service that handles URL routing, redirects, and analytics collection.
+//!
+//! ## Features
+//! - High-performance request routing with caching
+//! - Real-time analytics and metrics collection
+//! - Geographic and user agent detection
+//! - Flexible module system for custom processing logic
+//! - Prometheus metrics integration
+//! - TLS/SSL support with dynamic certificate resolution
+//!
+//! ## Architecture
+//! The application uses a flow-based processing model where requests pass through
+//! multiple stages (Start, UrlExtract, Register, BuildResult, End), with each stage
+//! handled by configurable modules.
+
 use clap::Parser;
 use http::StatusCode;
 use rustls::server::ClientHello;
@@ -32,29 +50,53 @@ use click_router::{
     settings::Settings,
 };
 
+/// Command-line arguments for the Click Router application
+/// 
+/// This structure defines all the configurable parameters that can be passed
+/// via command line arguments or environment variables.
 #[derive(Parser, Debug)]
 #[command(version)]
 pub struct Args {
+    /// Application run mode (development, production, test)
     #[arg(short, long, default_value_t = String::from("production"), env("APP_RUN_MODE"))]
     pub run_mode: String,
+    /// Path to the configuration directory
     #[arg(short, long, default_value_t = String::from("./config"), env("APP_CONFIG_PATH"))]
     pub config_path: String,
+    /// Address and port for the main HTTP server
     #[arg(long, default_value_t = String::from("0.0.0.0:5800"), env("APP_LISTEN_ADDR"))]
     pub listen_addr: String,
+    /// Address and port for the metrics HTTP server
     #[arg(long, default_value_t = String::from("0.0.0.0:9090"), env("APP_METRICS_ADDR"))]
     pub metrics_addr: String,
+    /// Whether to enable metrics collection and endpoints
     #[arg(long, default_value_t = true, env("APP_ENABLE_METRICS"))]
     pub enable_metrics: bool,
 }
 
 static FLOW_ROUTER: OnceLock<FlowRouter> = OnceLock::new();
 
+/// Main HTTP request handler for the Click Router
+/// 
+/// This handler processes all incoming HTTP requests through the flow router,
+/// collecting metrics and generating appropriate responses.
 struct Redirect;
 
 // fn to_socket_addr()
 
 #[async_trait]
 impl Handler for Redirect {
+    /// Handles incoming HTTP requests through the flow router
+    /// 
+    /// This method processes each request through the complete flow pipeline,
+    /// collecting metrics and generating the appropriate response based on
+    /// the flow router's decision.
+    /// 
+    /// # Arguments
+    /// * `req` - The incoming HTTP request
+    /// * `depot` - Salvo's request-scoped data storage
+    /// * `res` - The HTTP response being constructed
+    /// * `ctrl` - Flow control for the request pipeline
     async fn handle(
         &self,
         req: &mut Request,
@@ -142,6 +184,17 @@ impl ResolvesServerConfig<IoError> for ServerConfigResolverMock {
     }
 }
 
+/// Main entry point for the Click Router application
+/// 
+/// This function initializes the application, sets up the flow router with all
+/// necessary components, and starts both the main HTTP server and the metrics
+/// server (if enabled).
+/// 
+/// The application supports:
+/// - TLS/SSL termination with dynamic certificate resolution
+/// - Concurrent main and metrics servers
+/// - Configurable modules and adapters
+/// - Comprehensive logging and monitoring
 #[tokio::main]
 async fn main() {
     rustls::crypto::ring::default_provider()

@@ -32,7 +32,7 @@ impl FlowModule for NotFoundModule {
     async fn handle_start(
         &self,
         context: &mut FlowRouterContext,
-        flow_router: &FlowRouter,
+        _flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
         if let None = context.main_route {
             context.add_bool(IS_404, true);
@@ -47,7 +47,8 @@ impl FlowModule for NotFoundModule {
                 StatusCode::OK,
             ));
 
-            flow_router.router_to(context, FlowStep::End).await?;
+            // Set the step to End so the iterative flow will handle the end step
+            context.current_step = FlowStep::End;
 
             return Ok(FlowStepContinuation::Break);
         }

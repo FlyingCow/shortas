@@ -1,8 +1,29 @@
+//! HTTP endpoints for metrics and health monitoring
+//!
+//! This module provides HTTP handlers for exposing application metrics and health
+//! information to monitoring systems like Prometheus and health check services.
+//!
+//! ## Endpoints
+//! - `/metrics` - Prometheus-compatible metrics in text format
+//! - `/health` - Health check with basic system information
+//! - `/metrics/info` - Detailed metrics information in JSON format
+//!
+//! ## Integration
+//! These endpoints are typically served on a separate port from the main application
+//! to isolate monitoring traffic from user traffic.
+
 use prometheus::{Encoder, TextEncoder};
 use salvo::{prelude::*, writing::Json, writing::Text, Response};
 use crate::core::metrics::METRICS;
 
-/// Handler for Prometheus metrics endpoint
+/// Handler for the Prometheus metrics endpoint
+/// 
+/// Serves metrics in Prometheus text format for scraping by monitoring systems.
+/// Returns all registered metrics with their current values.
+/// 
+/// # Response
+/// - Content-Type: `text/plain; version=0.0.4; charset=utf-8`
+/// - Body: Prometheus-formatted metrics data
 #[handler]
 pub async fn metrics_handler(res: &mut Response) {
     let encoder = TextEncoder::new();
@@ -22,7 +43,14 @@ pub async fn metrics_handler(res: &mut Response) {
     }
 }
 
-/// Handler for health check endpoint
+/// Handler for the health check endpoint
+/// 
+/// Provides a health status response with basic system metrics for monitoring
+/// and load balancer health checks.
+/// 
+/// # Response
+/// - Content-Type: `application/json`
+/// - Body: JSON object with status, timestamp, and key metrics
 #[handler]
 pub async fn health_handler(res: &mut Response) {
     let health_info = serde_json::json!({
@@ -46,7 +74,14 @@ pub async fn health_handler(res: &mut Response) {
     res.render(Json(health_info));
 }
 
-/// Handler for detailed metrics information
+/// Handler for detailed metrics information endpoint
+/// 
+/// Provides comprehensive metrics data in JSON format with calculated
+/// rates and performance indicators.
+/// 
+/// # Response
+/// - Content-Type: `application/json`
+/// - Body: JSON object with detailed metrics, rates, and performance data
 #[handler]
 pub async fn metrics_info_handler(res: &mut Response) {
     let cache_hit_rate = {
@@ -62,7 +97,7 @@ pub async fn metrics_info_handler(res: &mut Response) {
     
     let user_settings_cache_hit_rate = {
         let hits = METRICS.user_settings_cache_hits.get() as f64;
-        let misses = METRICS.user_settings_cache_misses.get() as f64;
+        let misses =  METRICS.user_settings_cache_misses.get() as f64;
         let total = hits + misses;
         if total > 0.0 {
             (hits / total) * 100.0

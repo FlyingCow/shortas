@@ -490,20 +490,33 @@ mod flow_router_tests {
 
         let mut context = FlowRouterContext::new(in_route, &request, &response);
 
-        // Test routing to different steps
-        let result = router.router_to(&mut context, FlowStep::Start).await;
+        // Test processing flow from different starting steps
+        context.current_step = FlowStep::Start;
+        let result = router.process_flow(&mut context).await;
         assert!(result.is_ok());
 
-        let result = router.router_to(&mut context, FlowStep::UrlExtract).await;
+        // Reset context for next test
+        let mut context = FlowRouterContext::new(in_route.clone(), &request, &response);
+        context.current_step = FlowStep::UrlExtract;
+        let result = router.process_flow(&mut context).await;
         assert!(result.is_ok());
 
-        let result = router.router_to(&mut context, FlowStep::Register).await;
+        // Reset context for next test
+        let mut context = FlowRouterContext::new(in_route.clone(), &request, &response);
+        context.current_step = FlowStep::Register;
+        let result = router.process_flow(&mut context).await;
         assert!(result.is_ok());
 
-        let result = router.router_to(&mut context, FlowStep::BuildResult).await;
+        // Reset context for next test
+        let mut context = FlowRouterContext::new(in_route.clone(), &request, &response);
+        context.current_step = FlowStep::BuildResult;
+        let result = router.process_flow(&mut context).await;
         assert!(result.is_ok());
 
-        let result = router.router_to(&mut context, FlowStep::End).await;
+        // Reset context for next test
+        let mut context = FlowRouterContext::new(in_route.clone(), &request, &response);
+        context.current_step = FlowStep::End;
+        let result = router.process_flow(&mut context).await;
         assert!(result.is_ok());
     }
 

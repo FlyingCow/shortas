@@ -17,30 +17,30 @@ impl UserAgentStringExtractor {
 fn get_debug(request: &RequestType) -> Option<String> {
     let queries = request.queries();
 
-    let param_value = queries.get(DEBUG_UA_PARAM);
-
-    if param_value.is_some() {
-        return param_value.cloned();
+    // Check query parameter first
+    if let Some(param_value) = queries.get(DEBUG_UA_PARAM) {
+        return Some(param_value.clone());
     }
 
-    let header_value = request.headers().get(DEBUG_UA_PARAM).cloned();
-
-    if let Some(header) = header_value {
-        return Some(header.to_str().unwrap_or_default().to_string());
+    // Check header without cloning first
+    if let Some(header_value) = request.headers().get(DEBUG_UA_PARAM) {
+        if let Ok(header_str) = header_value.to_str() {
+            if !header_str.is_empty() {
+                return Some(header_str.to_string());
+            }
+        }
     }
 
     None
 }
 
 fn detect_from_headers(request: &RequestType) -> Option<String> {
-    if let Some(user_agent_header) = *&request.headers().get(USER_AGENT_HEADER) {
-        let client_details = user_agent_header.to_str().unwrap_or_default();
-
-        if client_details.is_empty() {
-            return None;
+    if let Some(user_agent_header) = request.headers().get(USER_AGENT_HEADER) {
+        if let Ok(client_details) = user_agent_header.to_str() {
+            if !client_details.is_empty() {
+                return Some(client_details.to_string());
+            }
         }
-
-        return Some(client_details.to_string());
     }
 
     None
