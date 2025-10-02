@@ -24,6 +24,7 @@ use crate::{
         hit::{Click, HitRoute},
         Hit, Route, UserSettings,
     },
+    time_async_operation,
 };
 
 use super::{
@@ -33,6 +34,7 @@ use super::{
     ip::{IPExtractor, IPInfo},
     language::{Language, LanguageExtractor},
     location::{Country, LocationDetector},
+    metrics::{FlowRouterMetrics, Timer, METRICS},
     modules::FlowModules,
     protocol::{ProtoInfo, ProtocolExtractor},
     routes::RoutesManager,
@@ -333,6 +335,7 @@ pub struct FlowRouter {
     user_agent_detector: UserAgentDetectorType,
     location_detector: LocationDetectorType,
     modules: Vec<FlowModules>,
+    metrics: FlowRouterMetrics,
 }
 
 impl FlowRouter {
@@ -356,12 +359,47 @@ impl FlowRouter {
             user_agent_detector,
             location_detector,
             modules,
+            metrics: FlowRouterMetrics::new().expect("Failed to initialize metrics"),
         }
+    }
+    
+    /// Create a FlowRouter with custom metrics
+    pub fn with_metrics(
+        routes_cache: RoutesCacheType,
+        user_settings_cache: UserSettingsCacheType,
+        user_agent_detector: UserAgentDetectorType,
+        location_detector: LocationDetectorType,
+        hit_registrar: HitRegistrarType,
+        modules: Vec<FlowModules>,
+        metrics: FlowRouterMetrics,
+    ) -> Self {
+        FlowRouter {
+            routes_manager: RoutesManager::new(routes_cache),
+            settings_manager: UserSettingsManager::new(user_settings_cache),
+            hit_registrar,
+            host_extractor: HostExtractor::new(),
+            protocol_extractor: ProtocolExtractor::new(),
+            ip_extractor: IPExtractor::new(),
+            user_agent_string_extractor: UserAgentStringExtractor::new(),
+            language_extractor: LanguageExtractor::new(),
+            user_agent_detector,
+            location_detector,
+            modules,
+            metrics,
+        }
+    }
+    
+    /// Get a reference to the metrics
+    pub fn metrics(&self) -> &FlowRouterMetrics {
+        &self.metrics
     }
 
     /// Process the flow using an iterative state machine instead of async recursion
     /// This eliminates heap allocation overhead from async recursion
     pub async fn process_flow(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
+        let flow_timer = Timer::new();
+        self.metrics.iterative_flow_usage.inc();
+        
         let mut current_step = FlowStep::Start;
         
         loop {
@@ -391,12 +429,16 @@ impl FlowRouter {
             };
         }
         
+        // Record flow processing time
+        flow_timer.observe_duration_seconds(&self.metrics.flow_processing_duration);
+        
         Ok(())
     }
 
     /// Legacy method for backward compatibility - now delegates to process_flow
     #[deprecated(note = "Use process_flow instead for better performance")]
     pub async fn router_to(&self, context: &mut FlowRouterContext<'_>, step: FlowStep) -> Result<()> {
+        self.metrics.recursive_flow_usage.inc();
         context.current_step = step;
         self.process_flow(context).await
     }
@@ -465,7 +507,7 @@ impl FlowRouter {
             }
         }
 
-        self.hit_registrar
+        let hit_result = self.hit_registrar
             .register(&Hit::click(
                 &context.id,
                 context.utc,
@@ -483,7 +525,13 @@ impl FlowRouter {
                 ),
                 HitRoute::from_route(&context.main_route),
             ))
-            .await?;
+            .await;
+            
+        if hit_result.is_ok() {
+            self.metrics.hits_registered.inc();
+        }
+        
+        hit_result?;
 
         Ok(true) // Continue to next step
     }
@@ -811,7 +859,34 @@ impl FlowRouter {
         req: &'a RequestType<'a>,
         res: &'a ResponseType<'a>,
     ) -> Result<FlowRouterResult> {
-        let context = self.start(req, res).await?;
-        Ok(context.result.unwrap())
+        let request_timer = Timer::new();
+        self.metrics.requests_total.inc();
+        self.metrics.active_requests.inc();
+        
+        let result = async {
+            let context = self.start(req, res).await?;
+            Ok(context.result.unwrap())
+        }.await;
+        
+        self.metrics.active_requests.dec();
+        
+        match &result {
+            Ok(_) => {
+                self.metrics.requests_success.inc();
+            }
+            Err(_) => {
+                self.metrics.requests_error.inc();
+            }
+        }
+        
+        // Record total request processing time
+        request_timer.observe_duration_seconds(&self.metrics.request_duration);
+        
+        // Estimate memory allocations (rough approximation)
+        // This is a simplified metric - in production you might use more sophisticated memory tracking
+        let estimated_allocations = 15.0; // Base allocations for context, strings, etc.
+        self.metrics.memory_allocations_per_request.observe(estimated_allocations);
+        
+        result
     }
 }

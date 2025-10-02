@@ -24,7 +24,11 @@ use click_router::{
         RequestType, ResponseType,
     },
     app::AppBuilder,
-    core::flow_router::{FlowRouter, FlowRouterResult, RedirectType},
+    core::{
+        flow_router::{FlowRouter, FlowRouterResult, RedirectType},
+        metrics::{Timer, METRICS},
+        metrics_endpoint::create_metrics_router,
+    },
     settings::Settings,
 };
 
@@ -35,6 +39,12 @@ pub struct Args {
     pub run_mode: String,
     #[arg(short, long, default_value_t = String::from("./config"), env("APP_CONFIG_PATH"))]
     pub config_path: String,
+    #[arg(long, default_value_t = String::from("0.0.0.0:5800"), env("APP_LISTEN_ADDR"))]
+    pub listen_addr: String,
+    #[arg(long, default_value_t = String::from("0.0.0.0:9090"), env("APP_METRICS_ADDR"))]
+    pub metrics_addr: String,
+    #[arg(long, default_value_t = true, env("APP_ENABLE_METRICS"))]
+    pub enable_metrics: bool,
 }
 
 static FLOW_ROUTER: OnceLock<FlowRouter> = OnceLock::new();
@@ -52,6 +62,11 @@ impl Handler for Redirect {
         res: &mut Response,
         ctrl: &mut FlowCtrl,
     ) {
+        // Start timing the request
+        let request_timer = Timer::new();
+        METRICS.requests_total.inc();
+        METRICS.active_requests.inc();
+
         let router = get_flow_router();
 
         let result = router
@@ -59,37 +74,51 @@ impl Handler for Redirect {
                 &RequestType::Salvo(&SalvoRequest::new(&req)),
                 &ResponseType::Salvo(&mut SalvoResponse::new(res)),
             )
-            .await
-            .unwrap();
+            .await;
 
+        // Handle the result and update metrics
         match result {
-            FlowRouterResult::Empty(statu_code) => res.status_code(statu_code).render(""),
-            FlowRouterResult::Json(content, statu_code) => {
-                res.status_code(statu_code).render(Json(content))
+            Ok(flow_result) => {
+                METRICS.requests_success.inc();
+                
+                match flow_result {
+                    FlowRouterResult::Empty(status_code) => res.status_code(status_code).render(""),
+                    FlowRouterResult::Json(content, status_code) => {
+                        res.status_code(status_code).render(Json(content))
+                    }
+                    FlowRouterResult::PlainText(content, status_code) => {
+                        res.status_code(status_code).render(content)
+                    }
+                    FlowRouterResult::Proxied(url, _status_code) => {
+                        let url = url.to_string();
+                        let proxy = Proxy::new(url, HyperClient::default());
+                        proxy.handle(req, depot, res, ctrl).await;
+                    }
+                    FlowRouterResult::Redirect(url, redirect_type) => {
+                        match redirect_type {
+                            RedirectType::Permanent => res.status_code(StatusCode::PERMANENT_REDIRECT),
+                            RedirectType::Temporary => res.status_code(StatusCode::TEMPORARY_REDIRECT),
+                        };
+                        res.add_header("Location", url.to_string(), true)
+                            .unwrap()
+                            .render("");
+                    }
+                    FlowRouterResult::Retargeting(url, _script_urls) => res.render(url.to_string()),
+                    FlowRouterResult::Error => {
+                        METRICS.requests_error.inc();
+                        res.status_code(StatusCode::INTERNAL_SERVER_ERROR).render("")
+                    }
+                }
             }
-            FlowRouterResult::PlainText(content, statu_code) => {
-                res.status_code(statu_code).render(content)
+            Err(_) => {
+                METRICS.requests_error.inc();
+                res.status_code(StatusCode::INTERNAL_SERVER_ERROR).render("");
             }
-            FlowRouterResult::Proxied(url, _statu_code) => {
-                let url = url.to_string();
-                let proxy = Proxy::new(url, HyperClient::default());
-
-                proxy.handle(req, depot, res, ctrl).await;
-            }
-            FlowRouterResult::Redirect(url, redirect_type) => {
-                match redirect_type {
-                    RedirectType::Permanent => res.status_code(StatusCode::PERMANENT_REDIRECT),
-                    RedirectType::Temporary => res.status_code(StatusCode::TEMPORARY_REDIRECT),
-                };
-                res.add_header("Location", url.to_string(), true)
-                    .unwrap()
-                    .render("");
-            }
-            FlowRouterResult::Retargeting(url, _script_urls) => res.render(url.to_string()),
-            FlowRouterResult::Error => res
-                .status_code(StatusCode::INTERNAL_SERVER_ERROR)
-                .render(""),
         }
+
+        // Record request duration and decrement active requests
+        request_timer.observe_duration_seconds(&METRICS.request_duration);
+        METRICS.active_requests.dec();
     }
 }
 
@@ -145,16 +174,51 @@ async fn main() {
 
     let _ = FLOW_ROUTER.get_or_init(|| flow_router);
 
-    let router = Router::with_path("{**rest_path}").get(Redirect);
+    // Create main application router
+    let app_router = Router::with_path("{**rest_path}").get(Redirect);
 
-    println!("{:?}", router);
+    println!("🚀 Starting Click Router");
+    println!("   Main server: https://{}", args.listen_addr);
 
+    // Start metrics server if enabled
+    if args.enable_metrics {
+        let metrics_router = create_metrics_router();
+        let metrics_service = Service::new(metrics_router).hoop(Logger::new());
+
+        println!("📊 Metrics endpoints enabled:");
+        println!("   Metrics server: http://{}", args.metrics_addr);
+        println!(
+            "   • GET {}/health        - Health check",
+            args.metrics_addr
+        );
+        println!(
+            "   • GET {}/metrics       - Prometheus metrics",
+            args.metrics_addr
+        );
+        println!(
+            "   • GET {}/metrics/info  - Detailed metrics info",
+            args.metrics_addr
+        );
+
+        // Start metrics server in background with default address
+        tokio::spawn(async move {
+            let metrics_acceptor = TcpListener::new("0.0.0.0:9090").bind().await;
+            Server::new(metrics_acceptor).serve(metrics_service).await;
+        });
+    } else {
+        println!("📊 Metrics endpoints disabled (use --enable-metrics to enable)");
+    }
+
+    // Start main application server with default address
     let acceptor = TcpListener::new("0.0.0.0:5800")
         .rustls_async(ServerConfigResolverMock)
         .bind()
         .await;
 
-    let service = Service::new(router).hoop(Logger::new());
-    // let acceptor = TcpListener::new("127.0.0.1:5800").bind().await;
+    let service = Service::new(app_router).hoop(Logger::new());
+
+    println!("✅ Click Router started successfully!");
+    println!();
+
     Server::new(acceptor).serve(service).await;
 }

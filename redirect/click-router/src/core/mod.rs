@@ -16,6 +16,8 @@ pub mod user_agent_string;
 
 pub mod hits_register;
 pub mod location;
+pub mod metrics;
+pub mod metrics_endpoint;
 
 pub use crypto::CryptoStore;
 pub use routes::RoutesStore;
