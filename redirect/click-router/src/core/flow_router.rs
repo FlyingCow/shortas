@@ -1,5 +1,4 @@
 use anyhow::Result;
-use async_recursion::async_recursion;
 use chrono::{DateTime, Utc};
 use cookie::{Cookie, CookieJar};
 use http::{
@@ -66,7 +65,7 @@ impl Display for FlowRouterResult {
     }
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
 pub enum FlowStep {
     #[default]
     Initial,
@@ -360,20 +359,63 @@ impl FlowRouter {
         }
     }
 
-    #[async_recursion()]
-    pub async fn router_to(&self, context: &mut FlowRouterContext, step: FlowStep) -> Result<()> {
-        context.current_step = step;
-
-        match context.current_step {
-            FlowStep::Start => self.handle_start(context).await,
-            FlowStep::UrlExtract => self.handle_url_extract(context).await,
-            FlowStep::Register => self.handle_register(context).await,
-            FlowStep::BuildResult => self.handle_build_result(context).await,
-            FlowStep::End => self.handle_end(context).await,
-            _ => panic!("Initial step set not allowed."),
+    /// Process the flow using an iterative state machine instead of async recursion
+    /// This eliminates heap allocation overhead from async recursion
+    pub async fn process_flow(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
+        let mut current_step = FlowStep::Start;
+        
+        loop {
+            context.current_step = current_step;
+            
+            let should_continue = match current_step {
+                FlowStep::Start => self.handle_start_iterative(context).await?,
+                FlowStep::UrlExtract => self.handle_url_extract_iterative(context).await?,
+                FlowStep::Register => self.handle_register_iterative(context).await?,
+                FlowStep::BuildResult => self.handle_build_result_iterative(context).await?,
+                FlowStep::End => {
+                    self.handle_end_iterative(context).await?;
+                    break; // End the flow
+                }
+                _ => return Err(anyhow::anyhow!("Invalid flow step: {:?}", current_step)),
+            };
+            
+            // Move to next step if modules didn't break the flow
+            current_step = match (current_step, should_continue) {
+                (FlowStep::Start, true) => FlowStep::UrlExtract,
+                (FlowStep::UrlExtract, true) => FlowStep::Register,
+                (FlowStep::Register, true) => FlowStep::BuildResult,
+                (FlowStep::BuildResult, true) => FlowStep::End,
+                (_, false) => break, // Flow was interrupted by a module
+                (FlowStep::Initial, true) => return Err(anyhow::anyhow!("Invalid initial state")),
+                (FlowStep::End, true) => break, // Should not reach here due to explicit break above
+            };
         }
+        
+        Ok(())
     }
 
+    /// Legacy method for backward compatibility - now delegates to process_flow
+    #[deprecated(note = "Use process_flow instead for better performance")]
+    pub async fn router_to(&self, context: &mut FlowRouterContext<'_>, step: FlowStep) -> Result<()> {
+        context.current_step = step;
+        self.process_flow(context).await
+    }
+
+    /// Iterative version that returns whether to continue to next step
+    async fn handle_start_iterative(&self, context: &mut FlowRouterContext<'_>) -> Result<bool> {
+        for module in &self.modules {
+            let result = module.handle_start(context, &self).await?;
+
+            if result == FlowStepContinuation::Break {
+                return Ok(false); // Don't continue to next step
+            }
+        }
+
+        Ok(true) // Continue to next step
+    }
+
+    /// Legacy method for backward compatibility
+    #[deprecated(note = "Use handle_start_iterative for better performance")]
     async fn handle_start(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
         for module in &self.modules {
             let result = module.handle_start(context, &self).await?;
@@ -386,6 +428,21 @@ impl FlowRouter {
         self.router_to(context, FlowStep::UrlExtract).await
     }
 
+    /// Iterative version that returns whether to continue to next step
+    async fn handle_url_extract_iterative(&self, context: &mut FlowRouterContext<'_>) -> Result<bool> {
+        for module in &self.modules {
+            let result = module.handle_url_extract(context, &self).await?;
+
+            if result == FlowStepContinuation::Break {
+                return Ok(false); // Don't continue to next step
+            }
+        }
+
+        Ok(true) // Continue to next step
+    }
+
+    /// Legacy method for backward compatibility
+    #[deprecated(note = "Use handle_url_extract_iterative for better performance")]
     async fn handle_url_extract(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
         for module in &self.modules {
             let result = module.handle_url_extract(context, &self).await?;
@@ -398,6 +455,41 @@ impl FlowRouter {
         self.router_to(context, FlowStep::Register).await
     }
 
+    /// Iterative version that returns whether to continue to next step
+    async fn handle_register_iterative(&self, context: &mut FlowRouterContext<'_>) -> Result<bool> {
+        for module in &self.modules {
+            let result = module.handle_register(context, &self).await?;
+
+            if result == FlowStepContinuation::Break {
+                return Ok(false); // Don't continue to next step
+            }
+        }
+
+        self.hit_registrar
+            .register(&Hit::click(
+                &context.id,
+                context.utc,
+                context.user_agent.as_deref(),
+                Some(context.client_ip.clone().unwrap().address),
+                &Click::new(
+                    context
+                        .out_route
+                        .as_ref()
+                        .unwrap()
+                        .dest
+                        .as_ref()
+                        .unwrap()
+                        .as_str(),
+                ),
+                HitRoute::from_route(&context.main_route),
+            ))
+            .await?;
+
+        Ok(true) // Continue to next step
+    }
+
+    /// Legacy method for backward compatibility
+    #[deprecated(note = "Use handle_register_iterative for better performance")]
     async fn handle_register(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
         for module in &self.modules {
             let result = module.handle_register(context, &self).await?;
@@ -430,6 +522,36 @@ impl FlowRouter {
         self.router_to(context, FlowStep::BuildResult).await
     }
 
+    /// Iterative version that returns whether to continue to next step
+    async fn handle_build_result_iterative(&self, context: &mut FlowRouterContext<'_>) -> Result<bool> {
+        for module in &self.modules {
+            let result = module.handle_build_result(context, &self).await?;
+
+            if result == FlowStepContinuation::Break {
+                return Ok(false); // Don't continue to next step
+            }
+        }
+
+        let result = match &context.out_route {
+            Some(route) => {
+                let destination = &route
+                    .dest
+                    .as_ref()
+                    .unwrap_or(&String::from("http://test.com"))
+                    .to_string();
+
+                FlowRouterResult::Redirect(destination.parse().unwrap(), RedirectType::Temporary)
+            }
+            None => FlowRouterResult::Empty(StatusCode::NOT_FOUND),
+        };
+
+        context.result = Some(result);
+
+        Ok(true) // Continue to next step
+    }
+
+    /// Legacy method for backward compatibility
+    #[deprecated(note = "Use handle_build_result_iterative for better performance")]
     async fn handle_build_result(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
         for module in &self.modules {
             let result = module.handle_build_result(context, &self).await?;
@@ -457,6 +579,21 @@ impl FlowRouter {
         self.router_to(context, FlowStep::End).await
     }
 
+    /// Iterative version for the end step
+    async fn handle_end_iterative(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
+        for module in &self.modules {
+            let result = module.handle_end(context, &self).await?;
+
+            if result == FlowStepContinuation::Break {
+                return Ok(());
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Legacy method for backward compatibility
+    #[deprecated(note = "Use handle_end_iterative for better performance")]
     async fn handle_end(&self, context: &mut FlowRouterContext<'_>) -> Result<()> {
         for module in &self.modules {
             let result = module.handle_end(context, &self).await?;
@@ -514,7 +651,7 @@ impl FlowRouter {
 
         let _ = &self.replace_debug_data(&mut context);
 
-        self.router_to(&mut context, FlowStep::Start).await?;
+        self.process_flow(&mut context).await?;
 
         Ok(context)
     }
