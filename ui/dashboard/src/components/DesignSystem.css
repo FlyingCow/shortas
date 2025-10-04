@@ -1,6 +1,13 @@
 /* Shortas Dashboard Design System */
 /* Unified styling for all components */
 
+/* Layout wrapper for footer positioning */
+.layout-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 /* ===== CSS VARIABLES ===== */
 :root {
   /* Colors */

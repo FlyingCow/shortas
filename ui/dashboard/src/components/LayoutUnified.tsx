@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { logout, getUserInfo } from '../config/keycloak';
 import DevelopmentBanner from './DevelopmentBanner';
+import Footer from './Footer';
 import './DesignSystem.css';
 
 interface LayoutProps {
@@ -32,7 +33,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <>
+    <div className="layout-wrapper">
       <DevelopmentBanner />
       
       {/* Top Navigation */}
@@ -80,7 +81,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <main className="main-content">
         {children}
       </main>
-    </>
+
+      {/* Footer */}
+      <Footer />
+    </div>
   );
 };
 

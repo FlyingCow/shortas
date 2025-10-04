@@ -25,7 +25,7 @@
   font-size: 0.875rem;
 }
 
-/* Force all table text to be readable with lighter colors */
+/* Force all table text to be readable with proper contrast */
 .unified-table td,
 .unified-table td *,
 .unified-table td span,
@@ -33,18 +33,18 @@
 .unified-table td p,
 .unified-table td a,
 .unified-table td button {
-  color: #374151 !important;
+  color: #1f2937 !important;
   font-weight: 500 !important;
 }
 
 /* Override any inherited styles */
 .unified-table tbody tr td {
-  color: #374151 !important;
+  color: #1f2937 !important;
   font-weight: 500 !important;
 }
 
 .unified-table tbody tr td * {
-  color: #374151 !important;
+  color: #1f2937 !important;
   font-weight: 500 !important;
 }
 
@@ -91,7 +91,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #374151 !important;
+  color: #1f2937 !important;
   font-weight: 500 !important;
 }
 
@@ -99,29 +99,30 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+  color: #6b7280 !important;
 }
 
 .table-cell-text {
   flex: 1;
   min-width: 0;
-  color: #374151 !important;
+  color: #1f2937 !important;
   font-weight: 500 !important;
 }
 
 .table-cell-primary {
   font-weight: 600 !important;
-  color: #1f2937 !important;
+  color: #111827 !important;
 }
 
 .table-cell-secondary {
   font-size: 0.75rem;
-  color: #6b7280 !important;
+  color: #4b5563 !important;
   margin-top: 0.25rem;
   font-weight: 500 !important;
 }
 
 .table-cell-muted {
-  color: #9ca3af !important;
+  color: #6b7280 !important;
   font-size: 0.75rem;
   font-weight: 500 !important;
 }
@@ -250,19 +251,19 @@
   white-space: nowrap;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 0.75rem;
-  color: #3b82f6 !important;
+  color: #2563eb !important;
   text-decoration: none;
   font-weight: 500 !important;
 }
 
 .table-url:hover {
-  color: #1e40af;
+  color: #1d4ed8;
   text-decoration: underline;
 }
 
 .table-url-short {
   font-size: 0.75rem;
-  color: #6b7280 !important;
+  color: #4b5563 !important;
   margin-top: 0.25rem;
   font-weight: 500 !important;
 }
@@ -271,7 +272,7 @@
 .table-timestamp {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 0.75rem;
-  color: #6b7280 !important;
+  color: #4b5563 !important;
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -287,13 +288,13 @@
 
 .table-location-city {
   font-weight: 600 !important;
-  color: #1f2937 !important;
+  color: #111827 !important;
   font-size: 0.875rem;
 }
 
 .table-location-country {
   font-size: 0.75rem;
-  color: #6b7280 !important;
+  color: #4b5563 !important;
   font-weight: 500 !important;
 }
 
@@ -308,11 +309,12 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+  color: #6b7280 !important;
 }
 
 .table-device-name {
   font-weight: 600 !important;
-  color: #1f2937 !important;
+  color: #111827 !important;
 }
 
 /* Response time indicators */
@@ -479,6 +481,45 @@
   }
 }
 
+/* Additional table fixes */
+.unified-table tbody td {
+  color: #1f2937 !important;
+  font-weight: 500 !important;
+  border: none !important;
+}
+
+.unified-table tbody td * {
+  color: #1f2937 !important;
+  font-weight: 500 !important;
+}
+
+.unified-table tbody td span {
+  color: #1f2937 !important;
+  font-weight: 500 !important;
+}
+
+.unified-table tbody td div {
+  color: #1f2937 !important;
+  font-weight: 500 !important;
+}
+
+.unified-table tbody td button {
+  color: #1f2937 !important;
+  font-weight: 500 !important;
+}
+
+/* Ensure all text elements are readable */
+.unified-table tbody tr td,
+.unified-table tbody tr td *,
+.unified-table tbody tr td span,
+.unified-table tbody tr td div,
+.unified-table tbody tr td p,
+.unified-table tbody tr td a,
+.unified-table tbody tr td button {
+  color: #1f2937 !important;
+  font-weight: 500 !important;
+}
+
 /* High contrast mode */
 @media (prefers-contrast: high) {
   .unified-table tbody tr {
@@ -497,6 +538,10 @@
   }
   
   .unified-table tbody td {
-    color: #000000;
+    color: #000000 !important;
+  }
+  
+  .unified-table tbody td * {
+    color: #000000 !important;
   }
 }

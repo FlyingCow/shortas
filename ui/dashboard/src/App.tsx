@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import keycloak, { keycloakInitOptions, initializeKeycloak } from './config/keycloak';
 import { useMockData } from './config/development';
 import Dashboard from './components/DashboardUnified';
-import RoutesPage from './components/RoutesUnified';
+import RoutesPage from './components/RoutesWithAnalytics';
 import Analytics from './components/AnalyticsUnified';
 import Settings from './components/SettingsUnified';
 import Clickstream from './components/ClickstreamUnified';
