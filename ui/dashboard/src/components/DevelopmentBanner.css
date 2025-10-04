@@ -1,0 +1,70 @@
+/* Development Banner Styles */
+.development-banner {
+  background: linear-gradient(135deg, #ffa726 0%, #ff9800 100%);
+  color: white;
+  padding: 0.75rem 1rem;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  flex-wrap: wrap;
+}
+
+.banner-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.banner-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.mock-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.banner-hint {
+  font-size: 0.75rem;
+  opacity: 0.9;
+  margin-left: 0.5rem;
+}
+
+/* Adjust main content when banner is present */
+.development-banner + * {
+  margin-top: 3rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .development-banner {
+    padding: 0.5rem;
+  }
+  
+  .banner-content {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .banner-hint {
+    margin-left: 0;
+    text-align: center;
+  }
+}

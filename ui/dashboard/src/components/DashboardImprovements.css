@@ -1,0 +1,222 @@
+/* Dashboard Text Visibility Improvements */
+
+/* Stats Cards - Enhanced Text Visibility */
+.stats-card .h4 {
+  color: #1f2937 !important; /* Dark gray for better contrast */
+  font-weight: 700 !important;
+  font-size: 1.75rem !important;
+}
+
+.stats-card .small {
+  color: #374151 !important; /* Medium gray for labels */
+  font-weight: 500 !important;
+  font-size: 0.875rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+/* Card Body Improvements */
+.stats-card .card-body {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-left: 4px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.stats-card:hover .card-body {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Icon Colors - More Vibrant */
+.stats-card .text-primary {
+  color: #3b82f6 !important;
+}
+
+.stats-card .text-success {
+  color: #10b981 !important;
+}
+
+.stats-card .text-info {
+  color: #06b6d4 !important;
+}
+
+.stats-card .text-warning {
+  color: #f59e0b !important;
+}
+
+/* Chart Card Headers */
+.chart-card .card-title {
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+  font-size: 1.125rem !important;
+}
+
+.chart-card .text-muted {
+  color: #6b7280 !important;
+}
+
+/* Button Text Visibility */
+.btn {
+  font-weight: 500 !important;
+}
+
+.btn-primary {
+  background-color: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+.btn-primary:hover {
+  background-color: #2563eb !important;
+  border-color: #2563eb !important;
+}
+
+.btn-outline-primary {
+  color: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+}
+
+.btn-outline-primary:hover {
+  background-color: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+/* Form Controls */
+.form-control {
+  color: #1f2937 !important;
+  background-color: #ffffff !important;
+  border-color: #d1d5db !important;
+}
+
+.form-control:focus {
+  color: #1f2937 !important;
+  background-color: #ffffff !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25) !important;
+}
+
+.form-select {
+  color: #1f2937 !important;
+  background-color: #ffffff !important;
+  border-color: #d1d5db !important;
+}
+
+.form-select:focus {
+  color: #1f2937 !important;
+  background-color: #ffffff !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25) !important;
+}
+
+/* Table Text */
+.table th {
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+  background-color: #f8fafc !important;
+}
+
+.table td {
+  color: #374151 !important;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #f8fafc !important;
+}
+
+/* Alert Text */
+.alert {
+  color: #1f2937 !important;
+}
+
+.alert-danger {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #991b1b !important;
+}
+
+.alert-info {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1e40af !important;
+}
+
+/* Badge Text */
+.badge {
+  font-weight: 500 !important;
+}
+
+.badge-success {
+  background-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+.badge-danger {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+.badge-warning {
+  background-color: #f59e0b !important;
+  color: #ffffff !important;
+}
+
+.badge-secondary {
+  background-color: #6b7280 !important;
+  color: #ffffff !important;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .stats-card .h4 {
+    color: #f9fafb !important;
+  }
+  
+  .stats-card .small {
+    color: #d1d5db !important;
+  }
+  
+  .stats-card .card-body {
+    background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  }
+  
+  .stats-card:hover .card-body {
+    background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+  }
+  
+  .chart-card .card-title {
+    color: #f9fafb !important;
+  }
+  
+  .chart-card .text-muted {
+    color: #9ca3af !important;
+  }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .stats-card .h4 {
+    font-size: 1.5rem !important;
+  }
+  
+  .stats-card .small {
+    font-size: 0.75rem !important;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .stats-card .h4 {
+    color: #000000 !important;
+  }
+  
+  .stats-card .small {
+    color: #000000 !important;
+  }
+  
+  .stats-card .card-body {
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
+  }
+}
