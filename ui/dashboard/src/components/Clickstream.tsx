@@ -25,8 +25,7 @@ import {
   Filter,
   Search
 } from 'lucide-react';
-import './Clickstream.css';
-import './UnifiedTable.css';
+import './DesignSystem.css';
 
 interface ClickEvent {
   id: string;

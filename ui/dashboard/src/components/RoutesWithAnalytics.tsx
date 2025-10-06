@@ -7,19 +7,13 @@ import {
   Copy,
   BarChart3,
   Search,
-  Filter,
   Users,
   MousePointer,
   Clock,
   Activity,
-  Globe,
-  Smartphone,
-  Monitor,
-  Tablet,
-  MapPin,
-  TrendingUp
+  Globe
 } from 'lucide-react';
-import { Dropdown } from 'react-bootstrap';
+// Removed Bootstrap Dropdown import - using unified controls
 import { 
   BarChart, 
   Bar, 
@@ -38,7 +32,6 @@ import { apiService, RouteDto } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import RouteEditModal from './RouteEditModal';
 import './DesignSystem.css';
-import './RoutesWithAnalytics.css';
 
 const RoutesWithAnalytics: React.FC = () => {
   const [routes, setRoutes] = useState<RouteDto[]>([]);
@@ -198,9 +191,7 @@ const RoutesWithAnalytics: React.FC = () => {
     setSelectedRoute(route);
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
+  // Removed unused copyToClipboard function
 
   const filteredRoutes = routes.filter(route => {
     const matchesSearch = route.link.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -210,22 +201,22 @@ const RoutesWithAnalytics: React.FC = () => {
   });
 
   const getCountryColor = (index: number) => {
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+    const colors = ['var(--primary-500)', 'var(--success-500)', 'var(--warning-500)', 'var(--error-500)', 'var(--primary-600)', 'var(--primary-400)'];
     return colors[index % colors.length];
   };
 
   const getBrowserColor = (browser: string) => {
     switch (browser.toLowerCase()) {
       case 'chrome':
-        return '#4285f4';
+        return 'var(--primary-500)';
       case 'safari':
-        return '#007aff';
+        return 'var(--success-500)';
       case 'firefox':
-        return '#ff9500';
+        return 'var(--warning-500)';
       case 'edge':
-        return '#0078d4';
+        return 'var(--primary-600)';
       default:
-        return '#6b7280';
+        return 'var(--text-muted)';
     }
   };
 
@@ -262,33 +253,17 @@ const RoutesWithAnalytics: React.FC = () => {
               />
             </div>
             
-            <div className="filter-controls">
-              <Dropdown>
-                <Dropdown.Toggle variant="outline-secondary" size="sm">
-                  <Filter size={14} />
-                  {statusFilter === 'all' ? 'All Status' : statusFilter}
-                </Dropdown.Toggle>
-                <Dropdown.Menu>
-                  <Dropdown.Item 
-                    active={statusFilter === 'all'}
-                    onClick={() => setStatusFilter('all')}
-                  >
-                    All Status
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={statusFilter === 'active'}
-                    onClick={() => setStatusFilter('active')}
-                  >
-                    Active
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={statusFilter === 'inactive'}
-                    onClick={() => setStatusFilter('inactive')}
-                  >
-                    Inactive
-                  </Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
+            <div className="control-group">
+              <div className="control-select">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -444,8 +419,8 @@ const RoutesWithAnalytics: React.FC = () => {
                     <Area 
                       type="monotone" 
                       dataKey="clicks" 
-                      stroke="#3b82f6" 
-                      fill="#3b82f6" 
+                      stroke="var(--primary-500)" 
+                      fill="var(--primary-500)" 
                       fillOpacity={0.3}
                     />
                   </AreaChart>
@@ -460,7 +435,7 @@ const RoutesWithAnalytics: React.FC = () => {
                     <XAxis type="number" />
                     <YAxis dataKey="country" type="category" width={100} />
                     <Tooltip />
-                    <Bar dataKey="clicks" fill="#3b82f6" />
+                    <Bar dataKey="clicks" fill="var(--primary-500)" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -476,7 +451,7 @@ const RoutesWithAnalytics: React.FC = () => {
                       labelLine={false}
                       label={({ device, percentage }) => `${device} (${percentage}%)`}
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill="var(--primary-400)"
                       dataKey="clicks"
                     >
                       {analytics.deviceBreakdown.map((entry: any, index: number) => (
@@ -499,7 +474,7 @@ const RoutesWithAnalytics: React.FC = () => {
                       labelLine={false}
                       label={({ browser, percentage }) => `${browser} (${percentage}%)`}
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill="var(--primary-400)"
                       dataKey="clicks"
                     >
                       {analytics.browserBreakdown.map((entry: any, index: number) => (

@@ -7,10 +7,13 @@ import {
   Save,
   Eye,
   EyeOff,
-  ChevronDown
+  Sun,
+  Moon,
+  Monitor
 } from 'lucide-react';
-import { Dropdown } from 'react-bootstrap';
+// Removed Bootstrap Dropdown import - using unified controls
 import { apiService } from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
@@ -37,6 +40,7 @@ interface UserSettings {
 }
 
 const Settings: React.FC = () => {
+  const { theme, toggleTheme, setTheme } = useTheme();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -189,125 +193,74 @@ const Settings: React.FC = () => {
             
             <div className="form-group">
               <label className="form-label">Timezone</label>
-              <Dropdown drop="up">
-                <Dropdown.Toggle 
-                  variant="outline-secondary" 
-                  className="btn btn-outline w-100"
+              <div className="control-select">
+                <select
+                  value={settings?.timezone || 'UTC'}
+                  onChange={(e) => updateSettings('timezone', e.target.value)}
                 >
-                  {settings?.timezone === 'UTC' ? 'UTC' :
-                   settings?.timezone === 'America/New_York' ? 'Eastern Time' :
-                   settings?.timezone === 'America/Chicago' ? 'Central Time' :
-                   settings?.timezone === 'America/Denver' ? 'Mountain Time' :
-                   settings?.timezone === 'America/Los_Angeles' ? 'Pacific Time' :
-                   settings?.timezone === 'Europe/London' ? 'London' :
-                   settings?.timezone === 'Europe/Paris' ? 'Paris' : 'Tokyo'}
-                  <ChevronDown size={14} className="ms-1" />
-                </Dropdown.Toggle>
-                <Dropdown.Menu 
-                  className="dropdown-menu-end w-100"
-                  style={{  }}
-                >
-                  <Dropdown.Item 
-                    active={settings?.timezone === 'UTC'}
-                    onClick={() => updateSettings('timezone', 'UTC')}
-                  >
-                    UTC
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.timezone === 'America/New_York'}
-                    onClick={() => updateSettings('timezone', 'America/New_York')}
-                  >
-                    Eastern Time
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.timezone === 'America/Chicago'}
-                    onClick={() => updateSettings('timezone', 'America/Chicago')}
-                  >
-                    Central Time
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.timezone === 'America/Denver'}
-                    onClick={() => updateSettings('timezone', 'America/Denver')}
-                  >
-                    Mountain Time
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.timezone === 'America/Los_Angeles'}
-                    onClick={() => updateSettings('timezone', 'America/Los_Angeles')}
-                  >
-                    Pacific Time
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.timezone === 'Europe/London'}
-                    onClick={() => updateSettings('timezone', 'Europe/London')}
-                  >
-                    London
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.timezone === 'Europe/Paris'}
-                    onClick={() => updateSettings('timezone', 'Europe/Paris')}
-                  >
-                    Paris
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.timezone === 'Asia/Tokyo'}
-                    onClick={() => updateSettings('timezone', 'Asia/Tokyo')}
-                  >
-                    Tokyo
-                  </Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
+                  <option value="UTC">UTC</option>
+                  <option value="America/New_York">Eastern Time</option>
+                  <option value="America/Chicago">Central Time</option>
+                  <option value="America/Denver">Mountain Time</option>
+                  <option value="America/Los_Angeles">Pacific Time</option>
+                  <option value="Europe/London">London</option>
+                  <option value="Europe/Paris">Paris</option>
+                  <option value="Asia/Tokyo">Tokyo</option>
+                </select>
+              </div>
             </div>
             
             <div className="form-group">
               <label className="form-label">Language</label>
-              <Dropdown drop="up">
-                <Dropdown.Toggle 
-                  variant="outline-secondary" 
-                  className="btn btn-outline w-100"
+              <div className="control-select">
+                <select
+                  value={settings?.language || 'en'}
+                  onChange={(e) => updateSettings('language', e.target.value)}
                 >
-                  {settings?.language === 'en' ? 'English' :
-                   settings?.language === 'es' ? 'Spanish' :
-                   settings?.language === 'fr' ? 'French' :
-                   settings?.language === 'de' ? 'German' : 'Japanese'}
-                  <ChevronDown size={14} className="ms-1" />
-                </Dropdown.Toggle>
-                <Dropdown.Menu 
-                  className="dropdown-menu-end w-100"
-                  style={{  }}
-                >
-                  <Dropdown.Item 
-                    active={settings?.language === 'en'}
-                    onClick={() => updateSettings('language', 'en')}
+                  <option value="en">English</option>
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
+                  <option value="de">German</option>
+                  <option value="ja">Japanese</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Theme Settings */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">
+              <Monitor size={20} />
+              Appearance
+            </h3>
+            <p className="card-subtitle">Customize your dashboard appearance</p>
+          </div>
+          <div className="card-body">
+            <div className="form-group">
+              <label className="form-label">Theme</label>
+              <div className="theme-selector">
+                <div className="theme-options">
+                  <button
+                    className={`theme-option ${theme === 'light' ? 'active' : ''}`}
+                    onClick={() => setTheme('light')}
                   >
-                    English
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.language === 'es'}
-                    onClick={() => updateSettings('language', 'es')}
+                    <Sun size={20} />
+                    <span>Light</span>
+                  </button>
+                  <button
+                    className={`theme-option ${theme === 'dark' ? 'active' : ''}`}
+                    onClick={() => setTheme('dark')}
                   >
-                    Spanish
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.language === 'fr'}
-                    onClick={() => updateSettings('language', 'fr')}
-                  >
-                    French
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.language === 'de'}
-                    onClick={() => updateSettings('language', 'de')}
-                  >
-                    German
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.language === 'ja'}
-                    onClick={() => updateSettings('language', 'ja')}
-                  >
-                    Japanese
-                  </Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
+                    <Moon size={20} />
+                    <span>Dark</span>
+                  </button>
+                </div>
+                <p className="text-sm text-muted">
+                  Current theme: <strong>{theme === 'light' ? 'Light' : 'Dark'}</strong>
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -453,53 +406,18 @@ const Settings: React.FC = () => {
             
             <div className="form-group">
               <label className="form-label">Data Retention</label>
-              <Dropdown drop="up">
-                <Dropdown.Toggle 
-                  variant="outline-secondary" 
-                  className="btn btn-outline w-100"
+              <div className="control-select">
+                <select
+                  value={settings?.privacy.dataRetention || '30days'}
+                  onChange={(e) => updateSettings('privacy.dataRetention', e.target.value)}
                 >
-                  {settings?.privacy.dataRetention === '30days' ? '30 Days' :
-                   settings?.privacy.dataRetention === '6months' ? '6 Months' :
-                   settings?.privacy.dataRetention === '1year' ? '1 Year' :
-                   settings?.privacy.dataRetention === '2years' ? '2 Years' : 'Indefinite'}
-                  <ChevronDown size={14} className="ms-1" />
-                </Dropdown.Toggle>
-                <Dropdown.Menu 
-                  className="dropdown-menu-end w-100"
-                  style={{  }}
-                >
-                  <Dropdown.Item 
-                    active={settings?.privacy.dataRetention === '30days'}
-                    onClick={() => updateSettings('privacy.dataRetention', '30days')}
-                  >
-                    30 Days
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.privacy.dataRetention === '6months'}
-                    onClick={() => updateSettings('privacy.dataRetention', '6months')}
-                  >
-                    6 Months
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.privacy.dataRetention === '1year'}
-                    onClick={() => updateSettings('privacy.dataRetention', '1year')}
-                  >
-                    1 Year
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.privacy.dataRetention === '2years'}
-                    onClick={() => updateSettings('privacy.dataRetention', '2years')}
-                  >
-                    2 Years
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={settings?.privacy.dataRetention === 'indefinite'}
-                    onClick={() => updateSettings('privacy.dataRetention', 'indefinite')}
-                  >
-                    Indefinite
-                  </Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
+                  <option value="30days">30 Days</option>
+                  <option value="6months">6 Months</option>
+                  <option value="1year">1 Year</option>
+                  <option value="2years">2 Years</option>
+                  <option value="indefinite">Indefinite</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>

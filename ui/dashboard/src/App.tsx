@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import keycloak, { keycloakInitOptions, initializeKeycloak } from './config/keycloak';
 import { useMockData } from './config/development';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Dashboard from './components/DashboardUnified';
 import RoutesPage from './components/RoutesWithAnalytics';
 import Analytics from './components/AnalyticsUnified';
@@ -95,8 +96,9 @@ const App: React.FC = () => {
 
 
   return (
-    <Router>
-      <Routes>
+    <ThemeProvider>
+      <Router>
+        <Routes>
         {/* Public Routes */}
         <Route path="/login" element={
           state.authenticated ? (
@@ -129,6 +131,7 @@ const App: React.FC = () => {
         } />
       </Routes>
     </Router>
+    </ThemeProvider>
   );
 };
 

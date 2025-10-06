@@ -25,8 +25,8 @@
   right: 0;
   bottom: 0;
   background-image: 
-    radial-gradient(circle at 25% 25%, rgba(0, 212, 170, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 75% 75%, rgba(255, 107, 107, 0.1) 0%, transparent 50%);
+    radial-gradient(circle at 25% 25%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(239, 68, 68, 0.1) 0%, transparent 50%);
   animation: float 20s ease-in-out infinite;
 }
 
@@ -64,7 +64,7 @@
 
 /* Left Side - Branding */
 .login-branding {
-  background: var(--gradient-secondary);
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
   padding: 3rem;
   display: flex;
   flex-direction: column;
@@ -80,7 +80,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at 30% 20%, rgba(0, 212, 170, 0.1) 0%, transparent 50%);
+  background: radial-gradient(circle at 30% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
   pointer-events: none;
 }
 
@@ -99,7 +99,7 @@
 .logo-icon {
   width: 40px;
   height: 40px;
-  color: var(--primary-color);
+  color: var(--color-primary);
 }
 
 .logo-text {
@@ -139,7 +139,7 @@
 .feature-icon {
   width: 24px;
   height: 24px;
-  color: var(--primary-color);
+  color: var(--color-primary);
   flex-shrink: 0;
   margin-top: 0.25rem;
 }
@@ -199,7 +199,7 @@
 }
 
 .demo-notice p {
-  color: var(--primary-color);
+  color: var(--color-primary);
   font-size: 0.875rem;
   margin: 0;
 }
@@ -311,7 +311,7 @@
 }
 
 .password-toggle:hover {
-  color: var(--primary-color);
+  color: var(--color-primary);
   background: rgba(0, 212, 170, 0.1);
 }
 
@@ -370,7 +370,7 @@
 .forgot-password {
   background: none;
   border: none;
-  color: var(--primary-color);
+  color: var(--color-primary);
   font-size: 0.875rem;
   cursor: pointer;
   text-decoration: none;

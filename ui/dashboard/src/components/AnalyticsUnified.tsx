@@ -18,11 +18,9 @@ import {
   Users, 
   MousePointer, 
   Globe,
-  Calendar,
-  Download,
-  ChevronDown
+  Download
 } from 'lucide-react';
-import { Dropdown } from 'react-bootstrap';
+// Removed Bootstrap Dropdown import - using unified controls
 import { apiService, ClickAnalytics } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
@@ -104,7 +102,7 @@ const Analytics: React.FC = () => {
     );
   }
 
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const COLORS = ['var(--primary-500)', 'var(--success-500)', 'var(--warning-500)', 'var(--error-500)', 'var(--primary-600)'];
 
   return (
     <div className="container">
@@ -118,46 +116,18 @@ const Analytics: React.FC = () => {
       <div className="card mb-lg">
         <div className="card-body">
           <div className="flex items-center justify-between">
-            <div className="flex gap-sm">
-              <Dropdown drop="up">
-                <Dropdown.Toggle 
-                  variant="outline-secondary" 
-                  className="btn btn-outline"
+            <div className="control-group">
+              <div className="control-select">
+                <select 
+                  value={dateRange}
+                  onChange={(e) => setDateRange(e.target.value)}
                 >
-                  {dateRange === '7d' ? '7 Days' :
-                   dateRange === '30d' ? '30 Days' :
-                   dateRange === '90d' ? '90 Days' : '1 Year'}
-                  <ChevronDown size={14} className="ms-1" />
-                </Dropdown.Toggle>
-                <Dropdown.Menu 
-                  className="dropdown-menu-end"
-                >
-                  <Dropdown.Item 
-                    active={dateRange === '7d'}
-                    onClick={() => setDateRange('7d')}
-                  >
-                    7 Days
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={dateRange === '30d'}
-                    onClick={() => setDateRange('30d')}
-                  >
-                    30 Days
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={dateRange === '90d'}
-                    onClick={() => setDateRange('90d')}
-                  >
-                    90 Days
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={dateRange === '1y'}
-                    onClick={() => setDateRange('1y')}
-                  >
-                    1 Year
-                  </Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
+                  <option value="7d">7 Days</option>
+                  <option value="30d">30 Days</option>
+                  <option value="90d">90 Days</option>
+                  <option value="1y">1 Year</option>
+                </select>
+              </div>
             </div>
             <button className="btn btn-secondary" onClick={exportData}>
               <Download size={16} />
@@ -228,30 +198,30 @@ const Analytics: React.FC = () => {
             <div style={{ height: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={analytics?.clicks_by_date || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-primary)" />
                   <XAxis 
                     dataKey="date" 
-                    stroke="#6b7280"
+                    stroke="var(--text-muted)"
                     fontSize={12}
                   />
                   <YAxis 
-                    stroke="#6b7280"
+                    stroke="var(--text-muted)"
                     fontSize={12}
                   />
                   <Tooltip 
                     contentStyle={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e5e7eb',
+                      backgroundColor: 'var(--bg-primary)',
+                      border: '1px solid var(--border-primary)',
                       borderRadius: '8px',
-                      color: '#1f2937'
+                      color: 'var(--text-primary)'
                     }}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="clicks" 
-                    stroke="#3b82f6" 
+                    stroke="var(--primary-500)" 
                     strokeWidth={3}
-                    dot={{ fill: '#3b82f6', strokeWidth: 2, r: 5 }}
+                    dot={{ fill: 'var(--primary-500)', strokeWidth: 2, r: 5 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -269,25 +239,25 @@ const Analytics: React.FC = () => {
             <div style={{ height: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={analytics?.clicks_by_country?.slice(0, 8) || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-primary)" />
                   <XAxis 
                     dataKey="country" 
-                    stroke="#6b7280"
+                    stroke="var(--text-muted)"
                     fontSize={12}
                   />
                   <YAxis 
-                    stroke="#6b7280"
+                    stroke="var(--text-muted)"
                     fontSize={12}
                   />
                   <Tooltip 
                     contentStyle={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e5e7eb',
+                      backgroundColor: 'var(--bg-primary)',
+                      border: '1px solid var(--border-primary)',
                       borderRadius: '8px',
-                      color: '#1f2937'
+                      color: 'var(--text-primary)'
                     }}
                   />
-                  <Bar dataKey="clicks" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="clicks" fill="var(--primary-500)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -312,10 +282,10 @@ const Analytics: React.FC = () => {
                     label={({ device, percent }) => percent > 0.05 ? `${device} ${(percent * 100).toFixed(0)}%` : ''}
                     outerRadius={80}
                     innerRadius={40}
-                    fill="#8884d8"
+                    fill="var(--primary-400)"
                     dataKey="clicks"
                     paddingAngle={2}
-                    stroke="#ffffff"
+                    stroke="var(--bg-primary)"
                     strokeWidth={2}
                   >
                     {(analytics?.clicks_by_device || []).map((entry, index) => (
@@ -324,10 +294,10 @@ const Analytics: React.FC = () => {
                   </Pie>
                   <Tooltip 
                     contentStyle={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e5e7eb',
+                      backgroundColor: 'var(--bg-primary)',
+                      border: '1px solid var(--border-primary)',
                       borderRadius: '8px',
-                      color: '#1f2937'
+                      color: 'var(--text-primary)'
                     }}
                     formatter={(value: any, name: string, props: any) => [
                       `${value} clicks (${((props.payload.percent || 0) * 100).toFixed(1)}%)`,
@@ -358,10 +328,10 @@ const Analytics: React.FC = () => {
                     label={({ browser, percent }) => percent > 0.05 ? `${browser} ${(percent * 100).toFixed(0)}%` : ''}
                     outerRadius={80}
                     innerRadius={40}
-                    fill="#8884d8"
+                    fill="var(--primary-400)"
                     dataKey="clicks"
                     paddingAngle={2}
-                    stroke="#ffffff"
+                    stroke="var(--bg-primary)"
                     strokeWidth={2}
                   >
                     {(analytics?.clicks_by_browser || []).map((entry, index) => (
@@ -370,10 +340,10 @@ const Analytics: React.FC = () => {
                   </Pie>
                   <Tooltip 
                     contentStyle={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e5e7eb',
+                      backgroundColor: 'var(--bg-primary)',
+                      border: '1px solid var(--border-primary)',
                       borderRadius: '8px',
-                      color: '#1f2937'
+                      color: 'var(--text-primary)'
                     }}
                     formatter={(value: any, name: string, props: any) => [
                       `${value} clicks (${((props.payload.percent || 0) * 100).toFixed(1)}%)`,

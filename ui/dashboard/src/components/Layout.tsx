@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { logout, getUserInfo } from '../config/keycloak';
 import DevelopmentBanner from './DevelopmentBanner';
-import './Layout.css';
+import './DesignSystem.css';
 
 interface LayoutProps {
   children: React.ReactNode;

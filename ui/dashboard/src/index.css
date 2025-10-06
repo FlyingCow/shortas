@@ -20,9 +20,10 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0a0e1a;
-  color: #ffffff;
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
   line-height: 1.6;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 code {
@@ -37,32 +38,32 @@ code {
 }
 
 ::-webkit-scrollbar-track {
-  background: #1a1f2e;
+  background: var(--bg-tertiary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4a5568;
+  background: var(--text-muted);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #00d4aa;
+  background: var(--color-primary);
 }
 
 /* Selection Styling */
 ::selection {
-  background: rgba(0, 212, 170, 0.3);
-  color: #ffffff;
+  background: var(--color-primary-light);
+  color: var(--text-inverse);
 }
 
 ::-moz-selection {
-  background: rgba(0, 212, 170, 0.3);
-  color: #ffffff;
+  background: var(--color-primary-light);
+  color: var(--text-inverse);
 }
 
 /* Focus Styles */
 *:focus {
-  outline: 2px solid #00d4aa;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -71,7 +72,7 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.2);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
 /* Utility Classes */

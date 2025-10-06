@@ -24,8 +24,7 @@ import {
 } from 'lucide-react';
 import { apiService, ClickAnalytics } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
-import './Analytics.css';
-import './UnifiedTable.css';
+import './DesignSystem.css';
 
 const Analytics: React.FC = () => {
   const [analytics, setAnalytics] = useState<ClickAnalytics | null>(null);

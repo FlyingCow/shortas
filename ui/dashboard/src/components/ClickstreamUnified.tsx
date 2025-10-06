@@ -9,11 +9,9 @@ import {
   Play,
   Pause,
   RotateCcw,
-  Filter,
-  Search,
-  ChevronDown
+  Search
 } from 'lucide-react';
-import { Dropdown } from 'react-bootstrap';
+// Removed Bootstrap Dropdown import - using unified controls
 import './DesignSystem.css';
 
 interface ClickEvent {
@@ -323,97 +321,41 @@ const Clickstream: React.FC = () => {
               </button>
             </div>
             
-            <div className="flex gap-sm">
-              <Dropdown drop="up">
-                <Dropdown.Toggle 
-                  variant="outline-secondary" 
-                  className="btn btn-outline"
+            <div className="control-group">
+              <div className="control-select">
+                <select
+                  value={filters.device}
+                  onChange={(e) => setFilters(prev => ({ ...prev, device: e.target.value }))}
                 >
-                  {filters.device === 'all' ? 'All Devices' :
-                   filters.device === 'desktop' ? 'Desktop' :
-                   filters.device === 'mobile' ? 'Mobile' : 'Tablet'}
-                  <ChevronDown size={14} className="ms-1" />
-                </Dropdown.Toggle>
-                <Dropdown.Menu 
-                  className="dropdown-menu-end"
-                  style={{  }}
-                >
-                  <Dropdown.Item 
-                    active={filters.device === 'all'}
-                    onClick={() => setFilters(prev => ({ ...prev, device: 'all' }))}
-                  >
-                    All Devices
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={filters.device === 'desktop'}
-                    onClick={() => setFilters(prev => ({ ...prev, device: 'desktop' }))}
-                  >
-                    Desktop
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={filters.device === 'mobile'}
-                    onClick={() => setFilters(prev => ({ ...prev, device: 'mobile' }))}
-                  >
-                    Mobile
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={filters.device === 'tablet'}
-                    onClick={() => setFilters(prev => ({ ...prev, device: 'tablet' }))}
-                  >
-                    Tablet
-                  </Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
+                  <option value="all">All Devices</option>
+                  <option value="desktop">Desktop</option>
+                  <option value="mobile">Mobile</option>
+                  <option value="tablet">Tablet</option>
+                </select>
+              </div>
               
-              <Dropdown drop="up">
-                <Dropdown.Toggle 
-                  variant="outline-secondary" 
-                  className="btn btn-outline"
+              <div className="control-select">
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
                 >
-                  {filters.status === 'all' ? 'All Status' :
-                   filters.status === 'success' ? 'Success' :
-                   filters.status === 'error' ? 'Error' : 'Redirect'}
-                  <ChevronDown size={14} className="ms-1" />
-                </Dropdown.Toggle>
-                <Dropdown.Menu 
-                  className="dropdown-menu-end"
-                  style={{  }}
-                >
-                  <Dropdown.Item 
-                    active={filters.status === 'all'}
-                    onClick={() => setFilters(prev => ({ ...prev, status: 'all' }))}
-                  >
-                    All Status
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={filters.status === 'success'}
-                    onClick={() => setFilters(prev => ({ ...prev, status: 'success' }))}
-                  >
-                    Success
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={filters.status === 'error'}
-                    onClick={() => setFilters(prev => ({ ...prev, status: 'error' }))}
-                  >
-                    Error
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={filters.status === 'redirect'}
-                    onClick={() => setFilters(prev => ({ ...prev, status: 'redirect' }))}
-                  >
-                    Redirect
-                  </Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
+                  <option value="all">All Status</option>
+                  <option value="success">Success</option>
+                  <option value="error">Error</option>
+                  <option value="redirect">Redirect</option>
+                </select>
+              </div>
 
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Search URLs, cities..."
-                value={filters.search}
-                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                style={{ minWidth: '200px' }}
-              />
+              <div className="control-input">
+                <Search size={16} className="input-icon" />
+                <input
+                  type="text"
+                  placeholder="Search URLs, cities..."
+                  value={filters.search}
+                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                  style={{ minWidth: '200px' }}
+                />
+              </div>
             </div>
           </div>
         </div>

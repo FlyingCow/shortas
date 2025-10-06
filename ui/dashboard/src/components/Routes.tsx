@@ -26,8 +26,7 @@ import {
 } from 'lucide-react';
 import { apiService, RouteDto } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
-import './Routes.css';
-import './UnifiedTable.css';
+import './DesignSystem.css';
 
 const Routes: React.FC = () => {
   const [routes, setRoutes] = useState<RouteDto[]>([]);

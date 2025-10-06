@@ -12,7 +12,7 @@ import {
 import { apiService } from '../services/api';
 import { getUserInfo } from '../config/keycloak';
 import LoadingSpinner from './LoadingSpinner';
-import './Settings.css';
+import './DesignSystem.css';
 
 interface UserSettings {
   email: string;

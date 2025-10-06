@@ -35,7 +35,6 @@ import {
 } from 'recharts';
 import { RouteDto } from '../services/api';
 import './DesignSystem.css';
-import './RouteAnalyticsModal.css';
 
 interface RouteAnalyticsModalProps {
   show: boolean;

@@ -25,9 +25,6 @@ import {
 } from 'lucide-react';
 import { apiService, ClickAnalytics } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
-import './Dashboard.css';
-import './ChartEnhancements.css';
-import './DashboardImprovements.css';
 import './DesignSystem.css';
 
 interface DashboardStats {

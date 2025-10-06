@@ -15,7 +15,6 @@ import {
 import { Modal, Form, Button, Row, Col, Card, Badge, Alert } from 'react-bootstrap';
 import { RouteDto } from '../services/api';
 import './DesignSystem.css';
-import './RouteEditModal.css';
 
 interface ConditionalRule {
   id: string;

@@ -112,9 +112,9 @@ const Dashboard: React.FC = () => {
   }
 
   // Enhanced color palettes for different chart types
-  const DEVICE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
-  const BROWSER_COLORS = ['#1e40af', '#059669', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#65a30d', '#ea580c'];
-  const GENERAL_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const DEVICE_COLORS = ['var(--primary-500)', 'var(--success-500)', 'var(--warning-500)', 'var(--error-500)', 'var(--primary-600)', 'var(--primary-400)', 'var(--success-400)', 'var(--warning-400)'];
+  const BROWSER_COLORS = ['var(--primary-700)', 'var(--success-600)', 'var(--warning-600)', 'var(--error-600)', 'var(--primary-800)', 'var(--primary-500)', 'var(--success-500)', 'var(--warning-500)'];
+  const GENERAL_COLORS = ['var(--primary-500)', 'var(--success-500)', 'var(--warning-500)', 'var(--error-500)', 'var(--primary-600)'];
 
   return (
     <div className="container">
@@ -217,30 +217,30 @@ const Dashboard: React.FC = () => {
             <div style={{ height: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={analytics?.clicks_by_date || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-primary)" />
                   <XAxis 
                     dataKey="date" 
-                    stroke="#6b7280"
+                    stroke="var(--text-muted)"
                     fontSize={12}
                   />
                   <YAxis 
-                    stroke="#6b7280"
+                    stroke="var(--text-muted)"
                     fontSize={12}
                   />
                   <Tooltip 
                     contentStyle={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e5e7eb',
+                      backgroundColor: 'var(--bg-primary)',
+                      border: '1px solid var(--border-primary)',
                       borderRadius: '8px',
-                      color: '#1f2937'
+                      color: 'var(--text-primary)'
                     }}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="clicks" 
-                    stroke="#3b82f6" 
+                    stroke="var(--primary-500)" 
                     strokeWidth={3}
-                    dot={{ fill: '#3b82f6', strokeWidth: 2, r: 5 }}
+                    dot={{ fill: 'var(--primary-500)', strokeWidth: 2, r: 5 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -266,10 +266,10 @@ const Dashboard: React.FC = () => {
                     label={({ device, percent }) => percent > 0.05 ? `${device} ${(percent * 100).toFixed(0)}%` : ''}
                     outerRadius={80}
                     innerRadius={40}
-                    fill="#8884d8"
+                    fill="var(--primary-400)"
                     dataKey="clicks"
                     paddingAngle={2}
-                    stroke="#ffffff"
+                    stroke="var(--bg-primary)"
                     strokeWidth={2}
                   >
                     {(analytics?.clicks_by_device || []).map((entry, index) => (
@@ -278,10 +278,10 @@ const Dashboard: React.FC = () => {
                   </Pie>
                   <Tooltip 
                     contentStyle={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e5e7eb',
+                      backgroundColor: 'var(--bg-primary)',
+                      border: '1px solid var(--border-primary)',
                       borderRadius: '8px',
-                      color: '#1f2937'
+                      color: 'var(--text-primary)'
                     }}
                     formatter={(value: any, name: string, props: any) => [
                       `${value} clicks (${((props.payload.percent || 0) * 100).toFixed(1)}%)`,
@@ -308,25 +308,25 @@ const Dashboard: React.FC = () => {
             <div style={{ height: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={analytics?.clicks_by_country?.slice(0, 8) || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-primary)" />
                   <XAxis 
                     dataKey="country" 
-                    stroke="#6b7280"
+                    stroke="var(--text-muted)"
                     fontSize={12}
                   />
                   <YAxis 
-                    stroke="#6b7280"
+                    stroke="var(--text-muted)"
                     fontSize={12}
                   />
                   <Tooltip 
                     contentStyle={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e5e7eb',
+                      backgroundColor: 'var(--bg-primary)',
+                      border: '1px solid var(--border-primary)',
                       borderRadius: '8px',
-                      color: '#1f2937'
+                      color: 'var(--text-primary)'
                     }}
                   />
-                  <Bar dataKey="clicks" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="clicks" fill="var(--primary-500)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -351,10 +351,10 @@ const Dashboard: React.FC = () => {
                     label={({ browser, percent }) => percent > 0.05 ? `${browser} ${(percent * 100).toFixed(0)}%` : ''}
                     outerRadius={80}
                     innerRadius={40}
-                    fill="#8884d8"
+                    fill="var(--primary-400)"
                     dataKey="clicks"
                     paddingAngle={2}
-                    stroke="#ffffff"
+                    stroke="var(--bg-primary)"
                     strokeWidth={2}
                   >
                     {(analytics?.clicks_by_browser || []).map((entry, index) => (
@@ -363,10 +363,10 @@ const Dashboard: React.FC = () => {
                   </Pie>
                   <Tooltip 
                     contentStyle={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e5e7eb',
+                      backgroundColor: 'var(--bg-primary)',
+                      border: '1px solid var(--border-primary)',
                       borderRadius: '8px',
-                      color: '#1f2937'
+                      color: 'var(--text-primary)'
                     }}
                     formatter={(value: any, name: string, props: any) => [
                       `${value} clicks (${((props.payload.percent || 0) * 100).toFixed(1)}%)`,

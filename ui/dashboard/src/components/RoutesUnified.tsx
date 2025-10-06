@@ -8,11 +8,10 @@ import {
   Search,
   Filter,
   Link as LinkIcon,
-  ChevronDown,
   Settings,
   BarChart3
 } from 'lucide-react';
-import { Dropdown, DropdownButton } from 'react-bootstrap';
+// Removed Bootstrap Dropdown imports - using unified controls
 import { apiService, RouteDto } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import RouteEditModal from './RouteEditModal';
@@ -147,11 +146,11 @@ const Routes: React.FC = () => {
               </button>
             </div>
             
-            <div className="flex gap-sm">
-              <div className="form-group">
+            <div className="control-group">
+              <div className="control-input">
+                <Search size={16} className="input-icon" />
                 <input
                   type="text"
-                  className="form-control"
                   placeholder="Search routes..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -159,39 +158,16 @@ const Routes: React.FC = () => {
                 />
               </div>
               
-              <Dropdown drop="up">
-                <Dropdown.Toggle 
-                  variant="outline-secondary" 
-                  className="btn btn-outline"
-                  style={{ minWidth: '120px' }}
+              <div className="control-select">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
                 >
-                  {statusFilter === 'all' ? 'All Status' : 
-                   statusFilter === 'active' ? 'Active' : 'Inactive'}
-                  <ChevronDown size={14} className="ms-1" />
-                </Dropdown.Toggle>
-                <Dropdown.Menu 
-                  className="dropdown-menu-end"
-                >
-                  <Dropdown.Item 
-                    active={statusFilter === 'all'}
-                    onClick={() => setStatusFilter('all')}
-                  >
-                    All Status
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={statusFilter === 'active'}
-                    onClick={() => setStatusFilter('active')}
-                  >
-                    Active
-                  </Dropdown.Item>
-                  <Dropdown.Item 
-                    active={statusFilter === 'inactive'}
-                    onClick={() => setStatusFilter('inactive')}
-                  >
-                    Inactive
-                  </Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>

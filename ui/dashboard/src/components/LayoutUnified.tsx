@@ -7,9 +7,12 @@ import {
   LogOut, 
   User,
   Home,
-  Activity
+  Activity,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { logout, getUserInfo } from '../config/keycloak';
+import { useTheme } from '../contexts/ThemeContext';
 import DevelopmentBanner from './DevelopmentBanner';
 import Footer from './Footer';
 import './DesignSystem.css';
@@ -21,6 +24,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const userInfo = getUserInfo();
+  const { theme, toggleTheme } = useTheme();
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -62,6 +66,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
 
           <div className="navbar-user" style={{ display: 'flex', alignItems: 'center', flexDirection: 'row' }}>
+            <button 
+              className="btn btn-outline btn-sm theme-toggle"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+            >
+              {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+            </button>
             <div className="user-info" style={{ display: 'flex', alignItems: 'center', flexDirection: 'row' }}>
               <User size={16} />
               <span>{userInfo?.username || 'User'}</span>
