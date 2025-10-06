@@ -231,7 +231,7 @@ const Dashboard: React.FC = () => {
                     contentStyle={{
                       backgroundColor: 'var(--bg-primary)',
                       border: '1px solid var(--border-primary)',
-                      borderRadius: '8px',
+                      borderRadius: '4px',
                       color: 'var(--text-primary)'
                     }}
                   />
@@ -280,7 +280,7 @@ const Dashboard: React.FC = () => {
                     contentStyle={{
                       backgroundColor: 'var(--bg-primary)',
                       border: '1px solid var(--border-primary)',
-                      borderRadius: '8px',
+                      borderRadius: '4px',
                       color: 'var(--text-primary)'
                     }}
                     formatter={(value: any, name: string, props: any) => [
@@ -322,11 +322,11 @@ const Dashboard: React.FC = () => {
                     contentStyle={{
                       backgroundColor: 'var(--bg-primary)',
                       border: '1px solid var(--border-primary)',
-                      borderRadius: '8px',
+                      borderRadius: '4px',
                       color: 'var(--text-primary)'
                     }}
                   />
-                  <Bar dataKey="clicks" fill="var(--primary-500)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="clicks" fill="var(--primary-500)" radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -365,7 +365,7 @@ const Dashboard: React.FC = () => {
                     contentStyle={{
                       backgroundColor: 'var(--bg-primary)',
                       border: '1px solid var(--border-primary)',
-                      borderRadius: '8px',
+                      borderRadius: '4px',
                       color: 'var(--text-primary)'
                     }}
                     formatter={(value: any, name: string, props: any) => [

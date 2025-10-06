@@ -11,11 +11,23 @@ import {
   MousePointer,
   Clock,
   Activity,
-  Globe
+  Globe,
+  Save,
+  X,
+  Settings,
+  MapPin,
+  Smartphone,
+  Monitor,
+  Calendar,
+  Code,
+  Target,
+  Zap,
+  Shield,
+  BarChart
 } from 'lucide-react';
 // Removed Bootstrap Dropdown import - using unified controls
 import { 
-  BarChart, 
+  BarChart as RechartsBarChart, 
   Bar, 
   XAxis, 
   YAxis, 
@@ -45,6 +57,52 @@ const RoutesWithAnalytics: React.FC = () => {
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('7d');
   const [editingRoute, setEditingRoute] = useState<RouteDto | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isEditingInline, setIsEditingInline] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    link: '',
+    dest: '',
+    status: 'active' as 'active' | 'inactive',
+    description: '',
+    routeType: 'simple' as 'simple' | 'conditional' | 'retargeting' | 'geo' | 'time-based',
+    conditions: [] as Array<{
+      id: string;
+      type: 'device' | 'location' | 'time' | 'user-agent' | 'referrer';
+      operator: 'equals' | 'contains' | 'starts-with' | 'ends-with' | 'regex';
+      value: string;
+      priority: number;
+    }>,
+    retargetingRules: [] as Array<{
+      id: string;
+      condition: string;
+      targetUrl: string;
+      weight: number;
+    }>,
+    geoRules: [] as Array<{
+      id: string;
+      country: string;
+      region: string;
+      targetUrl: string;
+    }>,
+    timeRules: [] as Array<{
+      id: string;
+      startTime: string;
+      endTime: string;
+      days: string[];
+      targetUrl: string;
+    }>,
+    advanced: {
+      cacheControl: 'no-cache' as 'no-cache' | 'max-age' | 'custom',
+      cacheMaxAge: 3600,
+      redirectType: '301' as '301' | '302' | '307' | '308',
+      customHeaders: [] as Array<{ name: string; value: string }>,
+      analytics: {
+        trackClicks: true,
+        trackConversions: false,
+        conversionGoal: '',
+        customEvents: [] as Array<{ name: string; value: string }>
+      }
+    }
+  });
 
   useEffect(() => {
     fetchRoutes();
@@ -189,6 +247,88 @@ const RoutesWithAnalytics: React.FC = () => {
 
   const handleSelectRoute = (route: RouteDto) => {
     setSelectedRoute(route);
+    setIsEditingInline(false);
+  };
+
+  const handleStartInlineEdit = () => {
+    if (selectedRoute) {
+      setEditFormData({
+        link: selectedRoute.link,
+        dest: selectedRoute.dest,
+        status: selectedRoute.status as 'active' | 'inactive',
+        description: (selectedRoute as any).description || '',
+        routeType: (selectedRoute as any).routeType || 'simple',
+        conditions: (selectedRoute as any).conditions || [],
+        retargetingRules: (selectedRoute as any).retargetingRules || [],
+        geoRules: (selectedRoute as any).geoRules || [],
+        timeRules: (selectedRoute as any).timeRules || [],
+        advanced: {
+          cacheControl: (selectedRoute as any).advanced?.cacheControl || 'no-cache',
+          cacheMaxAge: (selectedRoute as any).advanced?.cacheMaxAge || 3600,
+          redirectType: (selectedRoute as any).advanced?.redirectType || '301',
+          customHeaders: (selectedRoute as any).advanced?.customHeaders || [],
+          analytics: {
+            trackClicks: (selectedRoute as any).advanced?.analytics?.trackClicks ?? true,
+            trackConversions: (selectedRoute as any).advanced?.analytics?.trackConversions ?? false,
+            conversionGoal: (selectedRoute as any).advanced?.analytics?.conversionGoal || '',
+            customEvents: (selectedRoute as any).advanced?.analytics?.customEvents || []
+          }
+        }
+      });
+      setIsEditingInline(true);
+    }
+  };
+
+  const handleCancelInlineEdit = () => {
+    setIsEditingInline(false);
+    setEditFormData({
+      link: '',
+      dest: '',
+      status: 'active',
+      description: '',
+      routeType: 'simple',
+      conditions: [],
+      retargetingRules: [],
+      geoRules: [],
+      timeRules: [],
+      advanced: {
+        cacheControl: 'no-cache',
+        cacheMaxAge: 3600,
+        redirectType: '301',
+        customHeaders: [],
+        analytics: {
+          trackClicks: true,
+          trackConversions: false,
+          conversionGoal: '',
+          customEvents: []
+        }
+      }
+    });
+  };
+
+  const handleSaveInlineEdit = async () => {
+    if (!selectedRoute) return;
+    
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Update the route in the local state
+      const updatedRoutes = routes.map(route => 
+        route.link === selectedRoute.link 
+          ? { ...route, ...editFormData }
+          : route
+      );
+      setRoutes(updatedRoutes);
+      
+      // Update the selected route
+      setSelectedRoute({ ...selectedRoute, ...editFormData });
+      setIsEditingInline(false);
+      
+      console.log('Route updated successfully');
+    } catch (error) {
+      console.error('Failed to update route:', error);
+    }
   };
 
   // Removed unused copyToClipboard function
@@ -348,26 +488,301 @@ const RoutesWithAnalytics: React.FC = () => {
           <div className="analytics-content">
             <div className="analytics-header">
               <div className="route-info">
-                <h2>{selectedRoute.link}</h2>
-                <p className="route-destination">{selectedRoute.dest}</p>
+                {isEditingInline ? (
+                  <div className="inline-edit-form">
+                    {/* Basic Route Information */}
+                    <div className="form-section">
+                      <h4>Basic Information</h4>
+                      <div className="form-group">
+                        <label>Route Link</label>
+                        <input
+                          type="text"
+                          value={editFormData.link}
+                          onChange={(e) => setEditFormData({...editFormData, link: e.target.value})}
+                          className="form-control"
+                          placeholder="Enter route link"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Destination URL</label>
+                        <input
+                          type="text"
+                          value={editFormData.dest}
+                          onChange={(e) => setEditFormData({...editFormData, dest: e.target.value})}
+                          className="form-control"
+                          placeholder="Enter destination URL"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Status</label>
+                        <select
+                          value={editFormData.status}
+                          onChange={(e) => setEditFormData({...editFormData, status: e.target.value as 'active' | 'inactive'})}
+                          className="form-control"
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Description</label>
+                        <textarea
+                          value={editFormData.description}
+                          onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
+                          className="form-control"
+                          placeholder="Enter route description"
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Route Type Selection */}
+                    <div className="form-section">
+                      <h4>Route Type</h4>
+                      <div className="route-type-selector">
+                        <div className="route-type-option">
+                          <input
+                            type="radio"
+                            id="simple"
+                            name="routeType"
+                            value="simple"
+                            checked={editFormData.routeType === 'simple'}
+                            onChange={(e) => setEditFormData({...editFormData, routeType: e.target.value as any})}
+                          />
+                          <label htmlFor="simple">
+                            <Zap size={20} />
+                            <span>Simple Redirect</span>
+                            <small>Direct redirect to destination URL</small>
+                          </label>
+                        </div>
+                        <div className="route-type-option">
+                          <input
+                            type="radio"
+                            id="conditional"
+                            name="routeType"
+                            value="conditional"
+                            checked={editFormData.routeType === 'conditional'}
+                            onChange={(e) => setEditFormData({...editFormData, routeType: e.target.value as any})}
+                          />
+                          <label htmlFor="conditional">
+                            <Settings size={20} />
+                            <span>Conditional Routing</span>
+                            <small>Redirect based on conditions</small>
+                          </label>
+                        </div>
+                        <div className="route-type-option">
+                          <input
+                            type="radio"
+                            id="retargeting"
+                            name="routeType"
+                            value="retargeting"
+                            checked={editFormData.routeType === 'retargeting'}
+                            onChange={(e) => setEditFormData({...editFormData, routeType: e.target.value as any})}
+                          />
+                          <label htmlFor="retargeting">
+                            <Target size={20} />
+                            <span>Retargeting</span>
+                            <small>Multiple targets with weights</small>
+                          </label>
+                        </div>
+                        <div className="route-type-option">
+                          <input
+                            type="radio"
+                            id="geo"
+                            name="routeType"
+                            value="geo"
+                            checked={editFormData.routeType === 'geo'}
+                            onChange={(e) => setEditFormData({...editFormData, routeType: e.target.value as any})}
+                          />
+                          <label htmlFor="geo">
+                            <MapPin size={20} />
+                            <span>Geographic Routing</span>
+                            <small>Redirect based on location</small>
+                          </label>
+                        </div>
+                        <div className="route-type-option">
+                          <input
+                            type="radio"
+                            id="time-based"
+                            name="routeType"
+                            value="time-based"
+                            checked={editFormData.routeType === 'time-based'}
+                            onChange={(e) => setEditFormData({...editFormData, routeType: e.target.value as any})}
+                          />
+                          <label htmlFor="time-based">
+                            <Calendar size={20} />
+                            <span>Time-based Routing</span>
+                            <small>Redirect based on time/date</small>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Advanced Settings */}
+                    <div className="form-section">
+                      <h4>Advanced Settings</h4>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Redirect Type</label>
+                          <select
+                            value={editFormData.advanced.redirectType}
+                            onChange={(e) => setEditFormData({
+                              ...editFormData,
+                              advanced: {...editFormData.advanced, redirectType: e.target.value as any}
+                            })}
+                            className="form-control"
+                          >
+                            <option value="301">301 - Permanent Redirect</option>
+                            <option value="302">302 - Temporary Redirect</option>
+                            <option value="307">307 - Temporary Redirect (Preserve Method)</option>
+                            <option value="308">308 - Permanent Redirect (Preserve Method)</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Cache Control</label>
+                          <select
+                            value={editFormData.advanced.cacheControl}
+                            onChange={(e) => setEditFormData({
+                              ...editFormData,
+                              advanced: {...editFormData.advanced, cacheControl: e.target.value as any}
+                            })}
+                            className="form-control"
+                          >
+                            <option value="no-cache">No Cache</option>
+                            <option value="max-age">Max Age</option>
+                            <option value="custom">Custom</option>
+                          </select>
+                        </div>
+                      </div>
+                      {editFormData.advanced.cacheControl === 'max-age' && (
+                        <div className="form-group">
+                          <label>Cache Max Age (seconds)</label>
+                          <input
+                            type="number"
+                            value={editFormData.advanced.cacheMaxAge}
+                            onChange={(e) => setEditFormData({
+                              ...editFormData,
+                              advanced: {...editFormData.advanced, cacheMaxAge: parseInt(e.target.value)}
+                            })}
+                            className="form-control"
+                            min="0"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Analytics Settings */}
+                    <div className="form-section">
+                      <h4>Analytics & Tracking</h4>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={editFormData.advanced.analytics.trackClicks}
+                              onChange={(e) => setEditFormData({
+                                ...editFormData,
+                                advanced: {
+                                  ...editFormData.advanced,
+                                  analytics: {...editFormData.advanced.analytics, trackClicks: e.target.checked}
+                                }
+                              })}
+                            />
+                            <span>Track Clicks</span>
+                          </label>
+                        </div>
+                        <div className="form-group">
+                          <label className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={editFormData.advanced.analytics.trackConversions}
+                              onChange={(e) => setEditFormData({
+                                ...editFormData,
+                                advanced: {
+                                  ...editFormData.advanced,
+                                  analytics: {...editFormData.advanced.analytics, trackConversions: e.target.checked}
+                                }
+                              })}
+                            />
+                            <span>Track Conversions</span>
+                          </label>
+                        </div>
+                      </div>
+                      {editFormData.advanced.analytics.trackConversions && (
+                        <div className="form-group">
+                          <label>Conversion Goal</label>
+                          <input
+                            type="text"
+                            value={editFormData.advanced.analytics.conversionGoal}
+                            onChange={(e) => setEditFormData({
+                              ...editFormData,
+                              advanced: {
+                                ...editFormData.advanced,
+                                analytics: {...editFormData.advanced.analytics, conversionGoal: e.target.value}
+                              }
+                            })}
+                            className="form-control"
+                            placeholder="Enter conversion goal name"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="edit-actions">
+                      <button 
+                        className="btn btn-primary"
+                        onClick={handleSaveInlineEdit}
+                      >
+                        <Save size={16} />
+                        Save Route
+                      </button>
+                      <button 
+                        className="btn btn-outline"
+                        onClick={handleCancelInlineEdit}
+                      >
+                        <X size={16} />
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <h2>{selectedRoute.link}</h2>
+                    <p className="route-destination">{selectedRoute.dest}</p>
+                    <div className="route-actions-header">
+                      <button 
+                        className="btn btn-outline btn-sm"
+                        onClick={handleStartInlineEdit}
+                      >
+                        <Edit size={16} />
+                        Edit Route
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="time-range-selector">
-                <div className="btn-group" role="group">
-                  {(['24h', '7d', '30d'] as const).map((range) => (
-                    <button
-                      key={range}
-                      className={`btn ${timeRange === range ? 'btn-primary' : 'btn-outline-primary'}`}
-                      onClick={() => setTimeRange(range)}
-                    >
-                      {range}
-                    </button>
-                  ))}
+              {!isEditingInline && (
+                <div className="time-range-selector">
+                  <div className="btn-group" role="group">
+                    {(['24h', '7d', '30d'] as const).map((range) => (
+                      <button
+                        key={range}
+                        className={`btn ${timeRange === range ? 'btn-primary' : 'btn-outline-primary'}`}
+                        onClick={() => setTimeRange(range)}
+                      >
+                        {range}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* Key Metrics */}
-            <div className="metrics-grid">
+            {/* Analytics Content - Hidden during edit mode */}
+            {!isEditingInline && (
+              <>
+                {/* Key Metrics */}
+                <div className="metrics-grid">
               <div className="metric-card">
                 <div className="metric-icon">
                   <MousePointer size={24} />
@@ -430,13 +845,13 @@ const RoutesWithAnalytics: React.FC = () => {
               <div className="chart-card">
                 <h4>Top Countries</h4>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={analytics.topCountries} layout="horizontal">
+                  <RechartsBarChart data={analytics.topCountries} layout="horizontal">
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" />
                     <YAxis dataKey="country" type="category" width={100} />
                     <Tooltip />
                     <Bar dataKey="clicks" fill="var(--primary-500)" />
-                  </BarChart>
+                  </RechartsBarChart>
                 </ResponsiveContainer>
               </div>
 
@@ -511,6 +926,8 @@ const RoutesWithAnalytics: React.FC = () => {
                 ))}
               </div>
             </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="welcome-content">
