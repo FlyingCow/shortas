@@ -4,7 +4,6 @@ import {
   Bar, 
   XAxis, 
   YAxis, 
-  CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
   LineChart,
@@ -217,7 +216,6 @@ const Dashboard: React.FC = () => {
             <div style={{ height: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={analytics?.clicks_by_date || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-primary)" />
                   <XAxis 
                     dataKey="date" 
                     stroke="var(--text-muted)"
@@ -231,7 +229,7 @@ const Dashboard: React.FC = () => {
                     contentStyle={{
                       backgroundColor: 'var(--bg-primary)',
                       border: '1px solid var(--border-primary)',
-                      borderRadius: '4px',
+                      borderRadius: '0px',
                       color: 'var(--text-primary)'
                     }}
                   />
@@ -264,8 +262,8 @@ const Dashboard: React.FC = () => {
                     cy="50%"
                     labelLine={false}
                     label={({ device, percent }) => percent > 0.05 ? `${device} ${(percent * 100).toFixed(0)}%` : ''}
-                    outerRadius={80}
-                    innerRadius={40}
+                    outerRadius={120}
+                    innerRadius={60}
                     fill="var(--primary-400)"
                     dataKey="clicks"
                     paddingAngle={2}
@@ -280,7 +278,7 @@ const Dashboard: React.FC = () => {
                     contentStyle={{
                       backgroundColor: 'var(--bg-primary)',
                       border: '1px solid var(--border-primary)',
-                      borderRadius: '4px',
+                      borderRadius: '0px',
                       color: 'var(--text-primary)'
                     }}
                     formatter={(value: any, name: string, props: any) => [
@@ -308,7 +306,6 @@ const Dashboard: React.FC = () => {
             <div style={{ height: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={analytics?.clicks_by_country?.slice(0, 8) || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-primary)" />
                   <XAxis 
                     dataKey="country" 
                     stroke="var(--text-muted)"
@@ -322,11 +319,11 @@ const Dashboard: React.FC = () => {
                     contentStyle={{
                       backgroundColor: 'var(--bg-primary)',
                       border: '1px solid var(--border-primary)',
-                      borderRadius: '4px',
+                      borderRadius: '0px',
                       color: 'var(--text-primary)'
                     }}
                   />
-                  <Bar dataKey="clicks" fill="var(--primary-500)" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="clicks" fill="var(--primary-500)" radius={[0, 0, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -349,8 +346,8 @@ const Dashboard: React.FC = () => {
                     cy="50%"
                     labelLine={false}
                     label={({ browser, percent }) => percent > 0.05 ? `${browser} ${(percent * 100).toFixed(0)}%` : ''}
-                    outerRadius={80}
-                    innerRadius={40}
+                    outerRadius={120}
+                    innerRadius={60}
                     fill="var(--primary-400)"
                     dataKey="clicks"
                     paddingAngle={2}
@@ -365,7 +362,7 @@ const Dashboard: React.FC = () => {
                     contentStyle={{
                       backgroundColor: 'var(--bg-primary)',
                       border: '1px solid var(--border-primary)',
-                      borderRadius: '4px',
+                      borderRadius: '0px',
                       color: 'var(--text-primary)'
                     }}
                     formatter={(value: any, name: string, props: any) => [

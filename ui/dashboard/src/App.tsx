@@ -4,7 +4,7 @@ import keycloak, { keycloakInitOptions, initializeKeycloak } from './config/keyc
 import { useMockData } from './config/development';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Dashboard from './components/DashboardUnified';
-import RoutesPage from './components/RoutesWithAnalytics';
+import RoutesPage from './components/RoutesWithSidebar';
 import Analytics from './components/AnalyticsUnified';
 import Settings from './components/SettingsUnified';
 import Clickstream from './components/ClickstreamUnified';

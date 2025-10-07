@@ -9,13 +9,11 @@ import {
   Filter,
   Link as LinkIcon,
   Settings,
-  BarChart3
 } from 'lucide-react';
 // Removed Bootstrap Dropdown imports - using unified controls
 import { apiService, RouteDto } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import RouteEditModal from './RouteEditModal';
-import RouteAnalyticsModal from './RouteAnalyticsModal';
 import './DesignSystem.css';
 
 const Routes: React.FC = () => {
@@ -27,8 +25,6 @@ const Routes: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingRoute, setEditingRoute] = useState<RouteDto | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [analyticsRoute, setAnalyticsRoute] = useState<RouteDto | null>(null);
-  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
 
   useEffect(() => {
     fetchRoutes();
@@ -90,10 +86,6 @@ const Routes: React.FC = () => {
     setShowEditModal(true);
   };
 
-  const handleViewAnalytics = (route: RouteDto) => {
-    setAnalyticsRoute(route);
-    setShowAnalyticsModal(true);
-  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -246,13 +238,6 @@ const Routes: React.FC = () => {
                         <div className="table-action-buttons">
                           <button
                             className="table-action-btn table-action-btn-primary"
-                            onClick={() => handleViewAnalytics(route)}
-                            title="View analytics"
-                          >
-                            <BarChart3 size={14} />
-                          </button>
-                          <button
-                            className="table-action-btn table-action-btn-primary"
                             onClick={() => handleEditRoute(route)}
                             title="Edit route"
                           >
@@ -307,15 +292,6 @@ const Routes: React.FC = () => {
         onSave={handleSaveRoute}
       />
 
-      {/* Route Analytics Modal */}
-      <RouteAnalyticsModal
-        show={showAnalyticsModal}
-        onHide={() => {
-          setShowAnalyticsModal(false);
-          setAnalyticsRoute(null);
-        }}
-        route={analyticsRoute}
-      />
     </div>
   );
 };

@@ -367,20 +367,7 @@
   gap: 1.5rem;
 }
 
-.chart-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-}
-
-.chart-card h4 {
-  margin-bottom: 1rem;
-  color: #1f2937;
-  font-weight: 600;
-  font-size: 1rem;
-}
+/* Chart styling now uses unified system from DesignSystem.css */
 
 /* Countries List */
 .countries-list {
