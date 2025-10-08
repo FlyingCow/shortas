@@ -129,3 +129,4 @@ To prevent this error in the future:
 - Don't create multiple Keycloak instances
 - Be careful with React StrictMode in development
 - Use mock data mode when Keycloak server isn't available
+

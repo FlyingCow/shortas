@@ -3399,7 +3399,7 @@ body {
 
 .route-item.selected {
   border-color: var(--color-primary);
-  background: var(--color-primary-light);
+  background: var(--color-info-light);
   box-shadow: var(--shadow-md);
 }
 
@@ -3408,7 +3408,7 @@ body {
 }
 
 .route-link {
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 0.25rem;
   word-break: break-all;
@@ -4384,12 +4384,14 @@ body {
 }
 
 .theme-dark .route-item.selected {
-  background: var(--color-primary-light);
+  background: var(--color-info-light);
   border-color: var(--color-primary);
 }
 
 .theme-dark .route-link {
   color: var(--text-primary);
+  font-weight: 600;
+  opacity: 0.9;
 }
 
 .theme-dark .route-destination {
@@ -4485,6 +4487,10 @@ body {
 .edit-actions {
   display: flex;
   gap: 0.75rem;
+  justify-content: flex-start;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-primary);
 }
 
 .edit-form {
@@ -4541,6 +4547,54 @@ body {
 .form-group input::placeholder {
   color: var(--text-tertiary);
 }
+
+/* HTML Select Controls - Unified Design System */
+.control-dropdown,
+.form-dropdown {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all var(--transition-normal);
+  min-height: 2.5rem;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+}
+
+.control-dropdown:hover,
+.form-dropdown:hover {
+  border-color: var(--color-primary);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.control-dropdown:focus,
+.form-dropdown:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-alpha);
+  background: var(--bg-elevated);
+}
+
+/* Select option styling */
+.control-dropdown option,
+.form-dropdown option {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  padding: 0.5rem;
+}
+
 
 /* Responsive Design */
 @media (max-width: 768px) {

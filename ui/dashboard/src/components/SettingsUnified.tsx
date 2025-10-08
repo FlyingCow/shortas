@@ -5,14 +5,10 @@ import {
   Shield, 
   Globe,
   Save,
-  Eye,
-  EyeOff,
   Sun,
   Moon,
-  Monitor
+  Monitor,
 } from 'lucide-react';
-// Removed Bootstrap Dropdown import - using unified controls
-import { apiService } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
@@ -193,37 +189,35 @@ const Settings: React.FC = () => {
             
             <div className="form-group">
               <label className="form-label">Timezone</label>
-              <div className="control-select">
-                <select
-                  value={settings?.timezone || 'UTC'}
-                  onChange={(e) => updateSettings('timezone', e.target.value)}
-                >
-                  <option value="UTC">UTC</option>
-                  <option value="America/New_York">Eastern Time</option>
-                  <option value="America/Chicago">Central Time</option>
-                  <option value="America/Denver">Mountain Time</option>
-                  <option value="America/Los_Angeles">Pacific Time</option>
-                  <option value="Europe/London">London</option>
-                  <option value="Europe/Paris">Paris</option>
-                  <option value="Asia/Tokyo">Tokyo</option>
-                </select>
-              </div>
+              <select 
+                className="form-dropdown"
+                value={settings?.timezone || 'UTC'}
+                onChange={(e) => updateSettings('timezone', e.target.value)}
+              >
+                <option value="UTC">UTC</option>
+                <option value="America/New_York">Eastern Time</option>
+                <option value="America/Chicago">Central Time</option>
+                <option value="America/Denver">Mountain Time</option>
+                <option value="America/Los_Angeles">Pacific Time</option>
+                <option value="Europe/London">London</option>
+                <option value="Europe/Paris">Paris</option>
+                <option value="Asia/Tokyo">Tokyo</option>
+              </select>
             </div>
             
             <div className="form-group">
               <label className="form-label">Language</label>
-              <div className="control-select">
-                <select
-                  value={settings?.language || 'en'}
-                  onChange={(e) => updateSettings('language', e.target.value)}
-                >
-                  <option value="en">English</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="ja">Japanese</option>
-                </select>
-              </div>
+              <select 
+                className="form-dropdown"
+                value={settings?.language || 'en'}
+                onChange={(e) => updateSettings('language', e.target.value)}
+              >
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="ja">Japanese</option>
+              </select>
             </div>
           </div>
         </div>
@@ -406,18 +400,17 @@ const Settings: React.FC = () => {
             
             <div className="form-group">
               <label className="form-label">Data Retention</label>
-              <div className="control-select">
-                <select
-                  value={settings?.privacy.dataRetention || '30days'}
-                  onChange={(e) => updateSettings('privacy.dataRetention', e.target.value)}
-                >
-                  <option value="30days">30 Days</option>
-                  <option value="6months">6 Months</option>
-                  <option value="1year">1 Year</option>
-                  <option value="2years">2 Years</option>
-                  <option value="indefinite">Indefinite</option>
-                </select>
-              </div>
+              <select 
+                className="form-dropdown"
+                value={settings?.privacy.dataRetention || '30days'}
+                onChange={(e) => updateSettings('privacy.dataRetention', e.target.value)}
+              >
+                <option value="30days">30 Days</option>
+                <option value="6months">6 Months</option>
+                <option value="1year">1 Year</option>
+                <option value="2years">2 Years</option>
+                <option value="indefinite">Indefinite</option>
+              </select>
             </div>
           </div>
         </div>

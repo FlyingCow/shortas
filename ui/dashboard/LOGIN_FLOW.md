@@ -137,3 +137,4 @@ And update Keycloak client settings:
 - **Valid redirect URIs**: `https://your-domain.com/*`
 - **Valid post logout redirect URIs**: `https://your-domain.com/login`
 - **Web origins**: `https://your-domain.com`
+

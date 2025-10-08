@@ -17,7 +17,7 @@ import {
   Users, 
   MousePointer, 
   Globe,
-  Download
+  Download,
 } from 'lucide-react';
 // Removed Bootstrap Dropdown import - using unified controls
 import { apiService, ClickAnalytics } from '../services/api';
@@ -116,17 +116,16 @@ const Analytics: React.FC = () => {
         <div className="card-body">
           <div className="flex items-center justify-between">
             <div className="control-group">
-              <div className="control-select">
-                <select 
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value)}
-                >
-                  <option value="7d">7 Days</option>
-                  <option value="30d">30 Days</option>
-                  <option value="90d">90 Days</option>
-                  <option value="1y">1 Year</option>
-                </select>
-              </div>
+              <select 
+                className="control-dropdown"
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+              >
+                <option value="7d">7 Days</option>
+                <option value="30d">30 Days</option>
+                <option value="90d">90 Days</option>
+                <option value="1y">1 Year</option>
+              </select>
             </div>
             <button className="btn btn-secondary" onClick={exportData}>
               <Download size={16} />

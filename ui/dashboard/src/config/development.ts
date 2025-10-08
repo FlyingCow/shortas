@@ -91,3 +91,4 @@ export const mockUserSettings = {
   allowed_request_params: ['utm_source', 'utm_medium', 'utm_campaign'],
   allowed_destination_params: ['redirect', 'target', 'next'],
 };
+

@@ -30,3 +30,4 @@ const DevelopmentBanner: React.FC = () => {
 };
 
 export default DevelopmentBanner;
+

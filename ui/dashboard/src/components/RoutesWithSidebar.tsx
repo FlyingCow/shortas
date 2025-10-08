@@ -210,16 +210,15 @@ const RoutesWithSidebar: React.FC = () => {
             </div>
             
             <div className="control-group">
-              <div className="control-select">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="all">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
+              <select 
+                className="control-dropdown"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
             </div>
           </div>
 
@@ -304,20 +303,6 @@ const RoutesWithSidebar: React.FC = () => {
           <div className="route-edit-content">
             <div className="edit-header">
               <h2>{editingRoute ? 'Edit Route' : 'Create New Route'}</h2>
-              <div className="edit-actions">
-                <button 
-                  className="btn btn-outline btn-sm"
-                  onClick={handleCancelEdit}
-                >
-                  Cancel
-                </button>
-                <button 
-                  className="btn btn-primary btn-sm"
-                  onClick={handleSaveRoute}
-                >
-                  Save Route
-                </button>
-              </div>
             </div>
 
             <div className="edit-form">
@@ -344,7 +329,8 @@ const RoutesWithSidebar: React.FC = () => {
                   </div>
                   <div className="form-group">
                     <label>Status Code</label>
-                    <select
+                    <select 
+                      className="form-dropdown"
                       value={editFormData.code}
                       onChange={(e) => setEditFormData({...editFormData, code: parseInt(e.target.value)})}
                     >
@@ -356,7 +342,8 @@ const RoutesWithSidebar: React.FC = () => {
                   </div>
                   <div className="form-group">
                     <label>Status</label>
-                    <select
+                    <select 
+                      className="form-dropdown"
                       value={editFormData.status}
                       onChange={(e) => setEditFormData({...editFormData, status: e.target.value})}
                     >
@@ -366,6 +353,22 @@ const RoutesWithSidebar: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
+            
+            {/* Form Actions */}
+            <div className="edit-actions">
+              <button 
+                className="btn btn-outline"
+                onClick={handleCancelEdit}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary"
+                onClick={handleSaveRoute}
+              >
+                Save Route
+              </button>
             </div>
           </div>
         ) : selectedRoute ? (

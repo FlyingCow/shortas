@@ -16,3 +16,4 @@ export const debugError = (message: string, error?: any) => {
     console.error(`[Shortas Error] ${message}`, error || '');
   }
 };
+

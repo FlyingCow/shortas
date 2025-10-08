@@ -9,9 +9,8 @@ import {
   Play,
   Pause,
   RotateCcw,
-  Search
+  Search,
 } from 'lucide-react';
-// Removed Bootstrap Dropdown import - using unified controls
 import './DesignSystem.css';
 
 interface ClickEvent {
@@ -322,29 +321,27 @@ const Clickstream: React.FC = () => {
             </div>
             
             <div className="control-group">
-              <div className="control-select">
-                <select
-                  value={filters.device}
-                  onChange={(e) => setFilters(prev => ({ ...prev, device: e.target.value }))}
-                >
-                  <option value="all">All Devices</option>
-                  <option value="desktop">Desktop</option>
-                  <option value="mobile">Mobile</option>
-                  <option value="tablet">Tablet</option>
-                </select>
-              </div>
+              <select 
+                className="control-dropdown"
+                value={filters.device}
+                onChange={(e) => setFilters(prev => ({ ...prev, device: e.target.value }))}
+              >
+                <option value="all">All Devices</option>
+                <option value="desktop">Desktop</option>
+                <option value="mobile">Mobile</option>
+                <option value="tablet">Tablet</option>
+              </select>
               
-              <div className="control-select">
-                <select
-                  value={filters.status}
-                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                >
-                  <option value="all">All Status</option>
-                  <option value="success">Success</option>
-                  <option value="error">Error</option>
-                  <option value="redirect">Redirect</option>
-                </select>
-              </div>
+              <select 
+                className="control-dropdown"
+                value={filters.status}
+                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+              >
+                <option value="all">All Status</option>
+                <option value="success">Success</option>
+                <option value="error">Error</option>
+                <option value="redirect">Redirect</option>
+              </select>
 
               <div className="control-input">
                 <Search size={16} className="input-icon" />

@@ -20,3 +20,4 @@ fi
 # Start the development server
 echo "🌟 Starting development server..."
 npm start
+

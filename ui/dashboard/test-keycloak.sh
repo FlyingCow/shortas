@@ -43,3 +43,4 @@ echo "   3. Start your React app: npm start"
 echo ""
 echo "🔗 Admin Console: $KEYCLOAK_URL/admin"
 echo "🔗 Realm Config: $KEYCLOAK_URL/realms/$REALM/.well-known/openid_configuration"
+
