@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { logout, getUserInfo } from '../config/keycloak';
 import DevelopmentBanner from './DevelopmentBanner';
+import Logo from './Logo';
 import './DesignSystem.css';
 
 interface LayoutProps {
@@ -40,7 +41,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <Navbar bg="dark" variant="dark" expand="lg" className="mb-0">
         <Container fluid>
           <Navbar.Brand as={Link} to="/dashboard" className="d-flex align-items-center">
-            <LinkIcon className="me-2" size={24} />
+            <Logo className="me-2" size={24} />
             <span className="fw-bold">SHORTAS</span>
           </Navbar.Brand>
           

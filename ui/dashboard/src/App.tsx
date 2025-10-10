@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import keycloak, { keycloakInitOptions, initializeKeycloak } from './config/keycloak';
+import keycloak, { keycloakInitOptions, initializeKeycloak, keycloakLoginOptions } from './config/keycloak';
 import { useMockData } from './config/development';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Dashboard from './components/DashboardUnified';
@@ -10,7 +10,7 @@ import Settings from './components/SettingsUnified';
 import Clickstream from './components/ClickstreamUnified';
 import Layout from './components/LayoutUnified';
 import LoadingSpinner from './components/LoadingSpinner';
-import Login from './components/Login';
+import LoggedOut from './components/LoggedOut';
 import KeycloakError from './components/KeycloakError';
 import './App.css';
 import './components/DesignSystem.css';
@@ -100,16 +100,7 @@ const App: React.FC = () => {
       <Router>
         <Routes>
         {/* Public Routes */}
-        <Route path="/login" element={
-          state.authenticated ? (
-            <Navigate to="/dashboard" replace />
-          ) : (
-            <Login 
-              onLogin={() => keycloak.login()}
-              error={state.error}
-            />
-          )
-        } />
+        <Route path="/logged-out" element={<LoggedOut onLogin={() => keycloak.login(keycloakLoginOptions)} />} />
         
         {/* Protected Routes */}
         <Route path="/*" element={
@@ -126,7 +117,7 @@ const App: React.FC = () => {
               </Routes>
             </Layout>
           ) : (
-            <Navigate to="/login" replace />
+            <Navigate to="/logged-out" replace />
           )
         } />
       </Routes>

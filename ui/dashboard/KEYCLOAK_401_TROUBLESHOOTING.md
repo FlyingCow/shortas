@@ -3,7 +3,7 @@
 ## Error Description
 Browser shows 401 error when accessing `/token` URL, typically:
 ```
-GET http://localhost:8080/realms/shortas-dev/protocol/openid-connect/token
+GET http://localhost:8080/auth/realms/shortas-dev/protocol/openid-connect/token
 Response: 401 Unauthorized
 ```
 
@@ -12,7 +12,7 @@ Response: 401 Unauthorized
 ### 1. Keycloak Server Not Running
 **Check if Keycloak is running:**
 ```bash
-curl http://localhost:8080/realms/shortas-dev/.well-known/openid_configuration
+curl http://localhost:8080/realms/shortas-dev/.well-known/openid-configuration
 ```
 
 **Expected Response:** JSON with Keycloak configuration
@@ -50,7 +50,7 @@ curl http://localhost:8080/realms/
 - **Client Type:** `OpenID Connect`
 - **Client authentication:** `Off` (public client)
 - **Valid redirect URIs:** `http://localhost:3000/*`
-- **Valid post logout redirect URIs:** `http://localhost:3000/login`
+- **Valid post logout redirect URIs:** `http://localhost:3000/logged-out`
 - **Web origins:** `http://localhost:3000`
 
 ## Quick Fix: Use Mock Data Mode
@@ -71,7 +71,7 @@ REACT_APP_KEYCLOAK_URL=http://localhost:8080
 REACT_APP_KEYCLOAK_CLIENT_ID=shortas-dashboard
 
 # API Configuration (not used in mock mode)
-REACT_APP_API_BASE_URL=http://localhost:8080
+REACT_APP_PROXY_API_URL=http://localhost:5050
 
 # Development Options - ENABLE THIS
 REACT_APP_USE_MOCK_DATA=true
@@ -119,17 +119,17 @@ First time setup will prompt for admin credentials.
 6. **Client authentication:** `Off`
 7. Click "Next"
 8. **Valid redirect URIs:** `http://localhost:3000/*`
-9. **Valid post logout redirect URIs:** `http://localhost:3000/login`
+9. **Valid post logout redirect URIs:** `http://localhost:3000/`
 10. **Web origins:** `http://localhost:3000`
 11. Click "Save"
 
 ### Step 5: Test Configuration
 ```bash
 # Test realm endpoint
-curl http://localhost:8080/realms/shortas-dev/.well-known/openid_configuration
+curl http://localhost:8080/realms/shortas-dev/.well-known/openid-configuration
 
 # Should return JSON with endpoints including:
-# "token_endpoint": "http://localhost:8080/realms/shortas-dev/protocol/openid-connect/token"
+# "token_endpoint": "http://localhost:8080/auth/realms/shortas-dev/protocol/openid-connect/token"
 ```
 
 ### Step 6: Update App Configuration
@@ -137,7 +137,7 @@ Edit `.env.local`:
 ```env
 REACT_APP_KEYCLOAK_URL=http://localhost:8080
 REACT_APP_KEYCLOAK_CLIENT_ID=shortas-dashboard
-REACT_APP_API_BASE_URL=http://localhost:8080
+REACT_APP_PROXY_API_URL=http://localhost:5050
 REACT_APP_USE_MOCK_DATA=false  # Use real Keycloak
 ```
 
@@ -163,7 +163,7 @@ Look for these debug messages:
 curl -I http://localhost:8080
 
 # Test realm configuration
-curl http://localhost:8080/realms/shortas-dev/.well-known/openid_configuration
+curl http://localhost:8080/realms/shortas-dev/.well-known/openid-configuration
 
 # Test admin console access
 curl -I http://localhost:8080/admin
@@ -216,11 +216,12 @@ echo "1. Testing Keycloak server..."
 curl -s -o /dev/null -w "%{http_code}" http://localhost:8080 && echo " - Server: OK" || echo " - Server: FAILED"
 
 echo "2. Testing realm..."
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/realms/shortas-dev/.well-known/openid_configuration && echo " - Realm: OK" || echo " - Realm: FAILED"
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/realms/shortas-dev/.well-known/openid-configuration && echo " - Realm: OK" || echo " - Realm: FAILED"
 
 echo "3. Current configuration:"
 echo "   REACT_APP_USE_MOCK_DATA=${REACT_APP_USE_MOCK_DATA:-not set}"
 ```
 
 If any tests fail, use mock data mode for development.
+
 

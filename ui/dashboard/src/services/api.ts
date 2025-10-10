@@ -3,9 +3,9 @@ import { getToken, updateToken, isAuthenticated, isInitialized } from '../config
 import { useMockData, mockAnalytics, mockRoutes, mockUserSettings } from '../config/development';
 
 // API base URLs
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
-const ROUTER_API_URL = `${API_BASE_URL}/api/v1`;
-const AGGREGATOR_API_URL = `${API_BASE_URL}/api/aggregator/v1`;
+const PROXY_API_URL = process.env.REACT_APP_PROXY_API_URL || 'http://localhost:5050';
+const ROUTER_API_URL = `${PROXY_API_URL}/api/v1`;
+const AGGREGATOR_API_URL = `${PROXY_API_URL}/api/aggregator/v1`;
 
 // Create axios instances
 const createApiInstance = (baseURL: string): AxiosInstance => {
@@ -57,8 +57,8 @@ const createApiInstance = (baseURL: string): AxiosInstance => {
     (response) => response,
     (error) => {
       if (error.response?.status === 401) {
-        // Token expired or invalid, redirect to login page
-        window.location.href = '/login';
+        // Token expired or invalid, redirect to logged out page
+        window.location.href = '/logged-out';
       }
       return Promise.reject(error);
     }
@@ -76,20 +76,30 @@ export interface RouteDto {
   switch: string;
   link: string;
   dest: string;
-  dest_format: string;
+  destFormat: string;
   code: number;
   ttl: number;
   status: string;
   terminal: string;
-  properties: {
-    route_id: string;
-    domain_id: string;
-    owner_id: string;
+  properties?: {
+    routeId: string;
+    domainId: string;
+    ownerId: string;
     scripts: string[];
     tags: string[];
     custom: Record<string, any>;
     opengraph: boolean;
-    allow_debug: boolean;
+    allowDebug: boolean;
+  };
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
   };
 }
 
@@ -114,6 +124,49 @@ export interface ClickAnalytics {
   }>;
 }
 
+export interface ClickStreamEvent {
+  id: string;
+  ownerId: string;
+  creatorId: string;
+  routeId: string;
+  workspaceId: string;
+  created: string;
+  dest: string;
+  ip: string;
+  continent: string;
+  country: string;
+  location: string;
+  osFamily: string;
+  osVersion: string;
+  userAgentFamily: string;
+  userAgentVersion: string;
+  deviceBrand: string;
+  deviceFamily: string;
+  deviceModel: string;
+  sessionFirst: string;
+  sessionClicks: number;
+  isUnique: boolean;
+  isBot: boolean;
+}
+
+export interface ClickStreamStats {
+  totalClicks: number;
+  uniqueClicks: number;
+  botClicks: number;
+  topCountries: Array<{
+    country: string;
+    count: number;
+  }>;
+  topDevices: Array<{
+    device: string;
+    count: number;
+  }>;
+  clickTrends: Array<{
+    date: string;
+    clicks: number;
+  }>;
+}
+
 // Helper function to simulate API delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -121,32 +174,61 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const apiService = {
   // Routes API
   routes: {
-    list: async (params?: { limit?: number; offset?: number }) => {
+    list: async (params?: { page?: number; pageSize?: number; search?: string; status?: string }): Promise<PaginatedResponse<RouteDto>> => {
       if (useMockData) {
         await delay(500); // Simulate network delay
-        return mockRoutes;
+        const page = params?.page || 1;
+        const pageSize = params?.pageSize || 20;
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize;
+        const paginatedRoutes = mockRoutes.slice(start, end);
+
+        return {
+          data: paginatedRoutes,
+          pagination: {
+            page,
+            pageSize,
+            totalCount: mockRoutes.length,
+            totalPages: Math.ceil(mockRoutes.length / pageSize),
+          },
+        };
       }
       const response = await routerApi.get('/routes', { params });
       return response.data;
     },
-    
-    get: async (switchName: string, domain: string, path: string) => {
-      const response = await routerApi.get(`/routes/${switchName}/${domain}/${path}`);
+
+    get: async (domain: string, path: string) => {
+      const response = await routerApi.get(`/routes/${domain}/${path}`);
       return response.data;
     },
-    
+
     create: async (route: Partial<RouteDto>) => {
       const response = await routerApi.post('/routes', route);
       return response.data;
     },
-    
-    update: async (switchName: string, domain: string, path: string, route: Partial<RouteDto>) => {
-      const response = await routerApi.put(`/routes/${switchName}/${domain}/${path}`, route);
+
+    update: async (domain: string, path: string, route: Partial<RouteDto>) => {
+      const response = await routerApi.put(`/routes/${domain}/${path}`, route);
       return response.data;
     },
-    
-    delete: async (switchName: string, domain: string, path: string) => {
-      const response = await routerApi.delete(`/routes/${switchName}/${domain}/${path}`);
+
+    delete: async (domain: string, path: string) => {
+      const response = await routerApi.delete(`/routes/${domain}/${path}`);
+      return response.data;
+    },
+
+    bulkCreate: async (routes: Partial<RouteDto>[]) => {
+      const response = await routerApi.post('/routes/bulk', routes);
+      return response.data;
+    },
+
+    bulkUpdate: async (routes: Partial<RouteDto>[]) => {
+      const response = await routerApi.put('/routes/bulk', routes);
+      return response.data;
+    },
+
+    bulkDelete: async (routeIds: string[]) => {
+      const response = await routerApi.delete('/routes/bulk', { data: routeIds });
       return response.data;
     },
   },
@@ -197,9 +279,27 @@ export const apiService = {
       const response = await routerApi.get(`/user-settings/${userId}`);
       return response.data;
     },
-    
+
     update: async (userId: string, settings: any) => {
       const response = await routerApi.put(`/user-settings/${userId}`, settings);
+      return response.data;
+    },
+  },
+
+  // ClickStream API
+  clickstream: {
+    getAll: async (params?: { routeId?: string; startDate?: string; endDate?: string }): Promise<ClickStreamEvent[]> => {
+      const response = await routerApi.get('/clickstream', { params });
+      return response.data;
+    },
+
+    getByRoute: async (routeId: string, params?: { startDate?: string; endDate?: string }): Promise<ClickStreamEvent[]> => {
+      const response = await routerApi.get(`/clickstream/${routeId}`, { params });
+      return response.data;
+    },
+
+    getStats: async (params?: { routeId?: string; startDate?: string; endDate?: string }): Promise<ClickStreamStats> => {
+      const response = await routerApi.get('/clickstream/stats', { params });
       return response.data;
     },
   },

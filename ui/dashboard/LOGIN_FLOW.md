@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Shortas dashboard now supports a custom login UI that redirects to Keycloak for authentication. This provides a better user experience with branded login screens while maintaining secure authentication.
+The Shortas dashboard uses Keycloak's native login flow for authentication. This provides a secure, enterprise-grade authentication experience with single sign-on (SSO) capabilities.
 
 ## Authentication Flow
 
@@ -12,21 +12,19 @@ User visits http://localhost:3000
 ↓
 App checks authentication status
 ↓
-If not authenticated → Redirect to /login
+If not authenticated → Show logged out page
 If authenticated → Show dashboard
 ```
 
-### 2. Login Page
+### 2. Logged Out Page
 ```
-User sees custom login UI at /login
+User sees logged out page
 ↓
-User clicks "Continue with Keycloak SSO"
+User can choose to:
+- Sign in to dashboard (redirects to Keycloak)
+- Visit landing page (external site)
 ↓
-Redirect to Keycloak login page
-↓
-User authenticates with Keycloak
-↓
-Redirect back to dashboard
+After Keycloak authentication → Redirect back to dashboard
 ```
 
 ### 3. Logout Flow
@@ -35,16 +33,17 @@ User clicks logout in dashboard
 ↓
 Keycloak logout
 ↓
-Redirect back to /login
+Redirect back to Keycloak login
 ```
 
 ## URL Structure
 
-- `/` - Root (redirects to `/dashboard` if authenticated, `/login` if not)
-- `/login` - Custom login UI (redirects to `/dashboard` if already authenticated)
+- `/` - Root (redirects to `/dashboard` if authenticated, `/logged-out` if not)
+- `/logged-out` - Logged out page (public, shows login options)
 - `/dashboard` - Main dashboard (protected, requires authentication)
 - `/routes` - Routes management (protected)
 - `/analytics` - Analytics page (protected)
+- `/clickstream` - Clickstream analytics (protected)
 - `/settings` - Settings page (protected)
 
 ## Configuration
@@ -65,7 +64,7 @@ onLoad: 'check-sso'
 
 Make sure your Keycloak client is configured with:
 - **Valid redirect URIs**: `http://localhost:3000/*`
-- **Valid post logout redirect URIs**: `http://localhost:3000/login`
+- **Valid post logout redirect URIs**: `http://localhost:3000/logged-out`
 - **Web origins**: `http://localhost:3000`
 
 ## User Experience
@@ -90,11 +89,11 @@ Make sure your Keycloak client is configured with:
 
 ## Benefits
 
-✅ **Professional Branding**: Custom login UI matches your brand
-✅ **Better UX**: Users see your interface before authentication
-✅ **Flexible Flow**: Can add features like "Remember me", forgot password, etc.
-✅ **Security**: Still uses Keycloak for actual authentication
-✅ **SEO Friendly**: Login page can be indexed and customized
+✅ **User-Friendly Experience**: Clear logged out page with options to sign in or visit landing page
+✅ **Enterprise Security**: Keycloak's native authentication with SSO support
+✅ **Flexible Navigation**: Users can choose to authenticate or visit the main site
+✅ **Professional UI**: Branded logged out page with clear call-to-actions
+✅ **Standard Flow**: Follows OAuth2/OpenID Connect best practices
 
 ## Development
 
@@ -102,7 +101,7 @@ Make sure your Keycloak client is configured with:
 
 1. **Start the app**: `npm start`
 2. **Visit**: `http://localhost:3000`
-3. **Should redirect to**: `http://localhost:3000/login`
+3. **Should redirect to**: `http://localhost:3000/`
 4. **Click "Continue with Keycloak SSO"**
 5. **Should redirect to**: Keycloak login page
 6. **After login**: Should return to dashboard
@@ -118,10 +117,16 @@ If you're having issues:
 
 ### Customization
 
-You can customize the login page by modifying:
-- `src/components/Login.tsx` - Login component logic
-- `src/components/Login.css` - Login page styling
-- `src/App.tsx` - Routing configuration
+You can customize the authentication flow by modifying:
+- `src/config/keycloak.ts` - Keycloak configuration and initialization
+- `src/App.tsx` - Authentication logic and routing
+- `src/components/LoggedOut.tsx` - Logged out page UI and behavior
+- Keycloak admin console - Login page themes and branding
+
+### Environment Variables
+
+- `REACT_APP_LANDING_URL` - URL for the landing page (default: https://shortas.com)
+- `REACT_APP_USE_MOCK_DATA` - Enable mock data mode for development
 
 ## Production Deployment
 
@@ -130,11 +135,13 @@ For production, update the environment variables:
 ```env
 REACT_APP_KEYCLOAK_URL=https://your-keycloak-server.com
 REACT_APP_KEYCLOAK_CLIENT_ID=shortas-dashboard
-REACT_APP_API_BASE_URL=https://your-api-server.com
+REACT_APP_PROXY_API_URL=https://your-api-server.com
+REACT_APP_LANDING_URL=https://your-landing-page.com
 ```
 
 And update Keycloak client settings:
 - **Valid redirect URIs**: `https://your-domain.com/*`
-- **Valid post logout redirect URIs**: `https://your-domain.com/login`
+- **Valid post logout redirect URIs**: `https://your-domain.com/logged-out`
 - **Web origins**: `https://your-domain.com`
+
 

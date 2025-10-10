@@ -2,7 +2,7 @@
 
 ## Browser Authentication Dialog Issue
 
-If you're seeing a browser standard login dialog instead of the custom login UI, here are the solutions:
+If you're seeing a browser standard login dialog instead of the Keycloak login UI, here are the solutions:
 
 ### Quick Fix: Use Mock Data
 
@@ -39,7 +39,7 @@ The browser authentication dialog appears when:
 #### 1. Check Keycloak Server
 ```bash
 # Make sure Keycloak is running on the configured URL
-curl http://localhost:8080/realms/shortas-dev/.well-known/openid_configuration
+curl http://localhost:8080/realms/shortas-dev/.well-known/openid-configuration
 ```
 
 #### 2. Check API Server
@@ -53,7 +53,7 @@ Edit `.env.local`:
 ```env
 # Update these to match your running services
 REACT_APP_KEYCLOAK_URL=http://localhost:8080
-REACT_APP_API_BASE_URL=http://localhost:8080
+REACT_APP_PROXY_API_URL=http://localhost:5050
 REACT_APP_USE_MOCK_DATA=false
 ```
 
@@ -108,7 +108,7 @@ REACT_APP_USE_MOCK_DATA=false
 
 #### "User not authenticated"
 - Normal behavior when not logged in
-- Should redirect to `/login` page
+- Should redirect to Keycloak login page
 
 #### "No authentication token available"
 - Token expired

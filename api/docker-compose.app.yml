@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  shortas-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shortas-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ApiSettings__ClickRouterApi__BaseUrl=http://click-router-api:8080
+      - ApiSettings__ClickAggregatorApi__BaseUrl=http://click-aggregator-api:8080
+      - Keycloak__Authority=http://keycloak:8080/realms/shortas-dev
+      - Keycloak__Audience=shortas-api
+      - Keycloak__RequireHttpsMetadata=false
+    depends_on:
+      - keycloak
+    networks:
+      - shortas-net
+    volumes:
+      - ./logs:/app/logs
+
+networks:
+  shortas-net:
+    external: true

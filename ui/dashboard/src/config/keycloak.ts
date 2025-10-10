@@ -32,7 +32,7 @@ export const keycloakInitOptions = {
 
 // Login options for when user clicks login
 export const keycloakLoginOptions = {
-  redirectUri: window.location.origin,
+  redirectUri: window.location.origin + '/dashboard',
 };
 
 // Helper functions for token management
@@ -60,7 +60,7 @@ export const hasRole = (role: string): boolean => {
 
 export const logout = () => {
   keycloak.logout({
-    redirectUri: window.location.origin + '/login',
+    redirectUri: window.location.origin + '/logged-out',
   });
 };
 

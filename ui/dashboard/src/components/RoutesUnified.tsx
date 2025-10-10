@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  ExternalLink, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  ExternalLink,
   Copy,
   Search,
   Filter,
   Link as LinkIcon,
   Settings,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 // Removed Bootstrap Dropdown imports - using unified controls
-import { apiService, RouteDto } from '../services/api';
+import { apiService, RouteDto, PaginatedResponse } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
-import RouteEditModal from './RouteEditModal';
 import './DesignSystem.css';
 
 const Routes: React.FC = () => {
@@ -22,20 +23,39 @@ const Routes: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingRoute, setEditingRoute] = useState<RouteDto | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     fetchRoutes();
-  }, []);
+  }, [currentPage, statusFilter]);
 
   const fetchRoutes = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.routes.list({ limit: 100 });
-      setRoutes(data);
+      const params: any = {
+        page: currentPage,
+        pageSize
+      };
+
+      if (statusFilter !== 'all') {
+        params.status = statusFilter;
+      }
+
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+
+      const response: PaginatedResponse<RouteDto> = await apiService.routes.list(params);
+      setRoutes(response.data);
+      setTotalPages(response.pagination.totalPages);
+      setTotalCount(response.pagination.totalCount);
     } catch (err) {
       console.error('Failed to fetch routes:', err);
       setError('Failed to load routes. Please try again.');
@@ -44,13 +64,23 @@ const Routes: React.FC = () => {
     }
   };
 
+  // Helper function to parse domain and path from link
+  const parseLinkParts = (link: string): { domain: string; path: string } => {
+    const parts = link.split('/');
+    return {
+      domain: parts[0] || '',
+      path: parts.slice(1).join('/') || ''
+    };
+  };
+
   const handleDeleteRoute = async (route: RouteDto) => {
     if (!window.confirm(`Are you sure you want to delete the route "${route.link}"?`)) {
       return;
     }
 
     try {
-      await apiService.routes.delete(route.switch, route.properties.domain_id, route.link);
+      const { domain, path } = parseLinkParts(route.link);
+      await apiService.routes.delete(domain, path);
       await fetchRoutes();
     } catch (err) {
       console.error('Failed to delete route:', err);
@@ -67,7 +97,8 @@ const Routes: React.FC = () => {
     try {
       if (editingRoute) {
         // Update existing route
-        await apiService.routes.update(editingRoute.switch, editingRoute.properties.domain_id, editingRoute.link, routeData);
+        const { domain, path } = parseLinkParts(editingRoute.link);
+        await apiService.routes.update(domain, path, routeData);
       } else {
         // Create new route
         await apiService.routes.create(routeData);
@@ -86,19 +117,16 @@ const Routes: React.FC = () => {
     setShowEditModal(true);
   };
 
+  const handleSearch = () => {
+    setCurrentPage(1);
+    fetchRoutes();
+  };
+
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     // You could add a toast notification here
   };
-
-  const filteredRoutes = routes.filter(
-    (route) =>
-      (searchTerm === '' || 
-       route.link.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       route.dest.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      (statusFilter === 'all' || route.status.toLowerCase() === statusFilter.toLowerCase())
-  );
 
   if (loading) {
     return <LoadingSpinner message="Loading routes..." />;
@@ -146,10 +174,18 @@ const Routes: React.FC = () => {
                   placeholder="Search routes..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   style={{ minWidth: '200px' }}
                 />
               </div>
-              
+
+              <button
+                className="btn btn-secondary"
+                onClick={handleSearch}
+              >
+                Search
+              </button>
+
               <div className="control-select">
                 <select
                   value={statusFilter}
@@ -168,7 +204,7 @@ const Routes: React.FC = () => {
       {/* Routes Table */}
       <div className="card">
         <div className="card-header">
-          <h3 className="card-title">Routes ({filteredRoutes.length})</h3>
+          <h3 className="card-title">Routes ({totalCount})</h3>
           <p className="card-subtitle">Manage your URL redirects and short links</p>
         </div>
         <div className="card-body p-0">
@@ -186,8 +222,8 @@ const Routes: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRoutes.map((route) => (
-                    <tr key={`${route.switch}-${route.properties.domain_id}-${route.link}`}>
+                  {routes.map((route, index) => (
+                    <tr key={`${route.link}-${index}`}>
                       <td>
                         <div className="table-cell-content">
                           <span className="table-url">{route.link}</span>
@@ -257,7 +293,7 @@ const Routes: React.FC = () => {
                 </tbody>
               </table>
               
-              {filteredRoutes.length === 0 && (
+              {routes.length === 0 && (
                 <div className="table-empty">
                   <div className="table-empty-icon">
                     <LinkIcon size={48} />
@@ -267,9 +303,13 @@ const Routes: React.FC = () => {
                     {searchTerm ? 'No routes match your search criteria.' : 'Create your first URL route to get started.'}
                   </div>
                   {searchTerm && (
-                    <button 
+                    <button
                       className="table-action-btn"
-                      onClick={() => setSearchTerm('')}
+                      onClick={() => {
+                        setSearchTerm('');
+                        setCurrentPage(1);
+                        fetchRoutes();
+                      }}
                     >
                       Clear search
                     </button>
@@ -279,19 +319,39 @@ const Routes: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="card-footer">
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} routes
+              </div>
+              <div className="flex gap-sm">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft size={16} />
+                  Previous
+                </button>
+                <div className="flex items-center gap-xs px-md">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Route Edit Modal */}
-      <RouteEditModal
-        show={showEditModal}
-        onHide={() => {
-          setShowEditModal(false);
-          setEditingRoute(null);
-        }}
-        route={editingRoute}
-        onSave={handleSaveRoute}
-      />
-
     </div>
   );
 };

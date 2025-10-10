@@ -19,7 +19,8 @@ else
 fi
 
 echo "2. Testing realm configuration..."
-if curl -s -f "$KEYCLOAK_URL/realms/$REALM/.well-known/openid_configuration" > /dev/null; then
+
+if curl -s -f "$KEYCLOAK_URL/realms/$REALM/.well-known/openid-configuration" > /dev/null; then
     echo "   ✅ Realm '$REALM' exists and is configured"
 else
     echo "   ❌ Realm '$REALM' does NOT exist"
@@ -42,5 +43,5 @@ echo "   2. Set REACT_APP_USE_MOCK_DATA=false in .env.local"
 echo "   3. Start your React app: npm start"
 echo ""
 echo "🔗 Admin Console: $KEYCLOAK_URL/admin"
-echo "🔗 Realm Config: $KEYCLOAK_URL/realms/$REALM/.well-known/openid_configuration"
+echo "🔗 Realm Config: $KEYCLOAK_URL/realms/$REALM/.well-known/openid-configuration"
 

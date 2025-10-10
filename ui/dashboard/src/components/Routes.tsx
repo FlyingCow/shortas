@@ -45,8 +45,8 @@ const Routes: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.routes.list({ limit: 100 });
-      setRoutes(data);
+      const response = await apiService.routes.list({ page: 1, pageSize: 100 });
+      setRoutes(response.data);
     } catch (err) {
       console.error('Failed to fetch routes:', err);
       setError('Failed to load routes. Please try again.');
@@ -55,13 +55,23 @@ const Routes: React.FC = () => {
     }
   };
 
+  // Helper function to parse domain and path from link
+  const parseLinkParts = (link: string): { domain: string; path: string } => {
+    const parts = link.split('/');
+    return {
+      domain: parts[0] || '',
+      path: parts.slice(1).join('/') || ''
+    };
+  };
+
   const handleDeleteRoute = async (route: RouteDto) => {
     if (!window.confirm(`Are you sure you want to delete the route "${route.link}"?`)) {
       return;
     }
 
     try {
-      await apiService.routes.delete(route.switch, route.properties.domain_id, route.link);
+      const { domain, path } = parseLinkParts(route.link);
+      await apiService.routes.delete(domain, path);
       await fetchRoutes();
     } catch (err) {
       console.error('Failed to delete route:', err);
@@ -169,8 +179,8 @@ const Routes: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRoutes.map((route) => (
-                    <tr key={`${route.switch}-${route.properties.domain_id}-${route.link}`}>
+                  {filteredRoutes.map((route, index) => (
+                    <tr key={`${route.link}-${index}`}>
                       <td>
                         <div className="table-cell-content">
                           <span className="table-url">{route.link}</span>

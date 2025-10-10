@@ -77,13 +77,13 @@ const Dashboard: React.FC = () => {
       setAnalytics(analyticsData);
 
       // Fetch routes for stats
-      const routesData = await apiService.routes.list({ limit: 1000 });
-      const activeRoutes = routesData.filter((route: any) => route.status === 'Active').length;
+      const routesResponse = await apiService.routes.list({ page: 1, pageSize: 1000 });
+      const activeRoutes = routesResponse.data.filter((route: any) => route.status === 'Active').length;
 
       setStats({
         totalClicks: analyticsData.total_clicks,
         uniqueClicks: analyticsData.unique_clicks,
-        totalRoutes: routesData.length,
+        totalRoutes: routesResponse.pagination.totalCount,
         activeRoutes,
       });
     } catch (err) {

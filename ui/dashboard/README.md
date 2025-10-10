@@ -65,7 +65,7 @@ The dashboard will open at `http://localhost:3000`
 |----------|-------------|---------|----------|
 | `REACT_APP_KEYCLOAK_URL` | Keycloak server URL | `http://localhost:8080` | No |
 | `REACT_APP_KEYCLOAK_CLIENT_ID` | Keycloak client ID | `shortas-dashboard` | No |
-| `REACT_APP_API_BASE_URL` | Backend API base URL | `http://localhost:8080` | No |
+| `REACT_APP_PROXY_API_URL` | Proxy API base URL | `http://localhost:5050` | No |
 | `REACT_APP_USE_MOCK_DATA` | Use mock data mode | `false` | No |
 | `NODE_ENV` | Environment mode | `development` | No |
 
@@ -84,7 +84,7 @@ REACT_APP_USE_MOCK_DATA=true
 ```env
 REACT_APP_USE_MOCK_DATA=false
 REACT_APP_KEYCLOAK_URL=https://your-keycloak.com
-REACT_APP_API_BASE_URL=https://your-api.com
+REACT_APP_PROXY_API_URL=https://your-api.com
 ```
 - ✅ Real Keycloak authentication
 - ✅ Live API integration

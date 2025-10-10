@@ -15,6 +15,7 @@ import { logout, getUserInfo } from '../config/keycloak';
 import { useTheme } from '../contexts/ThemeContext';
 import DevelopmentBanner from './DevelopmentBanner';
 import Footer from './Footer';
+import Logo from './Logo';
 import './DesignSystem.css';
 
 interface LayoutProps {
@@ -44,7 +45,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <nav className="navbar">
         <div className="navbar-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexDirection: 'row' }}>
           <Link to="/dashboard" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', flexDirection: 'row' }}>
-            <LinkIcon size={24} />
+            <Logo size={24} />
             <span>SHORTAS</span>
           </Link>
           

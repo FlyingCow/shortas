@@ -1,40 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Activity, 
-  Globe, 
-  Clock, 
-  Monitor, 
-  Smartphone, 
+import {
+  Activity,
+  Globe,
+  Clock,
+  Monitor,
+  Smartphone,
   Tablet,
   Play,
   Pause,
   RotateCcw,
   Search,
 } from 'lucide-react';
+import { apiService, ClickStreamEvent } from '../services/api';
 import './DesignSystem.css';
 
 interface ClickEvent {
   id: string;
   timestamp: string;
   url: string;
-  shortUrl: string;
+  routeId: string;
   country: string;
   city: string;
   device: string;
   browser: string;
   os: string;
-  referrer: string;
-  userAgent: string;
   ip: string;
-  status: 'success' | 'error' | 'redirect';
-  responseTime: number;
   userType: 'new' | 'returning';
+  isBot: boolean;
 }
 
 interface ClickstreamFilters {
   device: string;
   country: string;
-  status: string;
+  routeId: string;
   search: string;
 }
 
@@ -47,63 +45,63 @@ const Clickstream: React.FC = () => {
   const [filters, setFilters] = useState<ClickstreamFilters>({
     device: 'all',
     country: 'all',
-    status: 'all',
+    routeId: 'all',
     search: ''
   });
   const [stats, setStats] = useState({
     totalClicks: 0,
-    uniqueUsers: 0,
-    avgResponseTime: 0,
-    errorRate: 0
+    uniqueClicks: 0,
+    botClicks: 0
   });
+  const [dateRange, setDateRange] = useState('24h');
   
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Mock data generator for development
-  const generateMockEvent = (): ClickEvent => {
-    const countries = ['United States', 'Germany', 'France', 'United Kingdom', 'Canada', 'Australia', 'Japan', 'Brazil'];
-    const cities = ['New York', 'London', 'Berlin', 'Paris', 'Toronto', 'Sydney', 'Tokyo', 'São Paulo'];
-    const devices = ['Desktop', 'Mobile', 'Tablet'];
-    const browsers = ['Chrome', 'Firefox', 'Safari', 'Edge'];
-    const os = ['Windows', 'macOS', 'Linux', 'iOS', 'Android'];
-    const urls = [
-      'https://example.com/product/123',
-      'https://example.com/blog/article',
-      'https://example.com/landing-page',
-      'https://example.com/pricing',
-      'https://example.com/contact'
-    ];
-    const shortUrls = ['short.ly/abc123', 'bit.ly/xyz789', 'tinyurl.com/def456'];
-    const statuses: ('success' | 'error' | 'redirect')[] = ['success', 'success', 'success', 'success', 'error'];
-    const userTypes: ('new' | 'returning')[] = ['new', 'returning'];
-
-    const country = countries[Math.floor(Math.random() * countries.length)];
-    const city = cities[Math.floor(Math.random() * cities.length)];
-    const device = devices[Math.floor(Math.random() * devices.length)];
-    const browser = browsers[Math.floor(Math.random() * browsers.length)];
-    const operatingSystem = os[Math.floor(Math.random() * os.length)];
-    const url = urls[Math.floor(Math.random() * urls.length)];
-    const shortUrl = shortUrls[Math.floor(Math.random() * shortUrls.length)];
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    const userType = userTypes[Math.floor(Math.random() * userTypes.length)];
+  // Map API response to component interface
+  const mapToClickEvent = (apiEvent: ClickStreamEvent): ClickEvent => {
+    // Parse city from location (e.g., "New York, NY" -> "New York")
+    const city = apiEvent.location.split(',')[0] || apiEvent.location;
 
     return {
-      id: `click_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date().toISOString(),
-      url,
-      shortUrl,
-      country,
-      city,
-      device,
-      browser,
-      os: operatingSystem,
-      referrer: Math.random() > 0.5 ? 'https://google.com' : 'https://facebook.com',
-      userAgent: `${browser} on ${operatingSystem}`,
-      ip: `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
-      status,
-      responseTime: Math.floor(Math.random() * 500) + 50,
-      userType
+      id: apiEvent.id,
+      timestamp: apiEvent.created,
+      url: apiEvent.dest,
+      routeId: apiEvent.routeId,
+      country: apiEvent.country,
+      city: city,
+      device: apiEvent.deviceFamily,
+      browser: apiEvent.userAgentFamily,
+      os: `${apiEvent.osFamily} ${apiEvent.osVersion}`,
+      ip: apiEvent.ip,
+      userType: apiEvent.isUnique ? 'new' : 'returning',
+      isBot: apiEvent.isBot
+    };
+  };
+
+  // Calculate date range
+  const getDateRange = () => {
+    const endDate = new Date();
+    const startDate = new Date();
+
+    switch (dateRange) {
+      case '1h':
+        startDate.setHours(startDate.getHours() - 1);
+        break;
+      case '24h':
+        startDate.setHours(startDate.getHours() - 24);
+        break;
+      case '7d':
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(startDate.getDate() - 30);
+        break;
+    }
+
+    return {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString()
     };
   };
 
@@ -112,15 +110,29 @@ const Clickstream: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Generate initial mock events
-      const initialEvents: ClickEvent[] = [];
-      for (let i = 0; i < 20; i++) {
-        initialEvents.push(generateMockEvent());
-      }
-      
-      setEvents(initialEvents);
-      updateStats(initialEvents);
+
+      const { startDate, endDate } = getDateRange();
+      const params = {
+        startDate,
+        endDate,
+        ...(filters.routeId !== 'all' && { routeId: filters.routeId })
+      };
+
+      // Fetch clickstream events and stats in parallel
+      const [apiEvents, apiStats] = await Promise.all([
+        apiService.clickstream.getAll(params),
+        apiService.clickstream.getStats(params)
+      ]);
+
+      // Map API events to component format
+      const mappedEvents = apiEvents.map(mapToClickEvent);
+
+      setEvents(mappedEvents);
+      setStats({
+        totalClicks: apiStats.totalClicks,
+        uniqueClicks: apiStats.uniqueClicks,
+        botClicks: apiStats.botClicks
+      });
     } catch (err) {
       setError('Failed to load clickstream data');
       console.error('Error fetching clickstream data:', err);
@@ -129,19 +141,33 @@ const Clickstream: React.FC = () => {
     }
   };
 
-  // Update statistics
-  const updateStats = (eventList: ClickEvent[]) => {
-    const totalClicks = eventList.length;
-    const uniqueUsers = new Set(eventList.map(e => e.ip)).size;
-    const avgResponseTime = eventList.reduce((sum, e) => sum + e.responseTime, 0) / totalClicks;
-    const errorRate = (eventList.filter(e => e.status === 'error').length / totalClicks) * 100;
+  // Refresh data periodically when live
+  const refreshData = async () => {
+    if (!isLive) return;
 
-    setStats({
-      totalClicks,
-      uniqueUsers,
-      avgResponseTime: Math.round(avgResponseTime),
-      errorRate: Math.round(errorRate * 100) / 100
-    });
+    try {
+      const { startDate, endDate } = getDateRange();
+      const params = {
+        startDate,
+        endDate,
+        ...(filters.routeId !== 'all' && { routeId: filters.routeId })
+      };
+
+      const [apiEvents, apiStats] = await Promise.all([
+        apiService.clickstream.getAll(params),
+        apiService.clickstream.getStats(params)
+      ]);
+
+      const mappedEvents = apiEvents.map(mapToClickEvent);
+      setEvents(mappedEvents);
+      setStats({
+        totalClicks: apiStats.totalClicks,
+        uniqueClicks: apiStats.uniqueClicks,
+        botClicks: apiStats.botClicks
+      });
+    } catch (err) {
+      console.error('Error refreshing clickstream data:', err);
+    }
   };
 
   // Apply filters
@@ -156,15 +182,16 @@ const Clickstream: React.FC = () => {
       filtered = filtered.filter(e => e.country.toLowerCase().includes(filters.country.toLowerCase()));
     }
 
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(e => e.status === filters.status);
+    if (filters.routeId !== 'all') {
+      filtered = filtered.filter(e => e.routeId === filters.routeId);
     }
 
     if (filters.search) {
-      filtered = filtered.filter(e => 
+      filtered = filtered.filter(e =>
         e.url.toLowerCase().includes(filters.search.toLowerCase()) ||
-        e.shortUrl.toLowerCase().includes(filters.search.toLowerCase()) ||
-        e.city.toLowerCase().includes(filters.search.toLowerCase())
+        e.routeId.toLowerCase().includes(filters.search.toLowerCase()) ||
+        e.city.toLowerCase().includes(filters.search.toLowerCase()) ||
+        e.country.toLowerCase().includes(filters.search.toLowerCase())
       );
     }
 
@@ -177,16 +204,12 @@ const Clickstream: React.FC = () => {
       clearInterval(intervalRef.current);
     }
 
+    // Refresh data every 5 seconds when live
     intervalRef.current = setInterval(() => {
       if (isLive) {
-        const newEvent = generateMockEvent();
-        setEvents(prev => {
-          const updated = [newEvent, ...prev].slice(0, 100); // Keep last 100 events
-          updateStats(updated);
-          return updated;
-        });
+        refreshData();
       }
-    }, 2000 + Math.random() * 3000); // Random interval between 2-5 seconds
+    }, 5000);
   };
 
   // Stop live updates
@@ -202,16 +225,9 @@ const Clickstream: React.FC = () => {
     setIsLive(!isLive);
   };
 
-  // Clear all events
-  const clearEvents = () => {
-    setEvents([]);
-    setFilteredEvents([]);
-    setStats({
-      totalClicks: 0,
-      uniqueUsers: 0,
-      avgResponseTime: 0,
-      errorRate: 0
-    });
+  // Refresh events
+  const handleRefresh = () => {
+    fetchInitialData();
   };
 
   // Get device icon
@@ -248,11 +264,8 @@ const Clickstream: React.FC = () => {
     fetchInitialData();
     return () => {
       stopLiveUpdates();
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
     };
-  }, []);
+  }, [dateRange, filters.routeId]);
 
   // Apply filters when filters change
   useEffect(() => {
@@ -313,11 +326,23 @@ const Clickstream: React.FC = () => {
               </button>
               <button
                 className="btn btn-outline"
-                onClick={clearEvents}
+                onClick={handleRefresh}
               >
                 <RotateCcw size={16} />
-                Clear
+                Refresh
               </button>
+
+              {/* Date Range Selector */}
+              <select
+                className="control-dropdown"
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+              >
+                <option value="1h">Last Hour</option>
+                <option value="24h">Last 24 Hours</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+              </select>
             </div>
             
             <div className="control-group">
@@ -332,16 +357,13 @@ const Clickstream: React.FC = () => {
                 <option value="tablet">Tablet</option>
               </select>
               
-              <select 
+              <input
+                type="text"
                 className="control-dropdown"
-                value={filters.status}
-                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-              >
-                <option value="all">All Status</option>
-                <option value="success">Success</option>
-                <option value="error">Error</option>
-                <option value="redirect">Redirect</option>
-              </select>
+                placeholder="Filter by Route ID"
+                value={filters.routeId === 'all' ? '' : filters.routeId}
+                onChange={(e) => setFilters(prev => ({ ...prev, routeId: e.target.value || 'all' }))}
+              />
 
               <div className="control-input">
                 <Search size={16} className="input-icon" />
@@ -375,18 +397,8 @@ const Clickstream: React.FC = () => {
             <Globe size={24} />
           </div>
           <div className="stats-content">
-            <div className="stats-value">{stats.uniqueUsers}</div>
-            <div className="stats-label">Unique Users</div>
-          </div>
-        </div>
-
-        <div className="stats-card">
-          <div className="stats-icon">
-            <Clock size={24} />
-          </div>
-          <div className="stats-content">
-            <div className="stats-value">{stats.avgResponseTime}ms</div>
-            <div className="stats-label">Avg Response</div>
+            <div className="stats-value">{stats.uniqueClicks}</div>
+            <div className="stats-label">Unique Clicks</div>
           </div>
         </div>
 
@@ -395,8 +407,18 @@ const Clickstream: React.FC = () => {
             <Activity size={24} />
           </div>
           <div className="stats-content">
-            <div className="stats-value">{stats.errorRate}%</div>
-            <div className="stats-label">Error Rate</div>
+            <div className="stats-value">{stats.botClicks}</div>
+            <div className="stats-label">Bot Clicks</div>
+          </div>
+        </div>
+
+        <div className="stats-card">
+          <div className="stats-icon">
+            <Clock size={24} />
+          </div>
+          <div className="stats-content">
+            <div className="stats-value">{filteredEvents.length}</div>
+            <div className="stats-label">Filtered Events</div>
           </div>
         </div>
       </div>
@@ -417,18 +439,18 @@ const Clickstream: React.FC = () => {
                 <thead>
                   <tr>
                     <th>Time</th>
-                    <th>URL</th>
+                    <th>Route ID</th>
+                    <th>Destination</th>
                     <th>Location</th>
                     <th>Device</th>
-                    <th>Browser</th>
-                    <th>Status</th>
-                    <th>Response</th>
-                    <th>User</th>
+                    <th>Browser / OS</th>
+                    <th>IP</th>
+                    <th>Type</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredEvents.map((event) => (
-                    <tr key={event.id}>
+                    <tr key={event.id} className={event.isBot ? 'bot-event' : ''}>
                       <td>
                         <div className="table-timestamp">
                           <Clock size={14} />
@@ -436,11 +458,15 @@ const Clickstream: React.FC = () => {
                         </div>
                       </td>
                       <td>
+                        <div className="table-cell-content">
+                          <span className="table-metric">{event.routeId}</span>
+                        </div>
+                      </td>
+                      <td>
                         <div className="table-cell-text">
                           <div className="table-url" title={event.url}>
-                            {event.url}
+                            {event.url.length > 50 ? `${event.url.substring(0, 50)}...` : event.url}
                           </div>
-                          <div className="table-url-short">{event.shortUrl}</div>
                         </div>
                       </td>
                       <td>
@@ -456,34 +482,27 @@ const Clickstream: React.FC = () => {
                         </div>
                       </td>
                       <td>
-                        <div className="table-cell-content">
-                          <Globe size={14} />
-                          <span>{event.browser}</span>
+                        <div className="table-cell-text">
+                          <div>{event.browser}</div>
+                          <div className="table-url-short">{event.os}</div>
                         </div>
                       </td>
                       <td>
-                        <span className={`table-status-badge ${
-                          event.status === 'success' ? 'table-status-success' :
-                          event.status === 'error' ? 'table-status-error' :
-                          'table-status-info'
-                        }`}>
-                          {event.status}
-                        </span>
+                        <span className="table-metric">{event.ip}</span>
                       </td>
                       <td>
-                        <span className={`table-metric ${
-                          event.responseTime < 200 ? 'table-response-fast' :
-                          event.responseTime < 500 ? 'table-response-medium' : 'table-response-slow'
-                        }`}>
-                          {event.responseTime}ms
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`table-status-badge ${
-                          event.userType === 'new' ? 'table-status-info' : 'table-status-secondary'
-                        }`}>
-                          {event.userType}
-                        </span>
+                        <div className="flex gap-xs">
+                          <span className={`table-status-badge ${
+                            event.userType === 'new' ? 'table-status-success' : 'table-status-secondary'
+                          }`}>
+                            {event.userType}
+                          </span>
+                          {event.isBot && (
+                            <span className="table-status-badge table-status-warning">
+                              bot
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -497,8 +516,8 @@ const Clickstream: React.FC = () => {
                   </div>
                   <div className="table-empty-title">No events found</div>
                   <div className="table-empty-description">
-                    {filters.search || filters.device !== 'all' || filters.status !== 'all' 
-                      ? 'No events match your current filters.' 
+                    {filters.search || filters.device !== 'all' || filters.routeId !== 'all' || filters.country !== 'all'
+                      ? 'No events match your current filters.'
                       : 'No click events have been recorded yet.'}
                   </div>
                 </div>

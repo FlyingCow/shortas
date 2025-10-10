@@ -10,6 +10,7 @@ import {
   Shield,
   Zap
 } from 'lucide-react';
+import Logo from './Logo';
 import './Footer.css';
 
 const Footer: React.FC = () => {
@@ -21,7 +22,7 @@ const Footer: React.FC = () => {
         <div className="footer-main">
           <div className="footer-brand">
             <div className="footer-logo">
-              <Zap size={24} />
+              <Logo size={24} />
               <span>Shortas</span>
             </div>
             <p className="footer-description">

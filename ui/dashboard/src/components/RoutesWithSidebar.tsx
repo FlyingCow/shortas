@@ -27,8 +27,8 @@ const RoutesWithSidebar: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.routes.list({ limit: 100 });
-      setRoutes(data);
+      const response = await apiService.routes.list({ page: 1, pageSize: 100 });
+      setRoutes(response.data);
     } catch (err) {
       console.error('Failed to fetch routes:', err);
       setError('Failed to load routes. Please try again.');
@@ -37,13 +37,23 @@ const RoutesWithSidebar: React.FC = () => {
     }
   };
 
+  // Helper function to parse domain and path from link
+  const parseLinkParts = (link: string): { domain: string; path: string } => {
+    const parts = link.split('/');
+    return {
+      domain: parts[0] || '',
+      path: parts.slice(1).join('/') || ''
+    };
+  };
+
   const handleDeleteRoute = async (route: RouteDto) => {
     if (!window.confirm(`Are you sure you want to delete the route "${route.link}"?`)) {
       return;
     }
 
     try {
-      await apiService.routes.delete(route.switch, route.properties.domain_id, route.link);
+      const { domain, path } = parseLinkParts(route.link);
+      await apiService.routes.delete(domain, path);
       await fetchRoutes();
       if (selectedRoute?.link === route.link) {
         setSelectedRoute(null);
@@ -69,7 +79,8 @@ const RoutesWithSidebar: React.FC = () => {
   const handleSaveRoute = async () => {
     try {
       if (editingRoute) {
-        await apiService.routes.update(editingRoute.switch, editingRoute.properties.domain_id, editingRoute.link, editFormData);
+        const { domain, path } = parseLinkParts(editingRoute.link);
+        await apiService.routes.update(domain, path, editFormData);
       } else {
         await apiService.routes.create(editFormData);
       }
@@ -224,9 +235,9 @@ const RoutesWithSidebar: React.FC = () => {
 
           {/* Routes List */}
           <div className="routes-list">
-            {filteredRoutes.map((route) => (
+            {filteredRoutes.map((route, index) => (
               <div
-                key={`${route.switch}-${route.properties.domain_id}-${route.link}`}
+                key={`${route.link}-${index}`}
                 className={`route-item ${selectedRoute?.link === route.link ? 'selected' : ''}`}
                 onClick={() => handleSelectRoute(route)}
               >

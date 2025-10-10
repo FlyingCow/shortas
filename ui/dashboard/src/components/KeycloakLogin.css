@@ -1,0 +1,175 @@
+/* KeycloakLogin Component Styles */
+
+.keycloak-login-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.keycloak-login-card {
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.keycloak-login-branding {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.keycloak-login-branding::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.05"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.05"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.05"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+  opacity: 0.3;
+}
+
+.keycloak-login-content {
+  position: relative;
+  z-index: 1;
+}
+
+.keycloak-login-title {
+  font-size: 3.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.keycloak-login-form-content {
+  padding: 3rem;
+}
+
+.keycloak-login-form-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1a202c !important;
+  margin-bottom: 0.5rem;
+}
+
+.keycloak-login-form-subtitle {
+  color: #4a5568 !important;
+  margin-bottom: 2rem;
+}
+
+/* Ensure text visibility */
+.keycloak-login-form-content h2,
+.keycloak-login-form-content h3,
+.keycloak-login-form-content p {
+  color: #1a202c !important;
+}
+
+.keycloak-login-form-content .text-muted {
+  color: #4a5568 !important;
+}
+
+.keycloak-login-button {
+  border-radius: 12px;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.keycloak-login-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.keycloak-login-button:hover::before {
+  left: 100%;
+}
+
+.keycloak-login-button-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.keycloak-login-button-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+  color: white;
+}
+
+.keycloak-login-button-secondary {
+  background: white;
+  color: #4a5568;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.keycloak-login-button-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  border-color: #cbd5e0;
+  color: #2d3748;
+}
+
+.keycloak-login-badges {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.keycloak-login-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.keycloak-login-badge-success {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+}
+
+.keycloak-login-badge-info {
+  background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+  color: white;
+}
+
+/* Responsive Design */
+@media (max-width: 991.98px) {
+  .keycloak-login-branding {
+    display: none;
+  }
+  
+  .keycloak-login-form-content {
+    padding: 2rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .keycloak-login-form-content {
+    padding: 1.5rem;
+  }
+  
+  .keycloak-login-title {
+    font-size: 2.5rem;
+  }
+}
+
