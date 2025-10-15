@@ -1,7 +1,10 @@
-use salvo::{prelude::*};
 use salvo::oapi::endpoint;
+use salvo::prelude::*;
 
-use crate::adapters::api::{app_state::AppState, error_presenter::ErrorResponse as ErrorPresenter, middleware::JwtAuthContext, openapi_schemas::ErrorResponse};
+use crate::adapters::api::{
+    app_state::AppState, error_presenter::ErrorResponse as ErrorPresenter,
+    openapi_schemas::ErrorResponse,
+};
 use crate::dto::UserSettingsDto;
 use crate::model::error::{ApiError, AuthenticationError, ValidationError};
 use crate::model::user_settings::UserSettings;
@@ -17,7 +20,7 @@ pub fn api_routes() -> Router {
 }
 
 /// Get user settings
-/// 
+///
 /// Retrieves user settings for a specific user ID. If no user ID is provided in the URL,
 /// the user ID from the JWT token context will be used.
 #[endpoint(
@@ -56,17 +59,10 @@ pub async fn get_user_settings(req: &mut Request, depot: &mut Depot, res: &mut R
         }
         Ok(None) => {
             // Get user ID from JWT context if not provided in URL
-            let final_user_id = if user_id.is_empty() {
-                match depot.get::<JwtAuthContext>("jwt_auth_context") {
-                    Ok(context) => context.user_id.clone(),
-                    Err(_) => user_id,
-                }
-            } else {
-                user_id
-            };
-            
+            let final_user_id = user_id;
+
             let error_response = ErrorPresenter::from_api_error(&ApiError::Authentication(
-                AuthenticationError::UserNotFound(final_user_id)
+                AuthenticationError::UserNotFound(final_user_id),
             ));
             res.status_code(error_response.status_code);
             res.render(error_response);
@@ -133,12 +129,11 @@ pub async fn create_user_settings(req: &mut Request, depot: &mut Depot, res: &mu
 
     // Validate the user settings data
     if !keycert_dto.is_valid() {
-        let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
-            ValidationError::InvalidInput {
+        let error_response =
+            ErrorPresenter::from_api_error(&ApiError::Validation(ValidationError::InvalidInput {
                 field: "user_settings".to_string(),
                 message: "User settings data is incomplete or invalid".to_string(),
-            },
-        ));
+            }));
         res.status_code(error_response.status_code);
         res.render(error_response);
         return;
@@ -235,12 +230,11 @@ pub async fn update_user_settings(req: &mut Request, depot: &mut Depot, res: &mu
 
     // Validate the user settings data
     if !keycert_dto.is_valid() {
-        let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
-            ValidationError::InvalidInput {
+        let error_response =
+            ErrorPresenter::from_api_error(&ApiError::Validation(ValidationError::InvalidInput {
                 field: "user_settings".to_string(),
                 message: "User settings data is incomplete or invalid".to_string(),
-            },
-        ));
+            }));
         res.status_code(error_response.status_code);
         res.render(error_response);
         return;

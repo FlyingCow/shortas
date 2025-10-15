@@ -13,8 +13,9 @@ import {
   ChevronRight,
 } from 'lucide-react';
 // Removed Bootstrap Dropdown imports - using unified controls
-import { apiService, RouteDto, PaginatedResponse } from '../services/api';
+import { apiService, RouteDto, PaginatedResponse, RoutingPolicy } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
+import RouteFormModal from './RouteFormModal';
 import './DesignSystem.css';
 
 const Routes: React.FC = () => {
@@ -64,23 +65,18 @@ const Routes: React.FC = () => {
     }
   };
 
-  // Helper function to parse domain and path from link
-  const parseLinkParts = (link: string): { domain: string; path: string } => {
-    const parts = link.split('/');
-    return {
-      domain: parts[0] || '',
-      path: parts.slice(1).join('/') || ''
-    };
-  };
-
   const handleDeleteRoute = async (route: RouteDto) => {
     if (!window.confirm(`Are you sure you want to delete the route "${route.link}"?`)) {
       return;
     }
 
+    if (!route.id) {
+      alert('Cannot delete route: missing ID');
+      return;
+    }
+
     try {
-      const { domain, path } = parseLinkParts(route.link);
-      await apiService.routes.delete(domain, path);
+      await apiService.routes.delete(route.id);
       await fetchRoutes();
     } catch (err) {
       console.error('Failed to delete route:', err);
@@ -97,8 +93,11 @@ const Routes: React.FC = () => {
     try {
       if (editingRoute) {
         // Update existing route
-        const { domain, path } = parseLinkParts(editingRoute.link);
-        await apiService.routes.update(domain, path, routeData);
+        if (!editingRoute.id) {
+          alert('Cannot update route: missing ID');
+          return;
+        }
+        await apiService.routes.update(editingRoute.id, routeData);
       } else {
         // Create new route
         await apiService.routes.create(routeData);
@@ -126,6 +125,32 @@ const Routes: React.FC = () => {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     // You could add a toast notification here
+  };
+
+  const getPolicyType = (policy?: RoutingPolicy): string => {
+    if (!policy || policy === 'Basic') return 'Basic';
+    if (policy === 'Mirroring') return 'Mirroring';
+    if (typeof policy === 'object') {
+      if ('Conditional' in policy) return 'Conditional';
+      if ('Challenge' in policy) return 'Challenge';
+      if ('File' in policy) return 'File';
+    }
+    return 'Basic';
+  };
+
+  const getPolicyBadgeClass = (policyType: string): string => {
+    switch (policyType) {
+      case 'Conditional':
+        return 'table-status-info';
+      case 'Challenge':
+        return 'table-status-warning';
+      case 'File':
+        return 'table-status-secondary';
+      case 'Mirroring':
+        return 'table-status-info';
+      default:
+        return 'table-status-secondary';
+    }
   };
 
   if (loading) {
@@ -215,6 +240,7 @@ const Routes: React.FC = () => {
                   <tr>
                     <th>Short URL</th>
                     <th>Destination</th>
+                    <th>Policy</th>
                     <th>Status</th>
                     <th>Code</th>
                     <th>TTL</th>
@@ -222,8 +248,8 @@ const Routes: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {routes.map((route, index) => (
-                    <tr key={`${route.link}-${index}`}>
+                  {routes.map((route) => (
+                    <tr key={route.id || route.link}>
                       <td>
                         <div className="table-cell-content">
                           <span className="table-url">{route.link}</span>
@@ -252,6 +278,11 @@ const Routes: React.FC = () => {
                             <ExternalLink size={14} />
                           </button>
                         </div>
+                      </td>
+                      <td>
+                        <span className={`table-status-badge ${getPolicyBadgeClass(getPolicyType(route.policy))}`}>
+                          {getPolicyType(route.policy)}
+                        </span>
                       </td>
                       <td>
                         <span className={`table-status-badge ${
@@ -352,6 +383,17 @@ const Routes: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Route Form Modal */}
+      <RouteFormModal
+        show={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingRoute(null);
+        }}
+        onSave={handleSaveRoute}
+        route={editingRoute}
+      />
     </div>
   );
 };

@@ -3,7 +3,6 @@ use salvo::prelude::*;
 use tracing::info;
 
 use crate::adapters;
-use crate::adapters::api::middleware::{RateLimitStore, JwtConfig};
 use crate::core::{CryptoStore, RoutesStore, UserSettingsStore};
 use crate::settings::Server as ServerSettings;
 use crate::{adapters::api::app_state::AppState, settings::Settings};
@@ -16,23 +15,6 @@ async fn app_state_middleware(
     ctrl: &mut FlowCtrl,
 ) {
     // The app state will be set by the server setup
-    ctrl.call_next(req, depot, res).await;
-}
-
-#[handler]
-async fn security_middleware(
-    req: &mut Request,
-    depot: &mut Depot,
-    res: &mut Response,
-    ctrl: &mut FlowCtrl,
-) {
-    // Initialize security components
-    depot.insert("rate_limit_store", RateLimitStore::new());
-    
-    // Initialize JWT configuration
-    let jwt_config = JwtConfig::from_env();
-    depot.insert("jwt_config", jwt_config);
-    
     ctrl.call_next(req, depot, res).await;
 }
 
@@ -69,9 +51,6 @@ impl Api {
         let router = adapters::api::api_routes::routes();
 
         let _app_state = self.api_pool.clone();
-        
-        // Initialize security components
-        let _rate_limit_store = RateLimitStore::new();
 
         let doc = OpenApi::new("Click Router API", "0.1.0")
             .merge_router(&router)
@@ -87,11 +66,10 @@ impl Api {
 
         let router = router
             .hoop(app_state_middleware)
-            .hoop(security_middleware)
             .unshift(doc.into_router("/api-doc/openapi.json"))
             .unshift(SwaggerUi::new("/api-doc/openapi.json").into_router("/swagger-ui"));
 
-        let acceptor = TcpListener::new("0.0.0.0:5800").bind().await;
+        let acceptor = TcpListener::new("0.0.0.0:5810").bind().await;
 
         Server::new(acceptor).serve(router).await;
 

@@ -1,0 +1,210 @@
+/* PolicyEditor Theme-Aware Styling */
+
+/* Override Bootstrap text-muted to use theme colors */
+.policy-editor .text-muted,
+.policy-editor .form-text {
+  color: var(--theme-text-tertiary) !important;
+}
+
+/* Ensure labels are visible in both themes */
+.policy-editor .form-label {
+  color: var(--theme-text-secondary);
+}
+
+/* Condition type badges - ensure text visibility */
+.policy-editor .condition-badge-primary {
+  background-color: var(--primary-600);
+  color: white;
+}
+
+.policy-editor .condition-badge-success {
+  background-color: var(--success-600);
+  color: white;
+}
+
+.policy-editor .condition-badge-warning {
+  background-color: var(--warning-500);
+  color: var(--theme-text-primary);
+}
+
+/* Value badges - theme-aware colors */
+.policy-editor .value-badge-info {
+  background-color: var(--primary-500);
+  color: white;
+}
+
+.policy-editor .value-badge-success {
+  background-color: var(--success-500);
+  color: white;
+}
+
+.policy-editor .value-badge-warning {
+  background-color: var(--warning-400);
+  color: var(--theme-text-primary);
+}
+
+/* Condition cards - theme-aware borders and backgrounds */
+.policy-editor .condition-card {
+  background-color: var(--theme-bg-elevated);
+  border-color: var(--theme-border-primary);
+  color: var(--theme-text-primary);
+}
+
+.policy-editor .condition-card-primary {
+  border-left: 3px solid var(--primary-600);
+}
+
+.policy-editor .condition-card-success {
+  border-left: 3px solid var(--success-600);
+}
+
+.policy-editor .condition-card-warning {
+  border-left: 3px solid var(--warning-500);
+}
+
+/* Alert messages - theme-aware */
+.policy-editor .alert {
+  background-color: var(--theme-bg-secondary);
+  border-color: var(--theme-border-primary);
+  color: var(--theme-text-primary);
+}
+
+.policy-editor .alert-info {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: var(--primary-600);
+  color: var(--theme-text-primary);
+}
+
+.policy-editor .alert-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-color: var(--warning-500);
+  color: var(--theme-text-primary);
+}
+
+/* Form controls - ensure visibility */
+.policy-editor .form-control,
+.policy-editor .form-select {
+  background-color: var(--theme-bg-primary);
+  border-color: var(--theme-border-primary);
+  color: var(--theme-text-primary);
+}
+
+.policy-editor .form-control:focus,
+.policy-editor .form-select:focus {
+  background-color: var(--theme-bg-primary);
+  border-color: var(--theme-border-focus);
+  color: var(--theme-text-primary);
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
+}
+
+.policy-editor .form-control::placeholder {
+  color: var(--theme-text-muted);
+  opacity: 1;
+}
+
+/* Select options - dark theme support */
+.policy-editor .form-select option {
+  background-color: var(--theme-bg-primary);
+  color: var(--theme-text-primary);
+}
+
+/* Small text labels */
+.policy-editor .small {
+  color: var(--theme-text-tertiary);
+}
+
+/* Main card container */
+.policy-editor .card {
+  background-color: var(--theme-bg-elevated);
+  border-color: var(--theme-border-primary);
+  color: var(--theme-text-primary);
+}
+
+.policy-editor .card-body {
+  color: var(--theme-text-primary);
+}
+
+/* Buttons - maintain Bootstrap colors but ensure contrast */
+.policy-editor .btn-outline-secondary {
+  color: var(--theme-text-secondary);
+  border-color: var(--theme-border-primary);
+}
+
+.policy-editor .btn-outline-secondary:hover {
+  color: var(--theme-text-inverse);
+  background-color: var(--theme-text-secondary);
+  border-color: var(--theme-text-secondary);
+}
+
+/* Close buttons on badges */
+.policy-editor .btn-close-white {
+  filter: brightness(0) invert(1);
+}
+
+/* Ensure proper spacing for badge close buttons */
+.policy-editor .badge .btn-close {
+  font-size: 0.6rem;
+  padding: 0.25rem;
+  opacity: 0.8;
+}
+
+.policy-editor .badge .btn-close:hover {
+  opacity: 1;
+}
+
+/* Header section styling */
+.policy-editor .policy-header {
+  color: var(--theme-text-primary);
+}
+
+.policy-editor .fw-semibold {
+  color: var(--theme-text-primary);
+}
+
+/* Badge within condition header */
+.policy-editor .badge.bg-secondary {
+  background-color: var(--theme-text-tertiary) !important;
+  color: var(--theme-text-inverse);
+}
+
+/* Operator radio button group styling */
+.policy-editor .operator-radio-group {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-border-primary);
+  border-radius: 0.375rem;
+}
+
+.policy-editor .operator-radio-group .form-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: var(--theme-text-secondary);
+}
+
+.policy-editor .operator-radio-group .btn {
+  font-size: 0.875rem;
+  padding: 0.375rem 0.75rem;
+  border-width: 1px;
+  transition: all 0.2s ease-in-out;
+}
+
+.policy-editor .operator-radio-group .btn-outline-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.policy-editor .operator-radio-group .btn-primary {
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.policy-editor .operator-radio-group .btn-primary:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.policy-editor .operator-radio-group .btn-primary:hover:disabled {
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+  transform: none;
+}

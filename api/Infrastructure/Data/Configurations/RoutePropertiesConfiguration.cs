@@ -15,16 +15,23 @@ public class RoutePropertiesConfiguration : IEntityTypeConfiguration<RouteProper
         builder.Property(rp => rp.Id)
             .ValueGeneratedOnAdd();
 
+        // Nullable fields to match click-router Option<String>
         builder.Property(rp => rp.RouteId)
-            .IsRequired()
             .HasMaxLength(255);
 
         builder.Property(rp => rp.DomainId)
-            .IsRequired();
+            .HasMaxLength(255);
 
         builder.Property(rp => rp.OwnerId)
-            .IsRequired();
+            .HasMaxLength(255);
 
+        builder.Property(rp => rp.CreatorId)
+            .HasMaxLength(255);
+
+        builder.Property(rp => rp.WorkspaceId)
+            .HasMaxLength(255);
+
+        // JSON fields
         builder.Property(rp => rp.ScriptsJson)
             .HasColumnType("jsonb")
             .HasDefaultValue("[]");
@@ -37,19 +44,32 @@ public class RoutePropertiesConfiguration : IEntityTypeConfiguration<RouteProper
             .HasColumnType("jsonb")
             .HasDefaultValue("{}");
 
+        builder.Property(rp => rp.NativeJson)
+            .HasColumnType("jsonb")
+            .HasDefaultValue("{}");
+
+        builder.Property(rp => rp.BundlingJson)
+            .HasColumnType("jsonb")
+            .HasDefaultValue("{}");
+
         builder.Property(rp => rp.Opengraph)
-            .IsRequired();
+            .IsRequired()
+            .HasDefaultValue(false);
 
         builder.Property(rp => rp.AllowDebug)
-            .IsRequired();
+            .IsRequired()
+            .HasDefaultValue(false);
 
         // Ignore computed properties
         builder.Ignore(rp => rp.Scripts);
         builder.Ignore(rp => rp.Tags);
         builder.Ignore(rp => rp.Custom);
+        builder.Ignore(rp => rp.Native);
+        builder.Ignore(rp => rp.Bundling);
 
         // Add indexes for performance
         builder.HasIndex(rp => rp.OwnerId);
         builder.HasIndex(rp => rp.RouteId);
+        builder.HasIndex(rp => rp.WorkspaceId);
     }
 }

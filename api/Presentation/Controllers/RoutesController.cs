@@ -69,18 +69,21 @@ public class RoutesController : ControllerBase
     }
 
     /// <summary>
-    /// Get route information
+    /// Get route information by ID
     /// </summary>
-    /// <param name="domain">Domain name</param>
-    /// <param name="path">Route path</param>
-    /// <param name="switchParam">Switch parameter (optional)</param>
+    /// <param name="id">Route ID</param>
     /// <returns>Route information</returns>
-    [HttpGet("{domain}/{path}")]
-    public async Task<ActionResult<RouteDto>> GetRoute(string domain, string path, [FromQuery] string? switchParam = null)
+    [HttpGet("{id}")]
+    public async Task<ActionResult<RouteDto>> GetRoute(string id)
     {
+        if (!Guid.TryParse(id, out var routeId))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Invalid route ID format" });
+        }
+
         var userId = this.GetUserId();
-        var result = await _routeService.GetRouteAsync(domain, path, userId, switchParam);
-        
+        var result = await _routeService.GetRouteByIdAsync(routeId, userId);
+
         if (result.IsFailure)
         {
             return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
@@ -119,23 +122,27 @@ public class RoutesController : ControllerBase
         }
 
         var createdRouteDto = MapToDto(result.Value);
-        return CreatedAtAction(nameof(GetRoute), new { domain = "example.com", path = "test" }, createdRouteDto);
+        return CreatedAtAction(nameof(GetRoute), new { id = result.Value.Id.ToString() }, createdRouteDto);
     }
 
     /// <summary>
-    /// Update an existing route
+    /// Update an existing route by ID
     /// </summary>
-    /// <param name="domain">Domain name</param>
-    /// <param name="path">Route path</param>
+    /// <param name="id">Route ID</param>
     /// <param name="routeDto">Updated route data</param>
     /// <returns>Updated route</returns>
-    [HttpPut("{domain}/{path}")]
-    public async Task<ActionResult<RouteDto>> UpdateRoute(string domain, string path, [FromBody] RouteDto routeDto)
+    [HttpPut("{id}")]
+    public async Task<ActionResult<RouteDto>> UpdateRoute(string id, [FromBody] RouteDto routeDto)
     {
+        if (!Guid.TryParse(id, out var routeId))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Invalid route ID format" });
+        }
+
         var userId = this.GetUserId();
         var route = MapFromDto(routeDto);
-        var result = await _routeService.UpdateRouteAsync(domain, path, userId, route);
-        
+        var result = await _routeService.UpdateRouteByIdAsync(routeId, userId, route);
+
         if (result.IsFailure)
         {
             return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
@@ -146,17 +153,21 @@ public class RoutesController : ControllerBase
     }
 
     /// <summary>
-    /// Delete a route
+    /// Delete a route by ID
     /// </summary>
-    /// <param name="domain">Domain name</param>
-    /// <param name="path">Route path</param>
+    /// <param name="id">Route ID</param>
     /// <returns>No content</returns>
-    [HttpDelete("{domain}/{path}")]
-    public async Task<IActionResult> DeleteRoute(string domain, string path)
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteRoute(string id)
     {
+        if (!Guid.TryParse(id, out var routeId))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Invalid route ID format" });
+        }
+
         var userId = this.GetUserId();
-        var result = await _routeService.DeleteRouteAsync(domain, path, userId);
-        
+        var result = await _routeService.DeleteRouteByIdAsync(routeId, userId);
+
         if (result.IsFailure)
         {
             return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
@@ -263,6 +274,7 @@ public class RoutesController : ControllerBase
     {
         return new RouteDto
         {
+            Id = route.Id.ToString(),  // Include internal ID
             Switch = route.Switch,
             Link = route.Link,
             Dest = route.Dest,
@@ -271,14 +283,19 @@ public class RoutesController : ControllerBase
             Ttl = route.Ttl,
             Status = route.Status,
             Terminal = route.Terminal,
+            Policy = route.Policy,  // Include routing policy
             Properties = route.Properties != null ? new RoutePropertiesDto
             {
                 RouteId = route.Properties.RouteId,
                 DomainId = route.Properties.DomainId,
                 OwnerId = route.Properties.OwnerId,
+                CreatorId = route.Properties.CreatorId,
+                WorkspaceId = route.Properties.WorkspaceId,
                 Scripts = route.Properties.Scripts,
                 Tags = route.Properties.Tags,
                 Custom = route.Properties.Custom,
+                Native = route.Properties.Native,
+                Bundling = route.Properties.Bundling,
                 Opengraph = route.Properties.Opengraph,
                 AllowDebug = route.Properties.AllowDebug
             } : null
@@ -287,7 +304,7 @@ public class RoutesController : ControllerBase
 
     private static Domain.Entities.Route MapFromDto(RouteDto routeDto)
     {
-        return new Domain.Entities.Route
+        var route = new Domain.Entities.Route
         {
             Switch = routeDto.Switch,
             Link = routeDto.Link,
@@ -296,18 +313,32 @@ public class RoutesController : ControllerBase
             Code = routeDto.Code,
             Ttl = routeDto.Ttl,
             Status = routeDto.Status,
-            Terminal = routeDto.Terminal,
-            Properties = routeDto.Properties != null ? new Domain.Entities.RouteProperties
-            {
-                RouteId = routeDto.Properties.RouteId,
-                DomainId = routeDto.Properties.DomainId,
-                OwnerId = routeDto.Properties.OwnerId,
-                Scripts = routeDto.Properties.Scripts,
-                Tags = routeDto.Properties.Tags,
-                Custom = routeDto.Properties.Custom,
-                Opengraph = routeDto.Properties.Opengraph,
-                AllowDebug = routeDto.Properties.AllowDebug
-            } : null
+            Terminal = routeDto.Terminal
         };
+
+        // Set policy if provided, otherwise default to Basic
+        if (routeDto.Policy != null)
+        {
+            route.Policy = routeDto.Policy;
+        }
+
+        // Properties is required, always initialize with new fields
+        if (routeDto.Properties != null)
+        {
+            route.Properties.RouteId = routeDto.Properties.RouteId;
+            route.Properties.DomainId = routeDto.Properties.DomainId;
+            route.Properties.OwnerId = routeDto.Properties.OwnerId;
+            route.Properties.CreatorId = routeDto.Properties.CreatorId;
+            route.Properties.WorkspaceId = routeDto.Properties.WorkspaceId;
+            route.Properties.Scripts = routeDto.Properties.Scripts;
+            route.Properties.Tags = routeDto.Properties.Tags;
+            route.Properties.Custom = routeDto.Properties.Custom;
+            route.Properties.Native = routeDto.Properties.Native;
+            route.Properties.Bundling = routeDto.Properties.Bundling;
+            route.Properties.Opengraph = routeDto.Properties.Opengraph;
+            route.Properties.AllowDebug = routeDto.Properties.AllowDebug;
+        }
+
+        return route;
     }
 }

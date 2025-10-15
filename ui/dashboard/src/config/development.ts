@@ -40,6 +40,7 @@ export const mockAnalytics = {
 // Mock routes data
 export const mockRoutes = [
   {
+    id: 'route-1',
     switch: 'main',
     link: 'example.com/example1',
     dest: 'https://example.com/page1',
@@ -60,6 +61,7 @@ export const mockRoutes = [
     },
   },
   {
+    id: 'route-2',
     switch: 'main',
     link: 'example.com/example2',
     dest: 'https://example.com/page2',
@@ -80,6 +82,7 @@ export const mockRoutes = [
     },
   },
   {
+    id: 'route-3',
     switch: 'main',
     link: 'example.com/promo',
     dest: 'https://example.com/special-offer',

@@ -4,6 +4,7 @@ using ShortasProxyApi.Domain.Common;
 using ShortasProxyApi.Domain.Entities;
 using ShortasProxyApi.Domain.Interfaces;
 using ShortasProxyApi.Infrastructure.Data;
+using ShortasProxyApi.Infrastructure.HttpClients;
 using RouteEntity = ShortasProxyApi.Domain.Entities.Route;
 
 namespace ShortasProxyApi.Infrastructure.Services;
@@ -11,22 +12,47 @@ namespace ShortasProxyApi.Infrastructure.Services;
 public class EfRouteService : IRouteService
 {
     private readonly ApplicationDbContext _context;
-    private readonly IOutboxRepository _outboxRepository;
+    private readonly ClickRouterApiClient _clickRouterApiClient;
     private readonly ILogger<EfRouteService> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
 
     public EfRouteService(
         ApplicationDbContext context,
-        IOutboxRepository outboxRepository,
+        ClickRouterApiClient clickRouterApiClient,
         ILogger<EfRouteService> logger)
     {
         _context = context;
-        _outboxRepository = outboxRepository;
+        _clickRouterApiClient = clickRouterApiClient;
         _logger = logger;
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
+    }
+
+    public async Task<Result<RouteEntity?>> GetRouteByIdAsync(Guid id, string userId)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return Result<RouteEntity?>.Failure(Error.Required("userId"));
+
+            var route = await _context.Routes
+                .Include(r => r.Properties)
+                .FirstOrDefaultAsync(r => r.Id == id &&
+                                        r.Properties != null &&
+                                        r.Properties.OwnerId == userId);
+
+            if (route == null)
+                return Result<RouteEntity?>.Failure(Error.NotFound("Route", id.ToString()));
+
+            return Result<RouteEntity?>.Success(route);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting route by ID: {RouteId}", id);
+            return Result<RouteEntity?>.Failure(Error.Internal("Failed to get route", ex.Message));
+        }
     }
 
     public async Task<Result<RouteEntity?>> GetRouteAsync(string domain, string path, string userId, string? switchParam = null)
@@ -84,18 +110,16 @@ public class EfRouteService : IRouteService
             await _context.Routes.AddAsync(route);
             await _context.SaveChangesAsync();
 
-            // Create outbox message for eventual consistency with click-router-api
-            var outboxMessage = new OutboxMessage
-            {
-                EventType = OutboxEventType.RouteCreated,
-                AggregateId = route.Id.ToString(),
-                Payload = JsonSerializer.Serialize(route, _jsonOptions),
-                CreatedAt = DateTime.UtcNow,
-                Status = OutboxMessageStatus.Pending
-            };
+            // Propagate to click-router API synchronously
+            var apiResult = await _clickRouterApiClient.CreateRouteAsync(route);
 
-            await _outboxRepository.AddAsync(outboxMessage);
-            await _outboxRepository.SaveChangesAsync();
+            if (apiResult.IsFailure)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError("Failed to create route in click-router API: {Error}", apiResult.Error);
+                return Result<RouteEntity>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
+                    $"Failed to create route in click-router API: {apiResult.Error}");
+            }
 
             await transaction.CommitAsync();
 
@@ -108,6 +132,95 @@ public class EfRouteService : IRouteService
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error creating route");
             return Result<RouteEntity>.Failure(Error.Internal("Failed to create route", ex.Message));
+        }
+    }
+
+    public async Task<Result<RouteEntity>> UpdateRouteByIdAsync(Guid id, string userId, RouteEntity route)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return Result<RouteEntity>.Failure(Error.Required("userId"));
+
+            var validationResult = route.Validate();
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(", ", validationResult.Errors.Select(e => $"{e.FieldName}: {e.Message}"));
+                return Result<RouteEntity>.Failure(Error.Validation("Route validation failed", errors));
+            }
+
+            // Find existing route
+            var existingRoute = await _context.Routes
+                .Include(r => r.Properties)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (existingRoute == null)
+                return Result<RouteEntity>.Failure(Error.NotFound("Route", id.ToString()));
+
+            // Verify ownership
+            if (existingRoute.Properties == null || existingRoute.Properties.OwnerId != userId)
+                return Result<RouteEntity>.Failure(Error.Forbidden());
+
+            // Update route properties
+            existingRoute.Switch = route.Switch;
+            existingRoute.Link = route.Link;
+            existingRoute.Dest = route.Dest;
+            existingRoute.DestFormat = route.DestFormat;
+            existingRoute.Code = route.Code;
+            existingRoute.Ttl = route.Ttl;
+            existingRoute.Status = route.Status;
+            existingRoute.Terminal = route.Terminal;
+            existingRoute.Policy = route.Policy;
+
+            if (route.Properties != null)
+            {
+                if (existingRoute.Properties != null)
+                {
+                    existingRoute.Properties.RouteId = route.Properties.RouteId;
+                    existingRoute.Properties.DomainId = route.Properties.DomainId;
+                    existingRoute.Properties.CreatorId = route.Properties.CreatorId;
+                    existingRoute.Properties.WorkspaceId = route.Properties.WorkspaceId;
+                    existingRoute.Properties.Scripts = route.Properties.Scripts;
+                    existingRoute.Properties.Tags = route.Properties.Tags;
+                    existingRoute.Properties.Custom = route.Properties.Custom;
+                    existingRoute.Properties.Native = route.Properties.Native;
+                    existingRoute.Properties.Bundling = route.Properties.Bundling;
+                    existingRoute.Properties.Opengraph = route.Properties.Opengraph;
+                    existingRoute.Properties.AllowDebug = route.Properties.AllowDebug;
+                }
+                else
+                {
+                    existingRoute.Properties = route.Properties;
+                }
+            }
+
+            _context.Routes.Update(existingRoute);
+            await _context.SaveChangesAsync();
+
+            // Propagate to click-router API synchronously
+            var apiResult = await _clickRouterApiClient.UpdateRouteByIdAsync(id, userId, existingRoute);
+
+            if (apiResult.IsFailure)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError("Failed to update route in click-router API: {Error}", apiResult.Error);
+                return Result<RouteEntity>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
+                    $"Failed to update route in click-router API: {apiResult.Error}");
+            }
+
+            await transaction.CommitAsync();
+
+            _logger.LogInformation("Route updated by ID: {RouteId}, Link: {Link}", existingRoute.Id, existingRoute.Link);
+
+            return Result<RouteEntity>.Success(existingRoute);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error updating route by ID: {RouteId}", id);
+            return Result<RouteEntity>.Failure(Error.Internal("Failed to update route", ex.Message));
         }
     }
 
@@ -161,9 +274,13 @@ public class EfRouteService : IRouteService
                 {
                     existingRoute.Properties.DomainId = route.Properties.DomainId;
                     existingRoute.Properties.OwnerId = route.Properties.OwnerId;
+                    existingRoute.Properties.CreatorId = route.Properties.CreatorId;
+                    existingRoute.Properties.WorkspaceId = route.Properties.WorkspaceId;
                     existingRoute.Properties.Scripts = route.Properties.Scripts;
                     existingRoute.Properties.Tags = route.Properties.Tags;
                     existingRoute.Properties.Custom = route.Properties.Custom;
+                    existingRoute.Properties.Native = route.Properties.Native;
+                    existingRoute.Properties.Bundling = route.Properties.Bundling;
                     existingRoute.Properties.Opengraph = route.Properties.Opengraph;
                     existingRoute.Properties.AllowDebug = route.Properties.AllowDebug;
                 }
@@ -176,18 +293,16 @@ public class EfRouteService : IRouteService
             _context.Routes.Update(existingRoute);
             await _context.SaveChangesAsync();
 
-            // Create outbox message
-            var outboxMessage = new OutboxMessage
-            {
-                EventType = OutboxEventType.RouteUpdated,
-                AggregateId = existingRoute.Id.ToString(),
-                Payload = JsonSerializer.Serialize(existingRoute, _jsonOptions),
-                CreatedAt = DateTime.UtcNow,
-                Status = OutboxMessageStatus.Pending
-            };
+            // Propagate to click-router API synchronously
+            var apiResult = await _clickRouterApiClient.UpdateRouteAsync(domain, path, userId, existingRoute);
 
-            await _outboxRepository.AddAsync(outboxMessage);
-            await _outboxRepository.SaveChangesAsync();
+            if (apiResult.IsFailure)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError("Failed to update route in click-router API: {Error}", apiResult.Error);
+                return Result<RouteEntity>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
+                    $"Failed to update route in click-router API: {apiResult.Error}");
+            }
 
             await transaction.CommitAsync();
 
@@ -200,6 +315,56 @@ public class EfRouteService : IRouteService
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error updating route for domain: {Domain}, path: {Path}", domain, path);
             return Result<RouteEntity>.Failure(Error.Internal("Failed to update route", ex.Message));
+        }
+    }
+
+    public async Task<Result> DeleteRouteByIdAsync(Guid id, string userId)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return Result.Failure(Error.Required("userId"));
+
+            // Find existing route
+            var existingRoute = await _context.Routes
+                .Include(r => r.Properties)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (existingRoute == null)
+                return Result.Failure(Error.NotFound("Route", id.ToString()));
+
+            // Verify ownership
+            if (existingRoute.Properties == null || existingRoute.Properties.OwnerId != userId)
+                return Result.Failure(Error.Forbidden());
+
+            // Delete route
+            _context.Routes.Remove(existingRoute);
+            await _context.SaveChangesAsync();
+
+            // Propagate to click-router API synchronously
+            var apiResult = await _clickRouterApiClient.DeleteRouteByIdAsync(id, userId);
+
+            if (apiResult.IsFailure)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError("Failed to delete route in click-router API: {Error}", apiResult.Error);
+                return Result.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
+                    $"Failed to delete route in click-router API: {apiResult.Error}");
+            }
+
+            await transaction.CommitAsync();
+
+            _logger.LogInformation("Route deleted by ID: {RouteId}, Link: {Link}", existingRoute.Id, existingRoute.Link);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error deleting route by ID: {RouteId}", id);
+            return Result.Failure(Error.Internal("Failed to delete route", ex.Message));
         }
     }
 
@@ -235,18 +400,16 @@ public class EfRouteService : IRouteService
             _context.Routes.Remove(existingRoute);
             await _context.SaveChangesAsync();
 
-            // Create outbox message
-            var outboxMessage = new OutboxMessage
-            {
-                EventType = OutboxEventType.RouteDeleted,
-                AggregateId = existingRoute.Id.ToString(),
-                Payload = JsonSerializer.Serialize(new { Domain = domain, Path = path, RouteId = existingRoute.Id }, _jsonOptions),
-                CreatedAt = DateTime.UtcNow,
-                Status = OutboxMessageStatus.Pending
-            };
+            // Propagate to click-router API synchronously
+            var apiResult = await _clickRouterApiClient.DeleteRouteAsync(domain, path, userId);
 
-            await _outboxRepository.AddAsync(outboxMessage);
-            await _outboxRepository.SaveChangesAsync();
+            if (apiResult.IsFailure)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError("Failed to delete route in click-router API: {Error}", apiResult.Error);
+                return Result.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
+                    $"Failed to delete route in click-router API: {apiResult.Error}");
+            }
 
             await transaction.CommitAsync();
 
@@ -286,18 +449,16 @@ public class EfRouteService : IRouteService
             await _context.Routes.AddRangeAsync(routes);
             await _context.SaveChangesAsync();
 
-            // Create outbox message for bulk operation
-            var outboxMessage = new OutboxMessage
-            {
-                EventType = OutboxEventType.RouteBulkCreated,
-                AggregateId = Guid.NewGuid().ToString(),
-                Payload = JsonSerializer.Serialize(routes, _jsonOptions),
-                CreatedAt = DateTime.UtcNow,
-                Status = OutboxMessageStatus.Pending
-            };
+            // Propagate to click-router API synchronously
+            var apiResult = await _clickRouterApiClient.BulkCreateRoutesAsync(routes);
 
-            await _outboxRepository.AddAsync(outboxMessage);
-            await _outboxRepository.SaveChangesAsync();
+            if (apiResult.IsFailure)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError("Failed to bulk create routes in click-router API: {Error}", apiResult.Error);
+                return Result<List<RouteEntity>>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
+                    $"Failed to bulk create routes in click-router API: {apiResult.Error}");
+            }
 
             await transaction.CommitAsync();
 
@@ -350,18 +511,16 @@ public class EfRouteService : IRouteService
             _context.Routes.UpdateRange(routes);
             await _context.SaveChangesAsync();
 
-            // Create outbox message for bulk operation
-            var outboxMessage = new OutboxMessage
-            {
-                EventType = OutboxEventType.RouteBulkUpdated,
-                AggregateId = Guid.NewGuid().ToString(),
-                Payload = JsonSerializer.Serialize(routes, _jsonOptions),
-                CreatedAt = DateTime.UtcNow,
-                Status = OutboxMessageStatus.Pending
-            };
+            // Propagate to click-router API synchronously
+            var apiResult = await _clickRouterApiClient.BulkUpdateRoutesAsync(userId, routes);
 
-            await _outboxRepository.AddAsync(outboxMessage);
-            await _outboxRepository.SaveChangesAsync();
+            if (apiResult.IsFailure)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError("Failed to bulk update routes in click-router API: {Error}", apiResult.Error);
+                return Result<List<RouteEntity>>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
+                    $"Failed to bulk update routes in click-router API: {apiResult.Error}");
+            }
 
             await transaction.CommitAsync();
 
@@ -414,18 +573,16 @@ public class EfRouteService : IRouteService
             _context.Routes.RemoveRange(routesToDelete);
             await _context.SaveChangesAsync();
 
-            // Create outbox message for bulk operation
-            var outboxMessage = new OutboxMessage
-            {
-                EventType = OutboxEventType.RouteBulkDeleted,
-                AggregateId = Guid.NewGuid().ToString(),
-                Payload = JsonSerializer.Serialize(new { RouteIds = routeIds }, _jsonOptions),
-                CreatedAt = DateTime.UtcNow,
-                Status = OutboxMessageStatus.Pending
-            };
+            // Propagate to click-router API synchronously
+            var apiResult = await _clickRouterApiClient.BulkDeleteRoutesAsync(userId, routeIds);
 
-            await _outboxRepository.AddAsync(outboxMessage);
-            await _outboxRepository.SaveChangesAsync();
+            if (apiResult.IsFailure)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError("Failed to bulk delete routes in click-router API: {Error}", apiResult.Error);
+                return Result.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
+                    $"Failed to bulk delete routes in click-router API: {apiResult.Error}");
+            }
 
             await transaction.CommitAsync();
 
@@ -458,7 +615,7 @@ public class EfRouteService : IRouteService
             if (!string.IsNullOrWhiteSpace(search))
             {
                 query = query.Where(r => r.Link.Contains(search) ||
-                                       r.Dest.Contains(search) ||
+                                       (r.Dest != null && r.Dest.Contains(search)) ||
                                        r.Switch.Contains(search));
             }
 
@@ -490,5 +647,30 @@ public class EfRouteService : IRouteService
             return Result<(List<RouteEntity> Routes, int TotalCount)>.Failure(
                 Error.Internal("Failed to list routes", ex.Message));
         }
+    }
+
+    /// <summary>
+    /// Extracts switch, domain, and path from a route object for API calls
+    /// </summary>
+    private (string switchParam, string domain, string path) ExtractRouteIdentifiers(RouteEntity route)
+    {
+        var switchParam = string.IsNullOrEmpty(route.Switch) ? "main" : route.Switch;
+
+        // The Link field contains "domain/path" or just "domain"
+        var parts = route.Link.Split('/', 2);
+
+        if (parts.Length >= 2)
+        {
+            return (switchParam, parts[0], parts[1]);
+        }
+        else if (parts.Length == 1)
+        {
+            // If there's no path, use the link as domain and "/" as path
+            return (switchParam, parts[0], "/");
+        }
+
+        // Fallback - this shouldn't happen with valid data
+        _logger.LogWarning("Unable to extract domain/path from route link: {Link}", route.Link);
+        return (switchParam, string.Empty, string.Empty);
     }
 }

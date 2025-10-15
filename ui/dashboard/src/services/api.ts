@@ -71,8 +71,70 @@ const createApiInstance = (baseURL: string): AxiosInstance => {
 export const routerApi = createApiInstance(ROUTER_API_URL);
 export const aggregatorApi = createApiInstance(AGGREGATOR_API_URL);
 
+// Conditional Routing Types
+export interface Expression {
+  default_operator?: 'And' | 'Or';
+  ua?: StringCondition;
+  os?: StringCondition;
+  device?: StringCondition;
+  lang?: StringCondition;
+  country?: StringCondition;
+  date?: DateCondition;
+  rnd?: NumericCondition;
+  day_of_week?: NumericCondition;
+  day_of_month?: NumericCondition;
+  month?: NumericCondition;
+  and?: Expression[];
+  or?: Expression[];
+}
+
+export interface StringCondition {
+  eq?: string;
+  starts?: string;
+  ends?: string;
+  in?: string[];
+}
+
+export interface NumericCondition {
+  eq?: number;
+  gt?: number;
+  lt?: number;
+  in?: number[];
+}
+
+export interface DateCondition {
+  eq?: string;
+  gt?: string;
+  lt?: string;
+  in?: string[];
+}
+
+export interface ConditionalRouting {
+  key: string;
+  condition: Expression;
+}
+
+export interface ChallengeRouting {
+  type?: string;
+  title?: string;
+  message?: string;
+}
+
+export interface FileRouting {
+  path?: string;
+  mime_type?: string;
+}
+
+export type RoutingPolicy =
+  | 'Basic'
+  | 'Mirroring'
+  | { Conditional: ConditionalRouting[] }
+  | { Challenge: ChallengeRouting }
+  | { File: FileRouting };
+
 // API Types
 export interface RouteDto {
+  id?: string;
   switch: string;
   link: string;
   dest: string;
@@ -81,13 +143,18 @@ export interface RouteDto {
   ttl: number;
   status: string;
   terminal: string;
+  policy?: RoutingPolicy;
   properties?: {
     routeId: string;
     domainId: string;
     ownerId: string;
+    creatorId?: string;
+    workspaceId?: string;
     scripts: string[];
     tags: string[];
     custom: Record<string, any>;
+    native?: Record<string, any>;
+    bundling?: Record<string, any>;
     opengraph: boolean;
     allowDebug: boolean;
   };
@@ -197,8 +264,8 @@ export const apiService = {
       return response.data;
     },
 
-    get: async (domain: string, path: string) => {
-      const response = await routerApi.get(`/routes/${domain}/${path}`);
+    get: async (id: string) => {
+      const response = await routerApi.get(`/routes/${id}`);
       return response.data;
     },
 
@@ -207,13 +274,13 @@ export const apiService = {
       return response.data;
     },
 
-    update: async (domain: string, path: string, route: Partial<RouteDto>) => {
-      const response = await routerApi.put(`/routes/${domain}/${path}`, route);
+    update: async (id: string, route: Partial<RouteDto>) => {
+      const response = await routerApi.put(`/routes/${id}`, route);
       return response.data;
     },
 
-    delete: async (domain: string, path: string) => {
-      const response = await routerApi.delete(`/routes/${domain}/${path}`);
+    delete: async (id: string) => {
+      const response = await routerApi.delete(`/routes/${id}`);
       return response.data;
     },
 

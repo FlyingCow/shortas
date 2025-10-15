@@ -1,26 +1,34 @@
 namespace ShortasProxyApi.Application.DTOs;
 
+using ShortasProxyApi.Domain.Entities;
+
 public class RouteDto
 {
+    public string? Id { get; set; }  // Internal ID for route operations
     public string Switch { get; set; } = string.Empty;
     public string Link { get; set; } = string.Empty;
-    public string Dest { get; set; } = string.Empty;
-    public string DestFormat { get; set; } = string.Empty;
-    public int Code { get; set; }
-    public int Ttl { get; set; }
-    public string Status { get; set; } = string.Empty;
-    public string Terminal { get; set; } = string.Empty;
+    public string? Dest { get; set; }  // Nullable - matches click-router Option<String>
+    public string DestFormat { get; set; } = "Http";  // Default value
+    public int? Code { get; set; }  // Nullable - matches click-router Option<u16>
+    public long? Ttl { get; set; }  // Nullable long - matches click-router Option<u128>
+    public string Status { get; set; } = "Active";  // Default value
+    public string Terminal { get; set; } = "External";  // Default value
+    public RoutingPolicy? Policy { get; set; }  // Routing policy (Basic, Conditional, etc.)
     public RoutePropertiesDto? Properties { get; set; }
 }
 
 public class RoutePropertiesDto
 {
-    public string RouteId { get; set; } = string.Empty;
-    public string DomainId { get; set; } = string.Empty;
-    public string OwnerId { get; set; } = string.Empty;
-    public List<string> Scripts { get; set; } = new();
-    public List<string> Tags { get; set; } = new();
-    public Dictionary<string, object> Custom { get; set; } = new();
+    public string? RouteId { get; set; }  // Nullable - matches click-router Option<String>
+    public string? DomainId { get; set; }  // Nullable
+    public string? OwnerId { get; set; }  // Nullable
+    public string? CreatorId { get; set; }  // NEW - matches click-router
+    public string? WorkspaceId { get; set; }  // NEW - matches click-router
+    public List<string>? Scripts { get; set; }  // Nullable - empty list becomes null
+    public List<string>? Tags { get; set; }  // Nullable - empty list becomes null
+    public Dictionary<string, object>? Custom { get; set; }  // Nullable
+    public Dictionary<string, object>? Native { get; set; }  // NEW - matches click-router
+    public Dictionary<string, object>? Bundling { get; set; }  // NEW - matches click-router
     public bool Opengraph { get; set; }
     public bool AllowDebug { get; set; }
 }

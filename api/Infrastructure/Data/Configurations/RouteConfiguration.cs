@@ -22,23 +22,30 @@ public class RouteConfiguration : IEntityTypeConfiguration<RouteEntity>
         builder.Property(r => r.Link)
             .IsRequired();
 
-        builder.Property(r => r.Dest)
-            .IsRequired();
+        builder.Property(r => r.Dest);  // Nullable - matches click-router Option<String>
 
         builder.Property(r => r.DestFormat)
-            .IsRequired();
+            .IsRequired()
+            .HasDefaultValue("Http");
 
-        builder.Property(r => r.Code)
-            .IsRequired();
+        builder.Property(r => r.Code);  // Nullable - matches click-router Option<u16>
 
-        builder.Property(r => r.Ttl)
-            .IsRequired();
+        builder.Property(r => r.Ttl);  // Nullable - matches click-router Option<u128>
 
         builder.Property(r => r.Status)
-            .IsRequired();
+            .IsRequired()
+            .HasDefaultValue("Active");
 
         builder.Property(r => r.Terminal)
-            .IsRequired();
+            .IsRequired()
+            .HasDefaultValue("External");
+
+        builder.Property(r => r.PolicyJson)
+            .HasColumnType("jsonb")
+            .HasDefaultValue("\"Basic\"");
+
+        // Ignore computed properties
+        builder.Ignore(r => r.Policy);
 
         // Add indexes for performance
         builder.HasIndex(r => r.Link);

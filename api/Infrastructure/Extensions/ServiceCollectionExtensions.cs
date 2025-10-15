@@ -24,7 +24,7 @@ public static class ServiceCollectionExtensions
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
         // Add HTTP clients with Polly for resilience
-        services.AddHttpClient<RouteService>("ClickRouterApi", client =>
+        services.AddHttpClient("ClickRouterApi", client =>
         {
             var baseUrl = configuration["ApiSettings:ClickRouterApi:BaseUrl"] ?? "http://localhost:8081";
             var timeout = configuration.GetValue<int>("ApiSettings:ClickRouterApi:Timeout", 30);
@@ -35,29 +35,16 @@ public static class ServiceCollectionExtensions
         .AddPolicyHandler(GetCircuitBreakerPolicy())
         .AddPolicyHandler(GetTimeoutPolicy());
 
-        services.AddHttpClient<CertificateService>("ClickRouterApi", client =>
+        // Register the HTTP client class manually
+        services.AddScoped<ClickRouterApiClient>(provider =>
         {
-            var baseUrl = configuration["ApiSettings:ClickRouterApi:BaseUrl"] ?? "http://localhost:8081";
-            var timeout = configuration.GetValue<int>("ApiSettings:ClickRouterApi:Timeout", 30);
-            client.BaseAddress = new Uri(baseUrl);
-            client.Timeout = TimeSpan.FromSeconds(timeout);
-        })
-        .AddPolicyHandler(GetRetryPolicy())
-        .AddPolicyHandler(GetCircuitBreakerPolicy())
-        .AddPolicyHandler(GetTimeoutPolicy());
+            var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("ClickRouterApi");
+            var logger = provider.GetRequiredService<ILogger<ClickRouterApiClient>>();
+            return new ClickRouterApiClient(httpClient, logger);
+        });
 
-        services.AddHttpClient<UserSettingsService>("ClickRouterApi", client =>
-        {
-            var baseUrl = configuration["ApiSettings:ClickRouterApi:BaseUrl"] ?? "http://localhost:8081";
-            var timeout = configuration.GetValue<int>("ApiSettings:ClickRouterApi:Timeout", 30);
-            client.BaseAddress = new Uri(baseUrl);
-            client.Timeout = TimeSpan.FromSeconds(timeout);
-        })
-        .AddPolicyHandler(GetRetryPolicy())
-        .AddPolicyHandler(GetCircuitBreakerPolicy())
-        .AddPolicyHandler(GetTimeoutPolicy());
-
-        services.AddHttpClient<ClickStreamService>("ClickAggregatorApi", client =>
+        services.AddHttpClient<ClickAggregatorApiClient>(client =>
         {
             var baseUrl = configuration["ApiSettings:ClickAggregatorApi:BaseUrl"] ?? "http://localhost:8082";
             var timeout = configuration.GetValue<int>("ApiSettings:ClickAggregatorApi:Timeout", 30);
@@ -71,16 +58,19 @@ public static class ServiceCollectionExtensions
         // Register Repositories
         services.AddScoped<IOutboxRepository, OutboxRepository>();
 
-        // Register Entity Framework services
+        // Register EF services for database access with eventual consistency
         services.AddScoped<IRouteService, EfRouteService>();
-        services.AddScoped<ICertificateService, EfCertificateService>();
-        services.AddScoped<IUserSettingsService, EfUserSettingsService>();
+        services.AddScoped<EfCertificateService>();
+        services.AddScoped<EfUserSettingsService>();
 
-        // Keep ClickStream as HTTP client proxy
-        services.AddScoped<IClickStreamService, ClickAggregatorApiClient>();
+        // Register HTTP client services for direct API communication (used by outbox processor)
+        services.AddScoped<ClickRouterApiService>();
+        services.AddScoped<ICertificateService, ClickRouterApiService>();
+        services.AddScoped<IUserSettingsService, ClickRouterApiService>();
+        services.AddScoped<IClickStreamService, ClickAggregatorApiService>();
 
         // Register HTTP client for Outbox background service
-        services.AddHttpClient("ClickRouterApi", client =>
+        services.AddHttpClient("OutboxClickRouterApi", client =>
         {
             var baseUrl = configuration["ApiSettings:ClickRouterApi:BaseUrl"] ?? "http://localhost:8081";
             var timeout = configuration.GetValue<int>("ApiSettings:ClickRouterApi:Timeout", 30);

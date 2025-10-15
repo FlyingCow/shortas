@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit, Trash2, Search, BarChart3, MousePointer, Users, Clock, Activity } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { apiService, RouteDto } from '../services/api';
+import { apiService, RouteDto, RoutingPolicy } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import WorldMap from './WorldMap';
+import PolicyEditor from './PolicyEditor';
 import './DesignSystem.css';
 
 const RoutesWithSidebar: React.FC = () => {
@@ -37,25 +38,20 @@ const RoutesWithSidebar: React.FC = () => {
     }
   };
 
-  // Helper function to parse domain and path from link
-  const parseLinkParts = (link: string): { domain: string; path: string } => {
-    const parts = link.split('/');
-    return {
-      domain: parts[0] || '',
-      path: parts.slice(1).join('/') || ''
-    };
-  };
-
   const handleDeleteRoute = async (route: RouteDto) => {
     if (!window.confirm(`Are you sure you want to delete the route "${route.link}"?`)) {
       return;
     }
 
+    if (!route.id) {
+      alert('Cannot delete route: missing ID');
+      return;
+    }
+
     try {
-      const { domain, path } = parseLinkParts(route.link);
-      await apiService.routes.delete(domain, path);
+      await apiService.routes.delete(route.id);
       await fetchRoutes();
-      if (selectedRoute?.link === route.link) {
+      if (selectedRoute?.id === route.id) {
         setSelectedRoute(null);
       }
     } catch (err) {
@@ -64,14 +60,67 @@ const RoutesWithSidebar: React.FC = () => {
     }
   };
 
+  const cleanCondition = (condition: any): any => {
+    if (!condition || typeof condition !== 'object') return condition;
+
+    const cleaned: any = {};
+
+    for (const [key, value] of Object.entries(condition)) {
+      if (value === null || value === undefined) continue;
+
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        // Recursively clean nested objects
+        const cleanedNested: any = {};
+        for (const [nestedKey, nestedValue] of Object.entries(value)) {
+          // Skip empty strings, empty arrays, null, undefined
+          if (nestedValue === null || nestedValue === undefined || nestedValue === '') continue;
+          if (Array.isArray(nestedValue) && nestedValue.length === 0) continue;
+          cleanedNested[nestedKey] = nestedValue;
+        }
+        if (Object.keys(cleanedNested).length > 0) {
+          cleaned[key] = cleanedNested;
+        }
+      } else if (Array.isArray(value)) {
+        if (value.length > 0) {
+          cleaned[key] = value.map((item) =>
+            typeof item === 'object' ? cleanCondition(item) : item
+          );
+        }
+      } else {
+        cleaned[key] = value;
+      }
+    }
+
+    return cleaned;
+  };
+
+  const cleanPolicy = (policy: any): any => {
+    if (!policy || policy === 'Basic' || policy === 'Mirroring') return policy;
+
+    if (typeof policy === 'object' && 'Conditional' in policy) {
+      return {
+        Conditional: (policy.Conditional || []).map((cond: any) => ({
+          key: cond.key,
+          condition: cleanCondition(cond.condition)
+        }))
+      };
+    }
+
+    return policy;
+  };
+
   const handleEditRoute = (route: RouteDto) => {
     setEditingRoute(route);
     setEditFormData({
-      link: route.link,
-      dest: route.dest,
-      code: route.code,
-      status: route.status,
-      switch: route.switch,
+      link: route.link || '',
+      dest: route.dest || '',
+      code: route.code ?? 302,
+      status: route.status || 'Active',
+      switch: route.switch || 'main',
+      destFormat: route.destFormat || 'Http',
+      ttl: route.ttl ?? 0,
+      terminal: route.terminal || 'External',
+      policy: cleanPolicy(route.policy) || 'Basic',
       properties: { ...route.properties }
     });
   };
@@ -79,8 +128,11 @@ const RoutesWithSidebar: React.FC = () => {
   const handleSaveRoute = async () => {
     try {
       if (editingRoute) {
-        const { domain, path } = parseLinkParts(editingRoute.link);
-        await apiService.routes.update(domain, path, editFormData);
+        if (!editingRoute.id) {
+          alert('Cannot update route: missing ID');
+          return;
+        }
+        await apiService.routes.update(editingRoute.id, editFormData);
       } else {
         await apiService.routes.create(editFormData);
       }
@@ -104,9 +156,22 @@ const RoutesWithSidebar: React.FC = () => {
       link: '',
       dest: '',
       code: 302,
-      status: 'active',
-      switch: 'default',
-      properties: { domain_id: 'default' }
+      status: 'Active',
+      switch: 'main',
+      destFormat: 'Http',
+      ttl: 0,
+      terminal: 'External',
+      policy: 'Basic',
+      properties: {
+        routeId: '',
+        domainId: '',
+        ownerId: '',
+        scripts: [],
+        tags: [],
+        custom: {},
+        opengraph: false,
+        allowDebug: false
+      }
     });
   };
 
@@ -169,6 +234,32 @@ const RoutesWithSidebar: React.FC = () => {
   const handleSelectRoute = (route: RouteDto) => {
     setSelectedRoute(route);
     fetchAnalytics(route);
+  };
+
+  const getPolicyType = (policy?: RoutingPolicy): string => {
+    if (!policy || policy === 'Basic') return 'Basic';
+    if (policy === 'Mirroring') return 'Mirroring';
+    if (typeof policy === 'object') {
+      if ('Conditional' in policy) return 'Conditional';
+      if ('Challenge' in policy) return 'Challenge';
+      if ('File' in policy) return 'File';
+    }
+    return 'Basic';
+  };
+
+  const getPolicyBadgeClass = (policyType: string): string => {
+    switch (policyType) {
+      case 'Conditional':
+        return 'table-status-info';
+      case 'Challenge':
+        return 'table-status-warning';
+      case 'File':
+        return 'table-status-secondary';
+      case 'Mirroring':
+        return 'table-status-info';
+      default:
+        return 'table-status-secondary';
+    }
   };
 
   const getCountryColor = (index: number, clicks: number) => {
@@ -235,10 +326,10 @@ const RoutesWithSidebar: React.FC = () => {
 
           {/* Routes List */}
           <div className="routes-list">
-            {filteredRoutes.map((route, index) => (
+            {filteredRoutes.map((route) => (
               <div
-                key={`${route.link}-${index}`}
-                className={`route-item ${selectedRoute?.link === route.link ? 'selected' : ''}`}
+                key={route.id || route.link}
+                className={`route-item ${selectedRoute?.id === route.id ? 'selected' : ''}`}
                 onClick={() => handleSelectRoute(route)}
               >
                 <div className="route-info">
@@ -249,6 +340,9 @@ const RoutesWithSidebar: React.FC = () => {
                   <div className="route-meta">
                     <span className={`route-status ${route.status.toLowerCase()}`}>
                       {route.status}
+                    </span>
+                    <span className={`table-status-badge ${getPolicyBadgeClass(getPolicyType(route.policy))}`}>
+                      {getPolicyType(route.policy)}
                     </span>
                     <span className="route-code">{route.code}</span>
                   </div>
@@ -321,28 +415,28 @@ const RoutesWithSidebar: React.FC = () => {
                 <h3>Basic Information</h3>
                 <div className="form-grid">
                   <div className="form-group">
-                    <label>Link</label>
+                    <label>Link *</label>
                     <input
                       type="text"
                       value={editFormData.link}
                       onChange={(e) => setEditFormData({...editFormData, link: e.target.value})}
-                      placeholder="Enter route link"
+                      placeholder="example.com/mylink"
                     />
                   </div>
                   <div className="form-group">
-                    <label>Destination</label>
+                    <label>Destination *</label>
                     <input
                       type="text"
                       value={editFormData.dest}
                       onChange={(e) => setEditFormData({...editFormData, dest: e.target.value})}
-                      placeholder="Enter destination URL"
+                      placeholder="https://example.com/destination"
                     />
                   </div>
                   <div className="form-group">
                     <label>Status Code</label>
-                    <select 
+                    <select
                       className="form-dropdown"
-                      value={editFormData.code}
+                      value={editFormData.code ?? 302}
                       onChange={(e) => setEditFormData({...editFormData, code: parseInt(e.target.value)})}
                     >
                       <option value={301}>301 - Permanent Redirect</option>
@@ -353,14 +447,75 @@ const RoutesWithSidebar: React.FC = () => {
                   </div>
                   <div className="form-group">
                     <label>Status</label>
-                    <select 
+                    <select
                       className="form-dropdown"
-                      value={editFormData.status}
+                      value={editFormData.status || 'Active'}
                       onChange={(e) => setEditFormData({...editFormData, status: e.target.value})}
                     >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                      <option value="Pending">Pending</option>
                     </select>
+                  </div>
+                  <div className="form-group">
+                    <label>TTL (seconds)</label>
+                    <input
+                      type="number"
+                      value={editFormData.ttl ?? 0}
+                      onChange={(e) => setEditFormData({...editFormData, ttl: parseInt(e.target.value)})}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Terminal</label>
+                    <select
+                      className="form-dropdown"
+                      value={editFormData.terminal || 'External'}
+                      onChange={(e) => setEditFormData({...editFormData, terminal: e.target.value})}
+                    >
+                      <option value="External">External</option>
+                      <option value="Internal">Internal</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-section">
+                <PolicyEditor
+                  policy={editFormData.policy}
+                  onChange={(policy) => setEditFormData({...editFormData, policy})}
+                />
+              </div>
+
+              <div className="form-section">
+                <h3>Properties</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Route ID</label>
+                    <input
+                      type="text"
+                      value={editFormData.properties?.routeId || ''}
+                      onChange={(e) => setEditFormData({
+                        ...editFormData,
+                        properties: {...editFormData.properties, routeId: e.target.value}
+                      })}
+                      placeholder="my-route-001"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Tags (comma-separated)</label>
+                    <input
+                      type="text"
+                      value={editFormData.properties?.tags?.join(', ') || ''}
+                      onChange={(e) => setEditFormData({
+                        ...editFormData,
+                        properties: {
+                          ...editFormData.properties,
+                          tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                        }
+                      })}
+                      placeholder="marketing, campaign, promo"
+                    />
                   </div>
                 </div>
               </div>

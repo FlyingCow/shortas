@@ -23,6 +23,14 @@ public class RouteService : IRouteService
         };
     }
 
+    public Task<Result<Domain.Entities.Route?>> GetRouteByIdAsync(Guid id, string userId)
+    {
+        // This HTTP client calls an external API that uses domain/path, not IDs
+        // This method should not be used with this service - use EfRouteService instead
+        return Task.FromResult(Result<Domain.Entities.Route?>.Failure(
+            Error.Internal("GetRouteByIdAsync not supported in HTTP client service. Use EfRouteService or call GetRouteAsync with domain/path.")));
+    }
+
     public async Task<Result<Domain.Entities.Route?>> GetRouteAsync(string domain, string path, string userId, string? switchParam = null)
     {
         try
@@ -127,6 +135,32 @@ public class RouteService : IRouteService
         }
     }
 
+    public Task<Result<Domain.Entities.Route>> UpdateRouteByIdAsync(Guid id, string userId, Domain.Entities.Route route)
+    {
+        // This HTTP client calls an external API that uses domain/switch/path, not IDs
+        // Adapter: Map fields to external API format
+        // - domain → route.Properties.DomainId
+        // - path → route.Link
+        // - switch → route.Switch
+
+        if (route.Properties == null || string.IsNullOrWhiteSpace(route.Properties.DomainId))
+        {
+            return Task.FromResult(Result<Domain.Entities.Route>.Failure(
+                Error.Required("route.Properties.DomainId is required to update via external API")));
+        }
+
+        if (string.IsNullOrWhiteSpace(route.Link))
+        {
+            return Task.FromResult(Result<Domain.Entities.Route>.Failure(
+                Error.Required("route.Link is required to update via external API")));
+        }
+
+        var domain = route.Properties.DomainId;
+        var path = route.Link;
+
+        return UpdateRouteAsync(domain, path, userId, route);
+    }
+
     public async Task<Result<Domain.Entities.Route>> UpdateRouteAsync(string domain, string path, string userId, Domain.Entities.Route route)
     {
         try
@@ -183,6 +217,20 @@ public class RouteService : IRouteService
             _logger.LogError(ex, "Unexpected error updating route for domain: {Domain}, path: {Path}", domain, path);
             return Result<Domain.Entities.Route>.Failure(Error.Internal("An unexpected error occurred", ex.Message));
         }
+    }
+
+    public Task<Result> DeleteRouteByIdAsync(Guid id, string userId)
+    {
+        // This HTTP client calls an external API that uses domain/path, not IDs
+        // Adapter: First fetch the route to get domain/path, then delete
+        // Note: This requires two API calls, which is inefficient
+        // For production, consider using EfRouteService for ID-based operations
+
+        _logger.LogWarning("DeleteRouteByIdAsync in HTTP client requires fetching route first. Consider using EfRouteService for better performance.");
+
+        return Task.FromResult(Result.Failure(Error.Internal(
+            "DeleteRouteByIdAsync not efficiently supported in HTTP client service. " +
+            "Use EfRouteService or call DeleteRouteAsync with domain/path.")));
     }
 
     public async Task<Result> DeleteRouteAsync(string domain, string path, string userId)

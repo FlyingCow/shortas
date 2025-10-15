@@ -55,23 +55,18 @@ const Routes: React.FC = () => {
     }
   };
 
-  // Helper function to parse domain and path from link
-  const parseLinkParts = (link: string): { domain: string; path: string } => {
-    const parts = link.split('/');
-    return {
-      domain: parts[0] || '',
-      path: parts.slice(1).join('/') || ''
-    };
-  };
-
   const handleDeleteRoute = async (route: RouteDto) => {
     if (!window.confirm(`Are you sure you want to delete the route "${route.link}"?`)) {
       return;
     }
 
+    if (!route.id) {
+      alert('Cannot delete route: missing ID');
+      return;
+    }
+
     try {
-      const { domain, path } = parseLinkParts(route.link);
-      await apiService.routes.delete(domain, path);
+      await apiService.routes.delete(route.id);
       await fetchRoutes();
     } catch (err) {
       console.error('Failed to delete route:', err);
@@ -179,8 +174,8 @@ const Routes: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRoutes.map((route, index) => (
-                    <tr key={`${route.link}-${index}`}>
+                  {filteredRoutes.map((route) => (
+                    <tr key={route.id || route.link}>
                       <td>
                         <div className="table-cell-content">
                           <span className="table-url">{route.link}</span>
