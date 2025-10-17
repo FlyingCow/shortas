@@ -24,7 +24,7 @@ struct RouteDocument {
     #[serde(default)]
     pub dest_format: DestinationFormat,
     pub code: Option<u16>,
-    pub ttl: Option<u128>,
+    pub ttl: Option<u64>,
     #[serde(default)]
     pub status: RouteStatus,
     #[serde(default)]

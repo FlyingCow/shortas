@@ -43,7 +43,7 @@ pub async fn get_certificate(req: &mut Request, depot: &mut Depot, res: &mut Res
     let domain = req.param::<String>("domain").unwrap_or_default();
 
     // Get AppState from depot
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     let certificate = app_state
         .crypto_store
@@ -140,7 +140,7 @@ pub async fn create_certificate(req: &mut Request, depot: &mut Depot, res: &mut 
     // Convert DTO to internal format
     let keycert = Keycert::from(keycert_dto);
 
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // Store the certificate
     match app_state
@@ -229,7 +229,7 @@ pub async fn update_certificate(req: &mut Request, depot: &mut Depot, res: &mut 
     // Convert DTO to internal format
     let keycert = Keycert::from(keycert_dto);
 
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // Update the certificate
     match app_state
@@ -287,7 +287,7 @@ pub async fn delete_certificate(req: &mut Request, depot: &mut Depot, res: &mut 
         return;
     }
 
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // Delete the certificate
     match app_state.crypto_store.delete_certificate(&domain).await {

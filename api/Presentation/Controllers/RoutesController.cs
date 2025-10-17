@@ -284,6 +284,12 @@ public class RoutesController : ControllerBase
             Status = route.Status,
             Terminal = route.Terminal,
             Policy = route.Policy,  // Include routing policy
+            DomainId = route.DomainId,
+            Domain = route.Domain != null ? new DomainDto
+            {
+                Id = route.Domain.Id,
+                Name = route.Domain.Name
+            } : null,
             Properties = route.Properties != null ? new RoutePropertiesDto
             {
                 RouteId = route.Properties.RouteId,
@@ -313,7 +319,8 @@ public class RoutesController : ControllerBase
             Code = routeDto.Code,
             Ttl = routeDto.Ttl,
             Status = routeDto.Status,
-            Terminal = routeDto.Terminal
+            Terminal = routeDto.Terminal,
+            DomainId = routeDto.DomainId
         };
 
         // Set policy if provided, otherwise default to Basic

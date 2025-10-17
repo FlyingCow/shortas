@@ -144,6 +144,8 @@ export interface RouteDto {
   status: string;
   terminal: string;
   policy?: RoutingPolicy;
+  domainId?: string;
+  domain?: DomainDto;
   properties?: {
     routeId: string;
     domainId: string;
@@ -232,6 +234,32 @@ export interface ClickStreamStats {
     date: string;
     clicks: number;
   }>;
+}
+
+// Domain Types
+export interface DomainDto {
+  id: string;
+  name: string;
+  ownerId: string;
+}
+
+export interface CreateDomainDto {
+  name: string;
+}
+
+export interface UpdateDomainDto {
+  name: string;
+}
+
+// Certificate Types
+export interface CertificateDto {
+  id: string;
+  key: string;
+  cert: string;
+  ocspResp?: string;
+  ownerId: string;
+  domainId: string;
+  domain?: DomainDto;
 }
 
 // Helper function to simulate API delay
@@ -367,6 +395,67 @@ export const apiService = {
 
     getStats: async (params?: { routeId?: string; startDate?: string; endDate?: string }): Promise<ClickStreamStats> => {
       const response = await routerApi.get('/clickstream/stats', { params });
+      return response.data;
+    },
+  },
+
+  // Domains API
+  domains: {
+    list: async (params?: { page?: number; pageSize?: number; search?: string }): Promise<PaginatedResponse<DomainDto>> => {
+      const response = await routerApi.get('/domains', { params });
+      return response.data;
+    },
+
+    get: async (id: string): Promise<DomainDto> => {
+      const response = await routerApi.get(`/domains/${id}`);
+      return response.data;
+    },
+
+    getByName: async (name: string): Promise<DomainDto> => {
+      const response = await routerApi.get(`/domains/by-name/${name}`);
+      return response.data;
+    },
+
+    create: async (domain: CreateDomainDto): Promise<DomainDto> => {
+      const response = await routerApi.post('/domains', domain);
+      return response.data;
+    },
+
+    update: async (id: string, domain: UpdateDomainDto): Promise<DomainDto> => {
+      const response = await routerApi.put(`/domains/${id}`, domain);
+      return response.data;
+    },
+
+    delete: async (id: string): Promise<void> => {
+      const response = await routerApi.delete(`/domains/${id}`);
+      return response.data;
+    },
+  },
+
+  // Certificates API
+  certificates: {
+    list: async (params?: { page?: number; pageSize?: number; search?: string; domainId?: string }): Promise<PaginatedResponse<CertificateDto>> => {
+      const response = await routerApi.get('/certificates', { params });
+      return response.data;
+    },
+
+    getByDomain: async (domainId: string): Promise<CertificateDto> => {
+      const response = await routerApi.get(`/certificates/by-domain/${domainId}`);
+      return response.data;
+    },
+
+    create: async (certificate: Partial<CertificateDto>): Promise<CertificateDto> => {
+      const response = await routerApi.post('/certificates', certificate);
+      return response.data;
+    },
+
+    update: async (id: string, certificate: Partial<CertificateDto>): Promise<CertificateDto> => {
+      const response = await routerApi.put(`/certificates/${id}`, certificate);
+      return response.data;
+    },
+
+    delete: async (id: string): Promise<void> => {
+      const response = await routerApi.delete(`/certificates/${id}`);
       return response.data;
     },
   },

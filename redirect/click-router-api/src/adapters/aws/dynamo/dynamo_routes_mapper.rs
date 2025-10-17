@@ -186,7 +186,7 @@ pub fn to_entity(model: GetItemOutput) -> Result<Option<Route>> {
 
         let ttl = item
             .get("ttl")
-            .map_or(None, |d| Some(d.as_n().unwrap().parse::<u128>().unwrap()));
+            .map_or(None, |d| Some(d.as_n().unwrap().parse::<u64>().unwrap()));
 
         //properties
         let domain_id = item

@@ -47,8 +47,16 @@ public class RouteConfiguration : IEntityTypeConfiguration<RouteEntity>
         // Ignore computed properties
         builder.Ignore(r => r.Policy);
 
+        // Configure relationship with Domain
+        builder.HasOne(r => r.Domain)
+            .WithMany(d => d.Routes)
+            .HasForeignKey(r => r.DomainId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
+
         // Add indexes for performance
         builder.HasIndex(r => r.Link);
         builder.HasIndex(r => r.Status);
+        builder.HasIndex(r => r.DomainId);
     }
 }

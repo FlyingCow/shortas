@@ -60,6 +60,7 @@ public static class ServiceCollectionExtensions
 
         // Register EF services for database access with eventual consistency
         services.AddScoped<IRouteService, EfRouteService>();
+        services.AddScoped<IDomainService, EfDomainService>();
         services.AddScoped<EfCertificateService>();
         services.AddScoped<EfUserSettingsService>();
 

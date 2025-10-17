@@ -5,6 +5,7 @@ import { useMockData } from './config/development';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Dashboard from './components/DashboardUnified';
 import RoutesPage from './components/RoutesWithSidebar';
+import Domains from './components/Domains';
 import Analytics from './components/AnalyticsUnified';
 import Settings from './components/SettingsUnified';
 import Clickstream from './components/ClickstreamUnified';
@@ -110,6 +111,7 @@ const App: React.FC = () => {
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/routes" element={<RoutesPage />} />
+                <Route path="/domains" element={<Domains />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/clickstream" element={<Clickstream />} />
                 <Route path="/settings" element={<Settings />} />

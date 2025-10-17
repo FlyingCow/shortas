@@ -32,19 +32,14 @@ public class ClickRouterApiClient
 
     /// <summary>
     /// Get route by ID from Click Router API
+    /// NOTE: This endpoint is not available in the Rust Click Router API.
+    /// Use GetRouteAsync with domain/path instead.
     /// </summary>
+    [Obsolete("The Click Router API does not support getting routes by ID. Use GetRouteAsync instead.")]
     public async Task<Result<Route?>> GetRouteByIdAsync(Guid id, string userId)
     {
-        try
-        {
-            var response = await _httpClient.GetAsync($"/v1/routes/{id}?userId={userId}");
-            return await HandleResponse<Route>(response);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to get route by ID {RouteId}", id);
-            return Result<Route?>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
-        }
+        _logger.LogWarning("GetRouteByIdAsync is not supported by Click Router API. Use GetRouteAsync with domain/path instead.");
+        return Result<Route?>.Failure("NOT_SUPPORTED", "Getting routes by ID is not supported. Use domain/path instead.");
     }
 
     /// <summary>
@@ -54,10 +49,23 @@ public class ClickRouterApiClient
     {
         try
         {
-            var json = JsonSerializer.Serialize(route, _jsonOptions);
+            // Map to DTO to exclude navigation properties
+            var dto = ClickRouterRouteDto.FromEntity(route);
+            var json = JsonSerializer.Serialize(dto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
-            var response = await _httpClient.PostAsync("/v1/routes", content);
+
+            // Parse domain and path from Link property (format: domain/path)
+            var switchValue = route.Switch ?? "main";
+            var link = route.Link;
+            var domain = route.Domain?.Name;
+
+            if (string.IsNullOrWhiteSpace(domain))
+            {
+                _logger.LogError("Cannot create route: domain name is missing");
+                return Result<Route>.Failure("VALIDATION_ERROR", "Domain name is required for route creation");
+            }
+
+            var response = await _httpClient.PostAsync($"/v1/routes/{switchValue}/{domain}/{link}", content);
             return await HandleResponse<Route>(response);
         }
         catch (Exception ex)
@@ -69,39 +77,26 @@ public class ClickRouterApiClient
 
     /// <summary>
     /// Update route by ID via Click Router API
+    /// NOTE: This endpoint is not available in the Rust Click Router API.
+    /// Use UpdateRouteAsync with domain/path instead.
     /// </summary>
+    [Obsolete("The Click Router API does not support updating routes by ID. Use UpdateRouteAsync instead.")]
     public async Task<Result<Route>> UpdateRouteByIdAsync(Guid id, string userId, Route route)
     {
-        try
-        {
-            var json = JsonSerializer.Serialize(route, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
-            var response = await _httpClient.PutAsync($"/v1/routes/{id}?userId={userId}", content);
-            return await HandleResponse<Route>(response);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to update route {RouteId}", id);
-            return Result<Route>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
-        }
+        _logger.LogWarning("UpdateRouteByIdAsync is not supported by Click Router API. Use UpdateRouteAsync with domain/path instead.");
+        return Result<Route>.Failure("NOT_SUPPORTED", "Updating routes by ID is not supported. Use domain/path instead.");
     }
 
     /// <summary>
     /// Delete route by ID via Click Router API
+    /// NOTE: This endpoint is not available in the Rust Click Router API.
+    /// Use DeleteRouteAsync with domain/path instead.
     /// </summary>
+    [Obsolete("The Click Router API does not support deleting routes by ID. Use DeleteRouteAsync instead.")]
     public async Task<Result> DeleteRouteByIdAsync(Guid id, string userId)
     {
-        try
-        {
-            var response = await _httpClient.DeleteAsync($"/v1/routes/{id}?userId={userId}");
-            return await HandleResponse(response);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to delete route {RouteId}", id);
-            return Result.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
-        }
+        _logger.LogWarning("DeleteRouteByIdAsync is not supported by Click Router API. Use DeleteRouteAsync with domain/path instead.");
+        return Result.Failure("NOT_SUPPORTED", "Deleting routes by ID is not supported. Use domain/path instead.");
     }
 
     /// <summary>
@@ -111,18 +106,15 @@ public class ClickRouterApiClient
     {
         try
         {
-            var url = $"/v1/routes/{domain}/{path}?userId={userId}";
-            if (!string.IsNullOrEmpty(switchParam))
-            {
-                url += $"&switch={switchParam}";
-            }
-            
+            var switchValue = switchParam ?? "main";
+            var url = $"/v1/routes/{switchValue}/{domain}/{path}";
+
             var response = await _httpClient.GetAsync(url);
             return await HandleResponse<Route>(response);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get route {Domain}/{Path}", domain, path);
+            _logger.LogError(ex, "Failed to get route {Switch}/{Domain}/{Path}", switchParam ?? "main", domain, path);
             return Result<Route?>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
@@ -134,15 +126,18 @@ public class ClickRouterApiClient
     {
         try
         {
-            var json = JsonSerializer.Serialize(route, _jsonOptions);
+            // Map to DTO to exclude navigation properties
+            var dto = ClickRouterRouteDto.FromEntity(route);
+            var json = JsonSerializer.Serialize(dto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
-            var response = await _httpClient.PutAsync($"/v1/routes/{domain}/{path}?userId={userId}", content);
+
+            var switchValue = route.Switch ?? "main";
+            var response = await _httpClient.PutAsync($"/v1/routes/{switchValue}/{domain}/{path}", content);
             return await HandleResponse<Route>(response);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to update route {Domain}/{Path}", domain, path);
+            _logger.LogError(ex, "Failed to update route {Switch}/{Domain}/{Path}", route.Switch ?? "main", domain, path);
             return Result<Route>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
@@ -154,12 +149,14 @@ public class ClickRouterApiClient
     {
         try
         {
-            var response = await _httpClient.DeleteAsync($"/v1/routes/{domain}/{path}?userId={userId}");
+            // Default to "main" switch if not specified
+            var switchValue = "main";
+            var response = await _httpClient.DeleteAsync($"/v1/routes/{switchValue}/{domain}/{path}");
             return await HandleResponse(response);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete route {Domain}/{Path}", domain, path);
+            _logger.LogError(ex, "Failed to delete route {Switch}/{Domain}/{Path}", "main", domain, path);
             return Result.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
@@ -171,9 +168,11 @@ public class ClickRouterApiClient
     {
         try
         {
-            var json = JsonSerializer.Serialize(routes, _jsonOptions);
+            // Map to DTOs to exclude navigation properties
+            var dtos = routes.Select(ClickRouterRouteDto.FromEntity).ToList();
+            var json = JsonSerializer.Serialize(dtos, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
+
             var response = await _httpClient.PostAsync("/v1/routes/bulk", content);
             return await HandleResponse<List<Route>>(response);
         }
@@ -191,10 +190,12 @@ public class ClickRouterApiClient
     {
         try
         {
-            var json = JsonSerializer.Serialize(routes, _jsonOptions);
+            // Map to DTOs to exclude navigation properties
+            var dtos = routes.Select(ClickRouterRouteDto.FromEntity).ToList();
+            var json = JsonSerializer.Serialize(dtos, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
-            var response = await _httpClient.PutAsync($"/v1/routes/bulk?userId={userId}", content);
+
+            var response = await _httpClient.PutAsync("/v1/routes/bulk", content);
             return await HandleResponse<List<Route>>(response);
         }
         catch (Exception ex)
@@ -213,12 +214,12 @@ public class ClickRouterApiClient
         {
             var json = JsonSerializer.Serialize(routeIds, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
-            var request = new HttpRequestMessage(HttpMethod.Delete, $"/v1/routes/bulk?userId={userId}")
+
+            var request = new HttpRequestMessage(HttpMethod.Delete, "/v1/routes/bulk")
             {
                 Content = content
             };
-            
+
             var response = await _httpClient.SendAsync(request);
             return await HandleResponse(response);
         }
@@ -246,32 +247,32 @@ public class ClickRouterApiClient
                 $"page={page}",
                 $"pageSize={pageSize}"
             };
-            
+
             if (!string.IsNullOrEmpty(search))
                 queryParams.Add($"search={Uri.EscapeDataString(search)}");
             if (!string.IsNullOrEmpty(status))
                 queryParams.Add($"status={Uri.EscapeDataString(status)}");
             if (!string.IsNullOrEmpty(ownerId))
                 queryParams.Add($"ownerId={Uri.EscapeDataString(ownerId)}");
-            
+
             var queryString = string.Join("&", queryParams);
             var requestUrl = $"/v1/routes?{queryString}";
             var response = await _httpClient.GetAsync(requestUrl);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogError("Failed to list routes: {StatusCode} - {Content}", response.StatusCode, errorContent);
                 return Result<(List<Route>, int)>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
             }
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var result = JsonSerializer.Deserialize<dynamic>(content, _jsonOptions);
-            
+
             // Parse the response structure
             var routes = JsonSerializer.Deserialize<List<Route>>(result.GetProperty("data").GetRawText(), _jsonOptions);
             var totalCount = result.GetProperty("pagination").GetProperty("totalCount").GetInt32();
-            
+
             return Result<(List<Route>, int)>.Success((routes ?? new List<Route>(), totalCount));
         }
         catch (Exception ex)
@@ -311,7 +312,7 @@ public class ClickRouterApiClient
         {
             var json = JsonSerializer.Serialize(certificate, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
+
             var response = await _httpClient.PostAsync($"/v1/certificates/{domain}", content);
             return await HandleResponse<Certificate>(response);
         }
@@ -331,7 +332,7 @@ public class ClickRouterApiClient
         {
             var json = JsonSerializer.Serialize(certificate, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
+
             var response = await _httpClient.PutAsync($"/v1/certificates/{domain}", content);
             return await HandleResponse<Certificate>(response);
         }
@@ -361,6 +362,7 @@ public class ClickRouterApiClient
 
     /// <summary>
     /// List certificates with pagination via Click Router API
+    /// NOTE: This endpoint may not be available in the Rust Click Router API.
     /// </summary>
     public async Task<Result<(List<Certificate> Certificates, int TotalCount)>> ListCertificatesAsync(
         int page = 1,
@@ -374,27 +376,27 @@ public class ClickRouterApiClient
                 $"page={page}",
                 $"pageSize={pageSize}"
             };
-            
+
             if (!string.IsNullOrEmpty(search))
                 queryParams.Add($"search={Uri.EscapeDataString(search)}");
-            
+
             var queryString = string.Join("&", queryParams);
             var response = await _httpClient.GetAsync($"/v1/certificates?{queryString}");
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogError("Failed to list certificates: {StatusCode} - {Content}", response.StatusCode, errorContent);
                 return Result<(List<Certificate>, int)>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
             }
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var result = JsonSerializer.Deserialize<dynamic>(content, _jsonOptions);
-            
+
             // Parse the response structure
             var certificates = JsonSerializer.Deserialize<List<Certificate>>(result.GetProperty("data").GetRawText(), _jsonOptions);
             var totalCount = result.GetProperty("pagination").GetProperty("totalCount").GetInt32();
-            
+
             return Result<(List<Certificate>, int)>.Success((certificates ?? new List<Certificate>(), totalCount));
         }
         catch (Exception ex)
@@ -434,7 +436,7 @@ public class ClickRouterApiClient
         {
             var json = JsonSerializer.Serialize(settings, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
+
             var response = await _httpClient.PostAsync($"/v1/user-settings/{userId}", content);
             return await HandleResponse<UserSettings>(response);
         }
@@ -454,7 +456,7 @@ public class ClickRouterApiClient
         {
             var json = JsonSerializer.Serialize(settings, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
+
             var response = await _httpClient.PutAsync($"/v1/user-settings/{userId}", content);
             return await HandleResponse<UserSettings>(response);
         }

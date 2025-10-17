@@ -87,6 +87,18 @@ public class RouteService : IRouteService
     {
         try
         {
+            // Validate domain is present
+            if (route.Domain == null || string.IsNullOrWhiteSpace(route.Domain.Name))
+            {
+                return Result<Domain.Entities.Route>.Failure(Error.Required("Domain is required for route creation"));
+            }
+
+            // Validate link is present
+            if (string.IsNullOrWhiteSpace(route.Link))
+            {
+                return Result<Domain.Entities.Route>.Failure(Error.Required("Link is required for route creation"));
+            }
+
             var validationResult = route.Validate();
             if (!validationResult.IsValid)
             {
@@ -96,8 +108,12 @@ public class RouteService : IRouteService
 
             var json = JsonSerializer.Serialize(route, _jsonOptions);
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-            
-            var response = await _httpClient.PostAsync("/v1/routes", content);
+
+            var switchValue = route.Switch ?? "main";
+            var domain = route.Domain.Name;
+            var link = route.Link;
+
+            var response = await _httpClient.PostAsync($"/v1/routes/{switchValue}/{domain}/{link}", content);
             
             if (response.IsSuccessStatusCode)
             {
@@ -171,6 +187,12 @@ public class RouteService : IRouteService
             if (string.IsNullOrWhiteSpace(path))
                 return Result<Domain.Entities.Route>.Failure(Error.Required("path"));
 
+            // Validate that route has a domain
+            if (route.Domain == null || string.IsNullOrWhiteSpace(route.Domain.Name))
+            {
+                return Result<Domain.Entities.Route>.Failure(Error.Required("Domain is required for route update"));
+            }
+
             var validationResult = route.Validate();
             if (!validationResult.IsValid)
             {
@@ -180,8 +202,9 @@ public class RouteService : IRouteService
 
             var json = JsonSerializer.Serialize(route, _jsonOptions);
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-            
-            var response = await _httpClient.PutAsync($"/v1/routes/{domain}/{path}", content);
+
+            var switchValue = route.Switch ?? "main";
+            var response = await _httpClient.PutAsync($"/v1/routes/{switchValue}/{domain}/{path}", content);
             
             if (response.IsSuccessStatusCode)
             {
@@ -233,7 +256,7 @@ public class RouteService : IRouteService
             "Use EfRouteService or call DeleteRouteAsync with domain/path.")));
     }
 
-    public async Task<Result> DeleteRouteAsync(string domain, string path, string userId)
+    public async Task<Result> DeleteRouteAsync(string domain, string path, string userId, string? switchParam = null)
     {
         try
         {
@@ -243,7 +266,8 @@ public class RouteService : IRouteService
             if (string.IsNullOrWhiteSpace(path))
                 return Result.Failure(Error.Required("path"));
 
-            var response = await _httpClient.DeleteAsync($"/v1/routes/{domain}/{path}");
+            var switchValue = switchParam ?? "main";
+            var response = await _httpClient.DeleteAsync($"/v1/routes/{switchValue}/{domain}/{path}");
             
             if (response.IsSuccessStatusCode)
                 return Result.Success();

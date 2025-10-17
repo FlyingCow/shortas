@@ -13,7 +13,7 @@ public interface IRouteService
     // Legacy domain/path methods (kept for backward compatibility)
     Task<Result<Entities.Route?>> GetRouteAsync(string domain, string path, string userId, string? switchParam = null);
     Task<Result<Entities.Route>> UpdateRouteAsync(string domain, string path, string userId, Entities.Route route);
-    Task<Result> DeleteRouteAsync(string domain, string path, string userId);
+    Task<Result> DeleteRouteAsync(string domain, string path, string userId, string? switchParam = null);
 
     // Common methods
     Task<Result<Entities.Route>> CreateRouteAsync(Entities.Route route);

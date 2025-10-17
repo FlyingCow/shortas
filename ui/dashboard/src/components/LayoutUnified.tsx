@@ -1,15 +1,16 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  BarChart3, 
-  Link as LinkIcon, 
-  Settings, 
-  LogOut, 
+import {
+  BarChart3,
+  Link as LinkIcon,
+  Settings,
+  LogOut,
   User,
   Home,
   Activity,
   Sun,
-  Moon
+  Moon,
+  Globe
 } from 'lucide-react';
 import { logout, getUserInfo } from '../config/keycloak';
 import { useTheme } from '../contexts/ThemeContext';
@@ -30,6 +31,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Routes', href: '/routes', icon: LinkIcon },
+    { name: 'Domains', href: '/domains', icon: Globe },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Clickstream', href: '/clickstream', icon: Activity },
     { name: 'Settings', href: '/settings', icon: Settings },

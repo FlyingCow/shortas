@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit, Trash2, Search, BarChart3, MousePointer, Users, Clock, Activity } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { apiService, RouteDto, RoutingPolicy } from '../services/api';
+import { apiService, RouteDto, RoutingPolicy, DomainDto } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import WorldMap from './WorldMap';
 import PolicyEditor from './PolicyEditor';
@@ -9,6 +9,7 @@ import './DesignSystem.css';
 
 const RoutesWithSidebar: React.FC = () => {
   const [routes, setRoutes] = useState<RouteDto[]>([]);
+  const [domains, setDomains] = useState<DomainDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,6 +23,7 @@ const RoutesWithSidebar: React.FC = () => {
 
   useEffect(() => {
     fetchRoutes();
+    fetchDomains();
   }, []);
 
   const fetchRoutes = async () => {
@@ -35,6 +37,15 @@ const RoutesWithSidebar: React.FC = () => {
       setError('Failed to load routes. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDomains = async () => {
+    try {
+      const response = await apiService.domains.list({ page: 1, pageSize: 100 });
+      setDomains(response.data);
+    } catch (err) {
+      console.error('Failed to fetch domains:', err);
     }
   };
 
@@ -121,12 +132,27 @@ const RoutesWithSidebar: React.FC = () => {
       ttl: route.ttl ?? 0,
       terminal: route.terminal || 'External',
       policy: cleanPolicy(route.policy) || 'Basic',
+      domainId: route.domainId || route.properties?.domainId || '', // Include top-level domainId
       properties: { ...route.properties }
     });
   };
 
   const handleSaveRoute = async () => {
     try {
+      // Validate required fields
+      if (!editFormData.link?.trim()) {
+        alert('Link is required');
+        return;
+      }
+      if (!editFormData.dest?.trim()) {
+        alert('Destination URL is required');
+        return;
+      }
+      if (!editFormData.domainId?.trim()) {
+        alert('Domain is required. Please select a domain.');
+        return;
+      }
+
       if (editingRoute) {
         if (!editingRoute.id) {
           alert('Cannot update route: missing ID');
@@ -162,6 +188,7 @@ const RoutesWithSidebar: React.FC = () => {
       ttl: 0,
       terminal: 'External',
       policy: 'Basic',
+      domainId: '', // Initialize top-level domainId
       properties: {
         routeId: '',
         domainId: '',
@@ -431,6 +458,27 @@ const RoutesWithSidebar: React.FC = () => {
                       onChange={(e) => setEditFormData({...editFormData, dest: e.target.value})}
                       placeholder="https://example.com/destination"
                     />
+                  </div>
+                  <div className="form-group">
+                    <label>Domain *</label>
+                    <select
+                      className="form-dropdown"
+                      value={editFormData.properties?.domainId || ''}
+                      onChange={(e) => setEditFormData({
+                        ...editFormData,
+                        domainId: e.target.value, // Set at top level for C# API
+                        properties: {...editFormData.properties, domainId: e.target.value}
+                      })}
+                      required
+                    >
+                      <option value="">Select a domain...</option>
+                      {domains.map((domain) => (
+                        <option key={domain.id} value={domain.id}>
+                          {domain.name}
+                        </option>
+                      ))}
+                    </select>
+                    <small>Domain is required for all routes</small>
                   </div>
                   <div className="form-group">
                     <label>Status Code</label>

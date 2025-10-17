@@ -16,6 +16,10 @@ public class Route
     public string PolicyJson { get; set; } = "\"Basic\"";  // JSON string for routing policy
     public RouteProperties Properties { get; set; } = new();  // Required, not nullable
 
+    // Domain relationship
+    public Guid? DomainId { get; set; }  // Foreign key
+    public RouteDomain? Domain { get; set; }  // Navigation property
+
     // Computed property for Policy deserialization
     public RoutingPolicy Policy
     {

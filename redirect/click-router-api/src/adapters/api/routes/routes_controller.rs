@@ -90,7 +90,7 @@ pub async fn get_route(req: &mut Request, depot: &mut Depot, res: &mut Response)
     let path = req.param::<String>("path").unwrap_or_default();
     let switch = req.param::<String>("switch").unwrap_or_default();
 
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     let route = app_state
         .routes_store
@@ -189,7 +189,7 @@ pub async fn create_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
     // Convert DTO to internal model
     let route: Route = route_dto.into();
 
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // Store the route
     match app_state.routes_store.store_route(&route).await {
@@ -273,7 +273,7 @@ pub async fn update_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
     // Convert DTO to internal model
     let route: Route = route_dto.into();
 
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // Update the route
     match app_state.routes_store.update_route(&route).await {
@@ -319,7 +319,7 @@ pub async fn delete_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
     let domain = req.param::<String>("domain").unwrap_or_default();
     let path = req.param::<String>("path").unwrap_or_default();
 
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // First, get the route to delete
     let route = app_state
@@ -429,7 +429,7 @@ pub async fn bulk_create_routes(req: &mut Request, depot: &mut Depot, res: &mut 
         }
     }
 
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
     let mut created_routes = Vec::new();
     let mut errors = Vec::new();
 
@@ -532,7 +532,7 @@ pub async fn bulk_update_routes(req: &mut Request, depot: &mut Depot, res: &mut 
         }
     }
 
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
     let mut updated_routes = Vec::new();
     let mut errors = Vec::new();
 
@@ -620,7 +620,7 @@ pub async fn bulk_delete_routes(req: &mut Request, depot: &mut Depot, res: &mut 
         return;
     }
 
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
     let mut deleted_routes = Vec::new();
     let mut errors = Vec::new();
 

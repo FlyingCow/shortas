@@ -3,10 +3,11 @@ use salvo::oapi::ToSchema;
 use serde_json::Value;
 
 /// Route DTO for API responses
-/// 
+///
 /// This DTO provides a clean API interface for routes,
 /// simplifying complex nested structures for better API usability.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RouteDto {
     /// Route switch identifier
     pub switch: String,
@@ -19,7 +20,7 @@ pub struct RouteDto {
     /// HTTP status code (optional)
     pub code: Option<u16>,
     /// Time to live in seconds (optional)
-    pub ttl: Option<u128>,
+    pub ttl: Option<u64>,
     /// Route status
     pub status: String,
     /// Routing terminal type
@@ -30,6 +31,7 @@ pub struct RouteDto {
 
 /// Route properties DTO for API responses
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RoutePropertiesDto {
     /// Route ID (optional)
     pub route_id: Option<String>,
@@ -65,7 +67,7 @@ impl RouteDto {
         dest: Option<String>,
         dest_format: String,
         code: Option<u16>,
-        ttl: Option<u128>,
+        ttl: Option<u64>,
         status: String,
         terminal: String,
         properties: RoutePropertiesDto,
@@ -129,7 +131,7 @@ impl RouteDto {
     }
 
     /// Builder method for ttl
-    pub fn ttl(mut self, ttl: Option<u128>) -> Self {
+    pub fn ttl(mut self, ttl: Option<u64>) -> Self {
         self.ttl = ttl;
         self
     }
@@ -245,7 +247,7 @@ impl From<crate::model::route::Route> for RouteDto {
                 crate::model::route::DestinationFormat::Native => "Native".to_string(),
             },
             code: route.code,
-            ttl: route.ttl,
+            ttl: route.ttl.map(|v| v as u64),
             status: match &route.status {
                 crate::model::route::RouteStatus::Active => "Active".to_string(),
                 crate::model::route::RouteStatus::Blocked(reason) => {
@@ -290,7 +292,7 @@ impl From<&crate::model::route::Route> for RouteDto {
                 crate::model::route::DestinationFormat::Native => "Native".to_string(),
             },
             code: route.code,
-            ttl: route.ttl,
+            ttl: route.ttl.map(|v| v as u64),
             status: match &route.status {
                 crate::model::route::RouteStatus::Active => "Active".to_string(),
                 crate::model::route::RouteStatus::Blocked(reason) => {

@@ -15,6 +15,10 @@ public class RouteDto
     public string Terminal { get; set; } = "External";  // Default value
     public RoutingPolicy? Policy { get; set; }  // Routing policy (Basic, Conditional, etc.)
     public RoutePropertiesDto? Properties { get; set; }
+
+    // Domain relationship
+    public Guid? DomainId { get; set; }
+    public DomainDto? Domain { get; set; }
 }
 
 public class RoutePropertiesDto

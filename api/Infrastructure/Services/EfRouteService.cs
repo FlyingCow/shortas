@@ -39,6 +39,7 @@ public class EfRouteService : IRouteService
 
             var route = await _context.Routes
                 .Include(r => r.Properties)
+                .Include(r => r.Domain)
                 .FirstOrDefaultAsync(r => r.Id == id &&
                                         r.Properties != null &&
                                         r.Properties.OwnerId == userId);
@@ -73,6 +74,7 @@ public class EfRouteService : IRouteService
 
             var route = await _context.Routes
                 .Include(r => r.Properties)
+                .Include(r => r.Domain)
                 .FirstOrDefaultAsync(r => r.Link.Contains(linkPattern) &&
                                         r.Properties != null &&
                                         r.Properties.OwnerId == userId);
@@ -99,6 +101,12 @@ public class EfRouteService : IRouteService
                 return Result<RouteEntity>.Failure(Error.Validation("Route validation failed", errors));
             }
 
+            // Validate domain is mandatory
+            if (!route.DomainId.HasValue)
+            {
+                return Result<RouteEntity>.Failure(Error.Required("Domain is required for route creation"));
+            }
+
             // Check if route already exists
             var existing = await _context.Routes
                 .FirstOrDefaultAsync(r => r.Link == route.Link);
@@ -106,12 +114,42 @@ public class EfRouteService : IRouteService
             if (existing != null)
                 return Result<RouteEntity>.Failure(Error.Conflict("Route with this link already exists"));
 
+            // Load domain from database and validate ownership
+            route.Domain = await _context.RouteDomains
+                .FirstOrDefaultAsync(d => d.Id == route.DomainId.Value);
+
+            if (route.Domain == null)
+            {
+                return Result<RouteEntity>.Failure(Error.NotFound("Domain", route.DomainId.Value.ToString()));
+            }
+
+            // Verify domain belongs to current user
+            if (route.Properties != null && !string.IsNullOrWhiteSpace(route.Properties.OwnerId))
+            {
+                if (route.Domain.OwnerId != route.Properties.OwnerId)
+                {
+                    return Result<RouteEntity>.Failure(Error.Forbidden("Domain does not belong to user"));
+                }
+            }
+
             // Add route to database
             await _context.Routes.AddAsync(route);
             await _context.SaveChangesAsync();
 
+            // Reload route with domain to ensure navigation property is populated
+            var savedRoute = await _context.Routes
+                .Include(r => r.Domain)
+                .Include(r => r.Properties)
+                .FirstOrDefaultAsync(r => r.Id == route.Id);
+
+            if (savedRoute == null)
+            {
+                await transaction.RollbackAsync();
+                return Result<RouteEntity>.Failure(Error.Internal("Failed to retrieve saved route"));
+            }
+
             // Propagate to click-router API synchronously
-            var apiResult = await _clickRouterApiClient.CreateRouteAsync(route);
+            var apiResult = await _clickRouterApiClient.CreateRouteAsync(savedRoute);
 
             if (apiResult.IsFailure)
             {
@@ -154,6 +192,7 @@ public class EfRouteService : IRouteService
             // Find existing route
             var existingRoute = await _context.Routes
                 .Include(r => r.Properties)
+                .Include(r => r.Domain)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (existingRoute == null)
@@ -162,6 +201,13 @@ public class EfRouteService : IRouteService
             // Verify ownership
             if (existingRoute.Properties == null || existingRoute.Properties.OwnerId != userId)
                 return Result<RouteEntity>.Failure(Error.Forbidden());
+
+            // Validate domain is mandatory
+            if (!route.DomainId.HasValue)
+            {
+                await transaction.RollbackAsync();
+                return Result<RouteEntity>.Failure(Error.Required("Domain is required for route update"));
+            }
 
             // Update route properties
             existingRoute.Switch = route.Switch;
@@ -173,6 +219,27 @@ public class EfRouteService : IRouteService
             existingRoute.Status = route.Status;
             existingRoute.Terminal = route.Terminal;
             existingRoute.Policy = route.Policy;
+            existingRoute.DomainId = route.DomainId;
+
+            // Load domain from database if DomainId has changed and validate ownership
+            if (existingRoute.DomainId != route.DomainId || existingRoute.Domain == null)
+            {
+                existingRoute.Domain = await _context.RouteDomains
+                    .FirstOrDefaultAsync(d => d.Id == route.DomainId.Value);
+
+                if (existingRoute.Domain == null)
+                {
+                    await transaction.RollbackAsync();
+                    return Result<RouteEntity>.Failure(Error.NotFound("Domain", route.DomainId.Value.ToString()));
+                }
+
+                // Verify domain belongs to current user
+                if (existingRoute.Domain.OwnerId != userId)
+                {
+                    await transaction.RollbackAsync();
+                    return Result<RouteEntity>.Failure(Error.Forbidden("Domain does not belong to user"));
+                }
+            }
 
             if (route.Properties != null)
             {
@@ -250,6 +317,7 @@ public class EfRouteService : IRouteService
             var linkPattern = $"{domain}/{path}";
             var existingRoute = await _context.Routes
                 .Include(r => r.Properties)
+                .Include(r => r.Domain)
                 .FirstOrDefaultAsync(r => r.Link.Contains(linkPattern));
 
             if (existingRoute == null)
@@ -330,6 +398,7 @@ public class EfRouteService : IRouteService
             // Find existing route
             var existingRoute = await _context.Routes
                 .Include(r => r.Properties)
+                .Include(r => r.Domain)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (existingRoute == null)
@@ -368,7 +437,7 @@ public class EfRouteService : IRouteService
         }
     }
 
-    public async Task<Result> DeleteRouteAsync(string domain, string path, string userId)
+    public async Task<Result> DeleteRouteAsync(string domain, string path, string userId, string? switchParam = null)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -387,6 +456,7 @@ public class EfRouteService : IRouteService
             var linkPattern = $"{domain}/{path}";
             var existingRoute = await _context.Routes
                 .Include(r => r.Properties)
+                .Include(r => r.Domain)
                 .FirstOrDefaultAsync(r => r.Link.Contains(linkPattern));
 
             if (existingRoute == null)
@@ -443,14 +513,57 @@ public class EfRouteService : IRouteService
                     var errors = string.Join(", ", validationResult.Errors.Select(e => $"{e.FieldName}: {e.Message}"));
                     return Result<List<RouteEntity>>.Failure(Error.Validation("Route validation failed", errors));
                 }
+
+                // Validate domain is mandatory for each route
+                if (!route.DomainId.HasValue)
+                {
+                    return Result<List<RouteEntity>>.Failure(Error.Required("Domain is required for all routes"));
+                }
+            }
+
+            // Load domains for all routes
+            var domainIds = routes
+                .Select(r => r.DomainId!.Value)
+                .Distinct()
+                .ToList();
+
+            var domains = await _context.RouteDomains
+                .Where(d => domainIds.Contains(d.Id))
+                .ToListAsync();
+
+            // Validate all domains exist and assign them to routes
+            foreach (var route in routes)
+            {
+                route.Domain = domains.FirstOrDefault(d => d.Id == route.DomainId!.Value);
+                if (route.Domain == null)
+                {
+                    return Result<List<RouteEntity>>.Failure(Error.NotFound("Domain", route.DomainId!.Value.ToString()));
+                }
+
+                // Verify domain belongs to the route owner
+                if (route.Properties != null && !string.IsNullOrWhiteSpace(route.Properties.OwnerId))
+                {
+                    if (route.Domain.OwnerId != route.Properties.OwnerId)
+                    {
+                        return Result<List<RouteEntity>>.Failure(Error.Forbidden($"Domain {route.Domain.Name} does not belong to user"));
+                    }
+                }
             }
 
             // Add routes to database
             await _context.Routes.AddRangeAsync(routes);
             await _context.SaveChangesAsync();
 
+            // Reload routes with domains to ensure navigation properties are populated
+            var routeIds = routes.Select(r => r.Id).ToList();
+            var savedRoutes = await _context.Routes
+                .Include(r => r.Domain)
+                .Include(r => r.Properties)
+                .Where(r => routeIds.Contains(r.Id))
+                .ToListAsync();
+
             // Propagate to click-router API synchronously
-            var apiResult = await _clickRouterApiClient.BulkCreateRoutesAsync(routes);
+            var apiResult = await _clickRouterApiClient.BulkCreateRoutesAsync(savedRoutes);
 
             if (apiResult.IsFailure)
             {
@@ -462,9 +575,9 @@ public class EfRouteService : IRouteService
 
             await transaction.CommitAsync();
 
-            _logger.LogInformation("Bulk created {Count} routes", routes.Count);
+            _logger.LogInformation("Bulk created {Count} routes", savedRoutes.Count);
 
-            return Result<List<RouteEntity>>.Success(routes);
+            return Result<List<RouteEntity>>.Success(savedRoutes);
         }
         catch (Exception ex)
         {
@@ -495,17 +608,53 @@ public class EfRouteService : IRouteService
                     var errors = string.Join(", ", validationResult.Errors.Select(e => $"{e.FieldName}: {e.Message}"));
                     return Result<List<RouteEntity>>.Failure(Error.Validation("Route validation failed", errors));
                 }
+
+                // Validate domain is mandatory for each route
+                if (!route.DomainId.HasValue)
+                {
+                    return Result<List<RouteEntity>>.Failure(Error.Required("Domain is required for all routes"));
+                }
             }
 
             // Verify ownership of all routes
             var routeIds = routes.Select(r => r.Id).ToList();
             var existingRoutes = await _context.Routes
                 .Include(r => r.Properties)
+                .Include(r => r.Domain)
                 .Where(r => routeIds.Contains(r.Id))
                 .ToListAsync();
 
             if (existingRoutes.Any(r => r.Properties == null || r.Properties.OwnerId != userId))
                 return Result<List<RouteEntity>>.Failure(Error.Forbidden());
+
+            // Load all domains for validation
+            var domainIds = routes
+                .Select(r => r.DomainId!.Value)
+                .Distinct()
+                .ToList();
+
+            var domains = await _context.RouteDomains
+                .Where(d => domainIds.Contains(d.Id))
+                .ToListAsync();
+
+            var domainLookup = domains.ToDictionary(d => d.Id);
+
+            // Validate all domains exist and belong to user, then assign to routes
+            foreach (var route in routes)
+            {
+                if (!domainLookup.ContainsKey(route.DomainId!.Value))
+                {
+                    return Result<List<RouteEntity>>.Failure(Error.NotFound("Domain", route.DomainId.Value.ToString()));
+                }
+
+                route.Domain = domainLookup[route.DomainId.Value];
+
+                // Verify domain belongs to current user
+                if (route.Domain.OwnerId != userId)
+                {
+                    return Result<List<RouteEntity>>.Failure(Error.Forbidden($"Domain {route.Domain.Name} does not belong to user"));
+                }
+            }
 
             // Update routes in database
             _context.Routes.UpdateRange(routes);
@@ -559,6 +708,7 @@ public class EfRouteService : IRouteService
             // Find routes to delete
             var routesToDelete = await _context.Routes
                 .Include(r => r.Properties)
+                .Include(r => r.Domain)
                 .Where(r => guids.Contains(r.Id))
                 .ToListAsync();
 
@@ -609,6 +759,7 @@ public class EfRouteService : IRouteService
         {
             var query = _context.Routes
                 .Include(r => r.Properties)
+                .Include(r => r.Domain)
                 .AsQueryable();
 
             // Apply filters

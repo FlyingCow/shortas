@@ -1,5 +1,6 @@
 use anyhow::Result;
 use salvo::prelude::*;
+use std::sync::Arc;
 use tracing::info;
 
 use crate::adapters;
@@ -7,16 +8,6 @@ use crate::core::{CryptoStore, RoutesStore, UserSettingsStore};
 use crate::settings::Server as ServerSettings;
 use crate::{adapters::api::app_state::AppState, settings::Settings};
 
-#[handler]
-async fn app_state_middleware(
-    req: &mut Request,
-    depot: &mut Depot,
-    res: &mut Response,
-    ctrl: &mut FlowCtrl,
-) {
-    // The app state will be set by the server setup
-    ctrl.call_next(req, depot, res).await;
-}
 
 #[derive(Clone)]
 pub struct AppBuilder {
@@ -50,7 +41,7 @@ impl Api {
 
         let router = adapters::api::api_routes::routes();
 
-        let _app_state = self.api_pool.clone();
+        let app_state = self.api_pool.clone();
 
         let doc = OpenApi::new("Click Router API", "0.1.0")
             .merge_router(&router)
@@ -64,8 +55,29 @@ impl Api {
             )
             ;
 
+        let app_state_arc = Arc::new(app_state);
+
+        // Create a handler to inject app_state
+        struct AppStateInjector {
+            state: Arc<AppState>,
+        }
+
+        #[async_trait]
+        impl Handler for AppStateInjector {
+            async fn handle(
+                &self,
+                _req: &mut Request,
+                depot: &mut Depot,
+                _res: &mut Response,
+                ctrl: &mut FlowCtrl,
+            ) {
+                depot.inject(self.state.clone());
+                ctrl.call_next(_req, depot, _res).await;
+            }
+        }
+
         let router = router
-            .hoop(app_state_middleware)
+            .hoop(AppStateInjector { state: app_state_arc })
             .unshift(doc.into_router("/api-doc/openapi.json"))
             .unshift(SwaggerUi::new("/api-doc/openapi.json").into_router("/swagger-ui"));
 

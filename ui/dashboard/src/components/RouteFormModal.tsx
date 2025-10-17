@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { RouteDto, RoutingPolicy } from '../services/api';
+import { RouteDto, RoutingPolicy, DomainDto, apiService } from '../services/api';
 import PolicyEditor from './PolicyEditor';
 import './DesignSystem.css';
 
@@ -17,6 +17,7 @@ export const RouteFormModal: React.FC<RouteFormModalProps> = ({
   onSave,
   route,
 }) => {
+  const [domains, setDomains] = useState<DomainDto[]>([]);
   const [formData, setFormData] = useState<Partial<RouteDto>>({
     switch: 'main',
     link: '',
@@ -27,7 +28,14 @@ export const RouteFormModal: React.FC<RouteFormModalProps> = ({
     status: 'Active',
     terminal: 'External',
     policy: 'Basic',
+    domainId: undefined,
   });
+
+  useEffect(() => {
+    if (show) {
+      fetchDomains();
+    }
+  }, [show]);
 
   useEffect(() => {
     if (route) {
@@ -43,13 +51,48 @@ export const RouteFormModal: React.FC<RouteFormModalProps> = ({
         status: 'Active',
         terminal: 'External',
         policy: 'Basic',
+        domainId: undefined,
       });
     }
   }, [route]);
 
+  const fetchDomains = async () => {
+    try {
+      const response = await apiService.domains.list({ page: 1, pageSize: 100 });
+      setDomains(response.data);
+    } catch (err) {
+      console.error('Failed to fetch domains:', err);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+
+    // Validate domain is selected
+    if (!formData.domainId || formData.domainId.trim() === '') {
+      alert('Domain is required. Please select a domain.');
+      return;
+    }
+
+    // Ensure domainId is set in both top-level and properties for compatibility
+    const dataToSave: Partial<RouteDto> = {
+      ...formData,
+      properties: formData.properties ? {
+        ...formData.properties,
+        domainId: formData.domainId!, // Also set in properties for compatibility
+      } : {
+        routeId: '',
+        domainId: formData.domainId!,
+        ownerId: '',
+        scripts: [],
+        tags: [],
+        custom: {},
+        opengraph: false,
+        allowDebug: false
+      }
+    };
+
+    onSave(dataToSave);
   };
 
   const handleChange = (field: keyof RouteDto, value: any) => {
@@ -80,6 +123,26 @@ export const RouteFormModal: React.FC<RouteFormModalProps> = ({
               {/* Basic Information */}
               <div className="space-y-sm">
                 <h3 className="text-lg font-semibold">Basic Information</h3>
+
+                <div>
+                  <label className="label">Domain *</label>
+                  <select
+                    className="input"
+                    value={formData.domainId || ''}
+                    onChange={(e) => handleChange('domainId', e.target.value)}
+                    required
+                  >
+                    <option value="">Select a domain...</option>
+                    {domains.map((domain) => (
+                      <option key={domain.id} value={domain.id}>
+                        {domain.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted mt-1">
+                    Domain is required for all routes
+                  </p>
+                </div>
 
                 <div>
                   <label className="label">Short Link *</label>

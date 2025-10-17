@@ -25,7 +25,23 @@ public class CertificateConfiguration : IEntityTypeConfiguration<Certificate>
         builder.Property(c => c.OcspResp)
             .IsRequired(false);
 
-        // Add index for performance
+        builder.Property(c => c.OwnerId)
+            .IsRequired()
+            .HasMaxLength(255);
+
+        builder.Property(c => c.DomainId)
+            .IsRequired();
+
+        // Configure relationship with Domain
+        builder.HasOne(c => c.Domain)
+            .WithMany(d => d.Certificates)
+            .HasForeignKey(c => c.DomainId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Add indexes for performance
         builder.HasIndex(c => c.Key);
+        builder.HasIndex(c => c.OwnerId);
+        builder.HasIndex(c => c.DomainId);
+        builder.HasIndex(c => new { c.OwnerId, c.DomainId });
     }
 }

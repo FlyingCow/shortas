@@ -1,10 +1,10 @@
 [aws]
 
 [aws.dynamo]
-encryption_table = "core-routes-encryption-main"
-routes_table = "core-routes-main"
-hostname_mappings_table = "core-routes-hostname-mapping-main"
-user_settings_table = "core-user-settings-main"
+encryption_table = "core-routes-encryption-local"
+routes_table = "core-routes-local"
+hostname_mappings_table = "core-routes-hostname-mapping-local"
+user_settings_table = "core-user-settings-local"
 
 # Mongodb Configuration
 [mongodb]

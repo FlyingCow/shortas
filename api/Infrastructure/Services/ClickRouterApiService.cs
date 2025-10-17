@@ -59,7 +59,7 @@ public class ClickRouterApiService : IRouteService, ICertificateService, IUserSe
         return await _httpClient.UpdateRouteAsync(domain, path, userId, route);
     }
 
-    public async Task<Result> DeleteRouteAsync(string domain, string path, string userId)
+    public async Task<Result> DeleteRouteAsync(string domain, string path, string userId, string? switchParam = null)
     {
         _logger.LogDebug("Deleting route {Domain}/{Path} for user {UserId}", domain, path, userId);
         return await _httpClient.DeleteRouteAsync(domain, path, userId);
@@ -99,37 +99,48 @@ public class ClickRouterApiService : IRouteService, ICertificateService, IUserSe
 
     #region ICertificateService Implementation
 
-    public async Task<Result<Certificate?>> GetCertificateAsync(string domain)
+    public Task<Result<Certificate?>> GetCertificateAsync(Guid domainId, string userId)
     {
-        _logger.LogDebug("Getting certificate for domain {Domain}", domain);
-        return await _httpClient.GetCertificateAsync(domain);
+        // This method is not implemented in the HTTP client proxy service
+        // The external API uses domain name strings, not internal domain IDs
+        // It should only be called when using the EF-based service
+        throw new NotImplementedException("GetCertificateAsync with domainId is only available in EF-based service");
     }
 
-    public async Task<Result<Certificate>> CreateCertificateAsync(string domain, Certificate certificate)
+    public Task<Result<Certificate>> CreateCertificateAsync(Certificate certificate, string userId)
     {
-        _logger.LogDebug("Creating certificate for domain {Domain}", domain);
-        return await _httpClient.CreateCertificateAsync(domain, certificate);
+        // This method is not implemented in the HTTP client proxy service
+        // The external API uses domain name strings, not internal domain IDs
+        // It should only be called when using the EF-based service
+        throw new NotImplementedException("CreateCertificateAsync is only available in EF-based service");
     }
 
-    public async Task<Result<Certificate>> UpdateCertificateAsync(string domain, Certificate certificate)
+    public Task<Result<Certificate>> UpdateCertificateAsync(Guid id, Certificate certificate, string userId)
     {
-        _logger.LogDebug("Updating certificate for domain {Domain}", domain);
-        return await _httpClient.UpdateCertificateAsync(domain, certificate);
+        // This method is not implemented in the HTTP client proxy service
+        // The external API uses domain name strings, not internal domain IDs
+        // It should only be called when using the EF-based service
+        throw new NotImplementedException("UpdateCertificateAsync is only available in EF-based service");
     }
 
-    public async Task<Result> DeleteCertificateAsync(string domain)
+    public Task<Result> DeleteCertificateAsync(Guid id, string userId)
     {
-        _logger.LogDebug("Deleting certificate for domain {Domain}", domain);
-        return await _httpClient.DeleteCertificateAsync(domain);
+        // This method is not implemented in the HTTP client proxy service
+        // The external API uses domain name strings, not internal domain IDs
+        // It should only be called when using the EF-based service
+        throw new NotImplementedException("DeleteCertificateAsync is only available in EF-based service");
     }
 
-    public async Task<Result<(List<Certificate> Certificates, int TotalCount)>> ListCertificatesAsync(
+    public Task<Result<(List<Certificate> Certificates, int TotalCount)>> ListCertificatesAsync(
+        string userId,
         int page = 1,
         int pageSize = 20,
-        string? search = null)
+        string? search = null,
+        Guid? domainId = null)
     {
-        _logger.LogDebug("Listing certificates - page {Page}, pageSize {PageSize}, search {Search}", page, pageSize, search);
-        return await _httpClient.ListCertificatesAsync(page, pageSize, search);
+        // This method is not implemented in the HTTP client proxy service
+        // It should only be called when using the EF-based service
+        throw new NotImplementedException("ListCertificatesAsync is only available in EF-based service");
     }
 
     #endregion

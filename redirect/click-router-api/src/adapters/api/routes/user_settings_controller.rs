@@ -44,7 +44,7 @@ pub fn api_routes() -> Router {
 pub async fn get_user_settings(req: &mut Request, depot: &mut Depot, res: &mut Response) {
     let user_id = req.param::<String>("user_id").unwrap_or_default();
 
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     let user_settings = app_state
         .user_settings_store
@@ -154,7 +154,7 @@ pub async fn create_user_settings(req: &mut Request, depot: &mut Depot, res: &mu
     );
 
     // Get AppState from depot
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // Store the user settings
     match app_state
@@ -255,7 +255,7 @@ pub async fn update_user_settings(req: &mut Request, depot: &mut Depot, res: &mu
     );
 
     // Get AppState from depot
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // Update the user settings
     match app_state
@@ -314,7 +314,7 @@ pub async fn delete_user_settings(req: &mut Request, depot: &mut Depot, res: &mu
     }
 
     // Get AppState from depot
-    let app_state = depot.get::<AppState>("app_state").unwrap();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // First, get the existing user settings to pass to delete
     match app_state
