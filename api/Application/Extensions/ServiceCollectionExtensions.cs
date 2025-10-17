@@ -10,7 +10,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<RouteService>();
         services.AddScoped<CertificateService>();
         services.AddScoped<UserSettingsService>();
-        services.AddScoped<ClickStreamService>();
 
         return services;
     }

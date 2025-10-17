@@ -1,6 +1,6 @@
 using ShortasProxyApi.Domain.Interfaces;
 using ShortasProxyApi.Domain.Common;
-using ShortasProxyApi.Domain.Entities;
+using ShortasProxyApi.Application.DTOs;
 using ShortasProxyApi.Infrastructure.HttpClients;
 
 namespace ShortasProxyApi.Infrastructure.Services;
@@ -22,39 +22,73 @@ public class ClickAggregatorApiService : IClickStreamService
 
     #region IClickStreamService Implementation
 
-    public async Task<Result<List<ClickStream>>> GetClickStreamAsync(string? routeId = null, DateTime? startDate = null, DateTime? endDate = null)
+    public async Task<Result<List<ClickStreamDto>>> GetClickStreamAsync(string? routeId = null, DateTime? startDate = null, DateTime? endDate = null)
     {
-        _logger.LogDebug("Getting click stream data - startDate {StartDate}, endDate {EndDate}, routeId {RouteId}", 
+        _logger.LogDebug("Getting click stream data - startDate {StartDate}, endDate {EndDate}, routeId {RouteId}",
             startDate, endDate, routeId);
-        
-        var result = await _httpClient.GetClickStreamAsync(startDate, endDate, routeId, null, 1, 100);
-        
+
+        // Call the HTTP client which now returns properly typed List<ClickStreamDto>
+        var result = await _httpClient.GetClickStreamAsync(startDate, endDate, routeId, null, offset: 0, limit: 100);
+
         if (result.IsFailure)
         {
-            return Result<List<ClickStream>>.Failure(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+            return Result<List<ClickStreamDto>>.Failure(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
         }
-        
-        // Convert the object result to List<ClickStream>
-        // This is a simplified conversion - in a real implementation, you'd need proper deserialization
-        var clickStreams = new List<ClickStream>();
-        return Result<List<ClickStream>>.Success(clickStreams);
+
+        return Result<List<ClickStreamDto>>.Success(result.Value);
     }
 
     public async Task<Result<Dictionary<string, object>>> GetClickStreamStatsAsync(string? routeId = null, DateTime? startDate = null, DateTime? endDate = null)
     {
-        _logger.LogDebug("Getting click stream stats - startDate {StartDate}, endDate {EndDate}, routeId {RouteId}", 
+        _logger.LogDebug("Getting click stream stats - startDate {StartDate}, endDate {EndDate}, routeId {RouteId}",
             startDate, endDate, routeId);
-        
-        var result = await _httpClient.GetClickStreamStatsAsync(startDate, endDate, null, null);
-        
-        if (result.IsFailure)
+
+        // Get the clickstream data and calculate stats from it
+        var clickStreamResult = await GetClickStreamAsync(routeId, startDate, endDate);
+
+        if (clickStreamResult.IsFailure)
         {
-            return Result<Dictionary<string, object>>.Failure(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+            return Result<Dictionary<string, object>>.Failure(clickStreamResult.ErrorCode ?? "UNKNOWN_ERROR", clickStreamResult.Error);
         }
-        
-        // Convert the object result to Dictionary<string, object>
-        // This is a simplified conversion - in a real implementation, you'd need proper deserialization
-        var stats = new Dictionary<string, object>();
+
+        var clickStreams = clickStreamResult.Value;
+
+        var stats = new Dictionary<string, object>
+        {
+            ["total_clicks"] = clickStreams.Count,
+            ["unique_clicks"] = clickStreams.Count(c => c.IsUnique),
+            ["bot_clicks"] = clickStreams.Count(c => c.IsBot),
+            ["countries"] = clickStreams
+                .Where(c => !string.IsNullOrEmpty(c.Country))
+                .GroupBy(c => c.Country)
+                .Select(g => new { country = g.Key, count = g.Count() })
+                .OrderByDescending(x => x.count)
+                .Take(10)
+                .ToList(),
+            ["devices"] = clickStreams
+                .Where(c => !string.IsNullOrEmpty(c.DeviceFamily))
+                .GroupBy(c => c.DeviceFamily)
+                .Select(g => new { device = g.Key, count = g.Count() })
+                .OrderByDescending(x => x.count)
+                .Take(10)
+                .ToList(),
+            ["browsers"] = clickStreams
+                .Where(c => !string.IsNullOrEmpty(c.UserAgentFamily))
+                .GroupBy(c => c.UserAgentFamily)
+                .Select(g => new { browser = g.Key, count = g.Count() })
+                .OrderByDescending(x => x.count)
+                .Take(10)
+                .ToList(),
+            ["os"] = clickStreams
+                .Where(c => !string.IsNullOrEmpty(c.OsFamily))
+                .GroupBy(c => c.OsFamily)
+                .Select(g => new { os = g.Key, count = g.Count() })
+                .OrderByDescending(x => x.count)
+                .Take(10)
+                .ToList()
+        };
+
+        _logger.LogInformation("Calculated stats for {TotalClicks} clicks", clickStreams.Count);
         return Result<Dictionary<string, object>>.Success(stats);
     }
 

@@ -5,6 +5,7 @@ using ShortasProxyApi.Domain.Entities;
 using ShortasProxyApi.Domain.Interfaces;
 using ShortasProxyApi.Infrastructure.Data;
 using ShortasProxyApi.Infrastructure.HttpClients;
+using ShortasProxyApi.Application.Extensions;
 using RouteEntity = ShortasProxyApi.Domain.Entities.Route;
 
 namespace ShortasProxyApi.Infrastructure.Services;
@@ -149,7 +150,9 @@ public class EfRouteService : IRouteService
             }
 
             // Propagate to click-router API synchronously
-            var apiResult = await _clickRouterApiClient.CreateRouteAsync(savedRoute);
+            var apiDto = savedRoute.ToDto();
+            var domainName = savedRoute.Domain?.Name ?? "";
+            var apiResult = await _clickRouterApiClient.CreateRouteAsync(apiDto, domainName);
 
             if (apiResult.IsFailure)
             {
@@ -267,7 +270,8 @@ public class EfRouteService : IRouteService
             await _context.SaveChangesAsync();
 
             // Propagate to click-router API synchronously
-            var apiResult = await _clickRouterApiClient.UpdateRouteByIdAsync(id, userId, existingRoute);
+            var apiDto = existingRoute.ToDto();
+            var apiResult = await _clickRouterApiClient.UpdateRouteByIdAsync(id, userId, apiDto);
 
             if (apiResult.IsFailure)
             {
@@ -362,7 +366,8 @@ public class EfRouteService : IRouteService
             await _context.SaveChangesAsync();
 
             // Propagate to click-router API synchronously
-            var apiResult = await _clickRouterApiClient.UpdateRouteAsync(domain, path, userId, existingRoute);
+            var apiDto = existingRoute.ToDto();
+            var apiResult = await _clickRouterApiClient.UpdateRouteAsync(domain, path, userId, apiDto);
 
             if (apiResult.IsFailure)
             {
@@ -563,7 +568,8 @@ public class EfRouteService : IRouteService
                 .ToListAsync();
 
             // Propagate to click-router API synchronously
-            var apiResult = await _clickRouterApiClient.BulkCreateRoutesAsync(savedRoutes);
+            var apiDtos = savedRoutes.Select(r => r.ToDto()).ToList();
+            var apiResult = await _clickRouterApiClient.BulkCreateRoutesAsync(apiDtos);
 
             if (apiResult.IsFailure)
             {
@@ -661,7 +667,8 @@ public class EfRouteService : IRouteService
             await _context.SaveChangesAsync();
 
             // Propagate to click-router API synchronously
-            var apiResult = await _clickRouterApiClient.BulkUpdateRoutesAsync(userId, routes);
+            var apiDtos = routes.Select(r => r.ToDto()).ToList();
+            var apiResult = await _clickRouterApiClient.BulkUpdateRoutesAsync(userId, apiDtos);
 
             if (apiResult.IsFailure)
             {

@@ -1,14 +1,13 @@
-using ShortasProxyApi.Domain.Entities;
+using ShortasProxyApi.Application.DTOs;
 using ShortasProxyApi.Domain.Common;
 using System.Text;
 using System.Text.Json;
-using Route = ShortasProxyApi.Domain.Entities.Route;
 
 namespace ShortasProxyApi.Infrastructure.HttpClients;
 
 /// <summary>
 /// HTTP client for communicating with the Click Router API.
-/// This client is independent of service interfaces and focuses purely on HTTP communication.
+/// This client uses DTOs for all communication and is independent of domain entities.
 /// </summary>
 public class ClickRouterApiClient
 {
@@ -25,7 +24,6 @@ public class ClickRouterApiClient
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             PropertyNameCaseInsensitive = true
         };
-        
     }
 
     #region Route Operations
@@ -36,42 +34,40 @@ public class ClickRouterApiClient
     /// Use GetRouteAsync with domain/path instead.
     /// </summary>
     [Obsolete("The Click Router API does not support getting routes by ID. Use GetRouteAsync instead.")]
-    public async Task<Result<Route?>> GetRouteByIdAsync(Guid id, string userId)
+    public Task<Result<RouteDto?>> GetRouteByIdAsync(Guid id, string userId)
     {
         _logger.LogWarning("GetRouteByIdAsync is not supported by Click Router API. Use GetRouteAsync with domain/path instead.");
-        return Result<Route?>.Failure("NOT_SUPPORTED", "Getting routes by ID is not supported. Use domain/path instead.");
+        return Task.FromResult(Result<RouteDto?>.Failure("NOT_SUPPORTED", "Getting routes by ID is not supported. Use domain/path instead."));
     }
 
     /// <summary>
     /// Create route via Click Router API
     /// </summary>
-    public async Task<Result<Route>> CreateRouteAsync(Route route)
+    public async Task<Result<RouteDto>> CreateRouteAsync(RouteDto route, string domain)
     {
         try
         {
-            // Map to DTO to exclude navigation properties
-            var dto = ClickRouterRouteDto.FromEntity(route);
-            var json = JsonSerializer.Serialize(dto, _jsonOptions);
+            // Map to ClickRouter DTO for API communication
+            var apiDto = ClickRouterRouteDto.FromDto(route);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            // Parse domain and path from Link property (format: domain/path)
             var switchValue = route.Switch ?? "main";
             var link = route.Link;
-            var domain = route.Domain?.Name;
 
             if (string.IsNullOrWhiteSpace(domain))
             {
                 _logger.LogError("Cannot create route: domain name is missing");
-                return Result<Route>.Failure("VALIDATION_ERROR", "Domain name is required for route creation");
+                return Result<RouteDto>.Failure("VALIDATION_ERROR", "Domain name is required for route creation");
             }
 
             var response = await _httpClient.PostAsync($"/v1/routes/{switchValue}/{domain}/{link}", content);
-            return await HandleResponse<Route>(response);
+            return await HandleResponse<RouteDto, ClickRouterRouteDto>(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create route");
-            return Result<Route>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<RouteDto>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
@@ -81,10 +77,10 @@ public class ClickRouterApiClient
     /// Use UpdateRouteAsync with domain/path instead.
     /// </summary>
     [Obsolete("The Click Router API does not support updating routes by ID. Use UpdateRouteAsync instead.")]
-    public async Task<Result<Route>> UpdateRouteByIdAsync(Guid id, string userId, Route route)
+    public Task<Result<RouteDto>> UpdateRouteByIdAsync(Guid id, string userId, RouteDto route)
     {
         _logger.LogWarning("UpdateRouteByIdAsync is not supported by Click Router API. Use UpdateRouteAsync with domain/path instead.");
-        return Result<Route>.Failure("NOT_SUPPORTED", "Updating routes by ID is not supported. Use domain/path instead.");
+        return Task.FromResult(Result<RouteDto>.Failure("NOT_SUPPORTED", "Updating routes by ID is not supported. Use domain/path instead."));
     }
 
     /// <summary>
@@ -93,16 +89,16 @@ public class ClickRouterApiClient
     /// Use DeleteRouteAsync with domain/path instead.
     /// </summary>
     [Obsolete("The Click Router API does not support deleting routes by ID. Use DeleteRouteAsync instead.")]
-    public async Task<Result> DeleteRouteByIdAsync(Guid id, string userId)
+    public Task<Result> DeleteRouteByIdAsync(Guid id, string userId)
     {
         _logger.LogWarning("DeleteRouteByIdAsync is not supported by Click Router API. Use DeleteRouteAsync with domain/path instead.");
-        return Result.Failure("NOT_SUPPORTED", "Deleting routes by ID is not supported. Use domain/path instead.");
+        return Task.FromResult(Result.Failure("NOT_SUPPORTED", "Deleting routes by ID is not supported. Use domain/path instead."));
     }
 
     /// <summary>
     /// Get route by domain and path from Click Router API
     /// </summary>
-    public async Task<Result<Route?>> GetRouteAsync(string domain, string path, string userId, string? switchParam = null)
+    public async Task<Result<RouteDto?>> GetRouteAsync(string domain, string path, string userId, string? switchParam = null)
     {
         try
         {
@@ -110,35 +106,35 @@ public class ClickRouterApiClient
             var url = $"/v1/routes/{switchValue}/{domain}/{path}";
 
             var response = await _httpClient.GetAsync(url);
-            return await HandleResponse<Route>(response);
+            return await HandleResponse<RouteDto, ClickRouterRouteDto>(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get route {Switch}/{Domain}/{Path}", switchParam ?? "main", domain, path);
-            return Result<Route?>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<RouteDto?>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
     /// <summary>
     /// Update route by domain and path via Click Router API
     /// </summary>
-    public async Task<Result<Route>> UpdateRouteAsync(string domain, string path, string userId, Route route)
+    public async Task<Result<RouteDto>> UpdateRouteAsync(string domain, string path, string userId, RouteDto route)
     {
         try
         {
-            // Map to DTO to exclude navigation properties
-            var dto = ClickRouterRouteDto.FromEntity(route);
-            var json = JsonSerializer.Serialize(dto, _jsonOptions);
+            // Map to ClickRouter DTO for API communication
+            var apiDto = ClickRouterRouteDto.FromDto(route);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var switchValue = route.Switch ?? "main";
             var response = await _httpClient.PutAsync($"/v1/routes/{switchValue}/{domain}/{path}", content);
-            return await HandleResponse<Route>(response);
+            return await HandleResponse<RouteDto, ClickRouterRouteDto>(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update route {Switch}/{Domain}/{Path}", route.Switch ?? "main", domain, path);
-            return Result<Route>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<RouteDto>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
@@ -149,7 +145,6 @@ public class ClickRouterApiClient
     {
         try
         {
-            // Default to "main" switch if not specified
             var switchValue = "main";
             var response = await _httpClient.DeleteAsync($"/v1/routes/{switchValue}/{domain}/{path}");
             return await HandleResponse(response);
@@ -164,44 +159,44 @@ public class ClickRouterApiClient
     /// <summary>
     /// Bulk create routes via Click Router API
     /// </summary>
-    public async Task<Result<List<Route>>> BulkCreateRoutesAsync(List<Route> routes)
+    public async Task<Result<List<RouteDto>>> BulkCreateRoutesAsync(List<RouteDto> routes)
     {
         try
         {
-            // Map to DTOs to exclude navigation properties
-            var dtos = routes.Select(ClickRouterRouteDto.FromEntity).ToList();
-            var json = JsonSerializer.Serialize(dtos, _jsonOptions);
+            // Map to ClickRouter DTOs for API communication
+            var apiDtos = routes.Select(ClickRouterRouteDto.FromDto).ToList();
+            var json = JsonSerializer.Serialize(apiDtos, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync("/v1/routes/bulk", content);
-            return await HandleResponse<List<Route>>(response);
+            return await HandleListResponse<RouteDto, ClickRouterRouteDto>(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to bulk create routes");
-            return Result<List<Route>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<List<RouteDto>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
     /// <summary>
     /// Bulk update routes via Click Router API
     /// </summary>
-    public async Task<Result<List<Route>>> BulkUpdateRoutesAsync(string userId, List<Route> routes)
+    public async Task<Result<List<RouteDto>>> BulkUpdateRoutesAsync(string userId, List<RouteDto> routes)
     {
         try
         {
-            // Map to DTOs to exclude navigation properties
-            var dtos = routes.Select(ClickRouterRouteDto.FromEntity).ToList();
-            var json = JsonSerializer.Serialize(dtos, _jsonOptions);
+            // Map to ClickRouter DTOs for API communication
+            var apiDtos = routes.Select(ClickRouterRouteDto.FromDto).ToList();
+            var json = JsonSerializer.Serialize(apiDtos, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PutAsync("/v1/routes/bulk", content);
-            return await HandleResponse<List<Route>>(response);
+            return await HandleListResponse<RouteDto, ClickRouterRouteDto>(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to bulk update routes");
-            return Result<List<Route>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<List<RouteDto>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
@@ -233,7 +228,7 @@ public class ClickRouterApiClient
     /// <summary>
     /// List routes with pagination via Click Router API
     /// </summary>
-    public async Task<Result<(List<Route> Routes, int TotalCount)>> ListRoutesAsync(
+    public async Task<Result<(List<RouteDto> Routes, int TotalCount)>> ListRoutesAsync(
         int page = 1,
         int pageSize = 20,
         string? search = null,
@@ -263,22 +258,26 @@ public class ClickRouterApiClient
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogError("Failed to list routes: {StatusCode} - {Content}", response.StatusCode, errorContent);
-                return Result<(List<Route>, int)>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+                return Result<(List<RouteDto>, int)>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
             }
 
             var content = await response.Content.ReadAsStringAsync();
-            var result = JsonSerializer.Deserialize<dynamic>(content, _jsonOptions);
+            var jsonDoc = JsonDocument.Parse(content);
+            var root = jsonDoc.RootElement;
 
             // Parse the response structure
-            var routes = JsonSerializer.Deserialize<List<Route>>(result.GetProperty("data").GetRawText(), _jsonOptions);
-            var totalCount = result.GetProperty("pagination").GetProperty("totalCount").GetInt32();
+            var dataElement = root.GetProperty("data");
+            var apiDtos = JsonSerializer.Deserialize<List<ClickRouterRouteDto>>(dataElement.GetRawText(), _jsonOptions);
+            var routes = apiDtos?.Select(dto => dto.ToDto()).ToList() ?? new List<RouteDto>();
 
-            return Result<(List<Route>, int)>.Success((routes ?? new List<Route>(), totalCount));
+            var totalCount = root.GetProperty("pagination").GetProperty("totalCount").GetInt32();
+
+            return Result<(List<RouteDto>, int)>.Success((routes, totalCount));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to list routes");
-            return Result<(List<Route>, int)>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<(List<RouteDto>, int)>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
@@ -289,57 +288,59 @@ public class ClickRouterApiClient
     /// <summary>
     /// Get certificate by domain from Click Router API
     /// </summary>
-    public async Task<Result<Certificate?>> GetCertificateAsync(string domain)
+    public async Task<Result<CertificateDto?>> GetCertificateAsync(string domain)
     {
         try
         {
             var response = await _httpClient.GetAsync($"/v1/certificates/{domain}");
-            return await HandleResponse<Certificate>(response);
+            return await HandleResponse<CertificateDto, ClickRouterCertificateDto>(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get certificate for domain {Domain}", domain);
-            return Result<Certificate?>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<CertificateDto?>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
     /// <summary>
     /// Create certificate via Click Router API
     /// </summary>
-    public async Task<Result<Certificate>> CreateCertificateAsync(string domain, Certificate certificate)
+    public async Task<Result<CertificateDto>> CreateCertificateAsync(string domain, CertificateDto certificate)
     {
         try
         {
-            var json = JsonSerializer.Serialize(certificate, _jsonOptions);
+            var apiDto = ClickRouterCertificateDto.FromDto(certificate);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync($"/v1/certificates/{domain}", content);
-            return await HandleResponse<Certificate>(response);
+            return await HandleResponse<CertificateDto, ClickRouterCertificateDto>(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create certificate for domain {Domain}", domain);
-            return Result<Certificate>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<CertificateDto>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
     /// <summary>
     /// Update certificate via Click Router API
     /// </summary>
-    public async Task<Result<Certificate>> UpdateCertificateAsync(string domain, Certificate certificate)
+    public async Task<Result<CertificateDto>> UpdateCertificateAsync(string domain, CertificateDto certificate)
     {
         try
         {
-            var json = JsonSerializer.Serialize(certificate, _jsonOptions);
+            var apiDto = ClickRouterCertificateDto.FromDto(certificate);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PutAsync($"/v1/certificates/{domain}", content);
-            return await HandleResponse<Certificate>(response);
+            return await HandleResponse<CertificateDto, ClickRouterCertificateDto>(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update certificate for domain {Domain}", domain);
-            return Result<Certificate>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<CertificateDto>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
@@ -364,7 +365,7 @@ public class ClickRouterApiClient
     /// List certificates with pagination via Click Router API
     /// NOTE: This endpoint may not be available in the Rust Click Router API.
     /// </summary>
-    public async Task<Result<(List<Certificate> Certificates, int TotalCount)>> ListCertificatesAsync(
+    public async Task<Result<(List<CertificateDto> Certificates, int TotalCount)>> ListCertificatesAsync(
         int page = 1,
         int pageSize = 20,
         string? search = null)
@@ -387,22 +388,26 @@ public class ClickRouterApiClient
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogError("Failed to list certificates: {StatusCode} - {Content}", response.StatusCode, errorContent);
-                return Result<(List<Certificate>, int)>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+                return Result<(List<CertificateDto>, int)>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
             }
 
             var content = await response.Content.ReadAsStringAsync();
-            var result = JsonSerializer.Deserialize<dynamic>(content, _jsonOptions);
+            var jsonDoc = JsonDocument.Parse(content);
+            var root = jsonDoc.RootElement;
 
             // Parse the response structure
-            var certificates = JsonSerializer.Deserialize<List<Certificate>>(result.GetProperty("data").GetRawText(), _jsonOptions);
-            var totalCount = result.GetProperty("pagination").GetProperty("totalCount").GetInt32();
+            var dataElement = root.GetProperty("data");
+            var apiDtos = JsonSerializer.Deserialize<List<ClickRouterCertificateDto>>(dataElement.GetRawText(), _jsonOptions);
+            var certificates = apiDtos?.Select(dto => dto.ToDto()).ToList() ?? new List<CertificateDto>();
 
-            return Result<(List<Certificate>, int)>.Success((certificates ?? new List<Certificate>(), totalCount));
+            var totalCount = root.GetProperty("pagination").GetProperty("totalCount").GetInt32();
+
+            return Result<(List<CertificateDto>, int)>.Success((certificates, totalCount));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to list certificates");
-            return Result<(List<Certificate>, int)>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<(List<CertificateDto>, int)>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
@@ -413,57 +418,59 @@ public class ClickRouterApiClient
     /// <summary>
     /// Get user settings from Click Router API
     /// </summary>
-    public async Task<Result<UserSettings?>> GetUserSettingsAsync(string userId)
+    public async Task<Result<UserSettingsDto?>> GetUserSettingsAsync(string userId)
     {
         try
         {
             var response = await _httpClient.GetAsync($"/v1/user-settings/{userId}");
-            return await HandleResponse<UserSettings>(response);
+            return await HandleResponse<UserSettingsDto, ClickRouterUserSettingsDto>(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get user settings for user {UserId}", userId);
-            return Result<UserSettings?>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<UserSettingsDto?>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
     /// <summary>
     /// Create user settings via Click Router API
     /// </summary>
-    public async Task<Result<UserSettings>> CreateUserSettingsAsync(string userId, UserSettings settings)
+    public async Task<Result<UserSettingsDto>> CreateUserSettingsAsync(string userId, UserSettingsDto settings)
     {
         try
         {
-            var json = JsonSerializer.Serialize(settings, _jsonOptions);
+            var apiDto = ClickRouterUserSettingsDto.FromDto(settings);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync($"/v1/user-settings/{userId}", content);
-            return await HandleResponse<UserSettings>(response);
+            return await HandleResponse<UserSettingsDto, ClickRouterUserSettingsDto>(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create user settings for user {UserId}", userId);
-            return Result<UserSettings>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<UserSettingsDto>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
     /// <summary>
     /// Update user settings via Click Router API
     /// </summary>
-    public async Task<Result<UserSettings>> UpdateUserSettingsAsync(string userId, UserSettings settings)
+    public async Task<Result<UserSettingsDto>> UpdateUserSettingsAsync(string userId, UserSettingsDto settings)
     {
         try
         {
-            var json = JsonSerializer.Serialize(settings, _jsonOptions);
+            var apiDto = ClickRouterUserSettingsDto.FromDto(settings);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PutAsync($"/v1/user-settings/{userId}", content);
-            return await HandleResponse<UserSettings>(response);
+            return await HandleResponse<UserSettingsDto, ClickRouterUserSettingsDto>(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update user settings for user {UserId}", userId);
-            return Result<UserSettings>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+            return Result<UserSettingsDto>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
         }
     }
 
@@ -488,23 +495,83 @@ public class ClickRouterApiClient
 
     #region Private Helper Methods
 
-    private async Task<Result<T>> HandleResponse<T>(HttpResponseMessage response)
+    /// <summary>
+    /// Handle response and map from ClickRouter API DTO to Application DTO
+    /// </summary>
+    private async Task<Result<TAppDto>> HandleResponse<TAppDto, TApiDto>(HttpResponseMessage response)
+        where TApiDto : class
     {
         if (response.IsSuccessStatusCode)
         {
             var content = await response.Content.ReadAsStringAsync();
             if (string.IsNullOrEmpty(content))
             {
-                return Result<T>.Success(default(T)!);
+                return Result<TAppDto>.Success(default(TAppDto)!);
             }
-            
-            var result = JsonSerializer.Deserialize<T>(content, _jsonOptions);
-            return Result<T>.Success(result!);
+
+            var apiDto = JsonSerializer.Deserialize<TApiDto>(content, _jsonOptions);
+            if (apiDto == null)
+            {
+                return Result<TAppDto>.Success(default(TAppDto)!);
+            }
+
+            // Map API DTO to Application DTO
+            var appDto = MapToApplicationDto<TAppDto, TApiDto>(apiDto);
+            return Result<TAppDto>.Success(appDto);
         }
-        
+
+        return await HandleErrorResponse<TAppDto>(response);
+    }
+
+    /// <summary>
+    /// Handle list response and map from ClickRouter API DTOs to Application DTOs
+    /// </summary>
+    private async Task<Result<List<TAppDto>>> HandleListResponse<TAppDto, TApiDto>(HttpResponseMessage response)
+        where TApiDto : class
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrEmpty(content))
+            {
+                return Result<List<TAppDto>>.Success(new List<TAppDto>());
+            }
+
+            var apiDtos = JsonSerializer.Deserialize<List<TApiDto>>(content, _jsonOptions);
+            if (apiDtos == null)
+            {
+                return Result<List<TAppDto>>.Success(new List<TAppDto>());
+            }
+
+            // Map API DTOs to Application DTOs
+            var appDtos = apiDtos.Select(apiDto => MapToApplicationDto<TAppDto, TApiDto>(apiDto)).ToList();
+            return Result<List<TAppDto>>.Success(appDtos);
+        }
+
+        return await HandleErrorResponse<List<TAppDto>>(response);
+    }
+
+    /// <summary>
+    /// Map ClickRouter API DTO to Application DTO
+    /// </summary>
+    private TAppDto MapToApplicationDto<TAppDto, TApiDto>(TApiDto apiDto)
+    {
+        object result = apiDto switch
+        {
+            ClickRouterRouteDto routeDto => routeDto.ToDto(),
+            ClickRouterCertificateDto certDto => certDto.ToDto(),
+            ClickRouterUserSettingsDto settingsDto => settingsDto.ToDto(),
+            _ => throw new NotSupportedException($"Mapping from {typeof(TApiDto).Name} to {typeof(TAppDto).Name} is not supported")
+        };
+
+        return (TAppDto)result;
+    }
+
+    private async Task<Result<T>> HandleErrorResponse<T>(HttpResponseMessage response)
+    {
         var errorContent = await response.Content.ReadAsStringAsync();
         _logger.LogError("HTTP request failed: {StatusCode} - {Content}", response.StatusCode, errorContent);
-        
+
         return response.StatusCode switch
         {
             System.Net.HttpStatusCode.BadRequest => Result<T>.Failure("VALIDATION_ERROR", "Invalid request data"),
@@ -525,10 +592,10 @@ public class ClickRouterApiClient
         {
             return Result.Success();
         }
-        
+
         var errorContent = await response.Content.ReadAsStringAsync();
         _logger.LogError("HTTP request failed: {StatusCode} - {Content}", response.StatusCode, errorContent);
-        
+
         return response.StatusCode switch
         {
             System.Net.HttpStatusCode.BadRequest => Result.Failure("VALIDATION_ERROR", "Invalid request data"),

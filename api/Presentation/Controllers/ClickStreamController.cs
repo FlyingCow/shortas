@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShortasProxyApi.Application.DTOs;
-using ShortasProxyApi.Domain.Entities;
 using ShortasProxyApi.Domain.Interfaces;
 using ShortasProxyApi.Domain.Common;
+using ShortasProxyApi.Infrastructure.Services;
 
 namespace ShortasProxyApi.Presentation.Controllers;
 
@@ -12,12 +12,13 @@ namespace ShortasProxyApi.Presentation.Controllers;
 [Authorize]
 public class ClickStreamController : ControllerBase
 {
-    private readonly IClickStreamService _clickStreamService;
+    private readonly ClickAggregatorApiService _clickStreamService;
     private readonly ILogger<ClickStreamController> _logger;
 
     public ClickStreamController(IClickStreamService clickStreamService, ILogger<ClickStreamController> logger)
     {
-        _clickStreamService = clickStreamService;
+        // Cast to concrete type to access additional analytics methods
+        _clickStreamService = (ClickAggregatorApiService)clickStreamService;
         _logger = logger;
     }
 
@@ -35,14 +36,13 @@ public class ClickStreamController : ControllerBase
         [FromQuery] DateTime? endDate = null)
     {
         var result = await _clickStreamService.GetClickStreamAsync(routeId, startDate, endDate);
-        
+
         if (result.IsFailure)
         {
             return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
         }
 
-        var clickStreamDtos = result.Value.Select(MapToDto).ToList();
-        return Ok(clickStreamDtos);
+        return Ok(result.Value);
     }
 
     /// <summary>
@@ -59,14 +59,13 @@ public class ClickStreamController : ControllerBase
         [FromQuery] DateTime? endDate = null)
     {
         var result = await _clickStreamService.GetClickStreamAsync(routeId, startDate, endDate);
-        
+
         if (result.IsFailure)
         {
             return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
         }
 
-        var clickStreamDtos = result.Value.Select(MapToDto).ToList();
-        return Ok(clickStreamDtos);
+        return Ok(result.Value);
     }
 
     /// <summary>
@@ -83,7 +82,155 @@ public class ClickStreamController : ControllerBase
         [FromQuery] DateTime? endDate = null)
     {
         var result = await _clickStreamService.GetClickStreamStatsAsync(routeId, startDate, endDate);
-        
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get click stream analytics overview
+    /// </summary>
+    /// <param name="startDate">Start date (optional)</param>
+    /// <param name="endDate">End date (optional)</param>
+    /// <param name="ownerId">Owner ID (optional)</param>
+    /// <returns>Analytics overview</returns>
+    [HttpGet("overview")]
+    public async Task<ActionResult<object>> GetClickStreamOverview(
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] string? ownerId = null)
+    {
+        var result = await _clickStreamService.GetClickStreamOverviewAsync(startDate, endDate, ownerId);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get geographic analytics
+    /// </summary>
+    /// <param name="startDate">Start date (optional)</param>
+    /// <param name="endDate">End date (optional)</param>
+    /// <param name="ownerId">Owner ID (optional)</param>
+    /// <param name="groupBy">Group by field (default: country)</param>
+    /// <returns>Geographic analytics</returns>
+    [HttpGet("analytics/geographic")]
+    public async Task<ActionResult<object>> GetGeographicAnalytics(
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] string? ownerId = null,
+        [FromQuery] string? groupBy = "country")
+    {
+        var result = await _clickStreamService.GetGeographicAnalyticsAsync(startDate, endDate, ownerId, groupBy);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get device analytics
+    /// </summary>
+    /// <param name="startDate">Start date (optional)</param>
+    /// <param name="endDate">End date (optional)</param>
+    /// <param name="ownerId">Owner ID (optional)</param>
+    /// <param name="groupBy">Group by field (default: device_family)</param>
+    /// <returns>Device analytics</returns>
+    [HttpGet("analytics/device")]
+    public async Task<ActionResult<object>> GetDeviceAnalytics(
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] string? ownerId = null,
+        [FromQuery] string? groupBy = "device_family")
+    {
+        var result = await _clickStreamService.GetDeviceAnalyticsAsync(startDate, endDate, ownerId, groupBy);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get browser analytics
+    /// </summary>
+    /// <param name="startDate">Start date (optional)</param>
+    /// <param name="endDate">End date (optional)</param>
+    /// <param name="ownerId">Owner ID (optional)</param>
+    /// <param name="groupBy">Group by field (default: user_agent_family)</param>
+    /// <returns>Browser analytics</returns>
+    [HttpGet("analytics/browser")]
+    public async Task<ActionResult<object>> GetBrowserAnalytics(
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] string? ownerId = null,
+        [FromQuery] string? groupBy = "user_agent_family")
+    {
+        var result = await _clickStreamService.GetBrowserAnalyticsAsync(startDate, endDate, ownerId, groupBy);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get time series analytics
+    /// </summary>
+    /// <param name="startDate">Start date (optional)</param>
+    /// <param name="endDate">End date (optional)</param>
+    /// <param name="ownerId">Owner ID (optional)</param>
+    /// <param name="interval">Time interval (default: hour)</param>
+    /// <returns>Time series analytics</returns>
+    [HttpGet("analytics/timeseries")]
+    public async Task<ActionResult<object>> GetTimeSeriesAnalytics(
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] string? ownerId = null,
+        [FromQuery] string? interval = "hour")
+    {
+        var result = await _clickStreamService.GetTimeSeriesAnalyticsAsync(startDate, endDate, ownerId, interval);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get route-specific analytics
+    /// </summary>
+    /// <param name="routeId">Route ID</param>
+    /// <param name="startDate">Start date (optional)</param>
+    /// <param name="endDate">End date (optional)</param>
+    /// <param name="ownerId">Owner ID (optional)</param>
+    /// <returns>Route analytics</returns>
+    [HttpGet("analytics/route/{routeId}")]
+    public async Task<ActionResult<object>> GetRouteAnalytics(
+        string routeId,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] string? ownerId = null)
+    {
+        var result = await _clickStreamService.GetRouteAnalyticsAsync(routeId, startDate, endDate, ownerId);
+
         if (result.IsFailure)
         {
             return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
@@ -111,35 +258,6 @@ public class ClickStreamController : ControllerBase
             "NETWORK_ERROR" => StatusCode(502, new { error = errorCode, message = errorMessage }),
             "INTERNAL_ERROR" => StatusCode(500, new { error = errorCode, message = errorMessage }),
             _ => StatusCode(500, new { error = "UNKNOWN_ERROR", message = "An unknown error occurred" })
-        };
-    }
-
-    private static ClickStreamDto MapToDto(ClickStream clickStream)
-    {
-        return new ClickStreamDto
-        {
-            Id = clickStream.ExternalId,
-            OwnerId = clickStream.OwnerId,
-            CreatorId = clickStream.CreatorId,
-            RouteId = clickStream.RouteId,
-            WorkspaceId = clickStream.WorkspaceId,
-            Created = clickStream.Created,
-            Dest = clickStream.Dest,
-            Ip = clickStream.Ip,
-            Continent = clickStream.Continent,
-            Country = clickStream.Country,
-            Location = clickStream.Location,
-            OsFamily = clickStream.OsFamily,
-            OsVersion = clickStream.OsVersion,
-            UserAgentFamily = clickStream.UserAgentFamily,
-            UserAgentVersion = clickStream.UserAgentVersion,
-            DeviceBrand = clickStream.DeviceBrand,
-            DeviceFamily = clickStream.DeviceFamily,
-            DeviceModel = clickStream.DeviceModel,
-            SessionFirst = clickStream.SessionFirst,
-            SessionClicks = clickStream.SessionClicks,
-            IsUnique = clickStream.IsUnique,
-            IsBot = clickStream.IsBot
         };
     }
 }

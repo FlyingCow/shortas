@@ -1,19 +1,19 @@
 use async_trait::async_trait;
 use anyhow::Result;
-use clickhouse::{Client, Row};
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use crate::core::clickstream_store::ClickStreamStore;
 use crate::model::clickstream::{ClickStreamItem, ClickStreamQuery, ClickStreamResponse};
 
-/// ClickHouse row structure for click stream data
-#[derive(Debug, Row, Serialize, Deserialize)]
+/// ClickHouse row structure for click stream data (JSON deserialization)
+#[derive(Debug, Serialize, Deserialize)]
 struct ClickStreamRow {
     id: String,
     owner_id: String,
     creator_id: String,
     route_id: String,
     workspace_id: String,
+    #[serde(with = "clickhouse_datetime_format")]
     created: DateTime<Utc>,
     dest: String,
     ip: String,
@@ -27,28 +27,101 @@ struct ClickStreamRow {
     device_brand: Option<String>,
     device_family: Option<String>,
     device_model: Option<String>,
+    #[serde(default, with = "clickhouse_datetime_format_opt")]
     session_first: Option<DateTime<Utc>>,
-    session_clicks: Option<u128>,
+    session_clicks: Option<u64>,
     is_unique: bool,
     is_bot: bool,
+}
+
+/// Custom deserializer for ClickHouse DateTime format (YYYY-MM-DD HH:MM:SS.mmm)
+mod clickhouse_datetime_format {
+    use chrono::{DateTime, NaiveDateTime, Utc};
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    const FORMAT: &str = "%Y-%m-%d %H:%M:%S%.3f";
+
+    pub fn serialize<S>(date: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let s = format!("{}", date.format(FORMAT));
+        serializer.serialize_str(&s)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        NaiveDateTime::parse_from_str(&s, FORMAT)
+            .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+/// Custom deserializer for optional ClickHouse DateTime
+mod clickhouse_datetime_format_opt {
+    use chrono::{DateTime, NaiveDateTime, Utc};
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    const FORMAT: &str = "%Y-%m-%d %H:%M:%S%.3f";
+
+    pub fn serialize<S>(date: &Option<DateTime<Utc>>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match date {
+            Some(dt) => {
+                let s = format!("{}", dt.format(FORMAT));
+                serializer.serialize_some(&s)
+            }
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: Option<String> = Option::deserialize(deserializer)?;
+        match s {
+            Some(s) if !s.is_empty() => {
+                NaiveDateTime::parse_from_str(&s, FORMAT)
+                    .map(|dt| Some(DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc)))
+                    .map_err(serde::de::Error::custom)
+            }
+            _ => Ok(None),
+        }
+    }
+}
+
+/// ClickHouse row structure for count queries
+#[derive(Debug, Serialize, Deserialize)]
+struct CountRow {
+    count: u64,
 }
 
 /// ClickHouse implementation of ClickStreamStore
 #[derive(Clone)]
 pub struct ClickHouseClickStreamStore {
-    client: Client,
+    http_client: reqwest::Client,
+    url: String,
+    user: String,
+    password: String,
+    database: String,
 }
 
 impl ClickHouseClickStreamStore {
     /// Create a new ClickHouse click stream store
     pub fn new(url: &str, user: &str, password: &str, database: &str) -> Result<Self> {
-        let client = Client::default()
-            .with_url(url)
-            .with_user(user)
-            .with_password(password)
-            .with_database(database);
-
-        Ok(Self { client })
+        Ok(Self {
+            http_client: reqwest::Client::new(),
+            url: url.to_string(),
+            user: user.to_string(),
+            password: password.to_string(),
+            database: database.to_string(),
+        })
     }
 
     /// Build WHERE clause from query filters
@@ -123,14 +196,29 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
         let offset = query.offset.unwrap_or(0);
 
         let sql = format!(
-            "SELECT * FROM click_stream {} ORDER BY id DESC LIMIT {} OFFSET {}",
+            "SELECT id, owner_id, creator_id, route_id, workspace_id, created, dest, ip, \
+             continent, country, location, os_family, os_version, user_agent_family, \
+             user_agent_version, device_brand, device_family, device_model, \
+             session_first, session_clicks, is_unique, is_bot \
+             FROM click_stream {} ORDER BY id DESC LIMIT {} OFFSET {} FORMAT JSONEachRow",
             where_clause, limit, offset
         );
 
-        let cursor = self.client.query(&sql).fetch_all::<ClickStreamRow>().await?;
-        
-        let items: Vec<ClickStreamItem> = cursor
-            .into_iter()
+        let response = self.http_client
+            .get(&self.url)
+            .query(&[
+                ("user", &self.user),
+                ("password", &self.password),
+                ("database", &self.database),
+                ("query", &sql),
+            ])
+            .send()
+            .await?;
+
+        let text = response.text().await?;
+        let items: Vec<ClickStreamItem> = text
+            .lines()
+            .filter_map(|line| serde_json::from_str::<ClickStreamRow>(line).ok())
             .map(Self::row_to_item)
             .collect();
 
@@ -148,13 +236,25 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
 
     async fn count_clickstream(&self, query: &ClickStreamQuery) -> Result<u64> {
         let where_clause = self.build_where_clause(query);
-        
+
         let sql = format!(
-            "SELECT COUNT(*) as count FROM click_stream {}",
+            "SELECT COUNT(*) as count FROM click_stream {} FORMAT JSONEachRow",
             where_clause
         );
 
-        let result: u64 = self.client.query(&sql).fetch_one().await?;
-        Ok(result)
+        let response = self.http_client
+            .get(&self.url)
+            .query(&[
+                ("user", &self.user),
+                ("password", &self.password),
+                ("database", &self.database),
+                ("query", &sql),
+            ])
+            .send()
+            .await?;
+
+        let text = response.text().await?;
+        let result: CountRow = serde_json::from_str(text.lines().next().unwrap_or("{\"count\":0}"))?;
+        Ok(result.count)
     }
 }

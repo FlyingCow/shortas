@@ -45,7 +45,7 @@ pub struct ClickStreamItemDto {
     /// First session timestamp (optional)
     pub session_first: Option<DateTime<Utc>>,
     /// Number of clicks in session (optional)
-    pub session_clicks: Option<u128>,
+    pub session_clicks: Option<u64>,
     /// Whether this is a unique click
     pub is_unique: bool,
     /// Whether this click is from a bot

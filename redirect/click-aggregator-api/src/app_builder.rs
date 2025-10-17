@@ -6,15 +6,23 @@ use crate::adapters;
 use crate::settings::Server as ServerSettings;
 use crate::{adapters::api::app_state::AppState, settings::Settings};
 
-#[handler]
-async fn app_state_middleware(
-    req: &mut Request,
-    depot: &mut Depot,
-    res: &mut Response,
-    ctrl: &mut FlowCtrl,
-) {
-    // The app state will be set by the server setup
-    ctrl.call_next(req, depot, res).await;
+#[derive(Clone)]
+pub struct AppStateMiddleware {
+    app_state: AppState,
+}
+
+impl AppStateMiddleware {
+    pub fn new(app_state: AppState) -> Self {
+        Self { app_state }
+    }
+}
+
+#[async_trait]
+impl Handler for AppStateMiddleware {
+    async fn handle(&self, req: &mut Request, depot: &mut Depot, res: &mut Response, ctrl: &mut FlowCtrl) {
+        depot.inject(self.app_state.clone());
+        ctrl.call_next(req, depot, res).await;
+    }
 }
 
 #[derive(Clone)]
@@ -41,16 +49,16 @@ impl Api {
 
         let router = adapters::api::api_routes::routes();
 
-        let _app_state = self.api_pool.clone();
+        let app_state = self.api_pool.clone();
 
         let doc = OpenApi::new("test api", "0.0.1").merge_router(&router);
 
         let router = router
-            .hoop(app_state_middleware)
+            .hoop(AppStateMiddleware::new(app_state))
             .unshift(doc.into_router("/api-doc/openapi.json"))
             .unshift(SwaggerUi::new("/api-doc/openapi.json").into_router("/swagger-ui"));
 
-        let acceptor = TcpListener::new("0.0.0.0:5800").bind().await;
+        let acceptor = TcpListener::new("0.0.0.0:5820").bind().await;
 
         Server::new(acceptor).serve(router).await;
 
@@ -65,9 +73,7 @@ impl Api {
 
 impl AppBuilder {
     pub fn new(settings: Settings) -> Self {
-        Self {
-            settings,
-        }
+        Self { settings }
     }
 
     pub fn build(&self) -> Result<Api> {

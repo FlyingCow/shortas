@@ -1,5 +1,5 @@
-using ShortasProxyApi.Domain.Entities;
 using ShortasProxyApi.Domain.Common;
+using ShortasProxyApi.Application.DTOs;
 using System.Text;
 using System.Text.Json;
 
@@ -21,7 +21,7 @@ public class ClickAggregatorApiClient
         _logger = logger;
         _jsonOptions = new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            // PropertyNamingPolicy not needed since we use JsonPropertyName attributes in DTOs
             PropertyNameCaseInsensitive = true
         };
     }
@@ -31,40 +31,73 @@ public class ClickAggregatorApiClient
     /// <summary>
     /// Get click stream data from Click Aggregator API
     /// </summary>
-    public async Task<Result<object>> GetClickStreamAsync(
+    public async Task<Result<List<ClickStreamDto>>> GetClickStreamAsync(
         DateTime? startDate = null,
         DateTime? endDate = null,
         string? routeId = null,
         string? ownerId = null,
-        int page = 1,
-        int pageSize = 100)
+        int offset = 0,
+        int limit = 100)
     {
         try
         {
-            var queryParams = new List<string>
-            {
-                $"page={page}",
-                $"pageSize={pageSize}"
-            };
-            
-            if (startDate.HasValue)
-                queryParams.Add($"start={startDate.Value:yyyy-MM-ddTHH:mm:ssZ}");
-            if (endDate.HasValue)
-                queryParams.Add($"end={endDate.Value:yyyy-MM-ddTHH:mm:ssZ}");
+            var queryParams = new List<string>();
+
+            // Use snake_case parameter names to match Rust API
             if (!string.IsNullOrEmpty(routeId))
-                queryParams.Add($"routeId={Uri.EscapeDataString(routeId)}");
+                queryParams.Add($"route_id={Uri.EscapeDataString(routeId)}");
             if (!string.IsNullOrEmpty(ownerId))
-                queryParams.Add($"ownerId={Uri.EscapeDataString(ownerId)}");
-            
+                queryParams.Add($"owner_id={Uri.EscapeDataString(ownerId)}");
+            if (startDate.HasValue)
+                queryParams.Add($"created_from={startDate.Value:yyyy-MM-ddTHH:mm:ssZ}");
+            if (endDate.HasValue)
+                queryParams.Add($"created_to={endDate.Value:yyyy-MM-ddTHH:mm:ssZ}");
+            queryParams.Add($"limit={limit}");
+            queryParams.Add($"offset={offset}");
+
             var queryString = string.Join("&", queryParams);
+            _logger.LogDebug("Requesting clickstream: /v1/clickstream?{QueryString}", queryString);
+
             var response = await _httpClient.GetAsync($"/v1/clickstream?{queryString}");
-            
-            return await HandleResponse<object>(response);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                _logger.LogDebug("Received clickstream response: {Length} bytes", content.Length);
+
+                // Deserialize to API DTO
+                var apiResponse = JsonSerializer.Deserialize<ClickAggregatorApiClickStreamResponse>(content, _jsonOptions);
+                if (apiResponse == null)
+                {
+                    _logger.LogWarning("Failed to deserialize clickstream response");
+                    return Result<List<ClickStreamDto>>.Success(new List<ClickStreamDto>());
+                }
+
+                _logger.LogInformation("Retrieved {Count} clickstream items out of {Total} total",
+                    apiResponse.Items.Count, apiResponse.Total);
+
+                // Map API DTOs to Application DTOs
+                var dtos = apiResponse.Items.Select(ClickAggregatorApiClickStreamDto.ToDto).ToList();
+
+                return Result<List<ClickStreamDto>>.Success(dtos);
+            }
+
+            return await HandleErrorResponse<List<ClickStreamDto>>(response);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "HTTP error getting click stream data");
+            return Result<List<ClickStreamDto>>.Failure("NETWORK_ERROR", "Network error communicating with Click Aggregator API");
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "JSON deserialization error getting click stream data");
+            return Result<List<ClickStreamDto>>.Failure("INTERNAL_ERROR", "Failed to parse clickstream response");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get click stream data");
-            return Result<object>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Aggregator API");
+            return Result<List<ClickStreamDto>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Aggregator API");
         }
     }
 
@@ -318,14 +351,19 @@ public class ClickAggregatorApiClient
             {
                 return Result<T>.Success(default(T)!);
             }
-            
+
             var result = JsonSerializer.Deserialize<T>(content, _jsonOptions);
             return Result<T>.Success(result!);
         }
-        
+
+        return await HandleErrorResponse<T>(response);
+    }
+
+    private async Task<Result<T>> HandleErrorResponse<T>(HttpResponseMessage response)
+    {
         var errorContent = await response.Content.ReadAsStringAsync();
         _logger.LogError("HTTP request failed: {StatusCode} - {Content}", response.StatusCode, errorContent);
-        
+
         return response.StatusCode switch
         {
             System.Net.HttpStatusCode.BadRequest => Result<T>.Failure("VALIDATION_ERROR", "Invalid request data"),

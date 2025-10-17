@@ -59,10 +59,12 @@ pub async fn get_clickstream(
     let response = match app_state.clickstream_store.query_clickstream(&query).await {
         Ok(r) => r,
         Err(e) => {
+            eprintln!("ClickStream query error: {:?}", e);
+            eprintln!("Error chain: {:#?}", e);
             res.status_code(salvo::http::StatusCode::INTERNAL_SERVER_ERROR);
             res.render(Json(serde_json::json!({
                 "error": "Failed to query click stream",
-                "details": e.to_string()
+                "details": format!("{:?}", e)
             })));
             return;
         }

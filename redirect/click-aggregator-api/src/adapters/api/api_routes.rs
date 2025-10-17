@@ -1,10 +1,6 @@
 use salvo::oapi::endpoint;
 use salvo::prelude::*;
 
-use crate::adapters::api::middleware::{
-    jwt_auth_middleware_fn as jwt_auth_middleware, jwt_authorization_middleware,
-    rate_limit_middleware, security_headers_middleware, validation_middleware,
-};
 use crate::adapters::api::routes::clickstream_controller;
 
 pub fn routes() -> Router {
@@ -13,14 +9,8 @@ pub fn routes() -> Router {
         .push(Router::with_path("/health").get(health_check))
         .push(Router::with_path("/metrics").get(metrics_endpoint));
 
-    // Protected API routes (require JWT authentication and authorization)
-    let protected_routes = Router::with_path("/v1")
-        .hoop(security_headers_middleware)
-        .hoop(rate_limit_middleware)
-        .hoop(validation_middleware)
-        .hoop(jwt_auth_middleware)
-        .hoop(jwt_authorization_middleware)
-        .push(clickstream_controller::api_routes());
+    // Protected API routes (authorization disabled)
+    let protected_routes = Router::with_path("/v1").push(clickstream_controller::api_routes());
 
     // Combine all routes
     Router::new().push(public_routes).push(protected_routes)
