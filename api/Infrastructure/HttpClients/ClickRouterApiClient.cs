@@ -233,7 +233,8 @@ public class ClickRouterApiClient
         int pageSize = 20,
         string? search = null,
         string? status = null,
-        string? ownerId = null)
+        string? ownerId = null,
+        string? workspaceId = null)
     {
         try
         {
@@ -249,6 +250,8 @@ public class ClickRouterApiClient
                 queryParams.Add($"status={Uri.EscapeDataString(status)}");
             if (!string.IsNullOrEmpty(ownerId))
                 queryParams.Add($"ownerId={Uri.EscapeDataString(ownerId)}");
+            if (!string.IsNullOrEmpty(workspaceId))
+                queryParams.Add($"workspaceId={Uri.EscapeDataString(workspaceId)}");
 
             var queryString = string.Join("&", queryParams);
             var requestUrl = $"/v1/routes?{queryString}";

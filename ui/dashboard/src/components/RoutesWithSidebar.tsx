@@ -10,10 +10,12 @@ import './DesignSystem.css';
 const RoutesWithSidebar: React.FC = () => {
   const [routes, setRoutes] = useState<RouteDto[]>([]);
   const [domains, setDomains] = useState<DomainDto[]>([]);
+  const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [workspaceFilter, setWorkspaceFilter] = useState('all');
   const [selectedRoute, setSelectedRoute] = useState<RouteDto | null>(null);
   const [editingRoute, setEditingRoute] = useState<RouteDto | null>(null);
   const [editFormData, setEditFormData] = useState<any>(null);
@@ -24,13 +26,22 @@ const RoutesWithSidebar: React.FC = () => {
   useEffect(() => {
     fetchRoutes();
     fetchDomains();
+    fetchWorkspaces();
   }, []);
+
+  useEffect(() => {
+    fetchRoutes();
+  }, [workspaceFilter]);
 
   const fetchRoutes = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiService.routes.list({ page: 1, pageSize: 100 });
+      const params: any = { page: 1, pageSize: 100 };
+      if (workspaceFilter && workspaceFilter !== 'all') {
+        params.workspaceId = workspaceFilter;
+      }
+      const response = await apiService.routes.list(params);
       setRoutes(response.data);
     } catch (err) {
       console.error('Failed to fetch routes:', err);
@@ -46,6 +57,15 @@ const RoutesWithSidebar: React.FC = () => {
       setDomains(response.data);
     } catch (err) {
       console.error('Failed to fetch domains:', err);
+    }
+  };
+
+  const fetchWorkspaces = async () => {
+    try {
+      const data = await apiService.workspaces.list();
+      setWorkspaces(data);
+    } catch (err) {
+      console.error('Failed to fetch workspaces:', err);
     }
   };
 
@@ -339,7 +359,7 @@ const RoutesWithSidebar: React.FC = () => {
             </div>
             
             <div className="control-group">
-              <select 
+              <select
                 className="control-dropdown"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -347,6 +367,21 @@ const RoutesWithSidebar: React.FC = () => {
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div className="control-group">
+              <select
+                className="control-dropdown"
+                value={workspaceFilter}
+                onChange={(e) => setWorkspaceFilter(e.target.value)}
+              >
+                <option value="all">All Workspaces</option>
+                {workspaces.map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>
+                    {workspace.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -479,6 +514,27 @@ const RoutesWithSidebar: React.FC = () => {
                       ))}
                     </select>
                     <small>Domain is required for all routes</small>
+                  </div>
+                  <div className="form-group">
+                    <label>Workspace *</label>
+                    <select
+                      className="form-dropdown"
+                      value={editFormData.properties?.workspaceId || ''}
+                      onChange={(e) => setEditFormData({
+                        ...editFormData,
+                        properties: {...editFormData.properties, workspaceId: e.target.value}
+                      })}
+                      required
+                      disabled={!!editingRoute}
+                    >
+                      <option value="">Select a workspace...</option>
+                      {workspaces.map((workspace) => (
+                        <option key={workspace.id} value={workspace.id}>
+                          {workspace.name}
+                        </option>
+                      ))}
+                    </select>
+                    <small>{editingRoute ? 'Workspace cannot be changed after creation' : 'Workspace is required and cannot be changed later'}</small>
                   </div>
                   <div className="form-group">
                     <label>Status Code</label>

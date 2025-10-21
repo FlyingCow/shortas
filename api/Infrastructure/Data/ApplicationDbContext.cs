@@ -17,6 +17,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<RouteProperties> RouteProperties { get; set; }
     public DbSet<UserSettings> UserSettings { get; set; }
     public DbSet<OutboxMessage> OutboxMessages { get; set; }
+    public DbSet<Workspace> Workspaces { get; set; }
+    public DbSet<UserWorkspace> UserWorkspaces { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,6 +31,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.ApplyConfiguration(new RoutePropertiesConfiguration());
         modelBuilder.ApplyConfiguration(new UserSettingsConfiguration());
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new WorkspaceConfiguration());
+        modelBuilder.ApplyConfiguration(new UserWorkspaceConfiguration());
     }
 }
 

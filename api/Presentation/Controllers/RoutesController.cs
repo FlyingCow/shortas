@@ -36,16 +36,18 @@ public class RoutesController : ControllerBase
     /// <param name="pageSize">Page size (default: 20)</param>
     /// <param name="search">Search term for link, dest, or switch</param>
     /// <param name="status">Filter by status</param>
+    /// <param name="workspaceId">Filter by workspace ID</param>
     /// <returns>Paginated list of routes</returns>
     [HttpGet]
     public async Task<ActionResult<object>> ListRoutes(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null,
-        [FromQuery] string? status = null)
+        [FromQuery] string? status = null,
+        [FromQuery] string? workspaceId = null)
     {
         var userId = this.GetUserId();
-        var result = await _routeService.ListRoutesAsync(page, pageSize, search, status, userId);
+        var result = await _routeService.ListRoutesAsync(page, pageSize, search, status, userId, workspaceId);
 
         if (result.IsFailure)
         {
@@ -115,8 +117,14 @@ public class RoutesController : ControllerBase
         route.Properties.OwnerId = userId;
         route.Properties.CreatorId = userId;
 
+        // Validate that WorkspaceId is provided (mandatory field)
+        if (string.IsNullOrWhiteSpace(route.Properties.WorkspaceId))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Workspace is required when creating a route" });
+        }
+
         var result = await _routeService.CreateRouteAsync(route);
-        
+
         if (result.IsFailure)
         {
             return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
@@ -141,6 +149,28 @@ public class RoutesController : ControllerBase
         }
 
         var userId = this.GetUserId();
+
+        // Fetch existing route to validate workspace immutability
+        var existingRouteResult = await _routeService.GetRouteByIdAsync(routeId, userId);
+        if (existingRouteResult.IsFailure)
+        {
+            return HandleError(existingRouteResult.ErrorCode ?? "UNKNOWN_ERROR", existingRouteResult.Error);
+        }
+
+        if (existingRouteResult.Value == null)
+        {
+            return NotFound(new { error = "NOT_FOUND", message = "Route not found" });
+        }
+
+        // Validate that WorkspaceId has not been changed
+        var existingWorkspaceId = existingRouteResult.Value.Properties?.WorkspaceId;
+        var newWorkspaceId = routeDto.Properties?.WorkspaceId;
+
+        if (!string.IsNullOrWhiteSpace(existingWorkspaceId) && existingWorkspaceId != newWorkspaceId)
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Workspace cannot be changed after route creation" });
+        }
+
         var route = MapFromDto(routeDto);
         var result = await _routeService.UpdateRouteByIdAsync(routeId, userId, route);
 
@@ -195,11 +225,19 @@ public class RoutesController : ControllerBase
                 route.Properties = new Domain.Entities.RouteProperties();
             }
             route.Properties.OwnerId = userId;
+            route.Properties.CreatorId = userId;
             return route;
         }).ToList();
 
+        // Validate that all routes have WorkspaceId
+        var routesWithoutWorkspace = routes.Where(r => string.IsNullOrWhiteSpace(r.Properties?.WorkspaceId)).ToList();
+        if (routesWithoutWorkspace.Any())
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "All routes must have a workspace specified" });
+        }
+
         var result = await _routeService.BulkCreateRoutesAsync(routes);
-        
+
         if (result.IsFailure)
         {
             return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);

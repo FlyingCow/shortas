@@ -262,6 +262,37 @@ export interface CertificateDto {
   domain?: DomainDto;
 }
 
+// Workspace Types
+export interface WorkspaceDto {
+  id: string;
+  name: string;
+  description: string;
+  type: string;  // "System" or "User"
+  createdAt: string;
+  updatedAt: string;
+  userRole?: string;
+  members?: UserWorkspaceDto[];
+  isSystem?: boolean;
+}
+
+export interface UserWorkspaceDto {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  role: string;
+  joinedAt: string;
+}
+
+export interface CreateWorkspaceDto {
+  name: string;
+  description: string;
+}
+
+export interface UpdateWorkspaceDto {
+  name?: string;
+  description?: string;
+}
+
 // Helper function to simulate API delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -269,7 +300,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const apiService = {
   // Routes API
   routes: {
-    list: async (params?: { page?: number; pageSize?: number; search?: string; status?: string }): Promise<PaginatedResponse<RouteDto>> => {
+    list: async (params?: { page?: number; pageSize?: number; search?: string; status?: string; workspaceId?: string }): Promise<PaginatedResponse<RouteDto>> => {
       if (useMockData) {
         await delay(500); // Simulate network delay
         const page = params?.page || 1;
@@ -457,6 +488,50 @@ export const apiService = {
     delete: async (id: string): Promise<void> => {
       const response = await routerApi.delete(`/certificates/${id}`);
       return response.data;
+    },
+  },
+
+  // Workspaces API
+  workspaces: {
+    list: async (): Promise<WorkspaceDto[]> => {
+      const response = await routerApi.get('/workspaces');
+      return response.data;
+    },
+
+    get: async (id: string): Promise<WorkspaceDto> => {
+      const response = await routerApi.get(`/workspaces/${id}`);
+      return response.data;
+    },
+
+    create: async (workspace: CreateWorkspaceDto): Promise<WorkspaceDto> => {
+      const response = await routerApi.post('/workspaces', workspace);
+      return response.data;
+    },
+
+    update: async (id: string, workspace: UpdateWorkspaceDto): Promise<WorkspaceDto> => {
+      const response = await routerApi.put(`/workspaces/${id}`, workspace);
+      return response.data;
+    },
+
+    delete: async (id: string): Promise<void> => {
+      await routerApi.delete(`/workspaces/${id}`);
+    },
+
+    getMembers: async (id: string): Promise<UserWorkspaceDto[]> => {
+      const response = await routerApi.get(`/workspaces/${id}/members`);
+      return response.data;
+    },
+
+    addMember: async (id: string, userId: string, role: string = 'Member'): Promise<void> => {
+      await routerApi.post(`/workspaces/${id}/members`, { userId, role });
+    },
+
+    removeMember: async (id: string, userId: string): Promise<void> => {
+      await routerApi.delete(`/workspaces/${id}/members/${userId}`);
+    },
+
+    updateMemberRole: async (id: string, userId: string, role: string): Promise<void> => {
+      await routerApi.put(`/workspaces/${id}/members/${userId}`, { role });
     },
   },
 };

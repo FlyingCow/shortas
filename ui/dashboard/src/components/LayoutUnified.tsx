@@ -10,7 +10,8 @@ import {
   Activity,
   Sun,
   Moon,
-  Globe
+  Globe,
+  Briefcase
 } from 'lucide-react';
 import { logout, getUserInfo } from '../config/keycloak';
 import { useTheme } from '../contexts/ThemeContext';
@@ -32,6 +33,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Routes', href: '/routes', icon: LinkIcon },
     { name: 'Domains', href: '/domains', icon: Globe },
+    { name: 'Workspaces', href: '/workspaces', icon: Briefcase },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Clickstream', href: '/clickstream', icon: Activity },
     { name: 'Settings', href: '/settings', icon: Settings },

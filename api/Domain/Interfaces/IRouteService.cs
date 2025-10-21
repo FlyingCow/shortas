@@ -25,5 +25,6 @@ public interface IRouteService
         int pageSize = 20,
         string? search = null,
         string? status = null,
-        string? ownerId = null);
+        string? ownerId = null,
+        string? workspaceId = null);
 }

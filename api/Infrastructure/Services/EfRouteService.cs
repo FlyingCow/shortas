@@ -760,7 +760,8 @@ public class EfRouteService : IRouteService
         int pageSize = 20,
         string? search = null,
         string? status = null,
-        string? ownerId = null)
+        string? ownerId = null,
+        string? workspaceId = null)
     {
         try
         {
@@ -785,6 +786,11 @@ public class EfRouteService : IRouteService
             if (!string.IsNullOrWhiteSpace(ownerId) && ownerId != "all")
             {
                 query = query.Where(r => r.Properties != null && r.Properties.OwnerId == ownerId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(workspaceId) && workspaceId != "all")
+            {
+                query = query.Where(r => r.Properties != null && r.Properties.WorkspaceId == workspaceId);
             }
 
             // Get total count

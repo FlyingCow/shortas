@@ -463,7 +463,8 @@ public class RouteService : IRouteService
         int pageSize = 20,
         string? search = null,
         string? status = null,
-        string? ownerId = null)
+        string? ownerId = null,
+        string? workspaceId = null)
     {
         // This method is not implemented in the HTTP client proxy service
         // It should only be called when using the EF-based service

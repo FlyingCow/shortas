@@ -122,11 +122,12 @@ public class ClickRouterApiService : IRouteService, ICertificateService, IUserSe
         int pageSize = 20,
         string? search = null,
         string? status = null,
-        string? ownerId = null)
+        string? ownerId = null,
+        string? workspaceId = null)
     {
-        _logger.LogDebug("Listing routes - page {Page}, pageSize {PageSize}, search {Search}, status {Status}, ownerId {OwnerId}",
-            page, pageSize, search, status, ownerId);
-        var result = await _httpClient.ListRoutesAsync(page, pageSize, search, status, ownerId);
+        _logger.LogDebug("Listing routes - page {Page}, pageSize {PageSize}, search {Search}, status {Status}, ownerId {OwnerId}, workspaceId {WorkspaceId}",
+            page, pageSize, search, status, ownerId, workspaceId);
+        var result = await _httpClient.ListRoutesAsync(page, pageSize, search, status, ownerId, workspaceId);
         return result.IsSuccess
             ? Result<(List<Route>, int)>.Success((result.Value.Routes.Select(dto => dto.ToEntity()).ToList(), result.Value.TotalCount))
             : Result<(List<Route>, int)>.Failure(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
