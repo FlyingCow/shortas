@@ -83,40 +83,6 @@ public class WorkspacesController : ControllerBase
     }
 
     /// <summary>
-    /// Initialize default workspace for a new user
-    /// </summary>
-    /// <returns>Created default workspace</returns>
-    [HttpPost("initialize")]
-    public async Task<ActionResult<WorkspaceDto>> InitializeDefaultWorkspace()
-    {
-        var userId = this.GetUserId();
-
-        // Check if user already has workspaces
-        var existingWorkspaces = await _workspaceService.ListUserWorkspacesAsync(userId);
-        if (existingWorkspaces.IsSuccess && existingWorkspaces.Value.Any())
-        {
-            // Return the first workspace if user already has one
-            var firstWorkspace = existingWorkspaces.Value.First();
-            return Ok(MapToDto(firstWorkspace, userId));
-        }
-
-        // Create default workspace
-        var result = await _workspaceService.CreateWorkspaceAsync(
-            "My Workspace",
-            "Default workspace for organizing your routes",
-            userId
-        );
-
-        if (result.IsFailure)
-        {
-            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
-        }
-
-        var workspaceDto = MapToDto(result.Value, userId);
-        return CreatedAtAction(nameof(GetWorkspace), new { id = result.Value.Id }, workspaceDto);
-    }
-
-    /// <summary>
     /// Update an existing workspace
     /// </summary>
     /// <param name="id">Workspace ID</param>
