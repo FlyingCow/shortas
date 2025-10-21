@@ -1,5 +1,6 @@
 -- Materialized Views for ClickStream Analytics
 -- These views pre-aggregate data for faster analytics queries
+-- Updated to work with non-nullable schema using '_unknown' defaults
 
 -- 1. Hourly Click Aggregation
 -- Aggregates clicks by hour with geographic and device breakdown
@@ -22,7 +23,7 @@ AS SELECT
     sum(is_bot) AS bot_clicks,
     count() - sum(is_bot) AS human_clicks,
     uniqExact(ip) AS unique_ips,
-    uniqExact(session_first) AS unique_sessions
+    countIf(session_first != toDateTime('1970-01-01 00:00:00')) AS unique_sessions
 FROM click_stream
 GROUP BY
     owner_id,
@@ -52,8 +53,8 @@ AS SELECT
     sum(is_bot) AS bot_clicks,
     count() - sum(is_bot) AS human_clicks,
     uniqExact(ip) AS unique_ips,
-    uniqExact(session_first) AS unique_sessions,
-    avg(session_clicks) AS avg_session_clicks
+    countIf(session_first != toDateTime('1970-01-01 00:00:00')) AS unique_sessions,
+    avgIf(session_clicks, session_clicks > 0) AS avg_session_clicks
 FROM click_stream
 GROUP BY
     owner_id,
@@ -80,9 +81,9 @@ AS SELECT
     count() AS total_clicks,
     sum(is_unique) AS unique_clicks,
     uniqExact(ip) AS unique_ips,
-    uniqExact(session_first) AS unique_sessions
+    countIf(session_first != toDateTime('1970-01-01 00:00:00')) AS unique_sessions
 FROM click_stream
-WHERE country IS NOT NULL
+WHERE country != '_unknown'
 GROUP BY
     owner_id,
     creator_id,
@@ -114,7 +115,7 @@ AS SELECT
     sum(is_unique) AS unique_clicks,
     uniqExact(ip) AS unique_ips
 FROM click_stream
-WHERE device_family IS NOT NULL
+WHERE device_family != '_unknown'
 GROUP BY
     owner_id,
     creator_id,
@@ -145,7 +146,7 @@ AS SELECT
     sum(is_unique) AS unique_clicks,
     uniqExact(ip) AS unique_ips
 FROM click_stream
-WHERE user_agent_family IS NOT NULL
+WHERE user_agent_family != '_unknown'
 GROUP BY
     owner_id,
     creator_id,
@@ -173,10 +174,10 @@ AS SELECT
     sum(is_bot) AS bot_clicks,
     count() - sum(is_bot) AS human_clicks,
     uniqExact(ip) AS unique_ips,
-    uniqExact(country) AS countries_reached,
-    uniqExact(device_family) AS device_types,
-    avg(session_clicks) AS avg_session_clicks,
-    max(session_clicks) AS max_session_clicks
+    uniqExactIf(country, country != '_unknown') AS countries_reached,
+    uniqExactIf(device_family, device_family != '_unknown') AS device_types,
+    avgIf(session_clicks, session_clicks > 0) AS avg_session_clicks,
+    maxIf(session_clicks, session_clicks > 0) AS max_session_clicks
 FROM click_stream
 GROUP BY
     owner_id,
@@ -203,7 +204,7 @@ AS SELECT
     count() - sum(is_bot) AS human_clicks,
     uniqExact(route_id) AS routes_used,
     uniqExact(ip) AS unique_ips,
-    uniqExact(country) AS countries_reached
+    uniqExactIf(country, country != '_unknown') AS countries_reached
 FROM click_stream
 GROUP BY
     owner_id,
@@ -247,7 +248,7 @@ AS SELECT
     dest,
     count() AS total_clicks,
     sum(is_unique) AS unique_visitors,
-    uniqExact(country) AS countries
+    uniqExactIf(country, country != '_unknown') AS countries
 FROM click_stream
 GROUP BY
     owner_id,
@@ -272,7 +273,7 @@ AS SELECT
     is_bot,
     count() AS total_clicks,
     uniqExact(ip) AS unique_ips,
-    uniqExact(user_agent_family) AS user_agent_varieties
+    uniqExactIf(user_agent_family, user_agent_family != '_unknown') AS user_agent_varieties
 FROM click_stream
 GROUP BY
     owner_id,
@@ -294,12 +295,12 @@ AS SELECT
     route_id,
     workspace_id,
     toDate(created) AS date,
-    uniqState(session_first) AS unique_sessions,
-    avgState(session_clicks) AS avg_clicks_per_session,
-    maxState(session_clicks) AS max_clicks_per_session,
-    sumState(session_clicks) AS total_session_clicks
+    uniqStateIf(session_first, session_first != toDateTime('1970-01-01 00:00:00')) AS unique_sessions,
+    avgStateIf(session_clicks, session_clicks > 0) AS avg_clicks_per_session,
+    maxStateIf(session_clicks, session_clicks > 0) AS max_clicks_per_session,
+    sumStateIf(session_clicks, session_clicks > 0) AS total_session_clicks
 FROM click_stream
-WHERE session_first IS NOT NULL
+WHERE session_first != toDateTime('1970-01-01 00:00:00')
 GROUP BY
     owner_id,
     creator_id,

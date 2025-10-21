@@ -34,40 +34,40 @@ public class ClickAggregatorApiClickStreamDto
     public string Ip { get; set; } = string.Empty;
 
     [JsonPropertyName("continent")]
-    public string? Continent { get; set; }
+    public string Continent { get; set; } = ClickStreamDto.Unknown;
 
     [JsonPropertyName("country")]
-    public string? Country { get; set; }
+    public string Country { get; set; } = ClickStreamDto.Unknown;
 
     [JsonPropertyName("location")]
-    public string? Location { get; set; }
+    public string Location { get; set; } = ClickStreamDto.Unknown;
 
     [JsonPropertyName("os_family")]
-    public string? OsFamily { get; set; }
+    public string OsFamily { get; set; } = ClickStreamDto.Unknown;
 
     [JsonPropertyName("os_version")]
-    public string? OsVersion { get; set; }
+    public string OsVersion { get; set; } = ClickStreamDto.Unknown;
 
     [JsonPropertyName("user_agent_family")]
-    public string? UserAgentFamily { get; set; }
+    public string UserAgentFamily { get; set; } = ClickStreamDto.Unknown;
 
     [JsonPropertyName("user_agent_version")]
-    public string? UserAgentVersion { get; set; }
+    public string UserAgentVersion { get; set; } = ClickStreamDto.Unknown;
 
     [JsonPropertyName("device_brand")]
-    public string? DeviceBrand { get; set; }
+    public string DeviceBrand { get; set; } = ClickStreamDto.Unknown;
 
     [JsonPropertyName("device_family")]
-    public string? DeviceFamily { get; set; }
+    public string DeviceFamily { get; set; } = ClickStreamDto.Unknown;
 
     [JsonPropertyName("device_model")]
-    public string? DeviceModel { get; set; }
+    public string DeviceModel { get; set; } = ClickStreamDto.Unknown;
 
     [JsonPropertyName("session_first")]
-    public DateTime? SessionFirst { get; set; }
+    public DateTime SessionFirst { get; set; } = ClickStreamDto.EpochDateTime;
 
     [JsonPropertyName("session_clicks")]
-    public long? SessionClicks { get; set; }
+    public long SessionClicks { get; set; } = 0;
 
     [JsonPropertyName("is_unique")]
     public bool IsUnique { get; set; }

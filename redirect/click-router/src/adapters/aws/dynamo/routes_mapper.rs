@@ -186,7 +186,7 @@ pub fn to_entity(model: GetItemOutput) -> Result<Option<Route>> {
 
         let ttl = item
             .get("ttl")
-            .map_or(None, |d| Some(d.as_n().unwrap().parse::<u128>().unwrap()));
+            .map_or(None, |d| Some(d.as_n().unwrap().parse::<u64>().unwrap()));
 
         //properties
         let domain_id = item
@@ -234,18 +234,18 @@ pub fn to_entity(model: GetItemOutput) -> Result<Option<Route>> {
         let allow_debug = item.get("debug").map_or(false, |d| *d.as_bool().unwrap());
 
         let properties = RouteProperties {
-            creator_id: creator_id,
-            owner_id: owner_id,
-            domain_id: domain_id,
-            route_id: route_id,
-            workspace_id: workspace_id,
-            scripts: scripts,
-            tags: tags,
-            custom: custom,
-            native: native,
-            bundling: bundling,
-            opengraph: opengraph,
-            allow_debug: allow_debug
+            creator_id,
+            owner_id,
+            domain_id,
+            route_id,
+            workspace_id,
+            scripts,
+            tags,
+            custom,
+            native,
+            bundling,
+            opengraph,
+            allow_debug,
         };
 
         //policy

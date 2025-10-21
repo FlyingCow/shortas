@@ -69,6 +69,13 @@ pub struct ClickStreamResponseDto {
 
 impl From<ClickStreamItem> for ClickStreamItemDto {
     fn from(item: ClickStreamItem) -> Self {
+        use crate::model::clickstream::{UNKNOWN, epoch_datetime};
+
+        // Convert "_unknown" values to None for API responses
+        let to_option = |s: String| {
+            if s == UNKNOWN { None } else { Some(s) }
+        };
+
         Self {
             id: item.id,
             owner_id: item.owner_id,
@@ -78,18 +85,18 @@ impl From<ClickStreamItem> for ClickStreamItemDto {
             created: item.created,
             dest: item.dest,
             ip: item.ip,
-            continent: item.continent,
-            country: item.country,
-            location: item.location,
-            os_family: item.os_family,
-            os_version: item.os_version,
-            user_agent_family: item.user_agent_family,
-            user_agent_version: item.user_agent_version,
-            device_brand: item.device_brand,
-            device_family: item.device_family,
-            device_model: item.device_model,
-            session_first: item.session_first,
-            session_clicks: item.session_clicks,
+            continent: to_option(item.continent),
+            country: to_option(item.country),
+            location: to_option(item.location),
+            os_family: to_option(item.os_family),
+            os_version: to_option(item.os_version),
+            user_agent_family: to_option(item.user_agent_family),
+            user_agent_version: to_option(item.user_agent_version),
+            device_brand: to_option(item.device_brand),
+            device_family: to_option(item.device_family),
+            device_model: to_option(item.device_model),
+            session_first: if item.session_first == epoch_datetime() { None } else { Some(item.session_first) },
+            session_clicks: if item.session_clicks == 0 { None } else { Some(item.session_clicks) },
             is_unique: item.is_unique,
             is_bot: item.is_bot,
         }
@@ -98,6 +105,13 @@ impl From<ClickStreamItem> for ClickStreamItemDto {
 
 impl From<&ClickStreamItem> for ClickStreamItemDto {
     fn from(item: &ClickStreamItem) -> Self {
+        use crate::model::clickstream::{UNKNOWN, epoch_datetime};
+
+        // Convert "_unknown" values to None for API responses
+        let to_option = |s: &String| {
+            if s == UNKNOWN { None } else { Some(s.clone()) }
+        };
+
         Self {
             id: item.id.clone(),
             owner_id: item.owner_id.clone(),
@@ -107,18 +121,18 @@ impl From<&ClickStreamItem> for ClickStreamItemDto {
             created: item.created,
             dest: item.dest.clone(),
             ip: item.ip.clone(),
-            continent: item.continent.clone(),
-            country: item.country.clone(),
-            location: item.location.clone(),
-            os_family: item.os_family.clone(),
-            os_version: item.os_version.clone(),
-            user_agent_family: item.user_agent_family.clone(),
-            user_agent_version: item.user_agent_version.clone(),
-            device_brand: item.device_brand.clone(),
-            device_family: item.device_family.clone(),
-            device_model: item.device_model.clone(),
-            session_first: item.session_first,
-            session_clicks: item.session_clicks,
+            continent: to_option(&item.continent),
+            country: to_option(&item.country),
+            location: to_option(&item.location),
+            os_family: to_option(&item.os_family),
+            os_version: to_option(&item.os_version),
+            user_agent_family: to_option(&item.user_agent_family),
+            user_agent_version: to_option(&item.user_agent_version),
+            device_brand: to_option(&item.device_brand),
+            device_family: to_option(&item.device_family),
+            device_model: to_option(&item.device_model),
+            session_first: if item.session_first == epoch_datetime() { None } else { Some(item.session_first) },
+            session_clicks: if item.session_clicks == 0 { None } else { Some(item.session_clicks) },
             is_unique: item.is_unique,
             is_bot: item.is_bot,
         }

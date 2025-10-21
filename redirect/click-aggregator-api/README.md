@@ -289,23 +289,26 @@ database = "shortas"
        created DateTime,
        dest String,
        ip String,
-       continent Nullable(String),
-       country Nullable(String),
-       location Nullable(String),
-       os_family Nullable(String),
-       os_version Nullable(String),
-       user_agent_family Nullable(String),
-       user_agent_version Nullable(String),
-       device_brand Nullable(String),
-       device_family Nullable(String),
-       device_model Nullable(String),
-       session_first Nullable(DateTime),
-       session_clicks Nullable(UInt128),
+       -- Non-nullable fields with defaults
+       continent String DEFAULT '_unknown',
+       country String DEFAULT '_unknown',
+       location String DEFAULT '_unknown',
+       os_family String DEFAULT '_unknown',
+       os_version String DEFAULT '_unknown',
+       user_agent_family String DEFAULT '_unknown',
+       user_agent_version String DEFAULT '_unknown',
+       device_brand String DEFAULT '_unknown',
+       device_family String DEFAULT '_unknown',
+       device_model String DEFAULT '_unknown',
+       session_first DateTime DEFAULT toDateTime('1970-01-01 00:00:00'),
+       session_clicks UInt128 DEFAULT 0,
        is_unique UInt8,
        is_bot UInt8
    ) ENGINE = MergeTree()
    ORDER BY id;
    ```
+
+   **Note**: The schema uses `'_unknown'` for missing string data and epoch time (`1970-01-01`) for missing datetime values instead of NULLs. This improves query performance and simplifies analytics.
 
 ## 🔒 Security
 

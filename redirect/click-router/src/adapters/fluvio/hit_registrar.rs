@@ -18,7 +18,7 @@ impl FluvioHitRegistrar {
         // Use config builder to create a topic producer config
         let producer_config = TopicProducerConfigBuilder::default()
             .batch_size(settings.batch_size)
-            .linger(Duration::from_secs(settings.linger))
+            .linger(Duration::from_millis(settings.linger))
             .compression(Compression::Gzip)
             .build()
             .expect("Failed to create topic producer config");

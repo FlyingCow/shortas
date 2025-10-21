@@ -91,9 +91,7 @@ impl RoutesStore for MongodbRoutesStore {
         Ok(())
     }
 
-    async fn get_route(&self, switch: &str, domain: &str, path: &str) -> Result<Option<Route>> {
-        let link = format!("{}%2f{}", domain, path);
-
+    async fn get_route(&self, switch: &str, link: &str) -> Result<Option<Route>> {
         let filter = doc! { "switch": switch, "link": link};
 
         match self.collection.find_one(filter).await? {
@@ -117,7 +115,7 @@ impl RoutesStore for MongodbRoutesStore {
         }
     }
 
-    async fn invalidate_route(&self, _switch: &str, _domain: &str, _path: &str) -> Result<()> {
+    async fn invalidate_route(&self, _switch: &str, _link: &str) -> Result<()> {
         // MongoDB doesn't need explicit invalidation like DynamoDB
         Ok(())
     }

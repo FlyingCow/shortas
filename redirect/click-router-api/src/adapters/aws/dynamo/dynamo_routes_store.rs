@@ -66,11 +66,11 @@ impl RoutesStore for DynamoRoutesStore {
         todo!()
     }
 
-    async fn invalidate_route(&self, _switch: &str, _domain: &str, _path: &str) -> Result<()> {
+    async fn invalidate_route(&self, _switch: &str, link: &str) -> Result<()> {
         todo!()
     }
 
-    async fn get_route(&self, switch: &str, domain: &str, path: &str) -> Result<Option<Route>> {
+    async fn get_route(&self, switch: &str, link: &str) -> Result<Option<Route>> {
         /*
                 let expression = Condition {
                     ua: Some(UA::IN(vec![
@@ -117,7 +117,6 @@ impl RoutesStore for DynamoRoutesStore {
                     .await
                     .unwrap();
         */
-        let link = format!("{}%2f{}", domain, path);
 
         let item = self
             .client

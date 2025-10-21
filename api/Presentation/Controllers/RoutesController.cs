@@ -113,6 +113,7 @@ public class RoutesController : ControllerBase
             route.Properties = new Domain.Entities.RouteProperties();
         }
         route.Properties.OwnerId = userId;
+        route.Properties.CreatorId = userId;
 
         var result = await _routeService.CreateRouteAsync(route);
         

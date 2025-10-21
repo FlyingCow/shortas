@@ -7,35 +7,6 @@ clickhouse-client --host clickhouse --user default --password clickhouse <<EOF
 CREATE DATABASE IF NOT EXISTS shortas;
 USE shortas;
 
-CREATE TABLE IF NOT EXISTS click_stream
-                (
-                    id String,
-                    owner_id String,
-                    creator_id String,
-                    route_id String,
-                    workspace_id String,
-                    created DateTime64(3),
-                    dest String,
-                    ip String,
-                    continent Nullable(String),
-                    country Nullable(String),
-                    location Nullable(String),
-                    os_family Nullable(String),
-                    os_version Nullable(String),
-                    user_agent_family Nullable(String),
-                    user_agent_version Nullable(String),
-                    device_brand Nullable(String),
-                    device_family Nullable(String),
-                    device_model Nullable(String),
-                    session_first Nullable(DateTime64(3)),
-                    session_clicks Nullable(UInt128),
-                    is_unique Bool,
-                    is_bot Bool
-                )
-                ENGINE = MergeTree
-                ORDER BY id;
-EOF
-
 echo "# Creating mongo collection"
 mongosh "mongodb://root:example@mongo:27017/" <<EOF
 

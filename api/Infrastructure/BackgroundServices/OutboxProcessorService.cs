@@ -87,7 +87,7 @@ public class OutboxProcessorService : BackgroundService
             await outboxRepository.SaveChangesAsync();
 
             // Create HTTP client
-            var httpClient = httpClientFactory.CreateClient("OutboxClickRouterApi");
+            var httpClient = httpClientFactory.CreateClient("ClickRouterApi");
 
             // Process based on event type
             var success = await SendToClickRouterApiAsync(message, httpClient, cancellationToken);
@@ -136,62 +136,35 @@ public class OutboxProcessorService : BackgroundService
             switch (message.EventType)
             {
                 case OutboxEventType.RouteCreated:
-                    {
-                        var route = JsonSerializer.Deserialize<Domain.Entities.Route>(message.Payload, _jsonOptions);
-                        if (route != null)
-                        {
-                            var (switchParam, domain, path) = ExtractRouteIdentifiers(route);
-                            if (!string.IsNullOrEmpty(domain) && !string.IsNullOrEmpty(path))
-                            {
-                                var content = new StringContent(message.Payload, System.Text.Encoding.UTF8, "application/json");
-                                response = await httpClient.PostAsync($"/v1/routes/{switchParam}/{domain}/{path}", content, cancellationToken);
-                            }
-                        }
-                    }
+                    var content = new StringContent(message.Payload, System.Text.Encoding.UTF8, "application/json");
+                    response = await httpClient.PostAsync("/v1/routes", content, cancellationToken);
                     break;
 
                 case OutboxEventType.RouteUpdated:
+                    // Extract route from payload to get domain/path
+                    var route = JsonSerializer.Deserialize<Domain.Entities.Route>(message.Payload, _jsonOptions);
+                    if (route != null)
                     {
-                        var route = JsonSerializer.Deserialize<Domain.Entities.Route>(message.Payload, _jsonOptions);
-                        if (route != null)
+                        var updateContent = new StringContent(message.Payload, System.Text.Encoding.UTF8, "application/json");
+                        // We need to extract domain and path from the link
+                        var parts = route.Link.Split('/');
+                        if (parts.Length >= 2)
                         {
-                            var (switchParam, domain, path) = ExtractRouteIdentifiers(route);
-                            if (!string.IsNullOrEmpty(domain) && !string.IsNullOrEmpty(path))
-                            {
-                                var updateContent = new StringContent(message.Payload, System.Text.Encoding.UTF8, "application/json");
-                                response = await httpClient.PutAsync($"/v1/routes/{switchParam}/{domain}/{path}", updateContent, cancellationToken);
-                            }
+                            var domain = parts[0];
+                            var path = string.Join("/", parts.Skip(1));
+                            response = await httpClient.PutAsync($"/v1/routes/{domain}/{path}", updateContent, cancellationToken);
                         }
                     }
                     break;
 
                 case OutboxEventType.RouteDeleted:
+                    // Extract domain and path from payload
+                    var deleteData = JsonSerializer.Deserialize<dynamic>(message.Payload, _jsonOptions);
+                    if (deleteData != null)
                     {
-                        // The delete payload contains either {RouteId, Link} or {domain, path}
-                        using var doc = JsonDocument.Parse(message.Payload);
-                        var root = doc.RootElement;
-
-                        // Try to get Link first (from DeleteRouteByIdAsync)
-                        if (root.TryGetProperty("Link", out var linkProp) && linkProp.GetString() is string link)
-                        {
-                            var parts = link.Split('/', 2);
-                            if (parts.Length >= 2)
-                            {
-                                var domain = parts[0];
-                                var path = parts[1];
-                                var switchParam = "main"; // Default switch
-                                response = await httpClient.DeleteAsync($"/v1/routes/{switchParam}/{domain}/{path}", cancellationToken);
-                            }
-                        }
-                        // Fallback to domain/path (from DeleteRouteAsync)
-                        else if (root.TryGetProperty("Domain", out var domainProp) &&
-                                 root.TryGetProperty("Path", out var pathProp))
-                        {
-                            var domain = domainProp.GetString();
-                            var path = pathProp.GetString();
-                            var switchParam = "main"; // Default switch
-                            response = await httpClient.DeleteAsync($"/v1/routes/{switchParam}/{domain}/{path}", cancellationToken);
-                        }
+                        var domain = deleteData.GetProperty("domain").GetString();
+                        var path = deleteData.GetProperty("path").GetString();
+                        response = await httpClient.DeleteAsync($"/v1/routes/{domain}/{path}", cancellationToken);
                     }
                     break;
 
@@ -332,30 +305,5 @@ public class OutboxProcessorService : BackgroundService
         }
 
         await Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Extracts switch, domain, and path from a route object for API calls
-    /// </summary>
-    private (string switchParam, string domain, string path) ExtractRouteIdentifiers(Domain.Entities.Route route)
-    {
-        var switchParam = string.IsNullOrEmpty(route.Switch) ? "main" : route.Switch;
-
-        // The Link field contains "domain/path" or just "domain"
-        var parts = route.Link.Split('/', 2);
-
-        if (parts.Length >= 2)
-        {
-            return (switchParam, parts[0], parts[1]);
-        }
-        else if (parts.Length == 1)
-        {
-            // If there's no path, use the link as domain and "/" as path
-            return (switchParam, parts[0], "/");
-        }
-
-        // Fallback - this shouldn't happen with valid data
-        _logger.LogWarning("Unable to extract domain/path from route link: {Link}", route.Link);
-        return (switchParam, string.Empty, string.Empty);
     }
 }

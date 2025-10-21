@@ -160,7 +160,10 @@ impl ClickHouseClickStreamStore {
     }
 
     /// Convert ClickStreamRow to ClickStreamItem
+    /// Converts nullable database fields to non-nullable model fields with defaults
     fn row_to_item(row: ClickStreamRow) -> ClickStreamItem {
+        use crate::model::clickstream::{UNKNOWN, epoch_datetime};
+
         ClickStreamItem {
             id: row.id,
             owner_id: row.owner_id,
@@ -170,18 +173,21 @@ impl ClickHouseClickStreamStore {
             created: row.created,
             dest: row.dest,
             ip: row.ip,
-            continent: row.continent,
-            country: row.country,
-            location: row.location,
-            os_family: row.os_family,
-            os_version: row.os_version,
-            user_agent_family: row.user_agent_family,
-            user_agent_version: row.user_agent_version,
-            device_brand: row.device_brand,
-            device_family: row.device_family,
-            device_model: row.device_model,
-            session_first: row.session_first,
-            session_clicks: row.session_clicks,
+            // Convert None to "_unknown" for all string fields
+            continent: row.continent.unwrap_or_else(|| UNKNOWN.to_string()),
+            country: row.country.unwrap_or_else(|| UNKNOWN.to_string()),
+            location: row.location.unwrap_or_else(|| UNKNOWN.to_string()),
+            os_family: row.os_family.unwrap_or_else(|| UNKNOWN.to_string()),
+            os_version: row.os_version.unwrap_or_else(|| UNKNOWN.to_string()),
+            user_agent_family: row.user_agent_family.unwrap_or_else(|| UNKNOWN.to_string()),
+            user_agent_version: row.user_agent_version.unwrap_or_else(|| UNKNOWN.to_string()),
+            device_brand: row.device_brand.unwrap_or_else(|| UNKNOWN.to_string()),
+            device_family: row.device_family.unwrap_or_else(|| UNKNOWN.to_string()),
+            device_model: row.device_model.unwrap_or_else(|| UNKNOWN.to_string()),
+            // Convert None to epoch for DateTime
+            session_first: row.session_first.unwrap_or_else(epoch_datetime),
+            // Convert None to 0 for numeric fields
+            session_clicks: row.session_clicks.unwrap_or(0),
             is_unique: row.is_unique,
             is_bot: row.is_bot,
         }

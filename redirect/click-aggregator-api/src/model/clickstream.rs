@@ -2,8 +2,16 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use salvo::oapi::ToSchema;
 
+/// Default value for unknown/missing string fields
+pub const UNKNOWN: &str = "_unknown";
+
+/// Default epoch timestamp for unknown/missing datetime fields
+pub fn epoch_datetime() -> DateTime<Utc> {
+    DateTime::from_timestamp(0, 0).unwrap()
+}
+
 /// Represents a click stream item from the analytics database
-#[derive(Clone, Default, Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct ClickStreamItem {
     /// Unique identifier for the click stream item
     pub id: String,
@@ -21,34 +29,107 @@ pub struct ClickStreamItem {
     pub dest: String,
     /// IP address of the clicker
     pub ip: String,
-    /// Geographic continent (optional)
-    pub continent: Option<String>,
-    /// Geographic country (optional)
-    pub country: Option<String>,
-    /// Geographic location (optional)
-    pub location: Option<String>,
-    /// Operating system family (optional)
-    pub os_family: Option<String>,
-    /// Operating system version (optional)
-    pub os_version: Option<String>,
-    /// User agent family (optional)
-    pub user_agent_family: Option<String>,
-    /// User agent version (optional)
-    pub user_agent_version: Option<String>,
-    /// Device brand (optional)
-    pub device_brand: Option<String>,
-    /// Device family (optional)
-    pub device_family: Option<String>,
-    /// Device model (optional)
-    pub device_model: Option<String>,
-    /// First session timestamp (optional)
-    pub session_first: Option<DateTime<Utc>>,
-    /// Number of clicks in session (optional)
-    pub session_clicks: Option<u64>,
+    /// Geographic continent (defaults to "_unknown")
+    #[serde(default = "default_unknown")]
+    pub continent: String,
+    /// Geographic country (defaults to "_unknown")
+    #[serde(default = "default_unknown")]
+    pub country: String,
+    /// Geographic location (defaults to "_unknown")
+    #[serde(default = "default_unknown")]
+    pub location: String,
+    /// Operating system family (defaults to "_unknown")
+    #[serde(default = "default_unknown")]
+    pub os_family: String,
+    /// Operating system version (defaults to "_unknown")
+    #[serde(default = "default_unknown")]
+    pub os_version: String,
+    /// User agent family (defaults to "_unknown")
+    #[serde(default = "default_unknown")]
+    pub user_agent_family: String,
+    /// User agent version (defaults to "_unknown")
+    #[serde(default = "default_unknown")]
+    pub user_agent_version: String,
+    /// Device brand (defaults to "_unknown")
+    #[serde(default = "default_unknown")]
+    pub device_brand: String,
+    /// Device family (defaults to "_unknown")
+    #[serde(default = "default_unknown")]
+    pub device_family: String,
+    /// Device model (defaults to "_unknown")
+    #[serde(default = "default_unknown")]
+    pub device_model: String,
+    /// First session timestamp (defaults to epoch: 1970-01-01)
+    #[serde(default = "epoch_datetime")]
+    pub session_first: DateTime<Utc>,
+    /// Number of clicks in session (defaults to 0)
+    #[serde(default)]
+    pub session_clicks: u64,
     /// Whether this is a unique click
     pub is_unique: bool,
     /// Whether this click is from a bot
     pub is_bot: bool,
+}
+
+impl Default for ClickStreamItem {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            owner_id: String::new(),
+            creator_id: String::new(),
+            route_id: String::new(),
+            workspace_id: String::new(),
+            created: Utc::now(),
+            dest: String::new(),
+            ip: String::new(),
+            continent: UNKNOWN.to_string(),
+            country: UNKNOWN.to_string(),
+            location: UNKNOWN.to_string(),
+            os_family: UNKNOWN.to_string(),
+            os_version: UNKNOWN.to_string(),
+            user_agent_family: UNKNOWN.to_string(),
+            user_agent_version: UNKNOWN.to_string(),
+            device_brand: UNKNOWN.to_string(),
+            device_family: UNKNOWN.to_string(),
+            device_model: UNKNOWN.to_string(),
+            session_first: epoch_datetime(),
+            session_clicks: 0,
+            is_unique: false,
+            is_bot: false,
+        }
+    }
+}
+
+/// Helper function for serde default
+fn default_unknown() -> String {
+    UNKNOWN.to_string()
+}
+
+impl ClickStreamItem {
+    /// Check if a string field is unknown/missing
+    pub fn is_unknown(value: &str) -> bool {
+        value == UNKNOWN
+    }
+
+    /// Check if the session is unknown (epoch time)
+    pub fn has_session(&self) -> bool {
+        self.session_first != epoch_datetime()
+    }
+
+    /// Check if has valid geographic data
+    pub fn has_geo_data(&self) -> bool {
+        !Self::is_unknown(&self.country)
+    }
+
+    /// Check if has valid device data
+    pub fn has_device_data(&self) -> bool {
+        !Self::is_unknown(&self.device_family)
+    }
+
+    /// Check if has valid user agent data
+    pub fn has_user_agent_data(&self) -> bool {
+        !Self::is_unknown(&self.user_agent_family)
+    }
 }
 
 /// Query parameters for filtering click stream data

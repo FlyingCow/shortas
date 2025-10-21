@@ -8,8 +8,8 @@ pub trait RoutesStore: DynClone {
     async fn store_route(&self, route: &Route) -> Result<()>;
     async fn update_route(&self, route: &Route) -> Result<()>;
     async fn delete_route(&self, route: &Route) -> Result<()>;
-    async fn get_route(&self, switch: &str, domain: &str, path: &str) -> Result<Option<Route>>;
-    async fn invalidate_route(&self, switch: &str, domain: &str, path: &str) -> Result<()>;
+    async fn get_route(&self, switch: &str, link: &str) -> Result<Option<Route>>;
+    async fn invalidate_route(&self, switch: &str, link: &str) -> Result<()>;
 }
 
 clone_trait_object!(RoutesStore);

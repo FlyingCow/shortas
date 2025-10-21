@@ -59,28 +59,28 @@ public class ClickAggregatorApiService : IClickStreamService
             ["unique_clicks"] = clickStreams.Count(c => c.IsUnique),
             ["bot_clicks"] = clickStreams.Count(c => c.IsBot),
             ["countries"] = clickStreams
-                .Where(c => !string.IsNullOrEmpty(c.Country))
+                .Where(c => !ClickStreamDto.IsUnknown(c.Country))
                 .GroupBy(c => c.Country)
                 .Select(g => new { country = g.Key, count = g.Count() })
                 .OrderByDescending(x => x.count)
                 .Take(10)
                 .ToList(),
             ["devices"] = clickStreams
-                .Where(c => !string.IsNullOrEmpty(c.DeviceFamily))
+                .Where(c => !ClickStreamDto.IsUnknown(c.DeviceFamily))
                 .GroupBy(c => c.DeviceFamily)
                 .Select(g => new { device = g.Key, count = g.Count() })
                 .OrderByDescending(x => x.count)
                 .Take(10)
                 .ToList(),
             ["browsers"] = clickStreams
-                .Where(c => !string.IsNullOrEmpty(c.UserAgentFamily))
+                .Where(c => !ClickStreamDto.IsUnknown(c.UserAgentFamily))
                 .GroupBy(c => c.UserAgentFamily)
                 .Select(g => new { browser = g.Key, count = g.Count() })
                 .OrderByDescending(x => x.count)
                 .Take(10)
                 .ToList(),
             ["os"] = clickStreams
-                .Where(c => !string.IsNullOrEmpty(c.OsFamily))
+                .Where(c => !ClickStreamDto.IsUnknown(c.OsFamily))
                 .GroupBy(c => c.OsFamily)
                 .Select(g => new { os = g.Key, count = g.Count() })
                 .OrderByDescending(x => x.count)

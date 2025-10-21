@@ -11,7 +11,7 @@ public class UserSettings
     public bool Overflow { get; set; }
     public string SkipTrackingJson { get; set; } = "[]";
     public string AllowedRequestParamsJson { get; set; } = "[]";
-    public string AllowedDestinationParamsJson { get; set; } = "[]";
+    public string AllowedDestinationParamsJson { get; set; } = "[]";  
 
     public List<string> SkipTracking
     {
