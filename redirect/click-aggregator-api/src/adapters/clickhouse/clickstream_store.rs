@@ -1,9 +1,33 @@
 use async_trait::async_trait;
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use chrono::{DateTime, Utc};
 use crate::core::clickstream_store::ClickStreamStore;
 use crate::model::clickstream::{ClickStreamItem, ClickStreamQuery, ClickStreamResponse};
+
+/// Custom deserializer for ClickHouse UInt8 (0/1) to bool
+fn deserialize_uint8_as_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::Error;
+    
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum BoolOrInt {
+        Bool(bool),
+        Int(u8),
+    }
+    
+    match BoolOrInt::deserialize(deserializer)? {
+        BoolOrInt::Bool(b) => Ok(b),
+        BoolOrInt::Int(i) => match i {
+            0 => Ok(false),
+            1 => Ok(true),
+            _ => Err(Error::custom(format!("Invalid boolean value: {}", i))),
+        },
+    }
+}
 
 /// ClickHouse row structure for click stream data (JSON deserialization)
 #[derive(Debug, Serialize, Deserialize)]
@@ -30,7 +54,9 @@ struct ClickStreamRow {
     #[serde(default, with = "clickhouse_datetime_format_opt")]
     session_first: Option<DateTime<Utc>>,
     session_clicks: Option<u64>,
+    #[serde(deserialize_with = "deserialize_uint8_as_bool")]
     is_unique: bool,
+    #[serde(deserialize_with = "deserialize_uint8_as_bool")]
     is_bot: bool,
 }
 
@@ -39,13 +65,11 @@ mod clickhouse_datetime_format {
     use chrono::{DateTime, NaiveDateTime, Utc};
     use serde::{self, Deserialize, Deserializer, Serializer};
 
-    const FORMAT: &str = "%Y-%m-%d %H:%M:%S%.3f";
-
     pub fn serialize<S>(date: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let s = format!("{}", date.format(FORMAT));
+        let s = format!("{}", date.format("%Y-%m-%d %H:%M:%S%.3f"));
         serializer.serialize_str(&s)
     }
 
@@ -54,9 +78,23 @@ mod clickhouse_datetime_format {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        NaiveDateTime::parse_from_str(&s, FORMAT)
-            .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
-            .map_err(serde::de::Error::custom)
+        
+        // Try parsing with milliseconds first (DateTime64(3))
+        if let Ok(dt) = NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S%.3f") {
+            return Ok(DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc));
+        }
+        
+        // Try parsing with full fractional seconds (%.f)
+        if let Ok(dt) = NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S%.f") {
+            return Ok(DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc));
+        }
+        
+        // Fallback to DateTime without fractional seconds
+        if let Ok(dt) = NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S") {
+            return Ok(DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc));
+        }
+        
+        Err(serde::de::Error::custom(format!("Failed to parse datetime: {}", s)))
     }
 }
 
@@ -65,15 +103,13 @@ mod clickhouse_datetime_format_opt {
     use chrono::{DateTime, NaiveDateTime, Utc};
     use serde::{self, Deserialize, Deserializer, Serializer};
 
-    const FORMAT: &str = "%Y-%m-%d %H:%M:%S%.3f";
-
     pub fn serialize<S>(date: &Option<DateTime<Utc>>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         match date {
             Some(dt) => {
-                let s = format!("{}", dt.format(FORMAT));
+                let s = format!("{}", dt.format("%Y-%m-%d %H:%M:%S%.3f"));
                 serializer.serialize_some(&s)
             }
             None => serializer.serialize_none(),
@@ -87,9 +123,22 @@ mod clickhouse_datetime_format_opt {
         let s: Option<String> = Option::deserialize(deserializer)?;
         match s {
             Some(s) if !s.is_empty() => {
-                NaiveDateTime::parse_from_str(&s, FORMAT)
-                    .map(|dt| Some(DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc)))
-                    .map_err(serde::de::Error::custom)
+                // Try parsing with milliseconds first (DateTime64(3))
+                if let Ok(dt) = NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S%.3f") {
+                    return Ok(Some(DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc)));
+                }
+                
+                // Try parsing with full fractional seconds (%.f)
+                if let Ok(dt) = NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S%.f") {
+                    return Ok(Some(DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc)));
+                }
+                
+                // Fallback to DateTime without fractional seconds
+                if let Ok(dt) = NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S") {
+                    return Ok(Some(DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc)));
+                }
+                
+                Err(serde::de::Error::custom(format!("Failed to parse datetime: {}", s)))
             }
             _ => Ok(None),
         }
@@ -222,11 +271,38 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
             .await?;
 
         let text = response.text().await?;
+        
+        // Debug logging
+        let line_count = text.lines().count();
+        eprintln!("[DEBUG] ClickHouse returned {} lines", line_count);
+        if line_count > 0 && line_count <= 3 {
+            eprintln!("[DEBUG] First line sample: {}", text.lines().next().unwrap_or(""));
+        }
+        
+        let mut parse_errors = 0;
         let items: Vec<ClickStreamItem> = text
             .lines()
-            .filter_map(|line| serde_json::from_str::<ClickStreamRow>(line).ok())
+            .filter_map(|line| {
+                match serde_json::from_str::<ClickStreamRow>(line) {
+                    Ok(row) => Some(row),
+                    Err(e) => {
+                        if parse_errors < 3 {
+                            eprintln!("[ERROR] Failed to parse ClickStream row: {}", e);
+                            eprintln!("[ERROR] Line content: {}", line);
+                        }
+                        parse_errors += 1;
+                        None
+                    }
+                }
+            })
             .map(Self::row_to_item)
             .collect();
+        
+        if parse_errors > 0 {
+            eprintln!("[WARN] Total parse errors: {}", parse_errors);
+        }
+        
+        eprintln!("[DEBUG] Successfully parsed {} items", items.len());
 
         let total = self.count_clickstream(query).await?;
         let has_more = (offset + limit as u32) < total as u32;

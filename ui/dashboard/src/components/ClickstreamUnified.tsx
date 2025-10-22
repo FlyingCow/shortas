@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Activity,
   Globe,
@@ -54,33 +54,35 @@ const Clickstream: React.FC = () => {
     botClicks: 0
   });
   const [dateRange, setDateRange] = useState('24h');
-  
+
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
 
   // Map API response to component interface
   const mapToClickEvent = (apiEvent: ClickStreamEvent): ClickEvent => {
     // Parse city from location (e.g., "New York, NY" -> "New York")
-    const city = apiEvent.location.split(',')[0] || apiEvent.location;
+    // Handle null/undefined location gracefully
+    const city = apiEvent.location
+      ? (apiEvent.location.split(',')[0] || apiEvent.location)
+      : 'Unknown';
 
     return {
       id: apiEvent.id,
       timestamp: apiEvent.created,
-      url: apiEvent.dest,
-      routeId: apiEvent.routeId,
-      country: apiEvent.country,
+      url: apiEvent.dest || '',
+      routeId: apiEvent.routeId || '',
+      country: apiEvent.country || 'Unknown',
       city: city,
-      device: apiEvent.deviceFamily,
-      browser: apiEvent.userAgentFamily,
-      os: `${apiEvent.osFamily} ${apiEvent.osVersion}`,
-      ip: apiEvent.ip,
+      device: apiEvent.deviceFamily || 'Unknown',
+      browser: apiEvent.userAgentFamily || 'Unknown',
+      os: `${apiEvent.osFamily || 'Unknown'} ${apiEvent.osVersion || ''}`.trim(),
+      ip: apiEvent.ip || 'Unknown',
       userType: apiEvent.isUnique ? 'new' : 'returning',
       isBot: apiEvent.isBot
     };
   };
 
   // Calculate date range
-  const getDateRange = () => {
+  const getDateRange = useCallback(() => {
     const endDate = new Date();
     const startDate = new Date();
 
@@ -103,10 +105,10 @@ const Clickstream: React.FC = () => {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString()
     };
-  };
+  }, [dateRange]);
 
   // Fetch initial data
-  const fetchInitialData = async () => {
+  const fetchInitialData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -139,10 +141,10 @@ const Clickstream: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.routeId, getDateRange]);
 
   // Refresh data periodically when live
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     if (!isLive) return;
 
     try {
@@ -168,10 +170,10 @@ const Clickstream: React.FC = () => {
     } catch (err) {
       console.error('Error refreshing clickstream data:', err);
     }
-  };
+  }, [isLive, filters.routeId, getDateRange]);
 
   // Apply filters
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = events;
 
     if (filters.device !== 'all') {
@@ -196,10 +198,10 @@ const Clickstream: React.FC = () => {
     }
 
     setFilteredEvents(filtered);
-  };
+  }, [events, filters]);
 
   // Start live updates
-  const startLiveUpdates = () => {
+  const startLiveUpdates = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
@@ -210,7 +212,7 @@ const Clickstream: React.FC = () => {
         refreshData();
       }
     }, 5000);
-  };
+  }, [isLive, refreshData]);
 
   // Stop live updates
   const stopLiveUpdates = () => {
@@ -265,12 +267,12 @@ const Clickstream: React.FC = () => {
     return () => {
       stopLiveUpdates();
     };
-  }, [dateRange, filters.routeId]);
+  }, [fetchInitialData]);
 
   // Apply filters when filters change
   useEffect(() => {
     applyFilters();
-  }, [filters, events]);
+  }, [applyFilters]);
 
   // Start/stop live updates
   useEffect(() => {
@@ -281,7 +283,7 @@ const Clickstream: React.FC = () => {
     }
 
     return () => stopLiveUpdates();
-  }, [isLive]);
+  }, [isLive, startLiveUpdates]);
 
   if (loading) {
     return (

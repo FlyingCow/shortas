@@ -146,18 +146,23 @@ public class UserController : ControllerBase
             var domainsResult = await _domainService.ListDomainsAsync(userId, page: 1, pageSize: 1);
             var hasDomains = domainsResult.IsSuccess && domainsResult.Value.Domains.Any();
 
-            // User needs initialization if they have no workspaces OR no domains
-            var needsInitialization = !hasWorkspaces || !hasDomains;
+            // Check if user has user settings
+            var userSettingsResult = await _userSettingsService.GetUserSettingsAsync(userId);
+            var hasUserSettings = userSettingsResult.IsSuccess && userSettingsResult.Value != null;
+
+            // User needs initialization if they have no workspaces OR no domains OR no user settings
+            var needsInitialization = !hasWorkspaces || !hasDomains || !hasUserSettings;
 
             _logger.LogInformation(
-                "User {UserId} initialization status: NeedsInitialization={NeedsInitialization}, HasWorkspaces={HasWorkspaces}, HasDomains={HasDomains}",
-                userId, needsInitialization, hasWorkspaces, hasDomains);
+                "User {UserId} initialization status: NeedsInitialization={NeedsInitialization}, HasWorkspaces={HasWorkspaces}, HasDomains={HasDomains}, HasUserSettings={HasUserSettings}",
+                userId, needsInitialization, hasWorkspaces, hasDomains, hasUserSettings);
 
             return Ok(new InitializationStatusResponse
             {
                 NeedsInitialization = needsInitialization,
                 HasWorkspaces = hasWorkspaces,
-                HasDomains = hasDomains
+                HasDomains = hasDomains,
+                HasUserSettings = hasUserSettings
             });
         }
         catch (Exception ex)
@@ -168,7 +173,8 @@ public class UserController : ControllerBase
             {
                 NeedsInitialization = true,
                 HasWorkspaces = false,
-                HasDomains = false
+                HasDomains = false,
+                HasUserSettings = false
             });
         }
     }
@@ -232,5 +238,6 @@ public class InitializationStatusResponse
     public bool NeedsInitialization { get; set; }
     public bool HasWorkspaces { get; set; }
     public bool HasDomains { get; set; }
+    public bool HasUserSettings { get; set; }
 }
 

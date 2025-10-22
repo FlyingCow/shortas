@@ -81,16 +81,12 @@ const App: React.FC = () => {
         try {
           console.log('Checking if user needs initialization...');
 
-          // Check if user has any workspaces
-          const workspaces = await apiService.workspaces.list();
+          // Check initialization status using the dedicated endpoint
+          const initStatus = await apiService.user.getInitializationStatus();
 
-          // Check if user has any domains
-          const domains = await apiService.domains.list({ page: 1, pageSize: 1 });
-
-          const needsSetup = workspaces.length === 0 || domains.data.length === 0;
-
-          if (needsSetup) {
+          if (initStatus.needsInitialization) {
             console.log('User needs initialization - redirecting to setup wizard');
+            console.log(`Has workspaces: ${initStatus.hasWorkspaces}, Has domains: ${initStatus.hasDomains}, Has user settings: ${initStatus.hasUserSettings}`);
           } else {
             console.log('User already initialized');
           }
@@ -100,7 +96,7 @@ const App: React.FC = () => {
             authenticated: true,
             loading: false,
             error: null,
-            needsInitialization: needsSetup,
+            needsInitialization: initStatus.needsInitialization,
             checkingInitialization: false,
           });
         } catch (error) {

@@ -202,16 +202,16 @@ export interface ClickStreamEvent {
   created: string;
   dest: string;
   ip: string;
-  continent: string;
-  country: string;
-  location: string;
-  osFamily: string;
-  osVersion: string;
-  userAgentFamily: string;
-  userAgentVersion: string;
-  deviceBrand: string;
-  deviceFamily: string;
-  deviceModel: string;
+  continent: string | null;
+  country: string | null;
+  location: string | null;
+  osFamily: string | null;
+  osVersion: string | null;
+  userAgentFamily: string | null;
+  userAgentVersion: string | null;
+  deviceBrand: string | null;
+  deviceFamily: string | null;
+  deviceModel: string | null;
   sessionFirst: string;
   sessionClicks: number;
   isUnique: boolean;
@@ -297,6 +297,13 @@ export interface InitializationResponse {
   workspace: WorkspaceDto | null;
   userSettings: any | null;
   message: string;
+}
+
+export interface InitializationStatusResponse {
+  needsInitialization: boolean;
+  hasWorkspaces: boolean;
+  hasDomains: boolean;
+  hasUserSettings: boolean;
 }
 
 // Helper function to simulate API delay
@@ -561,6 +568,20 @@ export const apiService = {
         };
       }
       const response = await routerApi.post('/user/initialize');
+      return response.data;
+    },
+
+    getInitializationStatus: async (): Promise<InitializationStatusResponse> => {
+      if (useMockData) {
+        await delay(300);
+        return {
+          needsInitialization: false,
+          hasWorkspaces: true,
+          hasDomains: true,
+          hasUserSettings: true,
+        };
+      }
+      const response = await routerApi.get('/user/initialization-status');
       return response.data;
     },
   },
