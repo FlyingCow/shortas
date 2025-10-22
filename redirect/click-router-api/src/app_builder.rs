@@ -37,7 +37,8 @@ impl Api {
     }
 
     async fn start_server(self) -> Result<()> {
-        let _port = self.settings.port.unwrap_or(8080);
+        let port = self.settings.port.unwrap_or(8080);
+        info!("Starting server on port {}", port);
 
         let router = adapters::api::api_routes::routes();
 
@@ -81,7 +82,9 @@ impl Api {
             .unshift(doc.into_router("/api-doc/openapi.json"))
             .unshift(SwaggerUi::new("/api-doc/openapi.json").into_router("/swagger-ui"));
 
-        let acceptor = TcpListener::new("0.0.0.0:5810").bind().await;
+        let bind_address = format!("0.0.0.0:{}", port);
+        info!("Binding to {}", bind_address);
+        let acceptor = TcpListener::new(bind_address).bind().await;
 
         Server::new(acceptor).serve(router).await;
 

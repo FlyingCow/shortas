@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import keycloak, { keycloakInitOptions, initializeKeycloak, keycloakLoginOptions } from './config/keycloak';
 import { useMockData } from './config/development';
+import { apiService } from './services/api';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Dashboard from './components/DashboardUnified';
 import RoutesPage from './components/RoutesWithSidebar';
@@ -64,6 +65,16 @@ const App: React.FC = () => {
               console.error('Failed to refresh token');
             });
           }, 60000); // Refresh every minute
+
+          // Initialize user (create default workspace and settings if needed)
+          try {
+            console.log('Initializing user account...');
+            const initResponse = await apiService.user.initialize();
+            console.log('User initialization completed:', initResponse.message);
+          } catch (error) {
+            // Don't block the app if initialization fails
+            console.error('User initialization failed (non-critical):', error);
+          }
         }
       } catch (error) {
         console.error('Keycloak initialization failed:', error);

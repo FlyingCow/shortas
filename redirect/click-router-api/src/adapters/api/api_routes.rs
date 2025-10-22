@@ -1,9 +1,30 @@
 use salvo::oapi::endpoint;
 use salvo::prelude::*;
+use tracing::info;
 
 use crate::adapters::api::routes::{
     crypto_controller, routes_controller, user_settings_controller,
 };
+
+// Simple request logging middleware
+#[handler]
+async fn request_logger(req: &mut Request, depot: &mut Depot, res: &mut Response, ctrl: &mut FlowCtrl) {
+    let method = req.method().clone();
+    let path = req.uri().path().to_string();
+    let query = req.uri().query().unwrap_or("");
+
+    if !query.is_empty() {
+        info!("📨 Incoming request: {} {}?{}", method, path, query);
+    } else {
+        info!("📨 Incoming request: {} {}", method, path);
+    }
+
+    ctrl.call_next(req, depot, res).await;
+
+    if let Some(status) = res.status_code {
+        info!("📤 Response status: {}", status);
+    }
+}
 
 pub fn routes() -> Router {
     // Public routes (no authentication required)
@@ -22,8 +43,11 @@ pub fn routes() -> Router {
         .push(crypto_controller::api_routes())
         .push(user_settings_controller::api_routes());
 
-    // Combine all routes
-    Router::new().push(public_routes).push(protected_routes)
+    // Combine all routes with logging
+    Router::new()
+        .hoop(request_logger)  // Log all requests
+        .push(public_routes)
+        .push(protected_routes)
 }
 
 /// Health check endpoint

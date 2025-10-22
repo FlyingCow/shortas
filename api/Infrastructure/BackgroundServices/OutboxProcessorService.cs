@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using ShortasProxyApi.Domain.Entities;
 using ShortasProxyApi.Domain.Interfaces;
 
@@ -219,19 +220,25 @@ public class OutboxProcessorService : BackgroundService
                     break;
 
                 case OutboxEventType.UserSettingsCreated:
-                    var settingsCreateContent = new StringContent(message.Payload, System.Text.Encoding.UTF8, "application/json");
                     var userSettings = JsonSerializer.Deserialize<Domain.Entities.UserSettings>(message.Payload, _jsonOptions);
                     if (userSettings != null)
                     {
+                        // Convert to Rust API format with snake_case JSON properties
+                        var rustDto = RustApiUserSettingsDto.FromUserSettings(userSettings);
+                        var rustJson = JsonSerializer.Serialize(rustDto, _jsonOptions);
+                        var settingsCreateContent = new StringContent(rustJson, System.Text.Encoding.UTF8, "application/json");
                         response = await httpClient.PostAsync($"/v1/user-settings/{userSettings.Email}", settingsCreateContent, cancellationToken);
                     }
                     break;
 
                 case OutboxEventType.UserSettingsUpdated:
-                    var settingsUpdateContent = new StringContent(message.Payload, System.Text.Encoding.UTF8, "application/json");
                     var updatedSettings = JsonSerializer.Deserialize<Domain.Entities.UserSettings>(message.Payload, _jsonOptions);
                     if (updatedSettings != null)
                     {
+                        // Convert to Rust API format with snake_case JSON properties
+                        var rustDtoUpdate = RustApiUserSettingsDto.FromUserSettings(updatedSettings);
+                        var rustJsonUpdate = JsonSerializer.Serialize(rustDtoUpdate, _jsonOptions);
+                        var settingsUpdateContent = new StringContent(rustJsonUpdate, System.Text.Encoding.UTF8, "application/json");
                         response = await httpClient.PutAsync($"/v1/user-settings/{updatedSettings.Email}", settingsUpdateContent, cancellationToken);
                     }
                     break;
@@ -305,5 +312,46 @@ public class OutboxProcessorService : BackgroundService
         }
 
         await Task.CompletedTask;
+    }
+}
+
+/// <summary>
+/// DTO for sending user settings to Rust API with snake_case JSON properties
+/// </summary>
+internal class RustApiUserSettingsDto
+{
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
+
+    [JsonPropertyName("debug")]
+    public bool Debug { get; set; }
+
+    [JsonPropertyName("overflow")]
+    public bool Overflow { get; set; }
+
+    [JsonPropertyName("skip_tracking")]
+    public List<string> SkipTracking { get; set; } = new();
+
+    [JsonPropertyName("allowed_request_params")]
+    public List<string> AllowedRequestParams { get; set; } = new();
+
+    [JsonPropertyName("allowed_destination_params")]
+    public List<string> AllowedDestinationParams { get; set; } = new();
+
+    public static RustApiUserSettingsDto FromUserSettings(UserSettings settings)
+    {
+        return new RustApiUserSettingsDto
+        {
+            Email = settings.Email,
+            Status = settings.Status,
+            Debug = settings.Debug,
+            Overflow = settings.Overflow,
+            SkipTracking = settings.SkipTracking,
+            AllowedRequestParams = settings.AllowedRequestParams,
+            AllowedDestinationParams = settings.AllowedDestinationParams
+        };
     }
 }

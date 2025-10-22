@@ -25,6 +25,25 @@ public static class ControllerExtensions
 
         return userId;
     }
+    
+    /// <summary>
+    /// Gets the current user's ID from JWT claims
+    /// </summary>
+    /// <param name="controller">The controller instance</param>
+    /// <returns>User ID from JWT token claims</returns>
+    public static string GetUserEmail(this ControllerBase controller)
+    {
+        // Try standard JWT claim types first
+        var userEmail = controller.User.FindFirst(ClaimTypes.Email)?.Value
+                     ?? controller.User.FindFirst("email")?.Value;  // Fallback to email
+
+        if (string.IsNullOrWhiteSpace(userEmail))
+        {
+            throw new UnauthorizedAccessException("User Email not found in token claims");
+        }
+
+        return userEmail;
+    }
 
     /// <summary>
     /// Tries to get the current user's ID from JWT claims

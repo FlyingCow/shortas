@@ -426,6 +426,14 @@ public class ClickRouterApiClient
         try
         {
             var response = await _httpClient.GetAsync($"/v1/user-settings/{userId}");
+
+            // Special case: 404 means user settings don't exist yet, which is a valid state
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _logger.LogInformation("User settings not found for user {UserId} - this is expected for new users", userId);
+                return Result<UserSettingsDto?>.Success(null);
+            }
+
             return await HandleResponse<UserSettingsDto, ClickRouterUserSettingsDto>(response);
         }
         catch (Exception ex)

@@ -293,6 +293,12 @@ export interface UpdateWorkspaceDto {
   description?: string;
 }
 
+export interface InitializationResponse {
+  workspace: WorkspaceDto | null;
+  userSettings: any | null;
+  message: string;
+}
+
 // Helper function to simulate API delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -532,6 +538,30 @@ export const apiService = {
 
     updateMemberRole: async (id: string, userId: string, role: string): Promise<void> => {
       await routerApi.put(`/workspaces/${id}/members/${userId}`, { role });
+    },
+  },
+
+  // User initialization
+  user: {
+    initialize: async (): Promise<InitializationResponse> => {
+      if (useMockData) {
+        await delay(500);
+        return {
+          workspace: {
+            id: '00000000-0000-0000-0000-000000000000',
+            name: 'My Workspace',
+            description: 'Default workspace for organizing your routes',
+            type: 'User',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            userRole: 'Owner',
+          },
+          userSettings: mockUserSettings,
+          message: 'User initialization completed successfully',
+        };
+      }
+      const response = await routerApi.post('/user/initialize');
+      return response.data;
     },
   },
 };

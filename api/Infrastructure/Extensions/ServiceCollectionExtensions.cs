@@ -112,7 +112,8 @@ public static class ServiceCollectionExtensions
     {
         return HttpPolicyExtensions
             .HandleTransientHttpError()
-            .OrResult(msg => !msg.IsSuccessStatusCode)
+            // Don't retry on 404 Not Found - it's not a transient error and our app handles it
+            .OrResult(msg => !msg.IsSuccessStatusCode && msg.StatusCode != System.Net.HttpStatusCode.NotFound)
             .WaitAndRetryAsync(
                 retryCount: 3,
                 sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)) + TimeSpan.FromMilliseconds(new Random().Next(0, 1000)),
@@ -126,7 +127,8 @@ public static class ServiceCollectionExtensions
     {
         return HttpPolicyExtensions
             .HandleTransientHttpError()
-            .OrResult(msg => !msg.IsSuccessStatusCode)
+            // Don't break circuit on 404 Not Found - it doesn't indicate service degradation
+            .OrResult(msg => !msg.IsSuccessStatusCode && msg.StatusCode != System.Net.HttpStatusCode.NotFound)
             .CircuitBreakerAsync(
                 handledEventsAllowedBeforeBreaking: 3,
                 durationOfBreak: TimeSpan.FromSeconds(30),

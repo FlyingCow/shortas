@@ -101,7 +101,10 @@ pub async fn get_user_settings(req: &mut Request, depot: &mut Depot, res: &mut R
 pub async fn create_user_settings(req: &mut Request, depot: &mut Depot, res: &mut Response) {
     let user_id = req.param::<String>("user_id").unwrap_or_default();
 
+    tracing::info!("🔧 create_user_settings called for user_id: {}", user_id);
+
     if user_id.is_empty() {
+        tracing::warn!("⚠️ Missing user_id in request");
         let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
             ValidationError::MissingField("user_id".to_string()),
         ));
@@ -111,10 +114,15 @@ pub async fn create_user_settings(req: &mut Request, depot: &mut Depot, res: &mu
     }
 
     // Parse the request body
+    tracing::debug!("📝 Parsing request body...");
     let keycert_dto: Result<UserSettingsDto, _> = req.parse_json().await;
     let keycert_dto = match keycert_dto {
-        Ok(dto) => dto,
+        Ok(dto) => {
+            tracing::info!("✅ Successfully parsed user settings DTO");
+            dto
+        },
         Err(e) => {
+            tracing::error!("❌ Failed to parse JSON: {}", e);
             let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
                 ValidationError::InvalidInput {
                     field: "body".to_string(),
@@ -128,7 +136,9 @@ pub async fn create_user_settings(req: &mut Request, depot: &mut Depot, res: &mu
     };
 
     // Validate the user settings data
+    tracing::debug!("🔍 Validating user settings...");
     if !keycert_dto.is_valid() {
+        tracing::warn!("⚠️ User settings validation failed");
         let error_response =
             ErrorPresenter::from_api_error(&ApiError::Validation(ValidationError::InvalidInput {
                 field: "user_settings".to_string(),
@@ -139,6 +149,7 @@ pub async fn create_user_settings(req: &mut Request, depot: &mut Depot, res: &mu
         return;
     }
 
+    tracing::debug!("🔄 Converting DTO to internal model...");
     // Convert DTO to internal model
     let user_settings: UserSettings = keycert_dto.into();
     let user_settings = UserSettings::new(
@@ -157,12 +168,14 @@ pub async fn create_user_settings(req: &mut Request, depot: &mut Depot, res: &mu
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // Store the user settings
+    tracing::info!("💾 Storing user settings for user_id: {}", user_id);
     match app_state
         .user_settings_store
         .store_user_settings(&user_settings)
         .await
     {
         Ok(_) => {
+            tracing::info!("✅ User settings created successfully for user_id: {}", user_id);
             res.status_code(StatusCode::CREATED);
             res.render(Json(serde_json::json!({
                 "message": "User settings created successfully",
@@ -170,6 +183,7 @@ pub async fn create_user_settings(req: &mut Request, depot: &mut Depot, res: &mu
             })));
         }
         Err(e) => {
+            tracing::error!("❌ Failed to store user settings: {:?}", e);
             let error_response = ErrorPresenter::map_error(e);
             res.status_code(error_response.status_code);
             res.render(error_response);

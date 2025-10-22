@@ -34,6 +34,8 @@ public class UserController : ControllerBase
     public async Task<ActionResult<InitializationResponse>> Initialize()
     {
         var userId = this.GetUserId();
+        var email = this.GetUserEmail();
+        
         _logger.LogInformation("Initializing user {UserId}", userId);
 
         WorkspaceDto? workspaceDto = null;
@@ -80,7 +82,7 @@ public class UserController : ControllerBase
             // Create default user settings
             var defaultSettings = new UserSettings
             {
-                Email = userId,
+                Email = email,
                 Status = "Active",
                 Debug = false,
                 Overflow = false,

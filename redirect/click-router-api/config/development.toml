@@ -1,5 +1,8 @@
 debug = true
 
+[server]
+port = 5810
+
 [aws]
 local = true
 localstack_endpoint = "http://localhost:4566"

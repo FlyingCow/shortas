@@ -185,12 +185,25 @@ public class ClickRouterCertificateDto
 /// </summary>
 public class ClickRouterUserSettingsDto
 {
+    [System.Text.Json.Serialization.JsonPropertyName("email")]
     public string Email { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("status")]
     public string Status { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("debug")]
     public bool Debug { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("overflow")]
     public bool Overflow { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("skip_tracking")]
     public List<string> SkipTracking { get; set; } = new();
+
+    [System.Text.Json.Serialization.JsonPropertyName("allowed_request_params")]
     public List<string> AllowedRequestParams { get; set; } = new();
+
+    [System.Text.Json.Serialization.JsonPropertyName("allowed_destination_params")]
     public List<string> AllowedDestinationParams { get; set; } = new();
 
     /// <summary>
