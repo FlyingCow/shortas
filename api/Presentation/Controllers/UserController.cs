@@ -13,15 +13,18 @@ namespace ShortasProxyApi.Presentation.Controllers;
 public class UserController : ControllerBase
 {
     private readonly IWorkspaceService _workspaceService;
+    private readonly IDomainService _domainService;
     private readonly IUserSettingsService _userSettingsService;
     private readonly ILogger<UserController> _logger;
 
     public UserController(
-        IWorkspaceService workspaceService, 
+        IWorkspaceService workspaceService,
+        IDomainService domainService,
         IUserSettingsService userSettingsService,
         ILogger<UserController> logger)
     {
         _workspaceService = workspaceService;
+        _domainService = domainService;
         _userSettingsService = userSettingsService;
         _logger = logger;
     }
@@ -52,11 +55,12 @@ public class UserController : ControllerBase
         }
         else
         {
-            // Create default workspace
+            // Create default workspace as System type
             var workspaceResult = await _workspaceService.CreateWorkspaceAsync(
                 "My Workspace",
                 "Default workspace for organizing your routes",
-                userId
+                userId,
+                "System"
             );
 
             if (workspaceResult.IsFailure)
@@ -121,6 +125,54 @@ public class UserController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Check if user needs to go through initialization
+    /// </summary>
+    /// <returns>Initialization status indicating if user needs setup</returns>
+    [HttpGet("initialization-status")]
+    public async Task<ActionResult<InitializationStatusResponse>> GetInitializationStatus()
+    {
+        var userId = this.GetUserId();
+
+        _logger.LogInformation("Checking initialization status for user {UserId}", userId);
+
+        try
+        {
+            // Check if user has any workspaces
+            var workspacesResult = await _workspaceService.ListUserWorkspacesAsync(userId);
+            var hasWorkspaces = workspacesResult.IsSuccess && workspacesResult.Value.Any();
+
+            // Check if user has any domains
+            var domainsResult = await _domainService.ListDomainsAsync(userId, page: 1, pageSize: 1);
+            var hasDomains = domainsResult.IsSuccess && domainsResult.Value.Domains.Any();
+
+            // User needs initialization if they have no workspaces OR no domains
+            var needsInitialization = !hasWorkspaces || !hasDomains;
+
+            _logger.LogInformation(
+                "User {UserId} initialization status: NeedsInitialization={NeedsInitialization}, HasWorkspaces={HasWorkspaces}, HasDomains={HasDomains}",
+                userId, needsInitialization, hasWorkspaces, hasDomains);
+
+            return Ok(new InitializationStatusResponse
+            {
+                NeedsInitialization = needsInitialization,
+                HasWorkspaces = hasWorkspaces,
+                HasDomains = hasDomains
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking initialization status for user {UserId}", userId);
+            // On error, return that user needs initialization to be safe
+            return Ok(new InitializationStatusResponse
+            {
+                NeedsInitialization = true,
+                HasWorkspaces = false,
+                HasDomains = false
+            });
+        }
+    }
+
     private ActionResult HandleError(string errorCode, string errorMessage)
     {
         return errorCode switch
@@ -173,5 +225,12 @@ public class InitializationResponse
     public WorkspaceDto? Workspace { get; set; }
     public UserSettingsDto? UserSettings { get; set; }
     public string Message { get; set; } = string.Empty;
+}
+
+public class InitializationStatusResponse
+{
+    public bool NeedsInitialization { get; set; }
+    public bool HasWorkspaces { get; set; }
+    public bool HasDomains { get; set; }
 }
 

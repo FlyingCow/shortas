@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  User, 
-  Bell, 
-  Shield, 
+import { useNavigate } from 'react-router-dom';
+import {
+  User,
+  Bell,
+  Shield,
   Globe,
   Save,
   Sun,
   Moon,
   Monitor,
+  Rocket,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import LoadingSpinner from './LoadingSpinner';
@@ -36,6 +38,7 @@ interface UserSettings {
 }
 
 const Settings: React.FC = () => {
+  const navigate = useNavigate();
   const { theme, toggleTheme, setTheme } = useTheme();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -149,12 +152,46 @@ const Settings: React.FC = () => {
           <p>{success}</p>
         </div>
       )}
-      
+
       {error && (
         <div className="alert alert-error">
           <p>{error}</p>
         </div>
       )}
+
+      {/* Setup Wizard Card */}
+      <div className="card" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%)', border: '1px solid var(--primary)' }}>
+        <div className="card-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white'
+            }}>
+              <Rocket size={24} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>Account Setup Wizard</h3>
+              <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                Configure your domain, workspace, and preferences in one place
+              </p>
+            </div>
+          </div>
+          <button
+            className="btn btn-primary"
+            onClick={() => navigate('/setup')}
+            style={{ flexShrink: 0 }}
+          >
+            <Rocket size={18} />
+            Run Setup Wizard
+          </button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg">
         {/* Profile Settings */}

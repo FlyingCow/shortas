@@ -15,6 +15,7 @@ import Layout from './components/LayoutUnified';
 import LoadingSpinner from './components/LoadingSpinner';
 import LoggedOut from './components/LoggedOut';
 import KeycloakError from './components/KeycloakError';
+import InitializationWizard from './components/InitializationWizard';
 import './App.css';
 import './components/DesignSystem.css';
 
@@ -23,6 +24,8 @@ interface AppState {
   authenticated: boolean;
   loading: boolean;
   error: string | null;
+  needsInitialization: boolean;
+  checkingInitialization: boolean;
 }
 
 const App: React.FC = () => {
@@ -31,6 +34,8 @@ const App: React.FC = () => {
     authenticated: false,
     loading: true,
     error: null,
+    needsInitialization: false,
+    checkingInitialization: true,
   });
 
   useEffect(() => {
@@ -44,37 +49,71 @@ const App: React.FC = () => {
             authenticated: true, // Mock authenticated state
             loading: false,
             error: null,
+            needsInitialization: false,
+            checkingInitialization: false,
           });
           return;
         }
 
         // Initialize Keycloak using the protected initialization function
         const authenticated = await initializeKeycloak(keycloakInitOptions);
-        
-        setState({
-          keycloakInitialized: true,
-          authenticated,
-          loading: false,
-          error: null,
-        });
+
+        if (!authenticated) {
+          setState({
+            keycloakInitialized: true,
+            authenticated: false,
+            loading: false,
+            error: null,
+            needsInitialization: false,
+            checkingInitialization: false,
+          });
+          return;
+        }
 
         // Set up token refresh
-        if (authenticated) {
-          setInterval(() => {
-            keycloak.updateToken(70).catch(() => {
-              console.error('Failed to refresh token');
-            });
-          }, 60000); // Refresh every minute
+        setInterval(() => {
+          keycloak.updateToken(70).catch(() => {
+            console.error('Failed to refresh token');
+          });
+        }, 60000); // Refresh every minute
 
-          // Initialize user (create default workspace and settings if needed)
-          try {
-            console.log('Initializing user account...');
-            const initResponse = await apiService.user.initialize();
-            console.log('User initialization completed:', initResponse.message);
-          } catch (error) {
-            // Don't block the app if initialization fails
-            console.error('User initialization failed (non-critical):', error);
+        // Check if user needs to go through setup wizard
+        try {
+          console.log('Checking if user needs initialization...');
+
+          // Check if user has any workspaces
+          const workspaces = await apiService.workspaces.list();
+
+          // Check if user has any domains
+          const domains = await apiService.domains.list({ page: 1, pageSize: 1 });
+
+          const needsSetup = workspaces.length === 0 || domains.data.length === 0;
+
+          if (needsSetup) {
+            console.log('User needs initialization - redirecting to setup wizard');
+          } else {
+            console.log('User already initialized');
           }
+
+          setState({
+            keycloakInitialized: true,
+            authenticated: true,
+            loading: false,
+            error: null,
+            needsInitialization: needsSetup,
+            checkingInitialization: false,
+          });
+        } catch (error) {
+          console.error('Failed to check initialization status:', error);
+          // On error, assume user needs initialization to be safe
+          setState({
+            keycloakInitialized: true,
+            authenticated: true,
+            loading: false,
+            error: null,
+            needsInitialization: true,
+            checkingInitialization: false,
+          });
         }
       } catch (error) {
         console.error('Keycloak initialization failed:', error);
@@ -83,6 +122,8 @@ const App: React.FC = () => {
           authenticated: false,
           loading: false,
           error: 'Failed to initialize authentication. Please try again.',
+          needsInitialization: false,
+          checkingInitialization: false,
         });
       }
     };
@@ -90,8 +131,8 @@ const App: React.FC = () => {
     initKeycloak();
   }, []);
 
-  if (state.loading) {
-    return <LoadingSpinner message="Initializing authentication..." />;
+  if (state.loading || state.checkingInitialization) {
+    return <LoadingSpinner message={state.loading ? "Initializing authentication..." : "Checking setup status..."} />;
   }
 
   if (state.error) {
@@ -114,10 +155,26 @@ const App: React.FC = () => {
         <Routes>
         {/* Public Routes */}
         <Route path="/logged-out" element={<LoggedOut onLogin={() => keycloak.login(keycloakLoginOptions)} />} />
-        
+
+        {/* Setup Wizard - Protected but outside Layout */}
+        <Route path="/setup" element={
+          state.authenticated ? (
+            <InitializationWizard onComplete={() => {
+              // Refresh the page or update state to reflect completion
+              setState(prev => ({ ...prev, needsInitialization: false }));
+            }} />
+          ) : (
+            <Navigate to="/logged-out" replace />
+          )
+        } />
+
         {/* Protected Routes */}
         <Route path="/*" element={
-          state.authenticated ? (
+          !state.authenticated ? (
+            <Navigate to="/logged-out" replace />
+          ) : state.needsInitialization ? (
+            <Navigate to="/setup" replace />
+          ) : (
             <Layout>
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -131,8 +188,6 @@ const App: React.FC = () => {
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </Layout>
-          ) : (
-            <Navigate to="/logged-out" replace />
           )
         } />
       </Routes>

@@ -97,7 +97,7 @@ pub async fn get_route(req: &mut Request, depot: &mut Depot, res: &mut Response)
 
     let route = app_state
         .routes_store
-        .get_route(switch.as_str(), format!("{}%2f{}", domain, path).as_str())
+        .get_route(switch.as_str(), format!("{}%2F{}", domain, path).as_str())
         .await;
 
     match route {
@@ -172,7 +172,7 @@ pub async fn create_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
     };
     // Set path parameters in the route DTO
     route_dto.switch = switch;
-    route_dto.link = format!("{}%2f{}", domain, path);
+    route_dto.link = format!("{}%2F{}", domain, path);
     // Note: domain and path are used for routing but not stored in the route object
     // The route object contains the actual route configuration
 
@@ -258,7 +258,7 @@ pub async fn update_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
 
     // Set path parameters in the route DTO
     route_dto.switch = switch;
-    route_dto.link = format!("{}%2f{}", domain, path);
+    route_dto.link = format!("{}%2F{}", domain, path);
 
     // Validate required fields
     if !route_dto.is_valid() {

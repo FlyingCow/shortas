@@ -371,7 +371,7 @@ public class RoutesController : ControllerBase
         // Properties is required, always initialize with new fields
         if (routeDto.Properties != null)
         {
-            route.Properties.RouteId = routeDto.Properties.RouteId;
+            route.Properties.RouteId = route.Id.ToString();
             route.Properties.DomainId = routeDto.Properties.DomainId;
             route.Properties.OwnerId = routeDto.Properties.OwnerId;
             route.Properties.CreatorId = routeDto.Properties.CreatorId;

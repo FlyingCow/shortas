@@ -19,7 +19,7 @@ public class EfWorkspaceService : IWorkspaceService
         _logger = logger;
     }
 
-    public async Task<Result<Workspace>> CreateWorkspaceAsync(string name, string description, string userId)
+    public async Task<Result<Workspace>> CreateWorkspaceAsync(string name, string description, string userId, string type = "User")
     {
         try
         {
@@ -29,10 +29,15 @@ public class EfWorkspaceService : IWorkspaceService
             if (string.IsNullOrWhiteSpace(userId))
                 return Result<Workspace>.Failure(Error.Required("userId"));
 
+            // Validate type
+            if (type != "System" && type != "User")
+                return Result<Workspace>.Failure(Error.Validation("Type must be either 'System' or 'User'"));
+
             var workspace = new Workspace
             {
                 Name = name,
                 Description = description ?? string.Empty,
+                Type = type,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };

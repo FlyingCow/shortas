@@ -5,7 +5,7 @@ namespace ShortasProxyApi.Domain.Interfaces;
 
 public interface IWorkspaceService
 {
-    Task<Result<Workspace>> CreateWorkspaceAsync(string name, string description, string userId);
+    Task<Result<Workspace>> CreateWorkspaceAsync(string name, string description, string userId, string type = "User");
     Task<Result<Workspace?>> GetWorkspaceByIdAsync(Guid id, string userId);
     Task<Result<List<Workspace>>> ListUserWorkspacesAsync(string userId);
     Task<Result<Workspace>> UpdateWorkspaceAsync(Guid id, string userId, string? name, string? description);

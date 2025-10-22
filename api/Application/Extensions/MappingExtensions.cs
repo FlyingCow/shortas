@@ -50,7 +50,7 @@ public static class MappingExtensions
         };
     }
 
-    public static RoutePropertiesDto ToDto(this RouteProperties entity)
+    public static RoutePropertiesDto ToDto(this RouteProperties entity )
     {
         return new RoutePropertiesDto
         {
