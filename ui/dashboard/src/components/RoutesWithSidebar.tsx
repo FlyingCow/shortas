@@ -43,7 +43,7 @@ const RoutesWithSidebar: React.FC = () => {
       }
       const response = await apiService.routes.list(params);
       setRoutes(response.data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch routes:', err);
       setError('Failed to load routes. Please try again.');
     } finally {
@@ -55,7 +55,7 @@ const RoutesWithSidebar: React.FC = () => {
     try {
       const response = await apiService.domains.list({ page: 1, pageSize: 100 });
       setDomains(response.data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch domains:', err);
     }
   };
@@ -64,7 +64,7 @@ const RoutesWithSidebar: React.FC = () => {
     try {
       const data = await apiService.workspaces.list();
       setWorkspaces(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch workspaces:', err);
     }
   };
@@ -85,7 +85,7 @@ const RoutesWithSidebar: React.FC = () => {
       if (selectedRoute?.id === route.id) {
         setSelectedRoute(null);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to delete route:', err);
       alert('Failed to delete route. Please try again.');
     }
@@ -185,7 +185,7 @@ const RoutesWithSidebar: React.FC = () => {
       await fetchRoutes();
       setEditingRoute(null);
       setEditFormData(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save route:', err);
       alert('Failed to save route. Please try again.');
     }
@@ -226,53 +226,86 @@ const RoutesWithSidebar: React.FC = () => {
   const fetchAnalytics = useCallback(async (route: RouteDto) => {
     try {
       setAnalyticsLoading(true);
-      // Mock analytics data - replace with real API call
-      const generateMockAnalytics = (route: RouteDto) => {
-        const days = timeRange === '24h' ? 1 : timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 7;
-        const clicks = Math.floor(Math.random() * 1000) + 100;
-        const conversions = Math.floor(clicks * (0.1 + Math.random() * 0.2));
-        
-        return {
-          totalClicks: clicks,
-          totalConversions: conversions,
-          conversionRate: ((conversions / clicks) * 100).toFixed(1),
-          uniqueVisitors: Math.floor(clicks * 0.7),
-          avgTimeOnPage: Math.floor(Math.random() * 300) + 30,
-          bounceRate: (Math.random() * 40 + 20).toFixed(1),
-          topCountries: [
-            { name: 'United States', clicks: Math.floor(clicks * 0.4), percentage: 40 },
-            { name: 'United Kingdom', clicks: Math.floor(clicks * 0.25), percentage: 25 },
-            { name: 'Canada', clicks: Math.floor(clicks * 0.15), percentage: 15 },
-            { name: 'Germany', clicks: Math.floor(clicks * 0.1), percentage: 10 },
-            { name: 'France', clicks: Math.floor(clicks * 0.1), percentage: 10 },
-            { name: 'Japan', clicks: 0, percentage: 0 },
-            { name: 'Australia', clicks: 0, percentage: 0 },
-            { name: 'Brazil', clicks: 0, percentage: 0 },
-            { name: 'India', clicks: 0, percentage: 0 },
-            { name: 'China', clicks: 0, percentage: 0 }
-          ],
-          topBrowsers: [
-            { name: 'Chrome', clicks: Math.floor(clicks * 0.6), percentage: 60 },
-            { name: 'Safari', clicks: Math.floor(clicks * 0.2), percentage: 20 },
-            { name: 'Firefox', clicks: Math.floor(clicks * 0.1), percentage: 10 },
-            { name: 'Edge', clicks: Math.floor(clicks * 0.1), percentage: 10 }
-          ],
-          dailyClicks: Array.from({ length: days }, (_, i) => ({
-            date: new Date(Date.now() - (days - 1 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            clicks: Math.floor(Math.random() * 50) + 10,
-            conversions: Math.floor(Math.random() * 10) + 2
-          })),
-          hourlyClicks: Array.from({ length: 24 }, (_, i) => ({
-            hour: i,
-            clicks: Math.floor(Math.random() * 20) + 5
-          }))
-        };
+
+      // Calculate date range
+      const endDate = new Date();
+      const startDate = new Date();
+
+      switch (timeRange) {
+        case '24h':
+          startDate.setHours(startDate.getHours() - 24);
+          break;
+        case '7d':
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case '30d':
+          startDate.setDate(startDate.getDate() - 30);
+          break;
+      }
+
+      const fromDate = startDate.toISOString().split('T')[0];
+      const toDate = endDate.toISOString().split('T')[0];
+      const fromHour = startDate.toISOString().replace('T', ' ').substring(0, 13);
+      const toHour = endDate.toISOString().replace('T', ' ').substring(0, 13);
+
+      // Fetch stats for this specific route using materialized views
+      const [dailyStats, geographicStats, deviceStats, browserStats, trafficStats] = await Promise.all([
+        apiService.clickstream.getDailyStats({ routeId: route.id, fromDate, toDate }),
+        apiService.clickstream.getGeographicStats({ routeId: route.id, fromDate, toDate }),
+        apiService.clickstream.getDeviceStats({ routeId: route.id, fromDate, toDate }),
+        apiService.clickstream.getBrowserStats({ routeId: route.id, fromDate, toDate }),
+        apiService.clickstream.getTrafficTypeStats({ routeId: route.id, fromHour, toHour }),
+      ]);
+
+      // Calculate totals from daily stats
+      const totals = dailyStats.reduce((acc, stat) => ({
+        totalClicks: acc.totalClicks + stat.total_clicks,
+        uniqueClicks: acc.uniqueClicks + stat.unique_clicks,
+        botClicks: acc.botClicks + stat.bot_clicks,
+        humanClicks: acc.humanClicks + stat.human_clicks,
+      }), { totalClicks: 0, uniqueClicks: 0, botClicks: 0, humanClicks: 0 });
+
+      // Transform data for charts
+      const analyticsData = {
+        totalClicks: totals.totalClicks,
+        totalConversions: 0, // Not available yet
+        conversionRate: '0',
+        uniqueVisitors: totals.uniqueClicks,
+        avgTimeOnPage: 0, // Not available yet
+        bounceRate: '0',
+        topCountries: geographicStats.slice(0, 10).map((stat, index, arr) => {
+          const percentage = arr.length > 0 && totals.totalClicks > 0
+            ? (stat.total_clicks / totals.totalClicks) * 100
+            : 0;
+          return {
+            name: stat.country,
+            clicks: stat.total_clicks,
+            percentage: Math.round(percentage)
+          };
+        }),
+        topBrowsers: browserStats.slice(0, 10).map((stat, index, arr) => {
+          const percentage = arr.length > 0 && totals.totalClicks > 0
+            ? (stat.total_clicks / totals.totalClicks) * 100
+            : 0;
+          return {
+            name: stat.user_agent_family,
+            clicks: stat.total_clicks,
+            percentage: Math.round(percentage)
+          };
+        }),
+        dailyClicks: dailyStats.map(stat => ({
+          date: new Date(stat.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          clicks: stat.total_clicks,
+          conversions: 0 // Not available yet
+        })),
+        hourlyClicks: [] // Not implemented yet
       };
-      
-      const mockAnalytics = generateMockAnalytics(route);
-      setAnalytics(mockAnalytics);
-    } catch (err) {
+
+      setAnalytics(analyticsData);
+    } catch (err: any) {
       console.error('Failed to fetch analytics:', err);
+      console.error('Error response:', err.response?.data);
+      console.error('Error status:', err.response?.status);
     } finally {
       setAnalyticsLoading(false);
     }
