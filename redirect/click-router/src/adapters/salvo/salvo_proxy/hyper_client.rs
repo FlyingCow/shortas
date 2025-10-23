@@ -137,7 +137,7 @@ mod tests {
             .take_string()
             .await
             .unwrap();
-        println!("{}", content);
+        tracing::debug!("{}", content);
         assert!(content.contains("nginx"));
     }
 

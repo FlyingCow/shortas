@@ -92,10 +92,10 @@ async fn start(token: CancellationToken) -> Result<()> {
     while let Some(res) = threads.join_next().await {
         match res {
             Ok(_) => {
-                println!("Task finished");
+                tracing::info!("Task finished");
             }
             Err(err) => {
-                println!("Task failed: {:?}", err);
+                tracing::error!("Task failed: {:?}", err);
                 // Handle the error appropriately
             }
         }

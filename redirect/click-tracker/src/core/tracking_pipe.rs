@@ -38,7 +38,7 @@ where
             }
 
             if token.is_cancelled() {
-                println!("{}", "terminated!!!");
+                tracing::info!("terminated!!!");
                 break;
             }
         }

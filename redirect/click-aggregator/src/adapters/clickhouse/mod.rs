@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use settings::ClickStreamStoreConfig;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
+use tracing::{debug, error, info, warn};
 
 use crate::core::ClickStreamItem;
 
@@ -126,8 +127,8 @@ impl ClickStreamStore for ClickhouseClickStreamStore {
         if click.id.is_empty() || click.owner_id.is_empty() || click.creator_id.is_empty() 
             || click.route_id.is_empty() || click.workspace_id.is_empty() 
             || click.dest.is_empty() || click.ip.is_empty() {
-            eprintln!(
-                "[WARN] Skipping invalid clickstream item - missing required fields: id={}, owner_id={}, creator_id={}, route_id={}, workspace_id={}, dest={}, ip={}",
+            warn!(
+                "Skipping invalid clickstream item - missing required fields: id={}, owner_id={}, creator_id={}, route_id={}, workspace_id={}, dest={}, ip={}",
                 click.id, click.owner_id, click.creator_id, click.route_id, 
                 click.workspace_id, click.dest, click.ip
             );
@@ -135,8 +136,8 @@ impl ClickStreamStore for ClickhouseClickStreamStore {
         }
 
         // Debug: Log valid records being written
-        println!(
-            "[DEBUG] Writing clickstream: id={}, route_id={}, workspace_id={}, dest={}, ip={}",
+        debug!(
+            "Writing clickstream: id={}, route_id={}, workspace_id={}, dest={}, ip={}",
             click.id, click.route_id, click.workspace_id, click.dest, click.ip
         );
 
@@ -177,28 +178,28 @@ impl ClickStreamStore for ClickhouseClickStreamStore {
         
         // Handle write errors
         if let Err(e) = result {
-            eprintln!("[ERROR] Failed to write to ClickHouse inserter: {}", e);
+            error!("Failed to write to ClickHouse inserter: {}", e);
             return Err(e.into());
         }
 
         let result = inserter.commit().await;
         // Handle write errors
         if let Err(e) = result {
-            eprintln!("[ERROR] Failed to write to ClickHouse inserter: {}", e);
+            error!("Failed to write to ClickHouse inserter: {}", e);
             return Err(e.into());
         }
 
-        println!("[DEBUG] Successfully queued clickstream record to inserter buffer");
+        debug!("Successfully queued clickstream record to inserter buffer");
 
         // Check if cancellation token is triggered for shutdown commit
         if self.token.is_cancelled() {
-            println!("[INFO] Cancellation triggered - forcing commit to ClickHouse");
+            info!("Cancellation triggered - forcing commit to ClickHouse");
             let r = inserter.commit().await;
             if let Err(e) = r {
-                eprintln!("[ERROR] Failed to commit to ClickHouse: {}", e);
+                error!("Failed to commit to ClickHouse: {}", e);
                 return Err(e.into());
             }
-            println!("[INFO] Successfully committed to ClickHouse on shutdown");
+            info!("Successfully committed to ClickHouse on shutdown");
         }
         // Note: Auto-commits happen based on with_period and with_max_rows settings
         // configured during inserter initialization

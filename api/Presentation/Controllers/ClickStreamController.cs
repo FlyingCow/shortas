@@ -4,6 +4,8 @@ using ShortasProxyApi.Application.DTOs;
 using ShortasProxyApi.Domain.Interfaces;
 using ShortasProxyApi.Domain.Common;
 using ShortasProxyApi.Infrastructure.Services;
+using ShortasProxyApi.Infrastructure.HttpClients;
+using ShortasProxyApi.Presentation.Extensions;
 
 namespace ShortasProxyApi.Presentation.Controllers;
 
@@ -230,6 +232,169 @@ public class ClickStreamController : ControllerBase
         [FromQuery] string? ownerId = null)
     {
         var result = await _clickStreamService.GetRouteAnalyticsAsync(routeId, startDate, endDate, ownerId);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    // ============== New Statistics Endpoints using Materialized Views ==============
+
+    /// <summary>
+    /// Get daily statistics from materialized views
+    /// </summary>
+    [HttpGet("stats/daily")]
+    public async Task<ActionResult<List<DailyStatsDto>>> GetDailyStats(
+        [FromQuery] string? routeId = null,
+        [FromQuery] string? fromDate = null,
+        [FromQuery] string? toDate = null)
+    {
+        var userId = this.GetUserId();
+        var result = await _clickStreamService.GetDailyStatsAsync(userId, routeId, fromDate, toDate);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get hourly statistics from materialized views
+    /// </summary>
+    [HttpGet("stats/hourly")]
+    public async Task<ActionResult<List<HourlyStatsDto>>> GetHourlyStats(
+        [FromQuery] string? routeId = null,
+        [FromQuery] string? fromHour = null,
+        [FromQuery] string? toHour = null)
+    {
+        var userId = this.GetUserId();
+        var result = await _clickStreamService.GetHourlyStatsAsync(userId, routeId, fromHour, toHour);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get geographic statistics from materialized views
+    /// </summary>
+    [HttpGet("stats/geographic")]
+    public async Task<ActionResult<List<GeographicStatsDto>>> GetGeographicStats(
+        [FromQuery] string? routeId = null,
+        [FromQuery] string? fromDate = null,
+        [FromQuery] string? toDate = null)
+    {
+        var userId = this.GetUserId();
+        var result = await _clickStreamService.GetGeographicStatsAsync(userId, routeId, fromDate, toDate);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get device statistics from materialized views
+    /// </summary>
+    [HttpGet("stats/devices")]
+    public async Task<ActionResult<List<DeviceStatsDto>>> GetDeviceStats(
+        [FromQuery] string? routeId = null,
+        [FromQuery] string? fromDate = null,
+        [FromQuery] string? toDate = null)
+    {
+        var userId = this.GetUserId();
+        var result = await _clickStreamService.GetDeviceStatsAsync(userId, routeId, fromDate, toDate);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get browser statistics from materialized views
+    /// </summary>
+    [HttpGet("stats/browsers")]
+    public async Task<ActionResult<List<BrowserStatsDto>>> GetBrowserStats(
+        [FromQuery] string? routeId = null,
+        [FromQuery] string? fromDate = null,
+        [FromQuery] string? toDate = null)
+    {
+        var userId = this.GetUserId();
+        var result = await _clickStreamService.GetBrowserStatsAsync(userId, routeId, fromDate, toDate);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get route performance statistics from materialized views
+    /// </summary>
+    [HttpGet("stats/route-performance")]
+    public async Task<ActionResult<List<RoutePerformanceDto>>> GetRoutePerformance(
+        [FromQuery] string? fromDate = null,
+        [FromQuery] string? toDate = null,
+        [FromQuery] int? limit = null)
+    {
+        var userId = this.GetUserId();
+        var result = await _clickStreamService.GetRoutePerformanceAsync(userId, fromDate, toDate, limit);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get top destinations from materialized views
+    /// </summary>
+    [HttpGet("stats/top-destinations")]
+    public async Task<ActionResult<List<TopDestinationDto>>> GetTopDestinations(
+        [FromQuery] string? routeId = null,
+        [FromQuery] string? fromDate = null,
+        [FromQuery] string? toDate = null,
+        [FromQuery] int? limit = null)
+    {
+        var userId = this.GetUserId();
+        var result = await _clickStreamService.GetTopDestinationsAsync(userId, routeId, fromDate, toDate, limit);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Get traffic type statistics (bot vs human) from materialized views
+    /// </summary>
+    [HttpGet("stats/traffic-types")]
+    public async Task<ActionResult<List<TrafficTypeStatsDto>>> GetTrafficTypeStats(
+        [FromQuery] string? routeId = null,
+        [FromQuery] string? fromHour = null,
+        [FromQuery] string? toHour = null)
+    {
+        var userId = this.GetUserId();
+        var result = await _clickStreamService.GetTrafficTypeStatsAsync(userId, routeId, fromHour, toHour);
 
         if (result.IsFailure)
         {

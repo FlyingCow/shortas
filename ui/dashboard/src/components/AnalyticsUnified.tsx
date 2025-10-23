@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -20,7 +20,7 @@ import {
   Download,
 } from 'lucide-react';
 // Removed Bootstrap Dropdown import - using unified controls
-import { apiService, ClickAnalytics } from '../services/api';
+import { apiService, ClickAnalytics, DailyStatsDto, GeographicStatsDto, DeviceStatsDto, BrowserStatsDto, RoutePerformanceDto } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
@@ -31,11 +31,7 @@ const Analytics: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState('30d');
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [dateRange]);
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -43,7 +39,7 @@ const Analytics: React.FC = () => {
       // Calculate date range
       const endDate = new Date();
       const startDate = new Date();
-      
+
       switch (dateRange) {
         case '7d':
           startDate.setDate(startDate.getDate() - 7);
@@ -59,26 +55,69 @@ const Analytics: React.FC = () => {
           break;
       }
 
-      const dateRangeParams = {
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
+      const fromDate = startDate.toISOString().split('T')[0];
+      const toDate = endDate.toISOString().split('T')[0];
+
+      // Fetch stats using new materialized view endpoints
+      const [dailyStats, geographicStats, deviceStats, browserStats, routePerformance] = await Promise.all([
+        apiService.clickstream.getDailyStats({ fromDate, toDate }),
+        apiService.clickstream.getGeographicStats({ fromDate, toDate }),
+        apiService.clickstream.getDeviceStats({ fromDate, toDate }),
+        apiService.clickstream.getBrowserStats({ fromDate, toDate }),
+        apiService.clickstream.getRoutePerformance({ fromDate, toDate, limit: 10 }),
+      ]);
+
+      // Calculate totals from daily stats
+      const totals = dailyStats.reduce((acc, stat) => ({
+        totalClicks: acc.totalClicks + stat.total_clicks,
+        uniqueClicks: acc.uniqueClicks + stat.unique_clicks,
+      }), { totalClicks: 0, uniqueClicks: 0 });
+
+      // Transform data to match chart format
+      const analyticsData: ClickAnalytics = {
+        total_clicks: totals.totalClicks,
+        unique_clicks: totals.uniqueClicks,
+        clicks_by_date: dailyStats.map(stat => ({
+          date: new Date(stat.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          clicks: stat.total_clicks,
+        })),
+        clicks_by_device: deviceStats.slice(0, 8).map(stat => ({
+          device: `${stat.device_family} (${stat.os_family})`,
+          clicks: stat.total_clicks,
+        })),
+        clicks_by_country: geographicStats.slice(0, 10).map(stat => ({
+          country: stat.country,
+          clicks: stat.total_clicks,
+        })),
+        clicks_by_browser: browserStats.slice(0, 8).map(stat => ({
+          browser: stat.user_agent_family,
+          clicks: stat.total_clicks,
+        })),
       };
 
-      // Fetch analytics data
-      const [analyticsData, topRoutesData] = await Promise.all([
-        apiService.analytics.getOverview(dateRangeParams),
-        apiService.analytics.getTopRoutes(10),
-      ]);
+      // Transform route performance to top routes format
+      const topRoutesData = routePerformance.map(route => ({
+        route_id: route.route_id,
+        clicks: route.total_clicks,
+        unique_visitors: route.unique_visitors,
+      }));
 
       setAnalytics(analyticsData);
       setTopRoutes(topRoutesData);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch analytics:', err);
-      setError('Failed to load analytics data. Please try again.');
+      console.error('Error response:', err.response?.data);
+      console.error('Error status:', err.response?.status);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to load analytics data. Please try again.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateRange]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
   const exportData = () => {
     // This would implement data export functionality

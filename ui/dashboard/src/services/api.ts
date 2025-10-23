@@ -236,6 +236,71 @@ export interface ClickStreamStats {
   }>;
 }
 
+// Statistics DTOs (from materialized views)
+// Using snake_case to match API response
+export interface DailyStatsDto {
+  date: string;
+  total_clicks: number;
+  unique_clicks: number;
+  bot_clicks: number;
+  human_clicks: number;
+  unique_ips: number;
+}
+
+export interface HourlyStatsDto {
+  hour: string;
+  total_clicks: number;
+  unique_clicks: number;
+  bot_clicks: number;
+  human_clicks: number;
+  unique_ips: number;
+}
+
+export interface GeographicStatsDto {
+  continent?: string;
+  country: string;
+  location?: string;
+  total_clicks: number;
+  unique_clicks: number;
+  unique_ips: number;
+}
+
+export interface DeviceStatsDto {
+  device_family: string;
+  os_family: string;
+  total_clicks: number;
+  unique_clicks: number;
+}
+
+export interface BrowserStatsDto {
+  user_agent_family: string;
+  user_agent_version?: string;
+  total_clicks: number;
+  unique_clicks: number;
+}
+
+export interface RoutePerformanceDto {
+  route_id: string;
+  total_clicks: number;
+  unique_visitors: number;
+  bot_clicks: number;
+  human_clicks: number;
+  countries_reached: number;
+  device_types: number;
+}
+
+export interface TopDestinationDto {
+  dest: string;
+  total_clicks: number;
+  unique_visitors: number;
+}
+
+export interface TrafficTypeStatsDto {
+  is_bot: boolean;
+  total_clicks: number;
+  unique_ips: number;
+}
+
 // Domain Types
 export interface DomainDto {
   id: string;
@@ -439,6 +504,47 @@ export const apiService = {
 
     getStats: async (params?: { routeId?: string; startDate?: string; endDate?: string }): Promise<ClickStreamStats> => {
       const response = await routerApi.get('/clickstream/stats', { params });
+      return response.data;
+    },
+
+    // Materialized view statistics endpoints
+    getDailyStats: async (params?: { routeId?: string; fromDate?: string; toDate?: string }): Promise<DailyStatsDto[]> => {
+      const response = await routerApi.get('/clickstream/stats/daily', { params });
+      return response.data;
+    },
+
+    getHourlyStats: async (params?: { routeId?: string; fromHour?: string; toHour?: string }): Promise<HourlyStatsDto[]> => {
+      const response = await routerApi.get('/clickstream/stats/hourly', { params });
+      return response.data;
+    },
+
+    getGeographicStats: async (params?: { routeId?: string; fromDate?: string; toDate?: string }): Promise<GeographicStatsDto[]> => {
+      const response = await routerApi.get('/clickstream/stats/geographic', { params });
+      return response.data;
+    },
+
+    getDeviceStats: async (params?: { routeId?: string; fromDate?: string; toDate?: string }): Promise<DeviceStatsDto[]> => {
+      const response = await routerApi.get('/clickstream/stats/devices', { params });
+      return response.data;
+    },
+
+    getBrowserStats: async (params?: { routeId?: string; fromDate?: string; toDate?: string }): Promise<BrowserStatsDto[]> => {
+      const response = await routerApi.get('/clickstream/stats/browsers', { params });
+      return response.data;
+    },
+
+    getRoutePerformance: async (params?: { fromDate?: string; toDate?: string; limit?: number }): Promise<RoutePerformanceDto[]> => {
+      const response = await routerApi.get('/clickstream/stats/route-performance', { params });
+      return response.data;
+    },
+
+    getTopDestinations: async (params?: { routeId?: string; fromDate?: string; toDate?: string; limit?: number }): Promise<TopDestinationDto[]> => {
+      const response = await routerApi.get('/clickstream/stats/top-destinations', { params });
+      return response.data;
+    },
+
+    getTrafficTypeStats: async (params?: { routeId?: string; fromHour?: string; toHour?: string }): Promise<TrafficTypeStatsDto[]> => {
+      const response = await routerApi.get('/clickstream/stats/traffic-types', { params });
       return response.data;
     },
   },

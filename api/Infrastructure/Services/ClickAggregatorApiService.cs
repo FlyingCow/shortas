@@ -156,9 +156,69 @@ public class ClickAggregatorApiService : IClickStreamService
         string? ownerId = null,
         string? interval = "hour")
     {
-        _logger.LogDebug("Getting time series analytics - startDate {StartDate}, endDate {EndDate}, ownerId {OwnerId}, interval {Interval}", 
+        _logger.LogDebug("Getting time series analytics - startDate {StartDate}, endDate {EndDate}, ownerId {OwnerId}, interval {Interval}",
             startDate, endDate, ownerId, interval);
         return await _httpClient.GetTimeSeriesAnalyticsAsync(startDate, endDate, ownerId, interval);
+    }
+
+    #endregion
+
+    #region Materialized View Statistics Methods
+
+    public async Task<Result<List<DailyStatsDto>>> GetDailyStatsAsync(string? ownerId = null, string? routeId = null, string? fromDate = null, string? toDate = null)
+    {
+        _logger.LogDebug("Getting daily stats - ownerId {OwnerId}, routeId {RouteId}, fromDate {FromDate}, toDate {ToDate}",
+            ownerId, routeId, fromDate, toDate);
+        return await _httpClient.GetDailyStatsAsync(ownerId, routeId, fromDate, toDate);
+    }
+
+    public async Task<Result<List<HourlyStatsDto>>> GetHourlyStatsAsync(string? ownerId = null, string? routeId = null, string? fromHour = null, string? toHour = null)
+    {
+        _logger.LogDebug("Getting hourly stats - ownerId {OwnerId}, routeId {RouteId}, fromHour {FromHour}, toHour {ToHour}",
+            ownerId, routeId, fromHour, toHour);
+        return await _httpClient.GetHourlyStatsAsync(ownerId, routeId, fromHour, toHour);
+    }
+
+    public async Task<Result<List<GeographicStatsDto>>> GetGeographicStatsAsync(string? ownerId = null, string? routeId = null, string? fromDate = null, string? toDate = null)
+    {
+        _logger.LogDebug("Getting geographic stats - ownerId {OwnerId}, routeId {RouteId}, fromDate {FromDate}, toDate {ToDate}",
+            ownerId, routeId, fromDate, toDate);
+        return await _httpClient.GetGeographicStatsAsync(ownerId, routeId, fromDate, toDate);
+    }
+
+    public async Task<Result<List<DeviceStatsDto>>> GetDeviceStatsAsync(string? ownerId = null, string? routeId = null, string? fromDate = null, string? toDate = null)
+    {
+        _logger.LogDebug("Getting device stats - ownerId {OwnerId}, routeId {RouteId}, fromDate {FromDate}, toDate {ToDate}",
+            ownerId, routeId, fromDate, toDate);
+        return await _httpClient.GetDeviceStatsAsync(ownerId, routeId, fromDate, toDate);
+    }
+
+    public async Task<Result<List<BrowserStatsDto>>> GetBrowserStatsAsync(string? ownerId = null, string? routeId = null, string? fromDate = null, string? toDate = null)
+    {
+        _logger.LogDebug("Getting browser stats - ownerId {OwnerId}, routeId {RouteId}, fromDate {FromDate}, toDate {ToDate}",
+            ownerId, routeId, fromDate, toDate);
+        return await _httpClient.GetBrowserStatsAsync(ownerId, routeId, fromDate, toDate);
+    }
+
+    public async Task<Result<List<RoutePerformanceDto>>> GetRoutePerformanceAsync(string? ownerId = null, string? fromDate = null, string? toDate = null, int? limit = null)
+    {
+        _logger.LogDebug("Getting route performance - ownerId {OwnerId}, fromDate {FromDate}, toDate {ToDate}, limit {Limit}",
+            ownerId, fromDate, toDate, limit);
+        return await _httpClient.GetRoutePerformanceAsync(ownerId, fromDate, toDate, limit);
+    }
+
+    public async Task<Result<List<TopDestinationDto>>> GetTopDestinationsAsync(string? ownerId = null, string? routeId = null, string? fromDate = null, string? toDate = null, int? limit = null)
+    {
+        _logger.LogDebug("Getting top destinations - ownerId {OwnerId}, routeId {RouteId}, fromDate {FromDate}, toDate {ToDate}, limit {Limit}",
+            ownerId, routeId, fromDate, toDate, limit);
+        return await _httpClient.GetTopDestinationsAsync(ownerId, routeId, fromDate, toDate, limit);
+    }
+
+    public async Task<Result<List<TrafficTypeStatsDto>>> GetTrafficTypeStatsAsync(string? ownerId = null, string? routeId = null, string? fromHour = null, string? toHour = null)
+    {
+        _logger.LogDebug("Getting traffic type stats - ownerId {OwnerId}, routeId {RouteId}, fromHour {FromHour}, toHour {ToHour}",
+            ownerId, routeId, fromHour, toHour);
+        return await _httpClient.GetTrafficTypeStatsAsync(ownerId, routeId, fromHour, toHour);
     }
 
     #endregion

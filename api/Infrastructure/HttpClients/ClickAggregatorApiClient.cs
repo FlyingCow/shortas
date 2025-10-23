@@ -359,6 +359,335 @@ public class ClickAggregatorApiClient
         return await HandleErrorResponse<T>(response);
     }
 
+    #endregion
+
+    #region Statistics Operations
+
+    /// <summary>
+    /// Get daily statistics
+    /// </summary>
+    public async Task<Result<List<DailyStatsDto>>> GetDailyStatsAsync(
+        string? ownerId = null,
+        string? routeId = null,
+        string? fromDate = null,
+        string? toDate = null)
+    {
+        try
+        {
+            var queryParams = new List<string>();
+            if (!string.IsNullOrEmpty(ownerId))
+                queryParams.Add($"owner_id={Uri.EscapeDataString(ownerId)}");
+            if (!string.IsNullOrEmpty(routeId))
+                queryParams.Add($"route_id={Uri.EscapeDataString(routeId)}");
+            if (!string.IsNullOrEmpty(fromDate))
+                queryParams.Add($"from_date={fromDate}");
+            if (!string.IsNullOrEmpty(toDate))
+                queryParams.Add($"to_date={toDate}");
+
+            var queryString = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
+            var response = await _httpClient.GetAsync($"/v1/stats/daily{queryString}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var stats = JsonSerializer.Deserialize<List<DailyStatsDto>>(content, _jsonOptions);
+                return Result<List<DailyStatsDto>>.Success(stats ?? new List<DailyStatsDto>());
+            }
+
+            return await HandleErrorResponse<List<DailyStatsDto>>(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get daily stats");
+            return Result<List<DailyStatsDto>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to get daily statistics");
+        }
+    }
+
+    /// <summary>
+    /// Get hourly statistics
+    /// </summary>
+    public async Task<Result<List<HourlyStatsDto>>> GetHourlyStatsAsync(
+        string? ownerId = null,
+        string? routeId = null,
+        string? fromHour = null,
+        string? toHour = null)
+    {
+        try
+        {
+            var queryParams = new List<string>();
+            if (!string.IsNullOrEmpty(ownerId))
+                queryParams.Add($"owner_id={Uri.EscapeDataString(ownerId)}");
+            if (!string.IsNullOrEmpty(routeId))
+                queryParams.Add($"route_id={Uri.EscapeDataString(routeId)}");
+            if (!string.IsNullOrEmpty(fromHour))
+                queryParams.Add($"from_hour={fromHour}");
+            if (!string.IsNullOrEmpty(toHour))
+                queryParams.Add($"to_hour={toHour}");
+
+            var queryString = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
+            var response = await _httpClient.GetAsync($"/v1/stats/hourly{queryString}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var stats = JsonSerializer.Deserialize<List<HourlyStatsDto>>(content, _jsonOptions);
+                return Result<List<HourlyStatsDto>>.Success(stats ?? new List<HourlyStatsDto>());
+            }
+
+            return await HandleErrorResponse<List<HourlyStatsDto>>(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get hourly stats");
+            return Result<List<HourlyStatsDto>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to get hourly statistics");
+        }
+    }
+
+    /// <summary>
+    /// Get geographic statistics
+    /// </summary>
+    public async Task<Result<List<GeographicStatsDto>>> GetGeographicStatsAsync(
+        string? ownerId = null,
+        string? routeId = null,
+        string? fromDate = null,
+        string? toDate = null)
+    {
+        try
+        {
+            var queryParams = new List<string>();
+            if (!string.IsNullOrEmpty(ownerId))
+                queryParams.Add($"owner_id={Uri.EscapeDataString(ownerId)}");
+            if (!string.IsNullOrEmpty(routeId))
+                queryParams.Add($"route_id={Uri.EscapeDataString(routeId)}");
+            if (!string.IsNullOrEmpty(fromDate))
+                queryParams.Add($"from_date={fromDate}");
+            if (!string.IsNullOrEmpty(toDate))
+                queryParams.Add($"to_date={toDate}");
+
+            var queryString = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
+            var response = await _httpClient.GetAsync($"/v1/stats/geographic{queryString}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var stats = JsonSerializer.Deserialize<List<GeographicStatsDto>>(content, _jsonOptions);
+                return Result<List<GeographicStatsDto>>.Success(stats ?? new List<GeographicStatsDto>());
+            }
+
+            return await HandleErrorResponse<List<GeographicStatsDto>>(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get geographic stats");
+            return Result<List<GeographicStatsDto>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to get geographic statistics");
+        }
+    }
+
+    /// <summary>
+    /// Get device statistics
+    /// </summary>
+    public async Task<Result<List<DeviceStatsDto>>> GetDeviceStatsAsync(
+        string? ownerId = null,
+        string? routeId = null,
+        string? fromDate = null,
+        string? toDate = null)
+    {
+        try
+        {
+            var queryParams = new List<string>();
+            if (!string.IsNullOrEmpty(ownerId))
+                queryParams.Add($"owner_id={Uri.EscapeDataString(ownerId)}");
+            if (!string.IsNullOrEmpty(routeId))
+                queryParams.Add($"route_id={Uri.EscapeDataString(routeId)}");
+            if (!string.IsNullOrEmpty(fromDate))
+                queryParams.Add($"from_date={fromDate}");
+            if (!string.IsNullOrEmpty(toDate))
+                queryParams.Add($"to_date={toDate}");
+
+            var queryString = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
+            var response = await _httpClient.GetAsync($"/v1/stats/devices{queryString}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var stats = JsonSerializer.Deserialize<List<DeviceStatsDto>>(content, _jsonOptions);
+                return Result<List<DeviceStatsDto>>.Success(stats ?? new List<DeviceStatsDto>());
+            }
+
+            return await HandleErrorResponse<List<DeviceStatsDto>>(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get device stats");
+            return Result<List<DeviceStatsDto>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to get device statistics");
+        }
+    }
+
+    /// <summary>
+    /// Get browser statistics
+    /// </summary>
+    public async Task<Result<List<BrowserStatsDto>>> GetBrowserStatsAsync(
+        string? ownerId = null,
+        string? routeId = null,
+        string? fromDate = null,
+        string? toDate = null)
+    {
+        try
+        {
+            var queryParams = new List<string>();
+            if (!string.IsNullOrEmpty(ownerId))
+                queryParams.Add($"owner_id={Uri.EscapeDataString(ownerId)}");
+            if (!string.IsNullOrEmpty(routeId))
+                queryParams.Add($"route_id={Uri.EscapeDataString(routeId)}");
+            if (!string.IsNullOrEmpty(fromDate))
+                queryParams.Add($"from_date={fromDate}");
+            if (!string.IsNullOrEmpty(toDate))
+                queryParams.Add($"to_date={toDate}");
+
+            var queryString = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
+            var response = await _httpClient.GetAsync($"/v1/stats/browsers{queryString}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var stats = JsonSerializer.Deserialize<List<BrowserStatsDto>>(content, _jsonOptions);
+                return Result<List<BrowserStatsDto>>.Success(stats ?? new List<BrowserStatsDto>());
+            }
+
+            return await HandleErrorResponse<List<BrowserStatsDto>>(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get browser stats");
+            return Result<List<BrowserStatsDto>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to get browser statistics");
+        }
+    }
+
+    /// <summary>
+    /// Get route performance statistics
+    /// </summary>
+    public async Task<Result<List<RoutePerformanceDto>>> GetRoutePerformanceAsync(
+        string? ownerId = null,
+        string? fromDate = null,
+        string? toDate = null,
+        int? limit = null)
+    {
+        try
+        {
+            var queryParams = new List<string>();
+            if (!string.IsNullOrEmpty(ownerId))
+                queryParams.Add($"owner_id={Uri.EscapeDataString(ownerId)}");
+            if (!string.IsNullOrEmpty(fromDate))
+                queryParams.Add($"from_date={fromDate}");
+            if (!string.IsNullOrEmpty(toDate))
+                queryParams.Add($"to_date={toDate}");
+            if (limit.HasValue)
+                queryParams.Add($"limit={limit.Value}");
+
+            var queryString = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
+            var response = await _httpClient.GetAsync($"/v1/stats/route-performance{queryString}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var stats = JsonSerializer.Deserialize<List<RoutePerformanceDto>>(content, _jsonOptions);
+                return Result<List<RoutePerformanceDto>>.Success(stats ?? new List<RoutePerformanceDto>());
+            }
+
+            return await HandleErrorResponse<List<RoutePerformanceDto>>(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get route performance");
+            return Result<List<RoutePerformanceDto>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to get route performance");
+        }
+    }
+
+    /// <summary>
+    /// Get top destinations
+    /// </summary>
+    public async Task<Result<List<TopDestinationDto>>> GetTopDestinationsAsync(
+        string? ownerId = null,
+        string? routeId = null,
+        string? fromDate = null,
+        string? toDate = null,
+        int? limit = null)
+    {
+        try
+        {
+            var queryParams = new List<string>();
+            if (!string.IsNullOrEmpty(ownerId))
+                queryParams.Add($"owner_id={Uri.EscapeDataString(ownerId)}");
+            if (!string.IsNullOrEmpty(routeId))
+                queryParams.Add($"route_id={Uri.EscapeDataString(routeId)}");
+            if (!string.IsNullOrEmpty(fromDate))
+                queryParams.Add($"from_date={fromDate}");
+            if (!string.IsNullOrEmpty(toDate))
+                queryParams.Add($"to_date={toDate}");
+            if (limit.HasValue)
+                queryParams.Add($"limit={limit.Value}");
+
+            var queryString = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
+            var response = await _httpClient.GetAsync($"/v1/stats/top-destinations{queryString}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var stats = JsonSerializer.Deserialize<List<TopDestinationDto>>(content, _jsonOptions);
+                return Result<List<TopDestinationDto>>.Success(stats ?? new List<TopDestinationDto>());
+            }
+
+            return await HandleErrorResponse<List<TopDestinationDto>>(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get top destinations");
+            return Result<List<TopDestinationDto>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to get top destinations");
+        }
+    }
+
+    /// <summary>
+    /// Get traffic type statistics (bot vs human)
+    /// </summary>
+    public async Task<Result<List<TrafficTypeStatsDto>>> GetTrafficTypeStatsAsync(
+        string? ownerId = null,
+        string? routeId = null,
+        string? fromHour = null,
+        string? toHour = null)
+    {
+        try
+        {
+            var queryParams = new List<string>();
+            if (!string.IsNullOrEmpty(ownerId))
+                queryParams.Add($"owner_id={Uri.EscapeDataString(ownerId)}");
+            if (!string.IsNullOrEmpty(routeId))
+                queryParams.Add($"route_id={Uri.EscapeDataString(routeId)}");
+            if (!string.IsNullOrEmpty(fromHour))
+                queryParams.Add($"from_hour={fromHour}");
+            if (!string.IsNullOrEmpty(toHour))
+                queryParams.Add($"to_hour={toHour}");
+
+            var queryString = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
+            var response = await _httpClient.GetAsync($"/v1/stats/traffic-types{queryString}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var stats = JsonSerializer.Deserialize<List<TrafficTypeStatsDto>>(content, _jsonOptions);
+                return Result<List<TrafficTypeStatsDto>>.Success(stats ?? new List<TrafficTypeStatsDto>());
+            }
+
+            return await HandleErrorResponse<List<TrafficTypeStatsDto>>(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get traffic type stats");
+            return Result<List<TrafficTypeStatsDto>>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to get traffic type statistics");
+        }
+    }
+
+    #endregion
+
     private async Task<Result<T>> HandleErrorResponse<T>(HttpResponseMessage response)
     {
         var errorContent = await response.Content.ReadAsStringAsync();
@@ -377,6 +706,4 @@ public class ClickAggregatorApiClient
             _ => Result<T>.Failure("EXTERNAL_SERVICE_ERROR", "External service error")
         };
     }
-
-    #endregion
 }

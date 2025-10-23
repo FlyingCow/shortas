@@ -230,25 +230,25 @@ async fn main() {
     // Create main application router
     let app_router = Router::with_path("{**rest_path}").get(Redirect);
 
-    println!("🚀 Starting Click Router");
-    println!("   Main server: https://{}", args.listen_addr);
+    tracing::info!("🚀 Starting Click Router");
+    tracing::info!("   Main server: https://{}", args.listen_addr);
 
     // Start metrics server if enabled
     if args.enable_metrics {
         let metrics_router = create_metrics_router();
         let metrics_service = Service::new(metrics_router).hoop(Logger::new());
 
-        println!("📊 Metrics endpoints enabled:");
-        println!("   Metrics server: http://{}", args.metrics_addr);
-        println!(
+        tracing::info!("📊 Metrics endpoints enabled:");
+        tracing::info!("   Metrics server: http://{}", args.metrics_addr);
+        tracing::info!(
             "   • GET {}/health        - Health check",
             args.metrics_addr
         );
-        println!(
+        tracing::info!(
             "   • GET {}/metrics       - Prometheus metrics",
             args.metrics_addr
         );
-        println!(
+        tracing::info!(
             "   • GET {}/metrics/info  - Detailed metrics info",
             args.metrics_addr
         );
@@ -259,7 +259,7 @@ async fn main() {
             Server::new(metrics_acceptor).serve(metrics_service).await;
         });
     } else {
-        println!("📊 Metrics endpoints disabled (use --enable-metrics to enable)");
+        tracing::info!("📊 Metrics endpoints disabled (use --enable-metrics to enable)");
     }
 
     // Start main application server with default address
@@ -270,8 +270,8 @@ async fn main() {
 
     let service = Service::new(app_router).hoop(Logger::new());
 
-    println!("✅ Click Router started successfully!");
-    println!();
+    tracing::info!("✅ Click Router started successfully!");
+    tracing::info!("");
 
     Server::new(acceptor).serve(service).await;
 }

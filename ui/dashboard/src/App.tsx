@@ -8,7 +8,6 @@ import Dashboard from './components/DashboardUnified';
 import RoutesPage from './components/RoutesWithSidebar';
 import Domains from './components/Domains';
 import Workspaces from './components/Workspaces';
-import Analytics from './components/AnalyticsUnified';
 import Settings from './components/SettingsUnified';
 import Clickstream from './components/ClickstreamUnified';
 import Layout from './components/LayoutUnified';
@@ -178,7 +177,6 @@ const App: React.FC = () => {
                 <Route path="/routes" element={<RoutesPage />} />
                 <Route path="/domains" element={<Domains />} />
                 <Route path="/workspaces" element={<Workspaces />} />
-                <Route path="/analytics" element={<Analytics />} />
                 <Route path="/clickstream" element={<Clickstream />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -128,3 +128,170 @@ public class ClickAggregatorApiClickStreamResponse
     [JsonPropertyName("has_more")]
     public bool HasMore { get; set; }
 }
+
+// ==================== Statistics DTOs ====================
+
+/// <summary>
+/// Daily click statistics
+/// </summary>
+public class DailyStatsDto
+{
+    [JsonPropertyName("date")]
+    public string Date { get; set; } = string.Empty;
+
+    [JsonPropertyName("total_clicks")]
+    public long TotalClicks { get; set; }
+
+    [JsonPropertyName("unique_clicks")]
+    public long UniqueClicks { get; set; }
+
+    [JsonPropertyName("bot_clicks")]
+    public long BotClicks { get; set; }
+
+    [JsonPropertyName("human_clicks")]
+    public long HumanClicks { get; set; }
+
+    [JsonPropertyName("unique_ips")]
+    public long UniqueIps { get; set; }
+}
+
+/// <summary>
+/// Hourly click statistics
+/// </summary>
+public class HourlyStatsDto
+{
+    [JsonPropertyName("hour")]
+    public DateTime Hour { get; set; }
+
+    [JsonPropertyName("total_clicks")]
+    public long TotalClicks { get; set; }
+
+    [JsonPropertyName("unique_clicks")]
+    public long UniqueClicks { get; set; }
+
+    [JsonPropertyName("bot_clicks")]
+    public long BotClicks { get; set; }
+
+    [JsonPropertyName("human_clicks")]
+    public long HumanClicks { get; set; }
+
+    [JsonPropertyName("unique_ips")]
+    public long UniqueIps { get; set; }
+}
+
+/// <summary>
+/// Geographic statistics
+/// </summary>
+public class GeographicStatsDto
+{
+    [JsonPropertyName("continent")]
+    public string? Continent { get; set; }
+
+    [JsonPropertyName("country")]
+    public string Country { get; set; } = string.Empty;
+
+    [JsonPropertyName("location")]
+    public string? Location { get; set; }
+
+    [JsonPropertyName("total_clicks")]
+    public long TotalClicks { get; set; }
+
+    [JsonPropertyName("unique_clicks")]
+    public long UniqueClicks { get; set; }
+
+    [JsonPropertyName("unique_ips")]
+    public long UniqueIps { get; set; }
+}
+
+/// <summary>
+/// Device statistics
+/// </summary>
+public class DeviceStatsDto
+{
+    [JsonPropertyName("device_family")]
+    public string DeviceFamily { get; set; } = string.Empty;
+
+    [JsonPropertyName("os_family")]
+    public string OsFamily { get; set; } = string.Empty;
+
+    [JsonPropertyName("total_clicks")]
+    public long TotalClicks { get; set; }
+
+    [JsonPropertyName("unique_clicks")]
+    public long UniqueClicks { get; set; }
+}
+
+/// <summary>
+/// Browser statistics
+/// </summary>
+public class BrowserStatsDto
+{
+    [JsonPropertyName("user_agent_family")]
+    public string UserAgentFamily { get; set; } = string.Empty;
+
+    [JsonPropertyName("user_agent_version")]
+    public string? UserAgentVersion { get; set; }
+
+    [JsonPropertyName("total_clicks")]
+    public long TotalClicks { get; set; }
+
+    [JsonPropertyName("unique_clicks")]
+    public long UniqueClicks { get; set; }
+}
+
+/// <summary>
+/// Route performance statistics
+/// </summary>
+public class RoutePerformanceDto
+{
+    [JsonPropertyName("route_id")]
+    public string RouteId { get; set; } = string.Empty;
+
+    [JsonPropertyName("total_clicks")]
+    public long TotalClicks { get; set; }
+
+    [JsonPropertyName("unique_visitors")]
+    public long UniqueVisitors { get; set; }
+
+    [JsonPropertyName("bot_clicks")]
+    public long BotClicks { get; set; }
+
+    [JsonPropertyName("human_clicks")]
+    public long HumanClicks { get; set; }
+
+    [JsonPropertyName("countries_reached")]
+    public long CountriesReached { get; set; }
+
+    [JsonPropertyName("device_types")]
+    public long DeviceTypes { get; set; }
+}
+
+/// <summary>
+/// Top destination statistics
+/// </summary>
+public class TopDestinationDto
+{
+    [JsonPropertyName("dest")]
+    public string Dest { get; set; } = string.Empty;
+
+    [JsonPropertyName("total_clicks")]
+    public long TotalClicks { get; set; }
+
+    [JsonPropertyName("unique_visitors")]
+    public long UniqueVisitors { get; set; }
+}
+
+/// <summary>
+/// Traffic type (bot vs human) statistics
+/// </summary>
+public class TrafficTypeStatsDto
+{
+    [JsonPropertyName("is_bot")]
+    public bool IsBot { get; set; }
+
+    [JsonPropertyName("total_clicks")]
+    public long TotalClicks { get; set; }
+
+    [JsonPropertyName("unique_ips")]
+    public long UniqueIps { get; set; }
+}

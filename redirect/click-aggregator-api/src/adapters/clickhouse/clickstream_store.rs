@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use anyhow::Result;
 use serde::{Deserialize, Deserializer, Serialize};
 use chrono::{DateTime, Utc};
+use tracing::{debug, error, warn};
 use crate::core::clickstream_store::ClickStreamStore;
 use crate::model::clickstream::{ClickStreamItem, ClickStreamQuery, ClickStreamResponse};
 
@@ -274,9 +275,9 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
         
         // Debug logging
         let line_count = text.lines().count();
-        eprintln!("[DEBUG] ClickHouse returned {} lines", line_count);
+        debug!("ClickHouse returned {} lines", line_count);
         if line_count > 0 && line_count <= 3 {
-            eprintln!("[DEBUG] First line sample: {}", text.lines().next().unwrap_or(""));
+            debug!("First line sample: {}", text.lines().next().unwrap_or(""));
         }
         
         let mut parse_errors = 0;
@@ -287,8 +288,8 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
                     Ok(row) => Some(row),
                     Err(e) => {
                         if parse_errors < 3 {
-                            eprintln!("[ERROR] Failed to parse ClickStream row: {}", e);
-                            eprintln!("[ERROR] Line content: {}", line);
+                            error!("Failed to parse ClickStream row: {}", e);
+                            error!("Line content: {}", line);
                         }
                         parse_errors += 1;
                         None
@@ -299,10 +300,10 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
             .collect();
         
         if parse_errors > 0 {
-            eprintln!("[WARN] Total parse errors: {}", parse_errors);
+            warn!("Total parse errors: {}", parse_errors);
         }
-        
-        eprintln!("[DEBUG] Successfully parsed {} items", items.len());
+
+        debug!("Successfully parsed {} items", items.len());
 
         let total = self.count_clickstream(query).await?;
         let has_more = (offset + limit as u32) < total as u32;
@@ -338,5 +339,457 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
         let text = response.text().await?;
         let result: CountRow = serde_json::from_str(text.lines().next().unwrap_or("{\"count\":0}"))?;
         Ok(result.count)
+    }
+
+    async fn get_daily_stats(&self, owner_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::DailyStatsDto>> {
+        use crate::dto::clickstream_dto::DailyStatsDto;
+
+        let mut conditions = Vec::new();
+        if let Some(oid) = owner_id {
+            conditions.push(format!("owner_id = '{}'", oid));
+        }
+        if let Some(rid) = route_id {
+            conditions.push(format!("route_id = '{}'", rid));
+        }
+        if let Some(fd) = from_date {
+            conditions.push(format!("date >= '{}'", fd));
+        }
+        if let Some(td) = to_date {
+            conditions.push(format!("date <= '{}'", td));
+        }
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+
+        let sql = format!(
+            "SELECT toString(date) as date, sum(total_clicks) as total_clicks, sum(unique_clicks) as unique_clicks, \
+             sum(bot_clicks) as bot_clicks, sum(human_clicks) as human_clicks, sum(unique_ips) as unique_ips \
+             FROM click_stream_daily_mv {} GROUP BY date ORDER BY date DESC FORMAT JSONEachRow",
+            where_clause
+        );
+
+        let response = self.http_client
+            .get(&self.url)
+            .query(&[
+                ("user", &self.user),
+                ("password", &self.password),
+                ("database", &self.database),
+                ("query", &sql),
+            ])
+            .send()
+            .await?;
+
+        let text = response.text().await?;
+        let stats: Vec<DailyStatsDto> = text
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+
+        Ok(stats)
+    }
+
+    async fn get_hourly_stats(&self, owner_id: Option<&str>, route_id: Option<&str>, from_hour: Option<&str>, to_hour: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::HourlyStatsDto>> {
+        use crate::dto::clickstream_dto::HourlyStatsDto;
+
+        let mut conditions = Vec::new();
+        if let Some(oid) = owner_id {
+            conditions.push(format!("owner_id = '{}'", oid));
+        }
+        if let Some(rid) = route_id {
+            conditions.push(format!("route_id = '{}'", rid));
+        }
+        if let Some(fh) = from_hour {
+            conditions.push(format!("hour >= '{}'", fh));
+        }
+        if let Some(th) = to_hour {
+            conditions.push(format!("hour <= '{}'", th));
+        }
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+
+        let sql = format!(
+            "SELECT hour, sum(total_clicks) as total_clicks, sum(unique_clicks) as unique_clicks, \
+             sum(bot_clicks) as bot_clicks, sum(human_clicks) as human_clicks, sum(unique_ips) as unique_ips \
+             FROM click_stream_hourly_mv {} GROUP BY hour ORDER BY hour DESC FORMAT JSONEachRow",
+            where_clause
+        );
+
+        let response = self.http_client
+            .get(&self.url)
+            .query(&[
+                ("user", &self.user),
+                ("password", &self.password),
+                ("database", &self.database),
+                ("query", &sql),
+            ])
+            .send()
+            .await?;
+
+        let text = response.text().await?;
+        let stats: Vec<HourlyStatsDto> = text
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+
+        Ok(stats)
+    }
+
+    async fn get_geographic_stats(&self, owner_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::GeographicStatsDto>> {
+        use crate::dto::clickstream_dto::GeographicStatsDto;
+
+        let mut conditions = Vec::new();
+        if let Some(oid) = owner_id {
+            conditions.push(format!("owner_id = '{}'", oid));
+        }
+        if let Some(rid) = route_id {
+            conditions.push(format!("route_id = '{}'", rid));
+        }
+        if let Some(fd) = from_date {
+            conditions.push(format!("date >= '{}'", fd));
+        }
+        if let Some(td) = to_date {
+            conditions.push(format!("date <= '{}'", td));
+        }
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+
+        let sql = format!(
+            "SELECT country, continent, location, sum(total_clicks) as total_clicks, \
+             sum(unique_clicks) as unique_clicks, sum(unique_ips) as unique_ips \
+             FROM click_stream_geographic_mv {} \
+             GROUP BY country, continent, location ORDER BY total_clicks DESC LIMIT 100 FORMAT JSONEachRow",
+            where_clause
+        );
+
+        let response = self.http_client
+            .get(&self.url)
+            .query(&[
+                ("user", &self.user),
+                ("password", &self.password),
+                ("database", &self.database),
+                ("query", &sql),
+            ])
+            .send()
+            .await?;
+
+        let text = response.text().await?;
+
+        #[derive(Deserialize)]
+        struct GeoRow {
+            country: String,
+            continent: Option<String>,
+            location: Option<String>,
+            total_clicks: u64,
+            unique_clicks: u64,
+            unique_ips: u64,
+        }
+
+        let stats: Vec<GeographicStatsDto> = text
+            .lines()
+            .filter_map(|line| serde_json::from_str::<GeoRow>(line).ok())
+            .map(|row| GeographicStatsDto {
+                country: row.country,
+                continent: row.continent,
+                location: row.location,
+                total_clicks: row.total_clicks,
+                unique_clicks: row.unique_clicks,
+                unique_ips: row.unique_ips,
+            })
+            .collect();
+
+        Ok(stats)
+    }
+
+    async fn get_device_stats(&self, owner_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::DeviceStatsDto>> {
+        use crate::dto::clickstream_dto::DeviceStatsDto;
+
+        let mut conditions = Vec::new();
+        if let Some(oid) = owner_id {
+            conditions.push(format!("owner_id = '{}'", oid));
+        }
+        if let Some(rid) = route_id {
+            conditions.push(format!("route_id = '{}'", rid));
+        }
+        if let Some(fd) = from_date {
+            conditions.push(format!("date >= '{}'", fd));
+        }
+        if let Some(td) = to_date {
+            conditions.push(format!("date <= '{}'", td));
+        }
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+
+        let sql = format!(
+            "SELECT device_family, os_family, sum(total_clicks) as total_clicks, sum(unique_clicks) as unique_clicks \
+             FROM click_stream_device_mv {} \
+             GROUP BY device_family, os_family ORDER BY total_clicks DESC LIMIT 100 FORMAT JSONEachRow",
+            where_clause
+        );
+
+        let response = self.http_client
+            .get(&self.url)
+            .query(&[
+                ("user", &self.user),
+                ("password", &self.password),
+                ("database", &self.database),
+                ("query", &sql),
+            ])
+            .send()
+            .await?;
+
+        let text = response.text().await?;
+        let stats: Vec<DeviceStatsDto> = text
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+
+        Ok(stats)
+    }
+
+    async fn get_browser_stats(&self, owner_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::BrowserStatsDto>> {
+        use crate::dto::clickstream_dto::BrowserStatsDto;
+
+        let mut conditions = Vec::new();
+        if let Some(oid) = owner_id {
+            conditions.push(format!("owner_id = '{}'", oid));
+        }
+        if let Some(rid) = route_id {
+            conditions.push(format!("route_id = '{}'", rid));
+        }
+        if let Some(fd) = from_date {
+            conditions.push(format!("date >= '{}'", fd));
+        }
+        if let Some(td) = to_date {
+            conditions.push(format!("date <= '{}'", td));
+        }
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+
+        let sql = format!(
+            "SELECT user_agent_family, user_agent_version, sum(total_clicks) as total_clicks, sum(unique_clicks) as unique_clicks \
+             FROM click_stream_browser_mv {} \
+             GROUP BY user_agent_family, user_agent_version ORDER BY total_clicks DESC LIMIT 100 FORMAT JSONEachRow",
+            where_clause
+        );
+
+        let response = self.http_client
+            .get(&self.url)
+            .query(&[
+                ("user", &self.user),
+                ("password", &self.password),
+                ("database", &self.database),
+                ("query", &sql),
+            ])
+            .send()
+            .await?;
+
+        let text = response.text().await?;
+
+        #[derive(Deserialize)]
+        struct BrowserRow {
+            user_agent_family: String,
+            user_agent_version: Option<String>,
+            total_clicks: u64,
+            unique_clicks: u64,
+        }
+
+        let stats: Vec<BrowserStatsDto> = text
+            .lines()
+            .filter_map(|line| serde_json::from_str::<BrowserRow>(line).ok())
+            .map(|row| BrowserStatsDto {
+                user_agent_family: row.user_agent_family,
+                user_agent_version: row.user_agent_version,
+                total_clicks: row.total_clicks,
+                unique_clicks: row.unique_clicks,
+            })
+            .collect();
+
+        Ok(stats)
+    }
+
+    async fn get_route_performance(&self, owner_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>, limit: Option<u32>) -> Result<Vec<crate::dto::clickstream_dto::RoutePerformanceDto>> {
+        use crate::dto::clickstream_dto::RoutePerformanceDto;
+
+        let mut conditions = Vec::new();
+        if let Some(oid) = owner_id {
+            conditions.push(format!("owner_id = '{}'", oid));
+        }
+        if let Some(fd) = from_date {
+            conditions.push(format!("date >= '{}'", fd));
+        }
+        if let Some(td) = to_date {
+            conditions.push(format!("date <= '{}'", td));
+        }
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+
+        let limit_clause = limit.unwrap_or(50);
+
+        let sql = format!(
+            "SELECT route_id, sum(total_clicks) as total_clicks, sum(unique_visitors) as unique_visitors, \
+             sum(bot_clicks) as bot_clicks, sum(human_clicks) as human_clicks, \
+             sum(countries_reached) as countries_reached, sum(device_types) as device_types \
+             FROM click_stream_route_performance_mv {} \
+             GROUP BY route_id ORDER BY total_clicks DESC LIMIT {} FORMAT JSONEachRow",
+            where_clause, limit_clause
+        );
+
+        let response = self.http_client
+            .get(&self.url)
+            .query(&[
+                ("user", &self.user),
+                ("password", &self.password),
+                ("database", &self.database),
+                ("query", &sql),
+            ])
+            .send()
+            .await?;
+
+        let text = response.text().await?;
+        let stats: Vec<RoutePerformanceDto> = text
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+
+        Ok(stats)
+    }
+
+    async fn get_top_destinations(&self, owner_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>, limit: Option<u32>) -> Result<Vec<crate::dto::clickstream_dto::TopDestinationDto>> {
+        use crate::dto::clickstream_dto::TopDestinationDto;
+
+        let mut conditions = Vec::new();
+        if let Some(oid) = owner_id {
+            conditions.push(format!("owner_id = '{}'", oid));
+        }
+        if let Some(rid) = route_id {
+            conditions.push(format!("route_id = '{}'", rid));
+        }
+        if let Some(fd) = from_date {
+            conditions.push(format!("date >= '{}'", fd));
+        }
+        if let Some(td) = to_date {
+            conditions.push(format!("date <= '{}'", td));
+        }
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+
+        let limit_clause = limit.unwrap_or(20);
+
+        let sql = format!(
+            "SELECT dest, sum(total_clicks) as total_clicks, sum(unique_visitors) as unique_visitors \
+             FROM click_stream_top_destinations_mv {} \
+             GROUP BY dest ORDER BY total_clicks DESC LIMIT {} FORMAT JSONEachRow",
+            where_clause, limit_clause
+        );
+
+        let response = self.http_client
+            .get(&self.url)
+            .query(&[
+                ("user", &self.user),
+                ("password", &self.password),
+                ("database", &self.database),
+                ("query", &sql),
+            ])
+            .send()
+            .await?;
+
+        let text = response.text().await?;
+        let stats: Vec<TopDestinationDto> = text
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+
+        Ok(stats)
+    }
+
+    async fn get_traffic_type_stats(&self, owner_id: Option<&str>, route_id: Option<&str>, from_hour: Option<&str>, to_hour: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::TrafficTypeStatsDto>> {
+        use crate::dto::clickstream_dto::TrafficTypeStatsDto;
+
+        let mut conditions = Vec::new();
+        if let Some(oid) = owner_id {
+            conditions.push(format!("owner_id = '{}'", oid));
+        }
+        if let Some(rid) = route_id {
+            conditions.push(format!("route_id = '{}'", rid));
+        }
+        if let Some(fh) = from_hour {
+            conditions.push(format!("hour >= '{}'", fh));
+        }
+        if let Some(th) = to_hour {
+            conditions.push(format!("hour <= '{}'", th));
+        }
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+
+        let sql = format!(
+            "SELECT is_bot, sum(total_clicks) as total_clicks, sum(unique_ips) as unique_ips \
+             FROM click_stream_traffic_type_mv {} \
+             GROUP BY is_bot ORDER BY is_bot FORMAT JSONEachRow",
+            where_clause
+        );
+
+        let response = self.http_client
+            .get(&self.url)
+            .query(&[
+                ("user", &self.user),
+                ("password", &self.password),
+                ("database", &self.database),
+                ("query", &sql),
+            ])
+            .send()
+            .await?;
+
+        let text = response.text().await?;
+
+        #[derive(Deserialize)]
+        struct TrafficRow {
+            #[serde(deserialize_with = "deserialize_uint8_as_bool")]
+            is_bot: bool,
+            total_clicks: u64,
+            unique_ips: u64,
+        }
+
+        let stats: Vec<TrafficTypeStatsDto> = text
+            .lines()
+            .filter_map(|line| serde_json::from_str::<TrafficRow>(line).ok())
+            .map(|row| TrafficTypeStatsDto {
+                is_bot: row.is_bot,
+                total_clicks: row.total_clicks,
+                unique_ips: row.unique_ips,
+            })
+            .collect();
+
+        Ok(stats)
     }
 }

@@ -155,6 +155,6 @@ mod tests {
         };
 
         let serialized = serde_json::to_string(&route).unwrap().to_string();
-        println!("serialized = {}", serialized);
+        tracing::debug!("serialized = {}", serialized);
     }
 }

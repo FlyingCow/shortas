@@ -139,3 +139,82 @@ impl From<&ClickStreamItem> for ClickStreamItemDto {
     }
 }
 
+
+/// Daily click statistics
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct DailyStatsDto {
+    pub date: String,
+    pub total_clicks: u64,
+    pub unique_clicks: u64,
+    pub bot_clicks: u64,
+    pub human_clicks: u64,
+    pub unique_ips: u64,
+}
+
+/// Hourly click statistics
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct HourlyStatsDto {
+    pub hour: DateTime<Utc>,
+    pub total_clicks: u64,
+    pub unique_clicks: u64,
+    pub bot_clicks: u64,
+    pub human_clicks: u64,
+    pub unique_ips: u64,
+}
+
+/// Geographic statistics
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct GeographicStatsDto {
+    pub continent: Option<String>,
+    pub country: String,
+    pub location: Option<String>,
+    pub total_clicks: u64,
+    pub unique_clicks: u64,
+    pub unique_ips: u64,
+}
+
+/// Device statistics
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct DeviceStatsDto {
+    pub device_family: String,
+    pub os_family: String,
+    pub total_clicks: u64,
+    pub unique_clicks: u64,
+}
+
+/// Browser statistics
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct BrowserStatsDto {
+    pub user_agent_family: String,
+    pub user_agent_version: Option<String>,
+    pub total_clicks: u64,
+    pub unique_clicks: u64,
+}
+
+/// Route performance statistics
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct RoutePerformanceDto {
+    pub route_id: String,
+    pub total_clicks: u64,
+    pub unique_visitors: u64,
+    pub bot_clicks: u64,
+    pub human_clicks: u64,
+    pub countries_reached: u64,
+    pub device_types: u64,
+}
+
+/// Top destination statistics
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct TopDestinationDto {
+    pub dest: String,
+    pub total_clicks: u64,
+    pub unique_visitors: u64,
+}
+
+/// Traffic type (bot vs human) statistics
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct TrafficTypeStatsDto {
+    pub is_bot: bool,
+    pub total_clicks: u64,
+    pub unique_ips: u64,
+}
