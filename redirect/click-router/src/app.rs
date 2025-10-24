@@ -1,4 +1,6 @@
 use aws_config::SdkConfig;
+use aws_config::timeout::TimeoutConfig;
+use std::time::Duration;
 use tracing::info;
 
 use crate::{
@@ -49,6 +51,16 @@ pub struct AppBuilder {
 impl AppBuilder {
     async fn load_aws_config(&self, settings: AWS) -> SdkConfig {
         let mut shared_config = aws_config::defaults(aws_config::BehaviorVersion::latest());
+
+        // Configure timeouts for optimal performance
+        let timeout_config = TimeoutConfig::builder()
+            .connect_timeout(Duration::from_secs(5))     // Connection establishment timeout
+            .read_timeout(Duration::from_secs(5))        // Socket read timeout
+            .operation_timeout(Duration::from_secs(10))  // Overall operation timeout
+            .operation_attempt_timeout(Duration::from_secs(5))  // Single attempt timeout
+            .build();
+
+        shared_config = shared_config.timeout_config(timeout_config);
 
         if settings.local {
             let endpoint = settings

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use flume::Sender;
 use fluvio::{
     Compression, Fluvio, FluvioClusterConfig, Offset, RecordKey, TopicProducer,
@@ -9,9 +9,12 @@ use fluvio::{
 use futures::StreamExt;
 use settings::{ClickAggsConfig, HitStreamConfig};
 use std::time::Duration;
+use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
 use crate::core::{ClickStreamItem, Hit, HitStreamSource, aggs::ClickAggsRegistrar};
+
+const FLUVIO_SEND_TIMEOUT_SECS: u64 = 10;  // 10 second timeout for Fluvio send operations
 
 pub mod settings;
 
@@ -105,13 +108,21 @@ impl FluvioClickAggsRegistrar {
 impl ClickAggsRegistrar for FluvioClickAggsRegistrar {
     async fn register(&self, click: ClickStreamItem) -> Result<()> {
         let record = serde_json::to_vec(&click).unwrap();
-        self.producer
-            .send(RecordKey::NULL, record)
+
+        // Add timeout to prevent hanging on Fluvio send operations
+        let send_operation = self.producer.send(RecordKey::NULL, record);
+
+        timeout(Duration::from_secs(FLUVIO_SEND_TIMEOUT_SECS), send_operation)
             .await
-            .expect("Failed to send record");
+            .context("Fluvio send operation timed out")?
+            .context("Failed to send record to Fluvio")?;
 
         if self.token.is_cancelled() {
-            self.producer.flush().await?
+            // Also add timeout to flush operation
+            let flush_operation = self.producer.flush();
+            timeout(Duration::from_secs(FLUVIO_SEND_TIMEOUT_SECS), flush_operation)
+                .await
+                .context("Fluvio flush operation timed out")??;
         }
 
         Ok(())

@@ -20,7 +20,15 @@ pub struct Server {
 
 #[derive(Debug, Deserialize, Clone)]
 #[allow(unused)]
+pub struct Pipeline {
+    pub channel_capacity: usize,
+    pub parallelism: Option<usize>,  // None = auto-detect (CPUs/2)
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[allow(unused)]
 pub struct Settings {
+    pub pipeline: Pipeline,
     pub aws: AWS,
     pub kafka: Kafka,
     pub fluvio: Fluvio,

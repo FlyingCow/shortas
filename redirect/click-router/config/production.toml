@@ -28,14 +28,30 @@ iteration_seconds = 1
 [fluvio.hit_stream]
 topic = "hit-stream-main"
 host = "localhost:9003"
-batch_size = 10000
-linger = 1000
+batch_size = 500      # Optimized: balance between throughput and latency
+linger = 100          # 100ms batching window
 
 [uaparser]
 yaml = "./data/ua-parser/regexes.yaml"
 
 [geo_ip]
 mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"
+
+[moka]
+[moka.crypto_cache]
+max_capacity = 1_000
+time_to_live_minutes = 1440  # 24 hours
+time_to_idle_minutes = 720   # 12 hours
+
+[moka.routes_cache]
+max_capacity = 100_000       # Increased from 10,000 for high traffic
+time_to_live_minutes = 120   # 2 hours
+time_to_idle_minutes = 60    # 1 hour
+
+[moka.user_settings_cache]
+max_capacity = 50_000        # Increased from 10,000
+time_to_live_minutes = 240   # 4 hours
+time_to_idle_minutes = 120   # 2 hours
 
 [redirect]
 not_found_url = "http://localhost:5801/404/{}"

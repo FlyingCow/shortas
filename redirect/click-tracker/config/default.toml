@@ -1,3 +1,7 @@
+[pipeline]
+channel_capacity = 5000       # Bounded channel buffer size
+# parallelism = 4             # Optional: Override auto-detection (CPUs/2)
+
 [aws]
 
 [aws.dynamo]

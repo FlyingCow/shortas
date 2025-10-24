@@ -35,6 +35,7 @@ use salvo::{
     Depot, FlowCtrl, Handler, Listener, Request, Response, Router, Server, Service,
 };
 use salvo_proxy::{hyper_client::HyperClient, Proxy};
+use tokio::time::{timeout, Duration};
 
 use click_router::{
     adapters::{
@@ -111,12 +112,27 @@ impl Handler for Redirect {
 
         let router = get_flow_router();
 
-        let result = router
-            .handle(
+        // Wrap the entire request handling with a 5-second timeout
+        let timeout_result = timeout(
+            Duration::from_secs(5),
+            router.handle(
                 &RequestType::Salvo(&SalvoRequest::new(&req)),
                 &ResponseType::Salvo(&mut SalvoResponse::new(res)),
             )
-            .await;
+        ).await;
+
+        let result = match timeout_result {
+            Ok(result) => result,
+            Err(_) => {
+                // Timeout occurred
+                tracing::warn!("Request timeout after 5 seconds");
+                METRICS.requests_error.inc();
+                res.status_code(StatusCode::GATEWAY_TIMEOUT).render("");
+                request_timer.observe_duration_seconds(&METRICS.request_duration);
+                METRICS.active_requests.dec();
+                return;
+            }
+        };
 
         // Handle the result and update metrics
         match result {

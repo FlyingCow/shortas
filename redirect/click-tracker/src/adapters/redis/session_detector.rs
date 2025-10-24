@@ -1,9 +1,12 @@
 use std::net::IpAddr;
+use std::time::Duration;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use redis::aio::ConnectionManager;
 use redis::Client;
 use redis::Script;
+use tokio::time::timeout;
 use tracing::info;
 
 use crate::core::session::{Session, SessionDetector};
@@ -11,22 +14,37 @@ use crate::core::session::{Session, SessionDetector};
 use super::settings::Redis;
 
 const EXPIRATION_OFFSET: i64 = 30 * 60;
+const REDIS_TIMEOUT_SECS: u64 = 5;  // 5 second timeout for Redis operations
 
 #[derive(Clone)]
 pub struct RedisSessionDetector {
-    redis_client: Client,
+    connection_manager: ConnectionManager,
 }
 
 impl RedisSessionDetector {
-    pub fn new(settings: &Redis) -> Self {
+    pub async fn new(settings: &Redis) -> Self {
         info!("  redis -> {}", &settings.host);
 
-        let client = Client::open(settings.host.as_str()).unwrap();
+        let client = Client::open(settings.host.as_str())
+            .expect("Failed to parse Redis connection string");
 
-        let _con = client.get_connection().unwrap();
+        info!("  redis -> Establishing connection manager...");
+
+        // Use async ConnectionManager for connection pooling and reuse
+        // ConnectionManager will automatically reconnect on connection loss
+        let connection_manager = ConnectionManager::new(client)
+            .await
+            .unwrap_or_else(|e| {
+                panic!(
+                    "Failed to create Redis connection manager. Is Redis running at {}? Error: {}",
+                    settings.host, e
+                )
+            });
+
+        info!("  redis -> Connection manager established successfully");
 
         Self {
-            redis_client: client,
+            connection_manager,
         }
     }
 }
@@ -75,15 +93,23 @@ impl SessionDetector for RedisSessionDetector {
 
         let script = Script::new(script_value);
 
-        let mut connection = self.redis_client.get_connection()?;
+        // Clone the connection manager (lightweight, uses Arc internally)
+        let mut connection = self.connection_manager.clone();
 
-        let result: Result<Option<String>, redis::RedisError> = script
-            .key(root_key)
-            .arg(click_timestamp)
-            .arg(EXPIRATION_OFFSET)
-            .invoke(&mut connection);
+        // Use async invoke with timeout to prevent hanging
+        let result = timeout(
+            Duration::from_secs(REDIS_TIMEOUT_SECS),
+            script
+                .key(root_key)
+                .arg(click_timestamp)
+                .arg(EXPIRATION_OFFSET)
+                .invoke_async::<String>(&mut connection),
+        )
+        .await
+        .context("Redis session lookup timed out")?
+        .context("Redis session lookup failed")?;
 
-        let session: Session = serde_json::from_str(&result?.unwrap())?;
+        let session: Session = serde_json::from_str(&result)?;
 
         Ok(session)
     }

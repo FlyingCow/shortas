@@ -19,6 +19,8 @@ impl App {
         stream_sources: Vec<HitStreamSourceType>,
         pipe: TrackingPipe<ClickModules>,
         token: CancellationToken,
+        channel_capacity: usize,
+        parallelism: Option<usize>,
     ) -> Result<JoinSet<()>> {
         if TRACKING_PIPE.get().is_some() {
             panic!("Only one instance of app is allowed")
@@ -28,9 +30,14 @@ impl App {
 
         let _ = TRACKING_PIPE.set(pipe);
 
-        let parallelism = usize::from(available_parallelism().unwrap()) / 2;
+        // Use configured parallelism or auto-detect (CPUs / 2)
+        let parallelism = parallelism.unwrap_or_else(|| {
+            usize::from(available_parallelism().unwrap()) / 2
+        });
 
-        let (tx, rx) = bounded(parallelism);
+        info!("Pipeline configuration - parallelism: {}, channel_capacity: {}", parallelism, channel_capacity);
+
+        let (tx, rx) = bounded(channel_capacity);
 
         for stream in stream_sources {
             let tx = tx.clone();

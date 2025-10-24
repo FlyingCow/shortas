@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
   ResponsiveContainer,
   LineChart,
   Line,
@@ -55,7 +55,7 @@ const Dashboard: React.FC = () => {
       // Calculate date range
       const endDate = new Date();
       const startDate = new Date();
-      
+
       switch (dateRange) {
         case '24h':
           startDate.setHours(startDate.getHours() - 24);
@@ -171,369 +171,403 @@ const Dashboard: React.FC = () => {
   const GENERAL_COLORS = ['var(--primary-500)', 'var(--success-500)', 'var(--warning-500)', 'var(--error-500)', 'var(--primary-600)'];
 
   return (
-    <div className="container">
-      {/* Page Header */}
-      <div className="page-header">
-        <h1 className="page-title">Dashboard</h1>
-        <p className="page-subtitle">Overview of your URL shortener performance</p>
-      </div>
+    <div className="container" style={{ maxHeight: '100vh', overflow: 'auto' }}>
+      {/* Compact Page Header with Inline Controls */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '1rem',
+        padding: '0.5rem 0'
+      }}>
+        <div>
+          <h1 style={{
+            fontSize: '1.5rem',
+            fontWeight: '600',
+            margin: '0 0 0.25rem 0',
+            color: 'var(--text-primary)'
+          }}>Dashboard</h1>
+          <p style={{
+            fontSize: '0.875rem',
+            margin: 0,
+            color: 'var(--text-muted)'
+          }}>Performance overview</p>
+        </div>
 
-      {/* Date Range Selector */}
-      <div className="card mb-lg">
-        <div className="card-body">
-          <div className="flex items-center justify-between">
-            <div className="flex gap-sm">
-              {[
-                { value: '24h', label: 'Last 24 Hours' },
-                { value: '7d', label: 'Last 7 Days' },
-                { value: '30d', label: 'Last 30 Days' },
-                { value: '90d', label: 'Last 90 Days' },
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  className={`btn ${dateRange === option.value ? 'btn-primary' : 'btn-outline'}`}
-                  onClick={() => setDateRange(option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <button 
-              className="btn btn-secondary" 
-              onClick={fetchDashboardData} 
-              disabled={loading}
+        {/* Inline Date Range Selector */}
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {[
+            { value: '24h', label: '24h' },
+            { value: '7d', label: '7d' },
+            { value: '30d', label: '30d' },
+            { value: '90d', label: '90d' },
+          ].map((option) => (
+            <button
+              key={option.value}
+              className={`btn ${dateRange === option.value ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setDateRange(option.value)}
+              style={{
+                padding: '0.375rem 0.75rem',
+                fontSize: '0.875rem',
+                minWidth: '50px'
+              }}
             >
-              <Activity size={16} />
-              Refresh
+              {option.label}
             </button>
-          </div>
+          ))}
+          <button
+            className="btn btn-secondary"
+            onClick={fetchDashboardData}
+            disabled={loading}
+            style={{
+              padding: '0.375rem 0.75rem',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem'
+            }}
+          >
+            <Activity size={14} />
+            Refresh
+          </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="stats-grid">
-        <div className="stats-card">
-          <div className="stats-icon">
-            <MousePointer size={24} />
-          </div>
-          <div className="stats-content">
-            <div className="stats-value">{stats?.totalClicks.toLocaleString() || '0'}</div>
-            <div className="stats-label">Total Clicks</div>
-            <div className="stats-change">+12.5% from last period</div>
-          </div>
-        </div>
-
-        <div className="stats-card">
-          <div className="stats-icon">
-            <Users size={24} />
-          </div>
-          <div className="stats-content">
-            <div className="stats-value">{stats?.uniqueClicks.toLocaleString() || '0'}</div>
-            <div className="stats-label">Unique Visitors</div>
-            <div className="stats-change">+8.3% from last period</div>
-          </div>
-        </div>
-
-        <div className="stats-card">
-          <div className="stats-icon">
-            <Activity size={24} />
-          </div>
-          <div className="stats-content">
-            <div className="stats-value">{stats?.humanClicks.toLocaleString() || '0'}</div>
-            <div className="stats-label">Human Clicks</div>
-            <div className="stats-change">
-              {stats && stats.totalClicks > 0
-                ? `${((stats.humanClicks / stats.totalClicks) * 100).toFixed(1)}% of total`
-                : 'N/A'}
+      {/* Compact Stats Cards */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gap: '0.75rem',
+        marginBottom: '1rem'
+      }}>
+        {[
+          { icon: MousePointer, value: stats?.totalClicks, label: 'Total Clicks', change: '+12.5%', color: 'var(--primary-500)' },
+          { icon: Users, value: stats?.uniqueClicks, label: 'Unique', change: '+8.3%', color: 'var(--success-500)' },
+          { icon: Activity, value: stats?.humanClicks, label: 'Human', change: `${stats && stats.totalClicks > 0 ? ((stats.humanClicks / stats.totalClicks) * 100).toFixed(0) : '0'}%`, color: 'var(--success-600)' },
+          { icon: Bot, value: stats?.botClicks, label: 'Bot', change: `${stats && stats.totalClicks > 0 ? ((stats.botClicks / stats.totalClicks) * 100).toFixed(0) : '0'}%`, color: 'var(--error-500)' },
+          { icon: TrendingUp, value: `${stats ? ((stats.uniqueClicks / stats.totalClicks) * 100).toFixed(1) : '0'}%`, label: 'Unique Rate', change: '-2.1%', color: 'var(--warning-500)' },
+          { icon: Globe, value: stats?.activeRoutes, label: 'Active Routes', change: '+3', color: 'var(--primary-600)' },
+        ].map((stat, idx) => (
+          <div key={idx} className="card" style={{
+            padding: '0.75rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem'
+          }}>
+            <div style={{
+              padding: '0.5rem',
+              borderRadius: '8px',
+              backgroundColor: 'var(--bg-secondary)',
+              color: stat.color,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <stat.icon size={20} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: '1.25rem',
+                fontWeight: '600',
+                lineHeight: 1.2,
+                marginBottom: '0.125rem',
+                color: 'var(--text-primary)'
+              }}>{typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value || '0'}</div>
+              <div style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                marginBottom: '0.125rem'
+              }}>{stat.label}</div>
+              <div style={{
+                fontSize: '0.7rem',
+                color: stat.change.startsWith('+') ? 'var(--success-500)' : 'var(--text-muted)'
+              }}>{stat.change}</div>
             </div>
           </div>
-        </div>
-
-        <div className="stats-card">
-          <div className="stats-icon">
-            <Bot size={24} />
-          </div>
-          <div className="stats-content">
-            <div className="stats-value">{stats?.botClicks.toLocaleString() || '0'}</div>
-            <div className="stats-label">Bot Clicks</div>
-            <div className="stats-change">
-              {stats && stats.totalClicks > 0
-                ? `${((stats.botClicks / stats.totalClicks) * 100).toFixed(1)}% of total`
-                : 'N/A'}
-            </div>
-          </div>
-        </div>
-
-        <div className="stats-card">
-          <div className="stats-icon">
-            <TrendingUp size={24} />
-          </div>
-          <div className="stats-content">
-            <div className="stats-value">
-              {stats ? ((stats.uniqueClicks / stats.totalClicks) * 100).toFixed(1) : '0'}%
-            </div>
-            <div className="stats-label">Unique Rate</div>
-            <div className="stats-change">-2.1% from last period</div>
-          </div>
-        </div>
-
-        <div className="stats-card">
-          <div className="stats-icon">
-            <Globe size={24} />
-          </div>
-          <div className="stats-content">
-            <div className="stats-value">{stats?.activeRoutes || '0'}</div>
-            <div className="stats-label">Active Routes</div>
-            <div className="stats-change">+3 new routes</div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-lg mb-2xl">
-        {/* Clicks Over Time */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Clicks Over Time</h3>
-            <p className="card-subtitle">Daily click trends</p>
+      {/* Charts Grid - 3 columns on large screens, 2 on medium, 1 on small */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+        gap: '0.75rem',
+        marginBottom: '1rem'
+      }}>
+        {/* Clicks Over Time - Takes 2 columns on large screens */}
+        <div className="card" style={{
+          gridColumn: window.innerWidth > 1400 ? 'span 2' : 'span 1',
+          padding: '0.75rem'
+        }}>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <h3 style={{
+              fontSize: '0.95rem',
+              fontWeight: '600',
+              margin: '0 0 0.125rem 0',
+              color: 'var(--text-primary)'
+            }}>Clicks Over Time</h3>
+            <p style={{
+              fontSize: '0.75rem',
+              margin: 0,
+              color: 'var(--text-muted)'
+            }}>Daily trends</p>
           </div>
-          <div className="card-body">
-            <div style={{ height: '300px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={analytics?.clicks_by_date || []}>
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="var(--text-muted)"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    stroke="var(--text-muted)"
-                    fontSize={12}
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'var(--bg-primary)',
-                      border: '1px solid var(--border-primary)',
-                      borderRadius: '0px',
-                      color: 'var(--text-primary)'
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="clicks" 
-                    stroke="var(--primary-500)" 
-                    strokeWidth={3}
-                    dot={{ fill: 'var(--primary-500)', strokeWidth: 2, r: 5 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+          <div style={{ height: '200px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={analytics?.clicks_by_date || []}>
+                <XAxis
+                  dataKey="date"
+                  stroke="var(--text-muted)"
+                  fontSize={10}
+                  tick={{ fontSize: 10 }}
+                />
+                <YAxis
+                  stroke="var(--text-muted)"
+                  fontSize={10}
+                  tick={{ fontSize: 10 }}
+                  width={40}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: '4px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.75rem',
+                    padding: '0.5rem'
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="clicks"
+                  stroke="var(--primary-500)"
+                  strokeWidth={2}
+                  dot={{ fill: 'var(--primary-500)', strokeWidth: 1, r: 3 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
         {/* Device Distribution */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Device Distribution</h3>
-            <p className="card-subtitle">Click sources by device</p>
+        <div className="card" style={{ padding: '0.75rem' }}>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <h3 style={{
+              fontSize: '0.95rem',
+              fontWeight: '600',
+              margin: '0 0 0.125rem 0',
+              color: 'var(--text-primary)'
+            }}>Devices</h3>
+            <p style={{
+              fontSize: '0.75rem',
+              margin: 0,
+              color: 'var(--text-muted)'
+            }}>By device type</p>
           </div>
-          <div className="card-body">
-            <div style={{ height: '300px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={analytics?.clicks_by_device || []}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ device, percent }) => percent > 0.05 ? `${device} ${(percent * 100).toFixed(0)}%` : ''}
-                    outerRadius={120}
-                    innerRadius={60}
-                    fill="var(--primary-400)"
-                    dataKey="clicks"
-                    paddingAngle={2}
-                    stroke="var(--bg-primary)"
-                    strokeWidth={2}
-                  >
-                    {(analytics?.clicks_by_device || []).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={DEVICE_COLORS[index % DEVICE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'var(--bg-primary)',
-                      border: '1px solid var(--border-primary)',
-                      borderRadius: '0px',
-                      color: 'var(--text-primary)'
-                    }}
-                    formatter={(value: any, name: string, props: any) => [
-                      `${value} clicks (${((props.payload.percent || 0) * 100).toFixed(1)}%)`,
-                      props.payload.device
-                    ]}
-                  />
-                  <Legend 
-                    iconType="circle"
-                    formatter={(value, entry) => (entry.payload as any)?.device || value}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          <div style={{ height: '200px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={analytics?.clicks_by_device || []}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ percent }) => percent > 0.08 ? `${(percent * 100).toFixed(0)}%` : ''}
+                  outerRadius={70}
+                  innerRadius={45}
+                  fill="var(--primary-400)"
+                  dataKey="clicks"
+                  paddingAngle={2}
+                  stroke="var(--bg-primary)"
+                  strokeWidth={2}
+                >
+                  {(analytics?.clicks_by_device || []).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={DEVICE_COLORS[index % DEVICE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: '4px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.75rem',
+                    padding: '0.5rem'
+                  }}
+                  formatter={(value: any, name: string, props: any) => [
+                    `${value} (${((props.payload.percent || 0) * 100).toFixed(1)}%)`,
+                    props.payload.device
+                  ]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Geographic Distribution */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Top Countries</h3>
-            <p className="card-subtitle">Geographic distribution</p>
+        {/* Top Countries */}
+        <div className="card" style={{ padding: '0.75rem' }}>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <h3 style={{
+              fontSize: '0.95rem',
+              fontWeight: '600',
+              margin: '0 0 0.125rem 0',
+              color: 'var(--text-primary)'
+            }}>Top Countries</h3>
+            <p style={{
+              fontSize: '0.75rem',
+              margin: 0,
+              color: 'var(--text-muted)'
+            }}>Geographic reach</p>
           </div>
-          <div className="card-body">
-            <div style={{ height: '300px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics?.clicks_by_country?.slice(0, 8) || []}>
-                  <XAxis 
-                    dataKey="country" 
-                    stroke="var(--text-muted)"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    stroke="var(--text-muted)"
-                    fontSize={12}
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'var(--bg-primary)',
-                      border: '1px solid var(--border-primary)',
-                      borderRadius: '0px',
-                      color: 'var(--text-primary)'
-                    }}
-                  />
-                  <Bar dataKey="clicks" fill="var(--primary-500)" radius={[0, 0, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          <div style={{ height: '200px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analytics?.clicks_by_country?.slice(0, 6) || []}>
+                <XAxis
+                  dataKey="country"
+                  stroke="var(--text-muted)"
+                  fontSize={10}
+                  tick={{ fontSize: 10 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis
+                  stroke="var(--text-muted)"
+                  fontSize={10}
+                  tick={{ fontSize: 10 }}
+                  width={40}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: '4px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.75rem',
+                    padding: '0.5rem'
+                  }}
+                />
+                <Bar dataKey="clicks" fill="var(--primary-500)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
         {/* Browser Distribution */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Browser Distribution</h3>
-            <p className="card-subtitle">Click sources by browser</p>
+        <div className="card" style={{ padding: '0.75rem' }}>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <h3 style={{
+              fontSize: '0.95rem',
+              fontWeight: '600',
+              margin: '0 0 0.125rem 0',
+              color: 'var(--text-primary)'
+            }}>Browsers</h3>
+            <p style={{
+              fontSize: '0.75rem',
+              margin: 0,
+              color: 'var(--text-muted)'
+            }}>By browser</p>
           </div>
-          <div className="card-body">
-            <div style={{ height: '300px' }}>
+          <div style={{ height: '200px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={analytics?.clicks_by_browser || []}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ percent }) => percent > 0.08 ? `${(percent * 100).toFixed(0)}%` : ''}
+                  outerRadius={70}
+                  innerRadius={45}
+                  fill="var(--primary-400)"
+                  dataKey="clicks"
+                  paddingAngle={2}
+                  stroke="var(--bg-primary)"
+                  strokeWidth={2}
+                >
+                  {(analytics?.clicks_by_browser || []).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={BROWSER_COLORS[index % BROWSER_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: '4px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.75rem',
+                    padding: '0.5rem'
+                  }}
+                  formatter={(value: any, name: string, props: any) => [
+                    `${value} (${((props.payload.percent || 0) * 100).toFixed(1)}%)`,
+                    props.payload.browser
+                  ]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Traffic Type Distribution */}
+        <div className="card" style={{ padding: '0.75rem' }}>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <h3 style={{
+              fontSize: '0.95rem',
+              fontWeight: '600',
+              margin: '0 0 0.125rem 0',
+              color: 'var(--text-primary)'
+            }}>Traffic Type</h3>
+            <p style={{
+              fontSize: '0.75rem',
+              margin: 0,
+              color: 'var(--text-muted)'
+            }}>Bot vs Human</p>
+          </div>
+          <div style={{ height: '200px' }}>
+            {trafficTypeStats.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={analytics?.clicks_by_browser || []}
+                    data={(() => {
+                      const humanStat = trafficTypeStats.find(stat => !stat.is_bot);
+                      const botStat = trafficTypeStats.find(stat => stat.is_bot);
+                      return [
+                        { name: 'Human', value: humanStat?.total_clicks || 0 },
+                        { name: 'Bot', value: botStat?.total_clicks || 0 }
+                      ];
+                    })()}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ browser, percent }) => percent > 0.05 ? `${browser} ${(percent * 100).toFixed(0)}%` : ''}
-                    outerRadius={120}
-                    innerRadius={60}
+                    label={({ name, percent }) => percent > 0.05 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
+                    outerRadius={70}
+                    innerRadius={45}
                     fill="var(--primary-400)"
-                    dataKey="clicks"
-                    paddingAngle={2}
+                    dataKey="value"
+                    paddingAngle={3}
                     stroke="var(--bg-primary)"
                     strokeWidth={2}
                   >
-                    {(analytics?.clicks_by_browser || []).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={BROWSER_COLORS[index % BROWSER_COLORS.length]} />
-                    ))}
+                    <Cell key="cell-0" fill="var(--success-500)" />
+                    <Cell key="cell-1" fill="var(--error-500)" />
                   </Pie>
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'var(--bg-primary)',
                       border: '1px solid var(--border-primary)',
-                      borderRadius: '0px',
-                      color: 'var(--text-primary)'
+                      borderRadius: '4px',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.75rem',
+                      padding: '0.5rem'
                     }}
-                    formatter={(value: any, name: string, props: any) => [
-                      `${value} clicks (${((props.payload.percent || 0) * 100).toFixed(1)}%)`,
-                      props.payload.browser
-                    ]}
-                  />
-                  <Legend
-                    iconType="circle"
-                    formatter={(value, entry) => (entry.payload as any)?.browser || value}
                   />
                 </PieChart>
               </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* Traffic Type Distribution */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">Traffic Distribution</h3>
-            <p className="card-subtitle">Bot vs Human traffic</p>
-          </div>
-          <div className="card-body">
-            {trafficTypeStats.length > 0 ? (
-              <div style={{ height: '300px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={(() => {
-                        // Ensure we always have both bot and human traffic in the data
-                        const humanStat = trafficTypeStats.find(stat => !stat.is_bot);
-                        const botStat = trafficTypeStats.find(stat => stat.is_bot);
-
-                        return [
-                          {
-                            name: 'Human Traffic',
-                            value: humanStat?.total_clicks || 0,
-                            ips: humanStat?.unique_ips || 0,
-                          },
-                          {
-                            name: 'Bot Traffic',
-                            value: botStat?.total_clicks || 0,
-                            ips: botStat?.unique_ips || 0,
-                          }
-                        ];
-                      })()}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => percent > 0.01 ? `${name}: ${(percent * 100).toFixed(0)}%` : ''}
-                      outerRadius={120}
-                      innerRadius={60}
-                      fill="var(--primary-400)"
-                      dataKey="value"
-                      paddingAngle={2}
-                      stroke="var(--bg-primary)"
-                      strokeWidth={2}
-                    >
-                      <Cell key="cell-0" fill="var(--success-500)" />
-                      <Cell key="cell-1" fill="var(--error-500)" />
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'var(--bg-primary)',
-                        border: '1px solid var(--border-primary)',
-                        borderRadius: '0px',
-                        color: 'var(--text-primary)'
-                      }}
-                      formatter={(value: any, name: string, props: any) => [
-                        `${value} clicks`,
-                        props.payload.name
-                      ]}
-                    />
-                    <Legend
-                      iconType="circle"
-                      formatter={(value, entry) => (entry.payload as any)?.name || value}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
             ) : (
-              <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <Activity size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-                  <p>No traffic data available for the selected period</p>
+              <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                <div style={{ textAlign: 'center', fontSize: '0.75rem' }}>
+                  <Activity size={32} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                  <p>No data available</p>
                 </div>
               </div>
             )}
@@ -541,45 +575,59 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Route Performance Table */}
+      {/* Compact Route Performance Table */}
       {routePerformance.length > 0 && (
-        <div className="card mb-2xl">
-          <div className="card-header">
-            <h3 className="card-title">
-              <Target size={20} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
-              Top Performing Routes
-            </h3>
-            <p className="card-subtitle">Best performing routes by traffic</p>
+        <div className="card" style={{ padding: '0.75rem', marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Target size={16} />
+            <h3 style={{
+              fontSize: '0.95rem',
+              fontWeight: '600',
+              margin: 0,
+              color: 'var(--text-primary)'
+            }}>Top Performing Routes</h3>
           </div>
-          <div className="card-body">
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Route ID</th>
-                    <th>Total Clicks</th>
-                    <th>Unique Visitors</th>
-                    <th>Human Clicks</th>
-                    <th>Bot Clicks</th>
-                    <th>Countries</th>
-                    <th>Device Types</th>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{
+              width: '100%',
+              fontSize: '0.8rem',
+              borderCollapse: 'collapse'
+            }}>
+              <thead>
+                <tr style={{
+                  borderBottom: '1px solid var(--border-primary)',
+                  textAlign: 'left'
+                }}>
+                  <th style={{ padding: '0.5rem', fontWeight: '600', color: 'var(--text-muted)' }}>Route ID</th>
+                  <th style={{ padding: '0.5rem', fontWeight: '600', color: 'var(--text-muted)' }}>Clicks</th>
+                  <th style={{ padding: '0.5rem', fontWeight: '600', color: 'var(--text-muted)' }}>Unique</th>
+                  <th style={{ padding: '0.5rem', fontWeight: '600', color: 'var(--text-muted)' }}>Human</th>
+                  <th style={{ padding: '0.5rem', fontWeight: '600', color: 'var(--text-muted)' }}>Bot</th>
+                  <th style={{ padding: '0.5rem', fontWeight: '600', color: 'var(--text-muted)' }}>Countries</th>
+                  <th style={{ padding: '0.5rem', fontWeight: '600', color: 'var(--text-muted)' }}>Devices</th>
+                </tr>
+              </thead>
+              <tbody>
+                {routePerformance.slice(0, 5).map((route, index) => (
+                  <tr key={index} style={{
+                    borderBottom: '1px solid var(--border-secondary)',
+                    transition: 'background-color 0.2s'
+                  }}>
+                    <td style={{
+                      padding: '0.5rem',
+                      fontFamily: 'monospace',
+                      color: 'var(--primary-500)'
+                    }}>{route.route_id.substring(0, 8)}...</td>
+                    <td style={{ padding: '0.5rem', fontWeight: '500' }}>{route.total_clicks.toLocaleString()}</td>
+                    <td style={{ padding: '0.5rem' }}>{route.unique_visitors.toLocaleString()}</td>
+                    <td style={{ padding: '0.5rem', color: 'var(--success-500)' }}>{route.human_clicks.toLocaleString()}</td>
+                    <td style={{ padding: '0.5rem', color: 'var(--error-500)' }}>{route.bot_clicks.toLocaleString()}</td>
+                    <td style={{ padding: '0.5rem' }}>{route.countries_reached}</td>
+                    <td style={{ padding: '0.5rem' }}>{route.device_types}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {routePerformance.map((route, index) => (
-                    <tr key={index}>
-                      <td className="font-mono">{route.route_id.substring(0, 8)}...</td>
-                      <td>{route.total_clicks.toLocaleString()}</td>
-                      <td>{route.unique_visitors.toLocaleString()}</td>
-                      <td>{route.human_clicks.toLocaleString()}</td>
-                      <td>{route.bot_clicks.toLocaleString()}</td>
-                      <td>{route.countries_reached}</td>
-                      <td>{route.device_types}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

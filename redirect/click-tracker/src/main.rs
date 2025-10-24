@@ -46,9 +46,9 @@ async fn init_modules(settings: &Settings, token: CancellationToken) -> Vec<Clic
         GeoIPLocationDetector::new(&settings.geo_ip),
     ));
 
-    let session = EnrichSessionModule::new(SessionDetectorType::Redis(RedisSessionDetector::new(
-        &settings.redis,
-    )));
+    let session = EnrichSessionModule::new(SessionDetectorType::Redis(
+        RedisSessionDetector::new(&settings.redis).await,
+    ));
 
     let user_agent = EnrichUserAgentModule::new(UserAgentDetectorType::UAParser(
         UAParserUserAgentDetector::new(settings.uaparser.yaml.as_str()),
@@ -85,9 +85,15 @@ async fn start(token: CancellationToken) -> Result<()> {
 
     let pipe = TrackingPipe::new(modules);
 
-    let mut threads = App::run(init_sources(settings).await, pipe, token)
-        .await
-        .expect("Could not run app");
+    let mut threads = App::run(
+        init_sources(settings.clone()).await,
+        pipe,
+        token,
+        settings.pipeline.channel_capacity,
+        settings.pipeline.parallelism,
+    )
+    .await
+    .expect("Could not run app");
 
     while let Some(res) = threads.join_next().await {
         match res {
