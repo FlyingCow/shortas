@@ -7,6 +7,7 @@ use crate::{
     model::route::RoutingPolicy,
 };
 use anyhow::Result;
+use std::sync::Arc;
 
 const IS_CONDITIONAL: &'static str = "is_conditional";
 
@@ -83,7 +84,8 @@ impl FlowModule for ConditionalModule {
                     .await?;
 
                 if let Some(route) = out_route {
-                    context.out_route = Some(route);
+                    // Wrap route in Arc to avoid expensive cloning later
+                    context.out_route = Some(Arc::new(route));
 
                     return Ok(FlowStepContinuation::Continue);
                 }

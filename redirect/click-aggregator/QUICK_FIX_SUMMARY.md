@@ -80,3 +80,4 @@ cargo build
 ✅ **Schema matches exactly**  
 ⏳ **Requires ClickHouse table migration**
 
+

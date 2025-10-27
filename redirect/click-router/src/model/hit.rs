@@ -30,7 +30,7 @@ pub struct HitRoute {
 }
 
 impl HitRoute {
-    pub fn from_route(route: &Option<Route>) -> Option<Self> {
+    pub fn from_route(route: &Option<std::sync::Arc<Route>>) -> Option<Self> {
         if route.is_none() {
             return None;
         }

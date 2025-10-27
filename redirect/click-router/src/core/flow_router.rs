@@ -8,7 +8,7 @@ use http::{
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use rand;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{atomic::{AtomicU64, Ordering}, Arc};
 use std::{
     self,
     collections::HashMap,
@@ -268,10 +268,10 @@ pub struct FlowRouterContext<'a> {
     pub client_langs: Option<Vec<Language>>,
     /// Protocol information (HTTP/HTTPS)
     pub protocol: Option<ProtoInfo>,
-    /// The output route determined for this request
-    pub out_route: Option<Route>,
-    /// The main route configuration that matched this request
-    pub main_route: Option<Route>,
+    /// The output route determined for this request (Arc to avoid cloning)
+    pub out_route: Option<Arc<Route>>,
+    /// The main route configuration that matched this request (Arc to avoid cloning)
+    pub main_route: Option<Arc<Route>>,
     /// Parsed incoming route information
     pub in_route: FlowInRoute,
     /// Reference to the original request
@@ -288,13 +288,19 @@ impl<'a> FlowRouterContext<'a> {
         request: &'a RequestType<'a>,
         response: &'a ResponseType<'a>,
     ) -> Self {
+        // Optimized ID generation with pre-allocation
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(); // Use seconds instead of nanos to avoid u128
+        let random = rand::random::<u32>();
+
+        let mut id = String::with_capacity(24);
+        use std::fmt::Write;
+        let _ = write!(id, "{}_{}", timestamp, random);
+
         Self {
-            id: format!("{}_{}", 
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_nanos(),
-                rand::random::<u32>()),
+            id,
             utc: Utc::now(),
             data: HashMap::new(),
             client_os: InitOnce::default(None),
@@ -520,7 +526,7 @@ impl FlowRouter {
         &self.metrics
     }
 
-    /// Generate an efficient request ID without heap allocation
+    /// Generate an efficient request ID with minimal allocations
     fn generate_request_id(&self) -> String {
         // Use a simple counter-based ID instead of ULID for better performance
         // Format: timestamp_counter (e.g., "1696234567_123")
@@ -529,7 +535,16 @@ impl FlowRouter {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        format!("{}_{}", timestamp, counter)
+
+        // Pre-allocate capacity to avoid reallocations
+        // timestamp (10 digits) + '_' (1) + counter (10 digits max) = ~21 bytes
+        let mut id = String::with_capacity(24);
+
+        // Use write! macro which is faster than format! for this use case
+        use std::fmt::Write;
+        let _ = write!(id, "{}_{}", timestamp, counter);
+
+        id
     }
 
     /// Processes a request through the iterative flow state machine
@@ -764,8 +779,12 @@ impl FlowRouter {
         }
 
         if let None = context.main_route {
-            context.main_route = self.get_route(MAIN_SWITCH, &context).await?;
-            context.out_route = context.main_route.clone();
+            // Wrap route in Arc to avoid expensive cloning
+            if let Some(route) = self.get_route(MAIN_SWITCH, &context).await? {
+                let route_arc = Arc::new(route);
+                context.main_route = Some(route_arc.clone());
+                context.out_route = Some(route_arc);
+            }
         }
 
         let _ = &self.replace_debug_data(&mut context);

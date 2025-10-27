@@ -35,13 +35,20 @@ impl ExpressionEvaluator {
         client_country: &InitOnce<Option<Country>>,
         country: &CountryExpr,
     ) -> bool {
-        if let Some(client_country) = &client_country.clone().get_value() {
-            let iso = &client_country.iso_code.to_lowercase();
+        // Use as_ref() to avoid moving out of the reference
+        if let Some(client_country) = client_country.as_ref().as_ref() {
+            // Use direct comparison without allocating lowercase string
+            let iso = &client_country.iso_code;
 
             let result = match country {
                 CountryExpr::EQ(str) => iso.eq_ignore_ascii_case(str),
-                CountryExpr::Ends(str) => iso.to_lowercase().ends_with(str),
-                CountryExpr::Starts(str) => iso.starts_with(str),
+                CountryExpr::Ends(str) => {
+                    // Avoid allocation: compare case-insensitively
+                    iso.len() >= str.len() && iso[iso.len() - str.len()..].eq_ignore_ascii_case(str)
+                },
+                CountryExpr::Starts(str) => {
+                    iso.len() >= str.len() && iso[..str.len()].eq_ignore_ascii_case(str)
+                },
                 CountryExpr::IN(array) => array.iter().any(|i| iso.eq_ignore_ascii_case(i)),
             };
 
@@ -69,13 +76,20 @@ impl ExpressionEvaluator {
     }
 
     fn eval_ua(&self, client_ua: &InitOnce<Option<UserAgent>>, ua: &UAExpr) -> bool {
-        if let Some(client_ua) = &client_ua.clone().get_value() {
-            let famely = &client_ua.family.to_lowercase();
+        // Use as_ref() to avoid moving out of the reference
+        if let Some(client_ua) = client_ua.as_ref().as_ref() {
+            // Use direct comparison without allocating lowercase string
+            let family = &client_ua.family;
+
             let result = match ua {
-                UAExpr::EQ(str) => famely.eq_ignore_ascii_case(str),
-                UAExpr::Ends(str) => famely.ends_with(str),
-                UAExpr::Starts(str) => client_ua.family.to_lowercase().starts_with(str),
-                UAExpr::IN(array) => array.iter().any(|i| famely.eq_ignore_ascii_case(&i)),
+                UAExpr::EQ(str) => family.eq_ignore_ascii_case(str),
+                UAExpr::Ends(str) => {
+                    family.len() >= str.len() && family[family.len() - str.len()..].eq_ignore_ascii_case(str)
+                },
+                UAExpr::Starts(str) => {
+                    family.len() >= str.len() && family[..str.len()].eq_ignore_ascii_case(str)
+                },
+                UAExpr::IN(array) => array.iter().any(|i| family.eq_ignore_ascii_case(i)),
             };
 
             return result;
@@ -85,13 +99,20 @@ impl ExpressionEvaluator {
     }
 
     fn eval_os(&self, client_os: &InitOnce<Option<OS>>, os: &OSExpr) -> bool {
-        if let Some(client_os) = &client_os.clone().get_value() {
-            let famely = &client_os.family.to_lowercase();
+        // Use as_ref() to avoid moving out of the reference
+        if let Some(client_os) = client_os.as_ref().as_ref() {
+            // Use direct comparison without allocating lowercase string
+            let family = &client_os.family;
+
             let result = match os {
-                OSExpr::EQ(str) => famely.eq_ignore_ascii_case(str),
-                OSExpr::Ends(str) => famely.ends_with(str),
-                OSExpr::Starts(str) => famely.starts_with(str),
-                OSExpr::IN(array) => array.iter().any(|i| famely.eq_ignore_ascii_case(&i)),
+                OSExpr::EQ(str) => family.eq_ignore_ascii_case(str),
+                OSExpr::Ends(str) => {
+                    family.len() >= str.len() && family[family.len() - str.len()..].eq_ignore_ascii_case(str)
+                },
+                OSExpr::Starts(str) => {
+                    family.len() >= str.len() && family[..str.len()].eq_ignore_ascii_case(str)
+                },
+                OSExpr::IN(array) => array.iter().any(|i| family.eq_ignore_ascii_case(i)),
             };
 
             return result;
@@ -101,13 +122,20 @@ impl ExpressionEvaluator {
     }
 
     fn eval_device(&self, client_device: &InitOnce<Option<Device>>, device: &DeviceExpr) -> bool {
-        if let Some(client_device) = &client_device.clone().get_value() {
-            let famely = &client_device.family.to_lowercase();
+        // Use as_ref() to avoid moving out of the reference
+        if let Some(client_device) = client_device.as_ref().as_ref() {
+            // Use direct comparison without allocating lowercase string
+            let family = &client_device.family;
+
             let result = match device {
-                DeviceExpr::EQ(str) => famely.eq_ignore_ascii_case(str),
-                DeviceExpr::Ends(str) => famely.to_lowercase().ends_with(str),
-                DeviceExpr::Starts(str) => famely.to_lowercase().starts_with(str),
-                DeviceExpr::IN(array) => array.iter().any(|i| famely.eq_ignore_ascii_case(&i)),
+                DeviceExpr::EQ(str) => family.eq_ignore_ascii_case(str),
+                DeviceExpr::Ends(str) => {
+                    family.len() >= str.len() && family[family.len() - str.len()..].eq_ignore_ascii_case(str)
+                },
+                DeviceExpr::Starts(str) => {
+                    family.len() >= str.len() && family[..str.len()].eq_ignore_ascii_case(str)
+                },
+                DeviceExpr::IN(array) => array.iter().any(|i| family.eq_ignore_ascii_case(i)),
             };
 
             return result;

@@ -5,7 +5,6 @@ use click_router::adapters::{RequestType, ResponseType};
 use click_router::core::flow_router::{FlowRouter, RequestData, ResponseData};
 use click_router::{settings::Settings, AppBuilder};
 
-use criterion::async_executor::FuturesExecutor;
 use criterion::*;
 
 const APP_CONFIG_PATH: &'static str = "./config";
@@ -18,29 +17,34 @@ async fn init_flow_router() -> FlowRouter {
 
     let flow_router = AppBuilder::new(settings)
         .with_default_modules()
-        .with_geo_ip()
-        //.with_none_location_detector()
-        //.with_none_location_detector()
-        .with_ua_parser()
-        //.with_none_user_agent_detector()
-        //.with_none_hit_registrar()
-        .with_fluvio()
-        .await
-        .with_dynamo()
+        .with_none_location_detector()  // Skip GeoIP for benchmark
+        .with_none_user_agent_detector()  // Skip UA parser for benchmark
+        .with_none_hit_registrar()  // Skip hit registration for benchmark
+        .with_dynamo()  // Use DynamoDB (with localstack in test mode)
         .await
         .build();
 
     flow_router
 }
 
-#[tokio::main]
-async fn benchmark_flow_router(c: &mut Criterion) {
+fn benchmark_flow_router(c: &mut Criterion) {
     dotenv::from_filename("./click-router/.env").ok();
 
-    let app = Arc::new(init_flow_router().await);
+    // Create a multi-threaded Tokio runtime for benchmarking
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
 
-    c.bench_function("iter", move |b| {
-        let mut request_data = RequestData {
+    // Initialize the flow router in the runtime
+    let app = rt.block_on(async {
+        Arc::new(init_flow_router().await)
+    });
+
+    let mut group = c.benchmark_group("flow_router");
+
+    group.bench_function("handle_request", |b| {
+        let request_data = RequestData {
             uri: "/test".parse().unwrap(),
             local_addr: Some("192.168.0.100:80".parse().unwrap()),
             remote_addr: Some("188.138.135.18:80".parse().unwrap()),
@@ -48,33 +52,34 @@ async fn benchmark_flow_router(c: &mut Criterion) {
             ..Default::default()
         };
 
-        request_data
-            .headers
-            .append("Host", "localhost".parse().unwrap());
-        request_data.headers.append(
+        let mut headers = http::HeaderMap::new();
+        headers.append("Host", "localhost".parse().unwrap());
+        headers.append(
             "User-Agent",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0"
                 .parse()
                 .unwrap(),
         );
 
-        let request = RequestType::Test(request_data);
-
-        let response_data = ResponseData {
-            ..Default::default()
+        let request_data = RequestData {
+            headers,
+            ..request_data
         };
 
-        let response = ResponseType::Test(response_data);
+        let request = RequestType::Test(request_data);
+        let response = ResponseType::Test(ResponseData::default());
 
-        b.to_async(FuturesExecutor).iter(|| async {
-            let app_binding = app.as_ref();
+        // Clone Arc for the benchmark closure
+        let app_clone = app.clone();
 
-            app_binding.handle(&request, &response).await.unwrap();
+        b.iter(|| {
+            rt.block_on(async {
+                app_clone.handle(&request, &response).await.unwrap();
+            })
         })
     });
 
-    // c.bench_function("fib 20", |b| b.iter(|| fibonacci(black_box(20))));
+    group.finish();
 }
 
 criterion_group!(benches, benchmark_flow_router);
-criterion_main!(benches);

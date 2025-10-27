@@ -49,4 +49,9 @@ impl<T> InitOnce<T> {
     pub fn get_value(self) -> T {
         self.value
     }
+
+    /// Get a reference to the value without consuming self
+    pub fn as_ref(&self) -> &T {
+        &self.value
+    }
 }
