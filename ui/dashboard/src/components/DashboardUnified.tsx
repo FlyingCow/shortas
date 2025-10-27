@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { apiService, ClickAnalytics, DailyStatsDto, GeographicStatsDto, DeviceStatsDto, BrowserStatsDto, TrafficTypeStatsDto, RoutePerformanceDto } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
+import WorldMap from './WorldMap';
 import './DesignSystem.css';
 
 interface DashboardStats {
@@ -349,6 +350,94 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Geographic Distribution Map - Takes more space on large screens */}
+        <div className="card" style={{
+          gridColumn: window.innerWidth > 1400 ? 'span 2' : 'span 1',
+          padding: '0.75rem'
+        }}>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <h3 style={{
+              fontSize: '0.95rem',
+              fontWeight: '600',
+              margin: '0 0 0.125rem 0',
+              color: 'var(--text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <Globe size={16} />
+              Geographic Distribution
+            </h3>
+            <p style={{
+              fontSize: '0.75rem',
+              margin: 0,
+              color: 'var(--text-muted)'
+            }}>Clicks by country - hover to see details</p>
+          </div>
+          <div style={{ height: '250px' }}>
+            <WorldMap
+              data={(analytics?.clicks_by_country || []).map(country => {
+                const totalClicks = stats?.totalClicks || 1;
+                return {
+                  name: country.country,
+                  clicks: country.clicks,
+                  percentage: parseFloat(((country.clicks / totalClicks) * 100).toFixed(2))
+                };
+              })}
+              height={250}
+            />
+          </div>
+        </div>
+
+        {/* Top Countries - Next to map on same line */}
+        <div className="card" style={{ padding: '0.75rem' }}>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <h3 style={{
+              fontSize: '0.95rem',
+              fontWeight: '600',
+              margin: '0 0 0.125rem 0',
+              color: 'var(--text-primary)'
+            }}>Top Countries</h3>
+            <p style={{
+              fontSize: '0.75rem',
+              margin: 0,
+              color: 'var(--text-muted)'
+            }}>Geographic reach</p>
+          </div>
+          <div style={{ height: '250px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analytics?.clicks_by_country?.slice(0, 8) || []}>
+                <XAxis
+                  dataKey="country"
+                  stroke="var(--text-muted)"
+                  fontSize={10}
+                  tick={{ fontSize: 10 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={70}
+                />
+                <YAxis
+                  stroke="var(--text-muted)"
+                  fontSize={10}
+                  tick={{ fontSize: 10 }}
+                  width={40}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: '4px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.75rem',
+                    padding: '0.5rem'
+                  }}
+                />
+                <Bar dataKey="clicks" fill="var(--primary-500)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
         {/* Device Distribution */}
         <div className="card" style={{ padding: '0.75rem' }}>
           <div style={{ marginBottom: '0.5rem' }}>
@@ -400,55 +489,6 @@ const Dashboard: React.FC = () => {
                   ]}
                 />
               </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Top Countries */}
-        <div className="card" style={{ padding: '0.75rem' }}>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <h3 style={{
-              fontSize: '0.95rem',
-              fontWeight: '600',
-              margin: '0 0 0.125rem 0',
-              color: 'var(--text-primary)'
-            }}>Top Countries</h3>
-            <p style={{
-              fontSize: '0.75rem',
-              margin: 0,
-              color: 'var(--text-muted)'
-            }}>Geographic reach</p>
-          </div>
-          <div style={{ height: '200px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analytics?.clicks_by_country?.slice(0, 6) || []}>
-                <XAxis
-                  dataKey="country"
-                  stroke="var(--text-muted)"
-                  fontSize={10}
-                  tick={{ fontSize: 10 }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis
-                  stroke="var(--text-muted)"
-                  fontSize={10}
-                  tick={{ fontSize: 10 }}
-                  width={40}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                    borderRadius: '4px',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.75rem',
-                    padding: '0.5rem'
-                  }}
-                />
-                <Bar dataKey="clicks" fill="var(--primary-500)" radius={[4, 4, 0, 0]} />
-              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>

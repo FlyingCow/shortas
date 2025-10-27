@@ -42,27 +42,27 @@ const WorldMap: React.FC<WorldMapProps> = ({ data, height = 400 }) => {
   console.log('WorldMap data:', data);
   console.log('Country data map:', countryDataMap);
 
-  // Color scale based on click data using neutral dashboard palette
+  // Color scale based on click data using dashboard primary colors
   const getCountryColor = (countryName: string) => {
     const countryData = countryDataMap.get(countryName.toLowerCase());
     if (!countryData) {
-      return '#f1f5f9'; // Light gray for countries with no data
+      return 'var(--bg-secondary)'; // Light gray for countries with no data
     }
 
     const maxClicks = Math.max(...data.map(d => d.clicks));
     const intensity = countryData.clicks / maxClicks;
-    
-    // Neutral dashboard palette colors for countries with traffic
-    if (intensity > 0.8) return '#64748b'; // Slate - High traffic
-    if (intensity > 0.6) return '#6b7280'; // Gray - High-medium traffic
-    if (intensity > 0.4) return '#71717a'; // Zinc - Medium traffic
-    if (intensity > 0.2) return '#78716c'; // Stone - Low-medium traffic
-    return '#7c2d12'; // Red-900 - Low traffic
+
+    // Primary color gradient for countries with traffic
+    if (intensity > 0.8) return '#1e3a8a'; // Dark blue - Highest traffic
+    if (intensity > 0.6) return '#2563eb'; // Blue - High traffic
+    if (intensity > 0.4) return '#3b82f6'; // Medium blue - Medium traffic
+    if (intensity > 0.2) return '#60a5fa'; // Light blue - Low-medium traffic
+    return '#93c5fd'; // Very light blue - Low traffic
   };
 
   const getCountryStroke = (countryName: string) => {
     const countryData = countryDataMap.get(countryName.toLowerCase());
-    return countryData ? '#1f2937' : '#d1d5db';
+    return countryData ? 'var(--border-primary)' : 'var(--border-secondary)';
   };
 
   return (
@@ -110,17 +110,19 @@ const WorldMap: React.FC<WorldMapProps> = ({ data, height = 400 }) => {
                         stroke: getCountryStroke(countryName),
                         strokeWidth: 0.5,
                         outline: 'none',
+                        transition: 'all 0.2s ease',
                       },
                       hover: {
                         fill: getCountryColor(countryName),
-                        stroke: '#1f2937',
-                        strokeWidth: 1,
+                        stroke: '#1e40af',
+                        strokeWidth: 1.5,
                         outline: 'none',
+                        filter: 'brightness(1.1)',
                       },
                       pressed: {
                         fill: getCountryColor(countryName),
-                        stroke: '#1f2937',
-                        strokeWidth: 1,
+                        stroke: '#1e40af',
+                        strokeWidth: 1.5,
                         outline: 'none',
                       },
                     }}
@@ -134,32 +136,58 @@ const WorldMap: React.FC<WorldMapProps> = ({ data, height = 400 }) => {
       
                {/* Country Tooltip */}
                {hoveredCountry && mousePosition && (
-                 <div 
-                   className="country-tooltip"
+                 <div
                    style={{
                      position: 'absolute',
                      left: mousePosition.x > 200 ? '10px' : 'auto',
                      right: mousePosition.x <= 200 ? '10px' : 'auto',
                      top: mousePosition.y > 200 ? '10px' : 'auto',
                      bottom: mousePosition.y <= 200 ? '10px' : 'auto',
-                     zIndex: 1000
+                     zIndex: 1000,
+                     backgroundColor: 'var(--bg-primary)',
+                     border: '1px solid var(--border-primary)',
+                     borderRadius: '6px',
+                     padding: '0.75rem',
+                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                     pointerEvents: 'none',
+                     minWidth: '180px'
                    }}
                  >
-                   <div className="tooltip-content">
-                     <div className="country-name">{hoveredCountry}</div>
-                     <div className="country-stats">
-                       <div className="stat-item">
-                         <span className="stat-label">Clicks:</span>
-                         <span className="stat-value">
-                           {countryDataMap.get(hoveredCountry.toLowerCase())?.clicks || 0}
-                         </span>
-                       </div>
-                       <div className="stat-item">
-                         <span className="stat-label">Percentage:</span>
-                         <span className="stat-value">
-                           {countryDataMap.get(hoveredCountry.toLowerCase())?.percentage || 0}%
-                         </span>
-                       </div>
+                   <div style={{
+                     fontSize: '0.9rem',
+                     fontWeight: '600',
+                     marginBottom: '0.5rem',
+                     color: 'var(--text-primary)',
+                     borderBottom: '1px solid var(--border-secondary)',
+                     paddingBottom: '0.375rem'
+                   }}>
+                     {hoveredCountry}
+                   </div>
+                   <div style={{ fontSize: '0.8rem' }}>
+                     <div style={{
+                       display: 'flex',
+                       justifyContent: 'space-between',
+                       marginBottom: '0.25rem'
+                     }}>
+                       <span style={{ color: 'var(--text-muted)' }}>Clicks:</span>
+                       <span style={{
+                         fontWeight: '600',
+                         color: 'var(--text-primary)'
+                       }}>
+                         {(countryDataMap.get(hoveredCountry.toLowerCase())?.clicks || 0).toLocaleString()}
+                       </span>
+                     </div>
+                     <div style={{
+                       display: 'flex',
+                       justifyContent: 'space-between'
+                     }}>
+                       <span style={{ color: 'var(--text-muted)' }}>Percentage:</span>
+                       <span style={{
+                         fontWeight: '600',
+                         color: 'var(--primary-500)'
+                       }}>
+                         {countryDataMap.get(hoveredCountry.toLowerCase())?.percentage || 0}%
+                       </span>
                      </div>
                    </div>
                  </div>
