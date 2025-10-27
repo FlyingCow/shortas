@@ -70,3 +70,31 @@ impl FlowModule for NotFoundModule {
         Ok(FlowStepContinuation::Continue)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_create_not_found_module() {
+        let redirect = Redirect {
+            index_url: "https://example.com".to_string(),
+            not_found_url: "https://example.com/404".to_string(),
+        };
+        let module = NotFoundModule::new(redirect.clone());
+
+        assert_eq!(module.redirect.not_found_url, "https://example.com/404");
+    }
+
+    #[test]
+    fn should_clone_not_found_module() {
+        let redirect = Redirect {
+            index_url: "https://example.com".to_string(),
+            not_found_url: "https://example.com/404".to_string(),
+        };
+        let module = NotFoundModule::new(redirect);
+        let cloned = module.clone();
+
+        assert_eq!(cloned.redirect.not_found_url, "https://example.com/404");
+    }
+}

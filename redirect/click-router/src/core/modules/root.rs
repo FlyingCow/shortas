@@ -52,3 +52,31 @@ impl FlowModule for RootModule {
         Ok(FlowStepContinuation::Continue)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_create_root_module() {
+        let redirect = Redirect {
+            index_url: "https://example.com".to_string(),
+            not_found_url: "https://example.com/404".to_string(),
+        };
+        let module = RootModule::new(redirect.clone());
+
+        assert_eq!(module.redirect.index_url, "https://example.com");
+    }
+
+    #[test]
+    fn should_clone_root_module() {
+        let redirect = Redirect {
+            index_url: "https://example.com".to_string(),
+            not_found_url: "https://example.com/404".to_string(),
+        };
+        let module = RootModule::new(redirect);
+        let cloned = module.clone();
+
+        assert_eq!(cloned.redirect.index_url, "https://example.com");
+    }
+}

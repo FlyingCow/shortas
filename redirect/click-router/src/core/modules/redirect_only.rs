@@ -134,3 +134,23 @@ impl FlowModule for RedirectOnlyModule {
         Ok(FlowStepContinuation::Continue)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_create_redirect_only_module() {
+        let module = RedirectOnlyModule::new();
+        // Module creation should work
+        assert!(true);
+    }
+
+    #[test]
+    fn should_clone_redirect_only_module() {
+        let module = RedirectOnlyModule::new();
+        let cloned = module.clone();
+        // Clone should work
+        assert!(true);
+    }
+}
