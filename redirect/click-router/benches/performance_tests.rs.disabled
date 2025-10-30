@@ -17,12 +17,11 @@ use click_router::{
             FlowRouter, FlowRouterContext, FlowRouterResult, FlowInRoute, FlowStep, RedirectType,
             RequestData, ResponseData
         },
-        modules::{FlowModules, RootModule, ConditionalModule, NotFoundModule, RedirectOnlyModule},
+        modules::FlowModules,
     },
     model::{
-        Route, RouteProperties, RouteStatus, RoutingPolicy, RoutingTerminal, DestinationFormat, BlockedReason,
+        route::{Route, RouteProperties, RouteStatus, RoutingPolicy, RoutingTerminal, DestinationFormat, BlockedReason, ConditionalRouting},
         expression::{Expression, UA, OS, DayOfMonth, Device},
-        route::ConditionalRouting,
     },
     settings::{Redirect, Settings},
     app::AppBuilder,
@@ -97,7 +96,7 @@ fn create_test_conditional_route() -> Route {
         policy: RoutingPolicy::Conditional(vec![ConditionalRouting {
             key: "mobile".to_string(),
             condition: Expression {
-                device: Some(Device::Mobile),
+                device: Some(Device::EQ("mobile".to_string())),
                 ..Default::default()
             },
         }]),

@@ -521,6 +521,11 @@ impl FlowRouter {
         }
     }
 
+    /// Get a reference to the hit registrar
+    pub fn hit_registrar(&self) -> &HitRegistrarType {
+        &self.hit_registrar
+    }
+
     /// Get a reference to the metrics
     pub fn metrics(&self) -> &FlowRouterMetrics {
         &self.metrics

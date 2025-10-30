@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::Route;
+use crate::core::{ConversionEvent, ConversionFunnelStep};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Click<'a> {
@@ -19,6 +20,8 @@ pub struct Event<'a> {
 pub enum HitData<'a> {
     Click(&'a Click<'a>),
     Event(&'a Event<'a>),
+    Conversion(ConversionEvent),
+    FunnelStep(ConversionFunnelStep),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -102,6 +105,42 @@ impl<'a> Hit<'a> {
             ip,
             route,
             data: HitData::Event(&event),
+        }
+    }
+
+    pub fn conversion(
+        id: &'a str,
+        utc: DateTime<Utc>,
+        user_agent: Option<&'a str>,
+        ip: Option<IpAddr>,
+        conversion: ConversionEvent,
+        route: Option<HitRoute>,
+    ) -> Self {
+        Self {
+            id,
+            utc,
+            user_agent,
+            ip,
+            route,
+            data: HitData::Conversion(conversion),
+        }
+    }
+
+    pub fn funnel_step(
+        id: &'a str,
+        utc: DateTime<Utc>,
+        user_agent: Option<&'a str>,
+        ip: Option<IpAddr>,
+        funnel_step: ConversionFunnelStep,
+        route: Option<HitRoute>,
+    ) -> Self {
+        Self {
+            id,
+            utc,
+            user_agent,
+            ip,
+            route,
+            data: HitData::FunnelStep(funnel_step),
         }
     }
 }

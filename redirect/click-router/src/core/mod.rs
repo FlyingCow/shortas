@@ -18,10 +18,12 @@ pub mod hits_register;
 pub mod location;
 pub mod metrics;
 pub mod metrics_endpoint;
+pub mod conversion;
 
 pub use crypto::CryptoStore;
 pub use routes::RoutesStore;
 pub use user_settings::UserSettingsStore;
+pub use conversion::{ConversionEvent, ConversionFunnelStep};
 
 #[derive(Debug, Clone)]
 pub struct InitOnce<T> {

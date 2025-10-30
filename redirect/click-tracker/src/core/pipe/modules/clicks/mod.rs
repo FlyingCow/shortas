@@ -5,6 +5,7 @@ use init::InitModule;
 use location::EnrichLocationModule;
 use session::EnrichSessionModule;
 use user_agent::EnrichUserAgentModule;
+use crate::core::pipe::modules::conversion::ConversionProcessingModule;
 
 use crate::core::{TrackingPipeContext, tracking_pipe::TrackingModule};
 
@@ -21,6 +22,7 @@ pub enum ClickModules {
     Location(EnrichLocationModule),
     Session(EnrichSessionModule),
     UserAgent(EnrichUserAgentModule),
+    Conversion(ConversionProcessingModule),
 }
 
 #[async_trait::async_trait]
@@ -32,6 +34,7 @@ impl TrackingModule for ClickModules {
             ClickModules::Location(module) => module.execute(context).await,
             ClickModules::Session(module) => module.execute(context).await,
             ClickModules::UserAgent(module) => module.execute(context).await,
+            ClickModules::Conversion(module) => module.execute(context).await,
         }
     }
 }

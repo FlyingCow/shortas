@@ -42,6 +42,7 @@ pub mod mongodb;
 pub mod rdkafka;
 pub mod salvo;
 pub mod uaparser;
+pub mod api;
 
 #[derive(Clone)]
 pub enum HitRegistrarType {

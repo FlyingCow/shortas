@@ -21,7 +21,7 @@ use http::StatusCode;
 use rustls::server::ClientHello;
 use std::{
     io::{Error as IoError, Result as IoResult},
-    sync::{Arc, OnceLock},
+    sync::Arc,
 };
 
 use salvo::{
@@ -41,6 +41,7 @@ use click_router::{
     adapters::{
         salvo::{salvo_proxy, SalvoRequest, SalvoResponse},
         RequestType, ResponseType,
+        api::conversion_routes,
     },
     app::AppBuilder,
     core::{
@@ -49,6 +50,7 @@ use click_router::{
         metrics_endpoint::create_metrics_router,
     },
     settings::Settings,
+    get_flow_router, init_flow_router,
 };
 
 /// Command-line arguments for the Click Router application
@@ -74,8 +76,6 @@ pub struct Args {
     #[arg(long, default_value_t = true, env("APP_ENABLE_METRICS"))]
     pub enable_metrics: bool,
 }
-
-static FLOW_ROUTER: OnceLock<FlowRouter> = OnceLock::new();
 
 /// Main HTTP request handler for the Click Router
 /// 
@@ -180,11 +180,6 @@ impl Handler for Redirect {
     }
 }
 
-#[inline]
-pub fn get_flow_router() -> &'static FlowRouter {
-    FLOW_ROUTER.get().unwrap()
-}
-
 struct ServerConfigResolverMock;
 
 #[async_trait]
@@ -241,10 +236,12 @@ async fn main() {
         // .await
         .build();
 
-    let _ = FLOW_ROUTER.get_or_init(|| flow_router);
+    init_flow_router(flow_router);
 
-    // Create main application router
-    let app_router = Router::with_path("{**rest_path}").get(Redirect);
+    // Create main application router with both redirect and API functionality
+    let app_router = Router::new()
+        .push(conversion_routes::conversion_routes()) // Add conversion API routes
+        .push(Router::with_path("{**rest_path}").get(Redirect)); // Keep redirect functionality
 
     tracing::info!("🚀 Starting Click Router");
     tracing::info!("   Main server: https://{}", args.listen_addr);
