@@ -54,7 +54,7 @@ High-performance URL redirection service with:
 - Multi-database support (MongoDB/DynamoDB)
 - Advanced caching (Redis/Moka)
 
-**Performance:** 10,000+ req/s
+**Performance:** 360,000+ req/s (CPU), 2.6-2.8 µs latency
 
 </td>
 <td width="50%">
@@ -67,7 +67,7 @@ Real-time click processing with:
 - Unique visitor tracking
 - Session analysis
 
-**Performance:** 50,000+ events/s
+**Performance:** 1.07M events/s (CPU), 927 ns latency, 7,800/s with I/O
 
 </td>
 </tr>
@@ -81,7 +81,7 @@ Analytics data processing with:
 - Scalable data ingestion
 - Real-time aggregations
 
-**Performance:** 100,000+ records/s
+**Performance:** 1.05M records/s (CPU), ~950 ns latency
 
 </td>
 <td width="50%">
@@ -152,14 +152,16 @@ Management and analytics APIs:
 
 <div align="center">
 
-| Service | Throughput | Latency |
-|---------|-----------|---------|
-| **Click Router** | 10,000+ req/s | <1ms p95 |
-| **Click Tracker** | 50,000+ events/s | <5ms p95 |
-| **Click Aggregator** | 100,000+ records/s | <10ms p95 |
-| **APIs** | 5,000+ req/s | <5ms p95 |
+| Service | Throughput | Latency | Notes |
+|---------|-----------|---------|-------|
+| **Click Router** | 360,000+ req/s | 2.6-2.8 µs | CPU-only (warm cache) |
+| **Click Tracker** | 1.07M events/s | 927 ns | CPU-only, 7,800/s with I/O (8 workers) |
+| **Click Aggregator** | 1.05M records/s | ~950 ns | CPU-only (conversions) |
+| **APIs** | 5,000+ req/s | <5ms p95 | Production estimates |
 
 </div>
+
+> **Note:** CPU-only benchmarks measure pure processing speed. Real-world throughput with I/O (Redis, Kafka, ClickHouse) varies by workload but typically achieves 4,000-10,000 events/sec per worker.
 
 ---
 

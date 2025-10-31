@@ -50,7 +50,7 @@ make dev-start
     <div class="feature-icon">🚀</div>
     <h3>Click Router</h3>
     <p>A high-performance, intelligent URL redirection service with advanced routing capabilities, conditional logic, analytics, and multi-database support for enterprise-grade URL shortening.</p>
-    <p class="feature-meta"><strong>Performance:</strong> 10,000+ req/s | <strong>Latency:</strong> &lt;1ms p95</p>
+    <p class="feature-meta"><strong>Performance:</strong> 360,000+ req/s (CPU) | <strong>Latency:</strong> 2.6-2.8 µs</p>
     <a href="https://github.com/FlyingCow/shortas/tree/main/redirect/click-router" class="btn" target="_blank">Learn More</a>
   </div>
   
@@ -58,7 +58,7 @@ make dev-start
     <div class="feature-icon">📊</div>
     <h3>Click Tracker</h3>
     <p>Real-time click processing and data enrichment with geographic and device analytics. Captures detailed metadata for comprehensive user behavior analysis.</p>
-    <p class="feature-meta"><strong>Performance:</strong> 50,000+ events/s | <strong>Latency:</strong> &lt;5ms p95</p>
+    <p class="feature-meta"><strong>Performance:</strong> 1.07M events/s (CPU) | <strong>Latency:</strong> 927 ns, 7,800/s with I/O</p>
     <a href="https://github.com/FlyingCow/shortas/tree/main/redirect/click-tracker" class="btn" target="_blank">Learn More</a>
   </div>
   
@@ -66,7 +66,7 @@ make dev-start
     <div class="feature-icon">⚡</div>
     <h3>Click Aggregator</h3>
     <p>Analytics data processing and storage with high-performance batch processing. Optimized for OLAP queries and real-time aggregations.</p>
-    <p class="feature-meta"><strong>Performance:</strong> 100,000+ records/s | <strong>Latency:</strong> &lt;10ms p95</p>
+    <p class="feature-meta"><strong>Performance:</strong> 1.05M records/s (CPU) | <strong>Latency:</strong> ~950 ns</p>
     <a href="https://github.com/FlyingCow/shortas/tree/main/redirect/click-aggregator" class="btn" target="_blank">Learn More</a>
   </div>
   
@@ -231,33 +231,33 @@ make dev-start
 ## 📊 Performance
 
 <div class="alert alert-success">
-  <strong>High Performance Metrics</strong> - Shortas is designed for enterprise-scale performance with sub-millisecond response times and high throughput.
+  <strong>High Performance Metrics</strong> - Shortas is designed for enterprise-scale performance with sub-millisecond response times and high throughput. All metrics are based on actual benchmark results.
 </div>
 
 <div class="feature-grid">
   <div class="feature-card feature-card-small">
     <div class="feature-icon">🚀</div>
     <h4>Click Router</h4>
-    <p class="feature-stat"><strong>10,000+</strong> requests/second</p>
-    <p class="feature-meta">p95 latency: &lt;1ms</p>
+    <p class="feature-stat"><strong>360,000+</strong> requests/second</p>
+    <p class="feature-meta">CPU-only: 2.6-2.8 µs latency</p>
   </div>
   <div class="feature-card feature-card-small">
     <div class="feature-icon">📊</div>
     <h4>Click Tracker</h4>
-    <p class="feature-stat"><strong>50,000+</strong> events/second</p>
-    <p class="feature-meta">p95 latency: &lt;5ms</p>
+    <p class="feature-stat"><strong>1.07M</strong> events/second</p>
+    <p class="feature-meta">CPU: 927 ns, I/O: 7,800/s (8 workers)</p>
   </div>
   <div class="feature-card feature-card-small">
     <div class="feature-icon">⚡</div>
     <h4>Click Aggregator</h4>
-    <p class="feature-stat"><strong>100,000+</strong> records/second</p>
-    <p class="feature-meta">p95 latency: &lt;10ms</p>
+    <p class="feature-stat"><strong>1.05M</strong> records/second</p>
+    <p class="feature-meta">CPU-only: ~950 ns latency</p>
   </div>
   <div class="feature-card feature-card-small">
     <div class="feature-icon">🔧</div>
     <h4>APIs</h4>
     <p class="feature-stat"><strong>5,000+</strong> requests/second</p>
-    <p class="feature-meta">p95 latency: &lt;5ms</p>
+    <p class="feature-meta">Production estimate: &lt;5ms p95</p>
   </div>
 </div>
 

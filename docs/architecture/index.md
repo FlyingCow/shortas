@@ -77,7 +77,7 @@ Shortas is built around five primary microservices, each optimized for specific 
     </ul>
     
     <p><strong>Technologies:</strong> Rust, Salvo, MongoDB/DynamoDB, Moka (in-memory cache), Kafka/Fluvio, GeoIP, UA Parser.</p>
-    <p><strong>Performance:</strong> 10,000+ requests/second</p>
+    <p><strong>Performance:</strong> 360,000+ requests/second (CPU-only), 2.6-2.8 µs latency per redirect</p>
   </div>
   
   <div class="card">
@@ -95,7 +95,7 @@ Shortas is built around five primary microservices, each optimized for specific 
     </ul>
     
     <p><strong>Technologies:</strong> Rust, Kafka/Fluvio, GeoIP, UA Parser.</p>
-    <p><strong>Performance:</strong> 50,000+ events/second</p>
+    <p><strong>Performance:</strong> 1.07 Million events/second (CPU-only), 927 ns latency. Real-world with I/O: ~7,800 events/sec (8 workers)</p>
   </div>
   
   <div class="card">
@@ -112,7 +112,7 @@ Shortas is built around five primary microservices, each optimized for specific 
     </ul>
     
     <p><strong>Technologies:</strong> Rust, ClickHouse, Kafka/Fluvio.</p>
-    <p><strong>Performance:</strong> 100,000+ records/second</p>
+    <p><strong>Performance:</strong> 1.05 Million records/second (CPU-only), ~950 ns latency for conversions</p>
   </div>
   
   <div class="card">
@@ -287,38 +287,42 @@ The data flow within Shortas is designed for high throughput and real-time proce
 
 ## 📊 Performance Characteristics
 
+<div class="alert alert-info">
+  <strong>Note:</strong> CPU-only benchmarks measure pure processing speed. Real-world throughput with I/O (Redis, Kafka, ClickHouse) varies by workload but typically achieves 4,000-10,000 events/sec per worker.
+</div>
+
 <div class="card">
-  <div class="card-header">Performance Metrics</div>
+  <div class="card-header">Performance Metrics (Based on Actual Benchmarks)</div>
   <table>
     <tr>
       <th>Service</th>
       <th>Throughput</th>
-      <th>Latency (p95)</th>
+      <th>Latency</th>
     </tr>
     <tr>
       <td>Click Router</td>
-      <td>10,000+ req/s</td>
-      <td>&lt;1ms</td>
+      <td>360,000+ req/s</td>
+      <td>2.6-2.8 µs (CPU-only)</td>
     </tr>
     <tr>
       <td>Click Tracker</td>
-      <td>50,000+ events/s</td>
-      <td>&lt;5ms</td>
+      <td>1.07M events/s</td>
+      <td>927 ns (CPU), 7,800/s with I/O</td>
     </tr>
     <tr>
       <td>Click Aggregator</td>
-      <td>100,000+ records/s</td>
-      <td>&lt;10ms</td>
+      <td>1.05M records/s</td>
+      <td>~950 ns (CPU-only)</td>
     </tr>
     <tr>
       <td>Click Router API</td>
       <td>5,000+ req/s</td>
-      <td>&lt;5ms</td>
+      <td>&lt;5ms (prod estimate)</td>
     </tr>
     <tr>
       <td>Click Aggregator API</td>
       <td>5,000+ req/s</td>
-      <td>&lt;5ms</td>
+      <td>&lt;5ms (prod estimate)</td>
     </tr>
   </table>
 </div>
