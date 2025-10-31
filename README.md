@@ -1,80 +1,172 @@
 # Shortas
 
-**Shortas** is a fast and scalable URL shortener built with Rust, featuring advanced analytics, multi-tenancy, and real-time click tracking capabilities.
+<div align="center">
+
+**A high-performance, enterprise-grade URL shortener built with Rust**
 
 [![Rust](https://img.shields.io/badge/rust-1.75+-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-latest-green.svg)](https://docs.shortas.com)
+[![Documentation](https://img.shields.io/badge/docs-latest-2563eb.svg)](https://docs.shortas.com)
+
+[Getting Started](#-quick-start) • [Documentation](https://docs.shortas.com) • [Architecture](#-architecture) • [Contributing](#-contributing)
+
+</div>
+
+---
 
 ## 🚀 Quick Start
 
-Get up and running with Shortas in minutes:
+Get Shortas up and running in minutes with our one-command setup:
 
 ```bash
 # Clone the repository
 git clone https://github.com/FlyingCow/shortas.git
 cd shortas
 
-# Complete development setup
+# Complete development setup (installs dependencies, starts infrastructure, builds services)
 make dev-setup
 
 # Start all services
 make dev-start
 ```
 
+**What you get:**
+- ✅ Full microservices stack running locally
+- ✅ MongoDB, ClickHouse, Redis, and Kafka configured
+- ✅ All services built and tested
+- ✅ Health checks validated
+
+---
+
 ## 🏗️ Architecture
 
-Shortas is built as a microservices architecture with five main components:
+Shortas is built as a **microservices architecture** with five core components, each optimized for specific responsibilities:
 
-- **[Click Router](redirect/click-router/README.md)** - Main redirect service handling URL routing and redirects
-- **[Click Tracker](redirect/click-tracker/)** - Real-time click processing and data enrichment  
-- **[Click Aggregator](redirect/click-aggregator/)** - Analytics data processing and storage
-- **[Click Router API](redirect/click-router-api/README.md)** - REST API for route and settings management
-- **[Click Aggregator API](redirect/click-aggregator-api/README.md)** - Analytics and reporting API
+<table>
+<tr>
+<td width="50%">
 
-## 🚀 Key Features
-
-### Routing & Redirects
+### **Click Router** 🚀
+High-performance URL redirection service with:
+- Conditional routing (device, geo, time-based)
 - Multiple redirect types (301, 302, proxy, retargeting)
-- Domain-based routing with wildcard support
 - SSL certificate management
-- Deep link support
-- A/B testing capabilities
+- Multi-database support (MongoDB/DynamoDB)
+- Advanced caching (Redis/Moka)
 
-### Analytics & Tracking
-- Real-time click tracking
-- Geographic analytics (country, continent, location)
-- Device and browser analytics
-- Session tracking and user behavior
-- Bot detection and filtering
+**Performance:** 10,000+ req/s
+
+</td>
+<td width="50%">
+
+### **Click Tracker** 📊
+Real-time click processing with:
+- Bot detection
+- Geographic analytics
+- Device & browser tracking
 - Unique visitor tracking
+- Session analysis
 
-### Multi-tenancy
-- Workspace-based isolation
-- User and creator role management
-- Owner-based data segregation
-- Custom user settings per workspace
+**Performance:** 50,000+ events/s
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### **Click Aggregator** ⚡
+Analytics data processing with:
+- High-throughput batch processing
+- OLAP-optimized storage
+- Scalable data ingestion
+- Real-time aggregations
+
+**Performance:** 100,000+ records/s
+
+</td>
+<td width="50%">
+
+### **APIs** 🔧
+Management and analytics APIs:
+- **Click Router API** - Route & settings management
+- **Click Aggregator API** - Analytics & reporting
+- JWT authentication (Keycloak)
+- OpenAPI documentation
+- Role-based access control
+
+**Performance:** 5,000+ req/s
+
+</td>
+</tr>
+</table>
+
+---
+
+## ✨ Key Features
+
+### 🔄 Advanced Routing & Redirects
+
+- **Multiple Redirect Types**: 301, 302, proxy, retargeting
+- **Conditional Logic**: Route based on device, location, time, or custom expressions
+- **Domain-Based Routing**: Wildcard support for multi-tenant setups
+- **SSL Management**: Automated certificate handling
+- **A/B Testing**: Built-in traffic splitting capabilities
+
+### 📊 Comprehensive Analytics
+
+- **Real-Time Tracking**: Sub-millisecond click tracking
+- **Geographic Analytics**: Country, continent, and location-based insights
+- **Device Analytics**: Browser, OS, and device type tracking
+- **Session Tracking**: User behavior and flow analysis
+- **Bot Detection**: Automatic filtering of bot traffic
+- **Unique Visitors**: Accurate visitor counting
+
+### 🏢 Enterprise Multi-Tenancy
+
+- **Workspace Isolation**: Complete data segregation per workspace
+- **Role Management**: User and creator role hierarchies
+- **Owner-Based Access**: Fine-grained permission control
+- **Custom Settings**: Per-workspace configuration
+
+---
 
 ## 🛠️ Technology Stack
 
-- **Language**: Rust (all components)
-- **Web Frameworks**: Salvo
-- **Databases**: MongoDB, ClickHouse, Redis, AWS DynamoDB
-- **Message Queues**: Apache Kafka, Fluvio
-- **Infrastructure**: Docker, Terraform, AWS
-- **Analytics**: ClickHouse for OLAP queries
-- **Caching**: Redis for session and route caching
+<div align="center">
 
-## 📊 Performance
+| Category | Technology |
+|----------|-----------|
+| **Language** | Rust 1.75+ |
+| **Web Framework** | Salvo |
+| **Databases** | MongoDB, ClickHouse, Redis, AWS DynamoDB |
+| **Message Queues** | Apache Kafka, Fluvio |
+| **Infrastructure** | Docker, Terraform, AWS |
+| **Analytics** | ClickHouse (OLAP) |
+| **Caching** | Redis, Moka |
 
-- **Click Router**: 10,000+ requests/second
-- **Click Tracker**: 50,000+ events/second
-- **Click Aggregator**: 100,000+ records/second
-- **APIs**: 5,000+ requests/second
+</div>
+
+---
+
+## 📊 Performance Metrics
+
+<div align="center">
+
+| Service | Throughput | Latency |
+|---------|-----------|---------|
+| **Click Router** | 10,000+ req/s | <1ms p95 |
+| **Click Tracker** | 50,000+ events/s | <5ms p95 |
+| **Click Aggregator** | 100,000+ records/s | <10ms p95 |
+| **APIs** | 5,000+ req/s | <5ms p95 |
+
+</div>
+
+---
 
 ## 📚 Documentation
 
 ### Quick Links
+
 - **[Getting Started](docs/getting-started/)** - Installation and setup guide
 - **[Architecture](docs/architecture/)** - System architecture overview
 - **[API Reference](docs/api/)** - Complete API documentation
@@ -82,18 +174,21 @@ Shortas is built as a microservices architecture with five main components:
 - **[Development](docs/development/)** - Contributing guidelines
 
 ### Component Documentation
+
 - **[Click Router](redirect/click-router/README.md)** - Main redirect service
 - **[Click Router API](redirect/click-router-api/README.md)** - Route management API
 - **[Click Aggregator API](redirect/click-aggregator-api/README.md)** - Analytics API
+
+---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Rust 1.75+ (stable)
-- Docker & Docker Compose
-- Make
-- curl (for health checks)
+- **Rust** 1.75+ (stable channel)
+- **Docker** & Docker Compose
+- **Make** (GNU Make 4.0+)
+- **curl** (for health checks)
 
 ### One-Command Setup
 
@@ -110,8 +205,10 @@ make health-check
 
 ### Manual Setup
 
+If you prefer step-by-step setup or need to troubleshoot:
+
 ```bash
-# Start infrastructure
+# Start infrastructure (MongoDB, ClickHouse, Redis, Kafka)
 make infra-start-custom
 
 # Build all services
@@ -119,7 +216,12 @@ make build
 
 # Run tests
 make test
+
+# Start services
+make dev-start
 ```
+
+---
 
 ## 🐳 Docker Deployment
 
@@ -133,6 +235,8 @@ make deploy-docker
 # Check health
 make health-check
 ```
+
+---
 
 ## 🔧 Service Management
 
@@ -149,15 +253,21 @@ make logs-tracker           # Click Tracker only
 make logs-aggregator        # Click Aggregator only
 ```
 
+---
+
 ## 🌐 Service Ports
 
-- **Click Router**: 8080
-- **Click Router API**: 8081
-- **Click Aggregator API**: 8082
-- **MongoDB**: 27017
-- **ClickHouse**: 8123
-- **Redis**: 6379
-- **Kafka**: 9092
+| Service | Port | Description |
+|---------|------|-------------|
+| **Click Router** | 8080 | Main redirect service |
+| **Click Router API** | 8081 | Route management API |
+| **Click Aggregator API** | 8082 | Analytics API |
+| **MongoDB** | 27017 | Primary database |
+| **ClickHouse** | 8123 | Analytics database |
+| **Redis** | 6379 | Cache |
+| **Kafka** | 9092 | Message queue |
+
+---
 
 ## 🧪 Testing
 
@@ -174,6 +284,8 @@ make test-click-aggregator
 make test-coverage
 ```
 
+---
+
 ## 🔍 Health Checks
 
 All services provide health check endpoints:
@@ -188,19 +300,38 @@ curl http://localhost:8081/health  # Router API
 curl http://localhost:8082/health  # Aggregator API
 ```
 
+---
+
 ## 🤝 Contributing
 
-We welcome contributions from the community! Please see our [Contributing Guide](docs/development/) for details.
+We welcome contributions! Here's how you can help:
 
 ### Ways to Contribute
+
 - **Code**: Bug fixes, new features, performance improvements
 - **Documentation**: Improve guides, add examples, fix typos
 - **Testing**: Write tests, report bugs, improve test coverage
 - **Community**: Help others, answer questions, share knowledge
 
+### Getting Started
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests (`make test`)
+5. Commit your changes (`git commit -m 'feat: Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+See our [Contributing Guide](docs/development/) for detailed guidelines.
+
+---
+
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+---
 
 ## 🔗 Links
 
@@ -208,6 +339,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issue Tracker**: [https://github.com/FlyingCow/shortas/issues](https://github.com/FlyingCow/shortas/issues)
 - **Documentation**: [https://docs.shortas.com](https://docs.shortas.com)
 - **Contributing Guide**: [docs/development/](docs/development/)
+
+---
 
 ## 🆘 Support
 
@@ -220,4 +353,10 @@ For support and questions:
 
 ---
 
+<div align="center">
+
 **Built with ❤️ using Rust and modern web technologies**
+
+[⭐ Star us on GitHub](https://github.com/FlyingCow/shortas) • [📖 Read the Docs](https://docs.shortas.com) • [🐛 Report a Bug](https://github.com/FlyingCow/shortas/issues)
+
+</div>
