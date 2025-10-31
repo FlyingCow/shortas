@@ -1,11 +1,10 @@
 use anyhow::Result;
-use tracing::info;
 
 use crate::{
     adapters::ClickAggsRegistrarType,
     core::{
         ClickStreamItem, HitData, TrackingPipeContext, aggs::ClickAggsRegistrar,
-        tracking_pipe::TrackingModule, ConversionEvent, ConversionFunnelStep,
+        tracking_pipe::TrackingModule,
     },
 };
 
@@ -30,27 +29,28 @@ impl TrackingModule for AggregateModule {
             }
 
             if let Some(route) = &context.hit.route {
-                stream_item.route_id = route.id.clone();
-                stream_item.creator_id = route.creator_id.clone();
-                stream_item.owner_id = route.owner_id.clone();
-                stream_item.workspace_id = route.workspace_id.clone();
+                stream_item.route_id = route.id.as_ref().map(|s| s.to_owned());
+                stream_item.creator_id = route.creator_id.as_ref().map(|s| s.to_owned());
+                stream_item.owner_id = route.owner_id.as_ref().map(|s| s.to_owned());
+                stream_item.workspace_id = route.workspace_id.as_ref().map(|s| s.to_owned());
             }
 
             if let HitData::Click(click) = &context.hit.data {
-                stream_item.dest = click.dest.clone();
+                stream_item.dest = click.dest.as_ref().map(|s| s.to_owned());
             }
 
-            if let Some(user_agent) = context.client_ua.clone() {
+            // Take ownership of user agent data since we don't need it after this module
+            if let Some(user_agent) = context.client_ua.take() {
                 stream_item.user_agent_family = Some(user_agent.family);
                 stream_item.user_agent_version = user_agent.major;
             }
 
-            if let Some(os) = context.client_os.clone() {
+            if let Some(os) = context.client_os.take() {
                 stream_item.os_family = Some(os.family);
                 stream_item.os_version = os.major;
             }
 
-            if let Some(device) = context.client_device.clone() {
+            if let Some(device) = context.client_device.take() {
                 stream_item.device_brand = device.brand;
                 stream_item.device_family = Some(device.family);
                 stream_item.device_model = device.model;
@@ -68,14 +68,11 @@ impl TrackingModule for AggregateModule {
                 stream_item.is_unique = session.count == 1;
             }
 
-            info!("Processing click: {}", serde_json::json!(stream_item));
             self.click_aggs_registrar.register(stream_item).await?;
         }
         
         // Handle conversion events
         else if let HitData::Conversion(conversion) = &context.hit.data {
-            info!("Processing conversion event: {} - {}", conversion.conversion_type, conversion.conversion_name);
-            
             // Create a ClickStreamItem for conversion (this will be processed by click-aggregator)
             let mut stream_item = ClickStreamItem {
                 id: conversion.id.clone(),
@@ -83,43 +80,37 @@ impl TrackingModule for AggregateModule {
                 ..Default::default()
             };
 
-            // Copy conversion data to stream item
-            stream_item.owner_id = conversion.owner_id.clone();
-            stream_item.creator_id = conversion.creator_id.clone();
-            stream_item.route_id = conversion.route_id.clone();
-            stream_item.workspace_id = conversion.workspace_id.clone();
+            // Copy conversion data to stream item - use as_ref().map() to avoid unnecessary clones
+            stream_item.owner_id = conversion.owner_id.as_ref().map(|s| s.to_owned());
+            stream_item.creator_id = conversion.creator_id.as_ref().map(|s| s.to_owned());
+            stream_item.route_id = conversion.route_id.as_ref().map(|s| s.to_owned());
+            stream_item.workspace_id = conversion.workspace_id.as_ref().map(|s| s.to_owned());
             stream_item.ip = conversion.ip.map(|ip| ip.to_string());
-            stream_item.user_id = conversion.user_id.clone();
-            stream_item.session_id = conversion.session_id.clone();
-            
+
             // Geographic data
-            stream_item.continent = conversion.continent.clone();
-            stream_item.country = conversion.country.clone();
-            stream_item.location = conversion.location.clone();
-            
+            stream_item.continent = conversion.continent.as_ref().map(|s| s.to_owned());
+            stream_item.country = conversion.country.as_ref().map(|s| s.to_owned());
+            stream_item.location = conversion.location.as_ref().map(|s| s.to_owned());
+
             // Device data
-            stream_item.device_family = conversion.device_family.clone();
-            stream_item.device_brand = conversion.device_brand.clone();
-            stream_item.device_model = conversion.device_model.clone();
-            stream_item.os_family = conversion.os_family.clone();
-            stream_item.os_version = conversion.os_version.clone();
-            stream_item.user_agent_family = conversion.user_agent_family.clone();
-            stream_item.user_agent_version = conversion.user_agent_version.clone();
-            
+            stream_item.device_family = conversion.device_family.as_ref().map(|s| s.to_owned());
+            stream_item.device_brand = conversion.device_brand.as_ref().map(|s| s.to_owned());
+            stream_item.device_model = conversion.device_model.as_ref().map(|s| s.to_owned());
+            stream_item.os_family = conversion.os_family.as_ref().map(|s| s.to_owned());
+            stream_item.os_version = conversion.os_version.as_ref().map(|s| s.to_owned());
+            stream_item.user_agent_family = conversion.user_agent_family.as_ref().map(|s| s.to_owned());
+            stream_item.user_agent_version = conversion.user_agent_version.as_ref().map(|s| s.to_owned());
+
             // Set conversion-specific fields
             stream_item.dest = Some(format!("conversion:{}:{}", conversion.conversion_type, conversion.conversion_name));
             stream_item.is_unique = conversion.is_unique.unwrap_or(1) == 1;
             stream_item.is_bot = false; // Conversions are typically not bots
 
-            info!("Conversion stream item: {}", serde_json::json!(stream_item));
             self.click_aggs_registrar.register(stream_item).await?;
         }
         
         // Handle funnel step events
         else if let HitData::FunnelStep(funnel_step) = &context.hit.data {
-            info!("Processing funnel step: {} - {} (position {})", 
-                  funnel_step.funnel_name, funnel_step.step_name, funnel_step.step_position);
-            
             // Create a ClickStreamItem for funnel step
             let mut stream_item = ClickStreamItem {
                 id: funnel_step.id.clone(),
@@ -127,20 +118,17 @@ impl TrackingModule for AggregateModule {
                 ..Default::default()
             };
 
-            // Copy funnel step data to stream item
-            stream_item.owner_id = funnel_step.owner_id.clone();
-            stream_item.workspace_id = funnel_step.workspace_id.clone();
-            stream_item.route_id = funnel_step.route_id.clone();
-            stream_item.user_id = funnel_step.user_id.clone();
-            stream_item.session_id = funnel_step.session_id.clone();
-            
+            // Copy funnel step data to stream item - use as_ref().map() to avoid unnecessary clones
+            stream_item.owner_id = funnel_step.owner_id.as_ref().map(|s| s.to_owned());
+            stream_item.workspace_id = funnel_step.workspace_id.as_ref().map(|s| s.to_owned());
+            stream_item.route_id = funnel_step.route_id.as_ref().map(|s| s.to_owned());
+
             // Set funnel-specific fields
-            stream_item.dest = Some(format!("funnel:{}:{}:{}", 
+            stream_item.dest = Some(format!("funnel:{}:{}:{}",
                 funnel_step.funnel_name, funnel_step.step_name, funnel_step.step_position));
             stream_item.is_unique = funnel_step.step_completed == 1;
             stream_item.is_bot = false; // Funnel steps are typically not bots
 
-            info!("Funnel step stream item: {}", serde_json::json!(stream_item));
             self.click_aggs_registrar.register(stream_item).await?;
         }
 

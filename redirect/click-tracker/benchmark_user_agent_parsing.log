@@ -1,0 +1,125 @@
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+ --> click-tracker/benches/user_agent_parsing.rs:1:17
+  |
+1 | use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+  |                 ^^^^^^^^^
+  |
+  = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/user_agent_parsing.rs:36:60
+   |
+36 |                 let user_agent = detector.parse_user_agent(black_box(ua_str));
+   |                                                            ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/user_agent_parsing.rs:37:44
+   |
+37 |                 let os = detector.parse_os(black_box(ua_str));
+   |                                            ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/user_agent_parsing.rs:38:52
+   |
+38 |                 let device = detector.parse_device(black_box(ua_str));
+   |                                                    ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/user_agent_parsing.rs:41:17
+   |
+41 |                 black_box((user_agent, os, device))
+   |                 ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/user_agent_parsing.rs:59:52
+   |
+59 |                 let client = detector.parse_client(black_box(ua_str));
+   |                                                    ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/user_agent_parsing.rs:60:17
+   |
+60 |                 black_box(client)
+   |                 ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/user_agent_parsing.rs:77:56
+   |
+77 |             let user_agent = detector.parse_user_agent(black_box(ua_string));
+   |                                                        ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/user_agent_parsing.rs:78:40
+   |
+78 |             let os = detector.parse_os(black_box(ua_string));
+   |                                        ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/user_agent_parsing.rs:79:48
+   |
+79 |             let device = detector.parse_device(black_box(ua_string));
+   |                                                ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/user_agent_parsing.rs:80:13
+   |
+80 |             black_box((user_agent, os, device))
+   |             ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/user_agent_parsing.rs:86:48
+   |
+86 |             let client = detector.parse_client(black_box(ua_string));
+   |                                                ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/user_agent_parsing.rs:87:13
+   |
+87 |             black_box(client)
+   |             ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/user_agent_parsing.rs:107:56
+    |
+107 |             let user_agent = detector.parse_user_agent(black_box(ua_string));
+    |                                                        ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/user_agent_parsing.rs:108:40
+    |
+108 |             let os = detector.parse_os(black_box(ua_string));
+    |                                        ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/user_agent_parsing.rs:109:48
+    |
+109 |             let device = detector.parse_device(black_box(ua_string));
+    |                                                ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/user_agent_parsing.rs:110:13
+    |
+110 |             black_box((user_agent, os, device))
+    |             ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/user_agent_parsing.rs:120:48
+    |
+120 |             let client = detector.parse_client(black_box(ua_string));
+    |                                                ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/user_agent_parsing.rs:121:13
+    |
+121 |             black_box(client)
+    |             ^^^^^^^^^
+
+warning: `click-tracker` (bench "user_agent_parsing") generated 19 warnings
+    Finished `bench` profile [optimized] target(s) in 0.18s
+     Running benches/user_agent_parsing.rs (/home/max/dev/shortas/redirect/target/release/deps/user_agent_parsing-8ae6410836f58689)
+Gnuplot not found, using plotters backend
+
+thread 'main' panicked at click-tracker/src/adapters/uaparser/user_agent_detector.rs:21:18:
+Parser creation failed: IO(Os { code: 2, kind: NotFound, message: "No such file or directory" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: bench failed, to rerun pass `--bench user_agent_parsing`

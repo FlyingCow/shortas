@@ -131,8 +131,11 @@ impl AggsModule for ConversionProcessingModule {
 
 ### JavaScript Integration
 ```javascript
+// Base URL for Click Router (default: https://your-domain.com:5800)
+const CLICK_ROUTER_URL = 'https://your-domain.com:5800';
+
 // Track a conversion
-fetch('/conversions/track', {
+fetch(`${CLICK_ROUTER_URL}/conversions/track`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -140,35 +143,76 @@ fetch('/conversions/track', {
     conversion_type: 'purchase',
     conversion_name: 'Product Purchase',
     conversion_value: 199.99,
-    attributed_click_id: getClickIdFromCookie(),
-    user_id: getUserId(),
-    session_id: getSessionId(),
+    attributed_click_id: getClickIdFromCookie(), // Optional: from click tracking
+    attribution_type: 'direct', // Optional: 'direct', 'session', 'time-based', 'multi-touch'
+    attribution_window_hours: 24, // Optional: default 24
+    user_id: getUserId(), // Optional
+    session_id: getSessionId(), // Optional
     metadata: {
       product_id: 'prod_123',
       category: 'electronics'
     }
   })
+})
+.then(response => response.json())
+.then(data => {
+  console.log('Conversion tracked:', data.conversion_id);
+})
+.catch(error => {
+  console.error('Error tracking conversion:', error);
 });
 
 // Track a funnel step
-fetch('/conversions/funnel', {
+fetch(`${CLICK_ROUTER_URL}/conversions/funnel`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     route_id: 'product-page-123',
-    funnel_name: 'E-commerce Funnel',
+    funnel_name: 'E-commerce Purchase Funnel',
+    funnel_steps: ['view', 'add_to_cart', 'checkout', 'purchase'], // Optional
     step_name: 'add_to_cart',
     step_position: 2,
-    step_value: 199.99,
-    user_id: getUserId(),
-    session_id: getSessionId()
+    step_value: 199.99, // Optional
+    user_id: getUserId(), // Optional
+    session_id: getSessionId(), // Optional
+    metadata: {
+      product_id: 'prod_123'
+    }
   })
 });
 ```
 
 ### Server-side Integration
 ```rust
-// In your application
+// Option 1: Send to Click Router API (Recommended - flows through pipeline)
+use reqwest::Client;
+
+let client = Client::new();
+let response = client
+    .post("https://your-click-router.com:5800/conversions/track")
+    .json(&serde_json::json!({
+        "route_id": "product-page-123",
+        "conversion_type": "purchase",
+        "conversion_name": "Product Purchase",
+        "conversion_value": 199.99,
+        "attributed_click_id": click_id,
+        "attribution_type": "direct",
+        "attribution_window_hours": 24,
+        "user_id": "user_456",
+        "session_id": "session_789",
+        "metadata": {
+            "product_id": "prod_123",
+            "category": "electronics"
+        }
+    }))
+    .send()
+    .await?;
+
+let result: serde_json::Value = response.json().await?;
+println!("Conversion tracked: {}", result["conversion_id"]);
+
+// Option 2: Direct integration (if you have access to click-router internals)
+// This requires direct access to the HitRegistrar
 let conversion_event = ConversionEvent {
     id: ulid::Ulid::new().to_string(),
     route_id: Some("product-page-123".to_string()),
@@ -181,16 +225,17 @@ let conversion_event = ConversionEvent {
     ..Default::default()
 };
 
-let hit = Hit {
-    id: conversion_event.id.clone(),
-    data: HitData::Conversion(conversion_event),
-    route: Some(HitRoute {
+let hit = Hit::conversion(
+    &conversion_event.id,
+    Utc::now(),
+    None, // user_agent
+    None, // ip (will be extracted)
+    conversion_event,
+    Some(HitRoute {
         id: Some("product-page-123".to_string()),
         ..Default::default()
     }),
-    utc: Utc::now(),
-    ..Default::default()
-};
+);
 
 hit_registrar.register(&hit).await?;
 ```
@@ -200,13 +245,16 @@ hit_registrar.register(&hit).await?;
 ### 1. **Conversion Event Creation**
 - User performs action (purchase, signup, etc.)
 - JavaScript or server creates conversion event
-- Event sent to Click Router `/conversions/track` endpoint
+- Event sent to Click Router `/conversions/track` or `/conversions/funnel` endpoint
+- Click Router runs on `https://your-domain.com:5800` (default port)
 
 ### 2. **Click Router Processing**
-- Validates conversion data
-- Creates `Hit` with `HitData::Conversion`
-- Extracts IP, user agent, referrer
-- Sends to Fluvio message queue
+- Receives HTTP POST request at `/conversions/track` or `/conversions/funnel`
+- Validates conversion data and creates `ConversionEvent` or `ConversionFunnelStep`
+- Creates `Hit` with `HitData::Conversion` or `HitData::FunnelStep`
+- Extracts IP address, user agent, referrer from request
+- Registers hit with HitRegistrar (Fluvio)
+- Returns HTTP 201 response with conversion ID
 
 ### 3. **Click Tracker Processing**
 - Receives conversion event from Fluvio
@@ -247,10 +295,11 @@ Each service logs conversion processing:
 ```rust
 // Click Router
 info!("Conversion received: {} - {}", conversion_type, conversion_name);
+info!("Conversion stream item: {}", serde_json::json!(stream_item));
 
 // Click Tracker
 info!("Processing conversion event: {} - {}", conversion_type, conversion_name);
-info!("Conversion enriched with user agent: {}", user_agent.family);
+info!("Conversion stream item: {}", serde_json::json!(stream_item));
 
 // Click Aggregator
 info!("Processing conversion event: {}", dest);
@@ -258,11 +307,40 @@ info!("Conversion processed: {} - {}", conversion_type, conversion_name);
 ```
 
 ### Debugging Conversion Flow
-1. **Check Click Router logs** - Verify conversion received
-2. **Check Fluvio** - Verify message queued
+1. **Check Click Router logs** - Verify conversion received and sent to Fluvio
+   ```bash
+   # Look for messages like:
+   # "Conversion received: purchase - Product Purchase"
+   # "Conversion tracked successfully"
+   ```
+
+2. **Check Fluvio** - Verify message queued in the hit stream
+   ```bash
+   # Check Fluvio topic for conversion messages
+   fluvio consume hits
+   ```
+
 3. **Check Click Tracker logs** - Verify processing and enrichment
+   ```bash
+   # Look for messages like:
+   # "Processing conversion event: purchase - Product Purchase"
+   # "Conversion stream item: {...}"
+   ```
+
 4. **Check Click Aggregator logs** - Verify storage
+   ```bash
+   # Look for messages like:
+   # "Processing conversion event: conversion:purchase:Product Purchase"
+   # "Conversion processed: purchase - Product Purchase"
+   ```
+
 5. **Check ClickHouse** - Verify data stored
+   ```sql
+   SELECT * FROM conversions 
+   WHERE route_id = 'your-route-id' 
+   ORDER BY created DESC 
+   LIMIT 10;
+   ```
 
 ## 🚀 Benefits
 

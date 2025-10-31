@@ -1,0 +1,235 @@
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+ --> click-tracker/benches/full_pipeline.rs:1:17
+  |
+1 | use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+  |                 ^^^^^^^^^
+  |
+  = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:238:17
+    |
+238 |                 black_box(process_event_through_pipeline(hit).await.unwrap())
+    |                 ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:264:29
+    |
+264 | ...                   black_box(process_event_through_pipeline(hit).await.unwrap());
+    |                       ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:289:17
+    |
+289 |                 black_box(process_event_through_pipeline(hit).await.unwrap())
+    |                 ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:310:13
+    |
+310 |             black_box(TrackingPipeContext::new(hit))
+    |             ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:319:13
+    |
+319 |             black_box(detector.parse_client(ua_string))
+    |             ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:328:13
+    |
+328 |             black_box(detector.detect_country(&ip))
+    |             ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:339:17
+    |
+339 |                 black_box(detector.detect("route_123", &ip, &time).await.unwrap())
+    |                 ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:391:13
+    |
+391 |             black_box(stream_item)
+    |             ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:412:17
+    |
+412 |                 black_box(process_event_through_pipeline(hit).await.unwrap())
+    |                 ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:423:17
+    |
+423 |                 black_box(process_event_through_pipeline(hit).await.unwrap())
+    |                 ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:434:17
+    |
+434 |                 black_box(process_event_through_pipeline(hit).await.unwrap())
+    |                 ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:445:17
+    |
+445 |                 black_box(process_event_through_pipeline(hit).await.unwrap())
+    |                 ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/full_pipeline.rs:468:21
+    |
+468 |                     black_box(process_event_through_pipeline(hit).await.unwrap());
+    |                     ^^^^^^^^^
+
+warning: struct `MockClickAggsRegistrar` is never constructed
+  --> click-tracker/benches/full_pipeline.rs:98:8
+   |
+98 | struct MockClickAggsRegistrar;
+   |        ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `click-tracker` (bench "full_pipeline") generated 15 warnings
+    Finished `bench` profile [optimized] target(s) in 0.18s
+     Running benches/full_pipeline.rs (/home/max/dev/shortas/redirect/target/release/deps/full_pipeline-df9031dccd191840)
+Gnuplot not found, using plotters backend
+Benchmarking pipeline_single_event
+Benchmarking pipeline_single_event: Warming up for 3.0000 s
+Benchmarking pipeline_single_event: Collecting 100 samples in estimated 5.0040 s (5.4M iterations)
+Benchmarking pipeline_single_event: Analyzing
+pipeline_single_event   time:   [914.33 ns 916.60 ns 919.35 ns]
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+
+Benchmarking pipeline_batch/10
+Benchmarking pipeline_batch/10: Warming up for 3.0000 s
+Benchmarking pipeline_batch/10: Collecting 100 samples in estimated 5.0142 s (556k iterations)
+Benchmarking pipeline_batch/10: Analyzing
+pipeline_batch/10       time:   [9.1408 µs 9.1736 µs 9.2111 µs]
+                        thrpt:  [1.0856 Melem/s 1.0901 Melem/s 1.0940 Melem/s]
+Found 11 outliers among 100 measurements (11.00%)
+  3 (3.00%) high mild
+  8 (8.00%) high severe
+Benchmarking pipeline_batch/100
+Benchmarking pipeline_batch/100: Warming up for 3.0000 s
+Benchmarking pipeline_batch/100: Collecting 100 samples in estimated 5.0011 s (56k iterations)
+Benchmarking pipeline_batch/100: Analyzing
+pipeline_batch/100      time:   [90.545 µs 90.840 µs 91.172 µs]
+                        thrpt:  [1.0968 Melem/s 1.1008 Melem/s 1.1044 Melem/s]
+Found 10 outliers among 100 measurements (10.00%)
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+Benchmarking pipeline_batch/1000
+Benchmarking pipeline_batch/1000: Warming up for 3.0000 s
+Benchmarking pipeline_batch/1000: Collecting 100 samples in estimated 9.0412 s (10k iterations)
+Benchmarking pipeline_batch/1000: Analyzing
+pipeline_batch/1000     time:   [892.10 µs 893.35 µs 894.90 µs]
+                        thrpt:  [1.1174 Melem/s 1.1194 Melem/s 1.1209 Melem/s]
+Found 10 outliers among 100 measurements (10.00%)
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+
+Benchmarking pipeline_throughput/events_per_second
+Benchmarking pipeline_throughput/events_per_second: Warming up for 3.0000 s
+Benchmarking pipeline_throughput/events_per_second: Collecting 100 samples in estimated 5.0035 s (4.4M iterations)
+Benchmarking pipeline_throughput/events_per_second: Analyzing
+pipeline_throughput/events_per_second
+                        time:   [1.1457 µs 1.1483 µs 1.1515 µs]
+                        thrpt:  [868.40 Kelem/s 870.85 Kelem/s 872.80 Kelem/s]
+Found 18 outliers among 100 measurements (18.00%)
+  2 (2.00%) high mild
+  16 (16.00%) high severe
+
+Benchmarking pipeline_steps/01_context_creation
+Benchmarking pipeline_steps/01_context_creation: Warming up for 3.0000 s
+Benchmarking pipeline_steps/01_context_creation: Collecting 100 samples in estimated 5.0011 s (17M iterations)
+Benchmarking pipeline_steps/01_context_creation: Analyzing
+pipeline_steps/01_context_creation
+                        time:   [278.04 ns 279.24 ns 280.92 ns]
+Found 11 outliers among 100 measurements (11.00%)
+  2 (2.00%) high mild
+  9 (9.00%) high severe
+Benchmarking pipeline_steps/02_user_agent_parsing
+Benchmarking pipeline_steps/02_user_agent_parsing: Warming up for 3.0000 s
+Benchmarking pipeline_steps/02_user_agent_parsing: Collecting 100 samples in estimated 5.0002 s (67M iterations)
+Benchmarking pipeline_steps/02_user_agent_parsing: Analyzing
+pipeline_steps/02_user_agent_parsing
+                        time:   [74.339 ns 74.631 ns 74.975 ns]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking pipeline_steps/03_geo_lookup
+Benchmarking pipeline_steps/03_geo_lookup: Warming up for 3.0000 s
+Benchmarking pipeline_steps/03_geo_lookup: Collecting 100 samples in estimated 5.0000 s (304M iterations)
+Benchmarking pipeline_steps/03_geo_lookup: Analyzing
+pipeline_steps/03_geo_lookup
+                        time:   [16.412 ns 16.533 ns 16.677 ns]
+Found 11 outliers among 100 measurements (11.00%)
+  6 (6.00%) high mild
+  5 (5.00%) high severe
+Benchmarking pipeline_steps/04_session_detection
+Benchmarking pipeline_steps/04_session_detection: Warming up for 3.0000 s
+Benchmarking pipeline_steps/04_session_detection: Collecting 100 samples in estimated 5.0012 s (21M iterations)
+Benchmarking pipeline_steps/04_session_detection: Analyzing
+pipeline_steps/04_session_detection
+                        time:   [240.49 ns 240.94 ns 241.56 ns]
+Found 9 outliers among 100 measurements (9.00%)
+  1 (1.00%) high mild
+  8 (8.00%) high severe
+Benchmarking pipeline_steps/05_stream_item_building
+Benchmarking pipeline_steps/05_stream_item_building: Warming up for 3.0000 s
+Benchmarking pipeline_steps/05_stream_item_building: Collecting 100 samples in estimated 5.0002 s (59M iterations)
+Benchmarking pipeline_steps/05_stream_item_building: Analyzing
+pipeline_steps/05_stream_item_building
+                        time:   [83.576 ns 84.125 ns 85.042 ns]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+
+Benchmarking pipeline_patterns/full_data
+Benchmarking pipeline_patterns/full_data: Warming up for 3.0000 s
+Benchmarking pipeline_patterns/full_data: Collecting 100 samples in estimated 5.0017 s (4.4M iterations)
+Benchmarking pipeline_patterns/full_data: Analyzing
+pipeline_patterns/full_data
+                        time:   [1.1409 µs 1.1460 µs 1.1531 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) high mild
+  11 (11.00%) high severe
+Benchmarking pipeline_patterns/minimal_data
+Benchmarking pipeline_patterns/minimal_data: Warming up for 3.0000 s
+Benchmarking pipeline_patterns/minimal_data: Collecting 100 samples in estimated 5.0006 s (5.4M iterations)
+Benchmarking pipeline_patterns/minimal_data: Analyzing
+pipeline_patterns/minimal_data
+                        time:   [925.98 ns 930.33 ns 935.82 ns]
+Found 12 outliers among 100 measurements (12.00%)
+  2 (2.00%) high mild
+  10 (10.00%) high severe
+Benchmarking pipeline_patterns/no_ip
+Benchmarking pipeline_patterns/no_ip: Warming up for 3.0000 s
+Benchmarking pipeline_patterns/no_ip: Collecting 100 samples in estimated 5.0028 s (4.9M iterations)
+Benchmarking pipeline_patterns/no_ip: Analyzing
+pipeline_patterns/no_ip time:   [1.0244 µs 1.0274 µs 1.0311 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) high mild
+  9 (9.00%) high severe
+Benchmarking pipeline_patterns/no_route
+Benchmarking pipeline_patterns/no_route: Warming up for 3.0000 s
+Benchmarking pipeline_patterns/no_route: Collecting 100 samples in estimated 5.0020 s (5.4M iterations)
+Benchmarking pipeline_patterns/no_route: Analyzing
+pipeline_patterns/no_route
+                        time:   [938.56 ns 940.73 ns 943.30 ns]
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high severe
+
+Benchmarking pipeline_memory/10k_events
+Benchmarking pipeline_memory/10k_events: Warming up for 3.0000 s
+Benchmarking pipeline_memory/10k_events: Collecting 10 samples in estimated 5.4218 s (605 iterations)
+Benchmarking pipeline_memory/10k_events: Analyzing
+pipeline_memory/10k_events
+                        time:   [8.9076 ms 8.9430 ms 8.9903 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+

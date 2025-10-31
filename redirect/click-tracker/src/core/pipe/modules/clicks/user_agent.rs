@@ -14,23 +14,21 @@ pub struct EnrichUserAgentModule {
 #[async_trait::async_trait()]
 impl TrackingModule for EnrichUserAgentModule {
     async fn execute(&mut self, context: &mut TrackingPipeContext) -> Result<()> {
-        if let Some(user_agent_string) = context.hit.user_agent.clone() {
-            let user_agent = &self
-                .user_agent_detector
-                .parse_user_agent(&user_agent_string);
-            context.client_ua = Some(user_agent.clone());
+        if let Some(user_agent_string) = &context.hit.user_agent {
+            // Parse all components at once for better performance
+            let client = self.user_agent_detector.parse_client(user_agent_string);
 
-            let user_os = &self.user_agent_detector.parse_os(&user_agent_string);
-            context.client_os = Some(user_os.clone());
-
-            let user_device = &self.user_agent_detector.parse_device(&user_agent_string);
-            context.client_device = Some(user_device.clone());
-
-            if let Some(brand) = &user_device.brand {
+            // Check if device is a spider before moving values
+            if let Some(brand) = &client.device.brand {
                 if brand == SPIDER_DEVICE_BRAND {
                     context.spider = true;
                 }
             }
+
+            // Move parsed values into context
+            context.client_ua = Some(client.user_agent);
+            context.client_os = Some(client.os);
+            context.client_device = Some(client.device);
         }
 
         Ok(())

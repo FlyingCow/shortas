@@ -1,28 +1,9 @@
-use std::collections::HashMap;
 use std::net::IpAddr;
 
 use chrono::DateTime;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-
-pub mod aggs;
-pub mod hit_stream;
-pub mod location;
-pub mod pipe;
-pub mod session;
-pub mod tracking_pipe;
-pub mod user_agent;
-pub mod user_settings;
-pub mod conversion; // New conversion module
-
-pub use hit_stream::HitStreamSource;
-use session::Session;
 use ulid::Ulid;
-pub use user_agent::UserAgentDetector;
-pub use user_settings::UserSettingsManager;
-pub use user_settings::UserSettingsStore;
-
-// ... existing code ...
 
 /// Conversion data structure that flows through the pipeline
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -162,13 +143,4 @@ impl Default for ConversionFunnelStep {
     }
 }
 
-/// Extended HitData enum to include conversion events
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum HitData {
-    Click(Click),
-    Event(Event),
-    Conversion(ConversionEvent), // New conversion variant
-    FunnelStep(ConversionFunnelStep), // New funnel step variant
-}
-
-// ... rest of existing code ...
+// Note: HitData enum is defined in mod.rs to include these conversion types

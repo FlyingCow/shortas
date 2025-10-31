@@ -17,9 +17,15 @@ use salvo::{SalvoRequest, SalvoResponse};
 use uaparser::user_agent_detector::UAParserUserAgentDetector;
 
 use crate::{
-    adapters::mongodb::{
-        crypto_store::MongodbCryptoStore, routes_store::MongodbRoutesStore,
-        user_settings_store::MongodbUserSettingsStore,
+    adapters::{
+        memory::{
+            routes_store::InMemoryRoutesStore,
+            user_settings_store::InMemoryUserSettingsStore,
+        },
+        mongodb::{
+            crypto_store::MongodbCryptoStore, routes_store::MongodbRoutesStore,
+            user_settings_store::MongodbUserSettingsStore,
+        },
     },
     core::{
         crypto::CryptoCache,
@@ -37,6 +43,7 @@ use crate::{
 pub mod aws;
 pub mod fluvio;
 pub mod geo_ip;
+pub mod memory;
 pub mod moka;
 pub mod mongodb;
 pub mod rdkafka;
@@ -200,6 +207,7 @@ pub enum UserSettingsStoreType {
     //Redis,
     Dynamo(DynamoUserSettingsStore),
     Mongodb(MongodbUserSettingsStore),
+    InMemory(InMemoryUserSettingsStore),
 }
 
 #[async_trait::async_trait]
@@ -208,6 +216,7 @@ impl UserSettingsStore for UserSettingsStoreType {
         match self {
             UserSettingsStoreType::Dynamo(store) => store.get_user_settings(user_id).await,
             UserSettingsStoreType::Mongodb(store) => store.get_user_settings(user_id).await,
+            UserSettingsStoreType::InMemory(store) => store.get_user_settings(user_id).await,
         }
     }
 }
@@ -271,6 +280,7 @@ impl CryptoCache for CryptoCacheType {
 pub enum RoutesStoreType {
     Dynamo(DynamoRoutesStore),
     Mongodb(MongodbRoutesStore),
+    InMemory(InMemoryRoutesStore),
 }
 
 #[async_trait::async_trait]
@@ -279,6 +289,7 @@ impl RoutesStore for RoutesStoreType {
         match self {
             RoutesStoreType::Dynamo(store) => store.get_route(switch, path).await,
             RoutesStoreType::Mongodb(store) => store.get_route(switch, path).await,
+            RoutesStoreType::InMemory(store) => store.get_route(switch, path).await,
         }
     }
 }

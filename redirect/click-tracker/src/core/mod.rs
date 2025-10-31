@@ -388,7 +388,7 @@ pub struct TrackingPipeContext {
     pub id: String,
     pub utc: DateTime<Utc>,
     pub hit: Hit,
-    pub data: HashMap<&'static str, TrackingPipeData>,
+    pub data: Option<HashMap<&'static str, TrackingPipeData>>,
     pub client_os: Option<OS>,
     pub client_ua: Option<UserAgent>,
     pub client_device: Option<Device>,
@@ -404,7 +404,7 @@ impl TrackingPipeContext {
             id: Ulid::new().to_string(),
             utc: Utc::now(),
             hit,
-            data: HashMap::new(),
+            data: None,  // Lazy initialization - only create HashMap if needed
             client_os: None,
             client_ua: None,
             client_device: None,
@@ -418,12 +418,11 @@ impl TrackingPipeContext {
 
 impl TrackingPipeContext {
     pub fn is_data_true(&self, bool_key: &'static str) -> bool {
-        let data_value = self.data.get(&bool_key);
-
-        if let Some(i) = data_value {
-            return i.is_bool(true);
+        if let Some(data) = &self.data {
+            if let Some(i) = data.get(&bool_key) {
+                return i.is_bool(true);
+            }
         }
-
         false
     }
 
@@ -431,21 +430,24 @@ impl TrackingPipeContext {
     /// Adds a bool value to the context's data
     ///
     pub fn add_bool(&mut self, bool_key: &'static str, value: bool) {
-        let _ = &self.data.insert(bool_key, TrackingPipeData::Bool(value));
+        let data = self.data.get_or_insert_with(HashMap::new);
+        let _ = &data.insert(bool_key, TrackingPipeData::Bool(value));
     }
 
     ///
     /// Adds a string value to the context's data
     ///
     pub fn add_string(&mut self, bool_key: &'static str, value: &'static str) {
-        let _ = &self.data.insert(bool_key, TrackingPipeData::String(value));
+        let data = self.data.get_or_insert_with(HashMap::new);
+        let _ = &data.insert(bool_key, TrackingPipeData::String(value));
     }
 
     ///
     /// Adds a num value to the context's data
     ///
     pub fn add_num(&mut self, bool_key: &'static str, value: f64) {
-        let _ = &self.data.insert(bool_key, TrackingPipeData::Number(value));
+        let data = self.data.get_or_insert_with(HashMap::new);
+        let _ = &data.insert(bool_key, TrackingPipeData::Number(value));
     }
 }
 

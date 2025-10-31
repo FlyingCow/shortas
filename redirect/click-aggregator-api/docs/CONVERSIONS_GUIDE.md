@@ -30,11 +30,18 @@ The conversions functionality extends the Shortas URL shortening system with com
 
 ### Data Flow
 ```
-User Action → Conversion Event → Click Tracker → Click Aggregator → ClickHouse
-     ↓              ↓              ↓              ↓
-Conversion    Attribution    Processing    Storage &
-Tracking      Logic         & Enrichment   Analytics
+User Action → Click Router → Fluvio → Click Tracker → Click Aggregator → ClickHouse
+     ↓              ↓           ↓          ↓              ↓              ↓
+Conversion    API Endpoint  Message   Processing    Processing    Storage &
+Tracking      /conversions  Queue     Pipeline      Pipeline      Analytics
 ```
+
+### Complete Pipeline
+1. **Click Router** - Accepts conversion events via HTTP POST (`/conversions/track` and `/conversions/funnel`)
+2. **Fluvio** - Message queue that transports conversion events
+3. **Click Tracker** - Enriches conversion data with user agent, geographic, and device information
+4. **Click Aggregator** - Processes and stores conversions in ClickHouse
+5. **ClickHouse** - Stores conversion data and materialized views for analytics
 
 ### Database Schema
 
@@ -54,7 +61,66 @@ Tracking      Logic         & Enrichment   Analytics
 
 ## 📊 API Endpoints
 
-### Core Conversion Endpoints
+### Click Router Endpoints (Entry Point)
+
+#### Track Conversion
+```
+POST /conversions/track
+```
+Record a conversion event that flows through the tracking pipeline.
+
+**Request Body:**
+```json
+{
+  "route_id": "route_123",
+  "conversion_type": "purchase",
+  "conversion_name": "Product Purchase",
+  "conversion_value": 99.99,
+  "attributed_click_id": "click_456",
+  "attribution_type": "direct",
+  "attribution_window_hours": 24,
+  "user_id": "user_789",
+  "session_id": "session_101",
+  "metadata": {
+    "product_id": "prod_123",
+    "category": "electronics"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "conversion_id": "01HZ...",
+  "message": "Conversion tracked successfully"
+}
+```
+
+#### Track Funnel Step
+```
+POST /conversions/funnel
+```
+Record a funnel step event.
+
+**Request Body:**
+```json
+{
+  "route_id": "route_123",
+  "funnel_name": "E-commerce Purchase Funnel",
+  "funnel_steps": ["view", "add_to_cart", "checkout", "purchase"],
+  "step_name": "add_to_cart",
+  "step_position": 2,
+  "step_value": 99.99,
+  "user_id": "user_789",
+  "session_id": "session_101",
+  "metadata": {
+    "product_id": "prod_123"
+  }
+}
+```
+
+### Click Aggregator API Endpoints (Analytics)
 
 #### Get Conversions
 ```
@@ -71,29 +137,6 @@ Retrieve conversion data with optional filtering.
 - `limit` - Maximum results (default: 100)
 - `offset` - Results to skip (default: 0)
 
-#### Create Conversion
-```
-POST /v1/conversions
-```
-Record a new conversion event.
-
-**Request Body:**
-```json
-{
-  "route_id": "route_123",
-  "conversion_type": "purchase",
-  "conversion_name": "Product Purchase",
-  "conversion_value": 99.99,
-  "attributed_click_id": "click_456",
-  "attribution_type": "direct",
-  "user_id": "user_789",
-  "session_id": "session_101",
-  "metadata": {
-    "product_id": "prod_123",
-    "category": "electronics"
-  }
-}
-```
 
 ### Analytics Endpoints
 
@@ -141,14 +184,13 @@ clickhouse-client --query "$(cat migrations/004_create_conversion_materialized_v
 
 ### 2. Conversion Tracking
 
-#### JavaScript Integration
+#### JavaScript Integration (Click Router)
 ```javascript
-// Track a conversion
-fetch('/v1/conversions', {
+// Track a conversion - sends to Click Router which flows through the pipeline
+fetch('/conversions/track', {
   method: 'POST',
   headers: {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer ' + token
+    'Content-Type': 'application/json'
   },
   body: JSON.stringify({
     route_id: 'route_123',
@@ -156,6 +198,8 @@ fetch('/v1/conversions', {
     conversion_name: 'Product Purchase',
     conversion_value: 99.99,
     attributed_click_id: getClickIdFromCookie(), // From click tracking
+    attribution_type: 'direct',
+    attribution_window_hours: 24,
     user_id: getUserId(),
     session_id: getSessionId(),
     metadata: {
@@ -164,26 +208,55 @@ fetch('/v1/conversions', {
     }
   })
 });
+
+// Track a funnel step
+fetch('/conversions/funnel', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    route_id: 'route_123',
+    funnel_name: 'E-commerce Purchase Funnel',
+    funnel_steps: ['view', 'add_to_cart', 'checkout', 'purchase'],
+    step_name: 'add_to_cart',
+    step_position: 2,
+    step_value: 99.99,
+    user_id: getUserId(),
+    session_id: getSessionId(),
+    metadata: {
+      product_id: 'prod_123'
+    }
+  })
+});
 ```
 
-#### Server-side Integration
+#### Server-side Integration (Click Router API)
 ```rust
-// Track conversion in your application
-let conversion = Conversion {
-    id: generate_id(),
-    route_id: "route_123".to_string(),
-    conversion_type: "purchase".to_string(),
-    conversion_name: "Product Purchase".to_string(),
-    conversion_value: Decimal::from_f64(99.99).unwrap(),
-    attributed_click_id: click_id,
-    attribution_type: "direct".to_string(),
-    user_id: user_id,
-    session_id: session_id,
-    // ... other fields
-};
-
-conversion_store.store_conversion(conversion).await?;
+// Send conversion event to Click Router API
+let client = reqwest::Client::new();
+let response = client
+    .post("https://your-click-router.com/conversions/track")
+    .json(&serde_json::json!({
+        "route_id": "route_123",
+        "conversion_type": "purchase",
+        "conversion_name": "Product Purchase",
+        "conversion_value": 99.99,
+        "attributed_click_id": click_id,
+        "attribution_type": "direct",
+        "attribution_window_hours": 24,
+        "user_id": user_id,
+        "session_id": session_id,
+        "metadata": {
+            "product_id": "prod_123",
+            "category": "electronics"
+        }
+    }))
+    .send()
+    .await?;
 ```
+
+**Note:** For direct ClickHouse storage (bypassing pipeline), you can also use the Click Aggregator API directly at `/v1/conversions`.
 
 ### 3. Conversion Goals Setup
 

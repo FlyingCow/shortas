@@ -41,3 +41,22 @@ tokio-graceful-shutdown.workspace = true
 flume.workspace = true
 futures.workspace = true
 mongodb.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "user_agent_parsing"
+harness = false
+
+[[bench]]
+name = "aggregate_module"
+harness = false
+
+[[bench]]
+name = "context_creation"
+harness = false
+
+[[bench]]
+name = "full_pipeline"
+harness = false

@@ -16,9 +16,40 @@ use super::settings::Redis;
 const EXPIRATION_OFFSET: i64 = 30 * 60;
 const REDIS_TIMEOUT_SECS: u64 = 5;  // 5 second timeout for Redis operations
 
+const LUA_SCRIPT: &str = r#"
+    local current = redis.call('GET', KEYS[1]) or 'none'
+    local expiry = tonumber(ARGV[2])
+
+    if current == 'none' then
+        local json = cjson.decode('{}')
+
+        json['first'] = tonumber(ARGV[1])
+        json['last'] = tonumber(ARGV[1])
+        json['count'] = 1
+
+        local json_str = cjson.encode(json)
+        redis.call('SET', KEYS[1], json_str)
+        redis.call('EXPIRE', KEYS[1], expiry)
+
+        return json_str
+    else
+        local json = cjson.decode(current)
+
+        json['last'] = tonumber(ARGV[1])
+        json['count'] = json['count'] + 1
+
+        local json_str = cjson.encode(json)
+        redis.call('SET', KEYS[1], json_str)
+        redis.call('EXPIRE', KEYS[1], expiry)
+
+        return json_str
+    end
+"#;
+
 #[derive(Clone)]
 pub struct RedisSessionDetector {
     connection_manager: ConnectionManager,
+    script: Script,
 }
 
 impl RedisSessionDetector {
@@ -43,8 +74,12 @@ impl RedisSessionDetector {
 
         info!("  redis -> Connection manager established successfully");
 
+        // Pre-compile the Lua script once at initialization
+        let script = Script::new(LUA_SCRIPT);
+
         Self {
             connection_manager,
+            script,
         }
     }
 }
@@ -61,45 +96,13 @@ impl SessionDetector for RedisSessionDetector {
 
         let root_key = format!("sessions:{}:{}", route_id, ip_addr);
 
-        let script_value = r#"
-            local current = redis.call('GET', KEYS[1]) or 'none'
-            local expiry = tonumber(ARGV[2])
-            
-            if current == 'none' then
-                local json = cjson.decode('{}')
-
-                json['first'] = tonumber(ARGV[1])
-                json['last'] = tonumber(ARGV[1])
-                json['count'] = 1
-
-                local json_str = cjson.encode(json)
-                redis.call('SET', KEYS[1], json_str)
-                redis.call('EXPIRE', KEYS[1], expiry)
-
-                return json_str
-            else
-                local json = cjson.decode(current)
-
-                json['last'] = tonumber(ARGV[1])
-                json['count'] = json['count'] + 1
-
-                local json_str = cjson.encode(json)
-                redis.call('SET', KEYS[1], json_str)
-                redis.call('EXPIRE', KEYS[1], expiry)
-
-                return json_str
-            end
-            "#;
-
-        let script = Script::new(script_value);
-
         // Clone the connection manager (lightweight, uses Arc internally)
         let mut connection = self.connection_manager.clone();
 
-        // Use async invoke with timeout to prevent hanging
+        // Use the pre-compiled script to avoid compilation overhead on every call
         let result = timeout(
             Duration::from_secs(REDIS_TIMEOUT_SECS),
-            script
+            self.script
                 .key(root_key)
                 .arg(click_timestamp)
                 .arg(EXPIRATION_OFFSET)

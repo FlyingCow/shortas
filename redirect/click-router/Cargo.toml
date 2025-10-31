@@ -82,3 +82,7 @@ harness = false
 [[bench]]
 name = "optimizations"
 harness = false
+
+[[bench]]
+name = "redirect_processing"
+harness = false

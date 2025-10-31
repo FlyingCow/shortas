@@ -32,9 +32,9 @@ This example demonstrates how to implement the conversions functionality in a re
 
     <script>
         // Initialize conversions tracking
+        // Note: Click Router runs on https://your-domain.com:5800
         const conversions = new ShortasConversions({
-            apiBaseUrl: '/v1/conversions',
-            authToken: 'your-jwt-token',
+            apiBaseUrl: 'https://your-domain.com:5800/conversions',
             routeId: 'product-headphones-123',
             attributionWindow: 24,
             userId: 'user_456' // If user is logged in
@@ -148,9 +148,9 @@ const ProductPage = ({ product, user }) => {
 
     useEffect(() => {
         // Initialize conversions tracking
+        // Note: Click Router API endpoint
         const conversionsTracker = new ShortasConversions({
-            apiBaseUrl: process.env.REACT_APP_CONVERSIONS_API_URL,
-            authToken: user.token,
+            apiBaseUrl: process.env.REACT_APP_CLICK_ROUTER_URL || 'https://your-domain.com:5800/conversions',
             routeId: product.routeId,
             userId: user.id
         });
@@ -348,27 +348,65 @@ app.use(express.json());
 const conversionStore = new ConversionStore(); // Your ClickHouse implementation
 const conversions = new EcommerceConversions(conversionStore);
 
-// Track conversion endpoint
+// Track conversion endpoint - forwards to Click Router
 app.post('/api/conversions', async (req, res) => {
     try {
         const { type, data } = req.body;
         
-        let result;
+        // Forward to Click Router API
+        const clickRouterUrl = process.env.CLICK_ROUTER_URL || 'https://your-domain.com:5800';
+        
+        let endpoint;
+        let payload;
+        
         switch (type) {
             case 'purchase':
-                result = await conversions.trackPurchase(data);
+                endpoint = `${clickRouterUrl}/conversions/track`;
+                payload = {
+                    route_id: data.routeId,
+                    conversion_type: 'purchase',
+                    conversion_name: data.name,
+                    conversion_value: data.value,
+                    attributed_click_id: data.clickId,
+                    attribution_type: data.attributionType || 'direct',
+                    attribution_window_hours: data.attributionWindow || 24,
+                    user_id: data.userId,
+                    session_id: data.sessionId,
+                    metadata: data.metadata
+                };
                 break;
             case 'funnel_step':
-                result = await conversions.trackFunnelStep(data);
+                endpoint = `${clickRouterUrl}/conversions/funnel`;
+                payload = {
+                    route_id: data.routeId,
+                    funnel_name: data.funnelName,
+                    funnel_steps: data.funnelSteps,
+                    step_name: data.stepName,
+                    step_position: data.stepPosition,
+                    step_value: data.stepValue,
+                    user_id: data.userId,
+                    session_id: data.sessionId,
+                    metadata: data.metadata
+                };
                 break;
             case 'goal':
+                // Goals are managed via Click Aggregator API
                 result = await conversions.createConversionGoal(data);
-                break;
+                res.status(201).json({ success: true, data: result });
+                return;
             default:
                 throw new Error('Unknown conversion type');
         }
 
-        res.status(201).json({ success: true, data: result });
+        // Forward to Click Router
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        res.status(response.status).json(result);
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -403,9 +441,15 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 
 class ShortasConversions:
-    def __init__(self, api_base_url: str, auth_token: str, route_id: str):
-        self.api_base_url = api_base_url
-        self.auth_token = auth_token
+    def __init__(self, api_base_url: str, route_id: str):
+        """
+        Initialize conversions tracking.
+        
+        Args:
+            api_base_url: Click Router API base URL (e.g., 'https://your-domain.com:5800')
+            route_id: The route/short link ID
+        """
+        self.api_base_url = api_base_url.rstrip('/')
         self.route_id = route_id
         self.session_id = self._get_or_create_session_id()
         self.user_id = self._get_user_id()
@@ -428,12 +472,12 @@ class ShortasConversions:
         }
 
         response = requests.post(
-            f"{self.api_base_url}/conversions",
+            f"{self.api_base_url}/conversions/track",
             headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.auth_token}"
+                "Content-Type": "application/json"
             },
-            json=payload
+            json=payload,
+            verify=False  # Use True in production with proper certificates
         )
 
         response.raise_for_status()
@@ -489,20 +533,25 @@ class ShortasConversions:
         }
 
         response = requests.post(
-            f"{self.api_base_url}/conversions/funnels",
+            f"{self.api_base_url}/conversions/funnel",
             headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.auth_token}"
+                "Content-Type": "application/json"
             },
-            json=payload
+            json=payload,
+            verify=False  # Use True in production with proper certificates
         )
 
         response.raise_for_status()
         return response.json()
 
-    def get_analytics(self, route_id: str = None, conversion_type: str = None,
+    def get_analytics(self, aggregator_api_url: str, route_id: str = None, 
+                     conversion_type: str = None,
                      from_date: str = None, to_date: str = None) -> Dict[str, Any]:
-        """Get conversion analytics"""
+        """
+        Get conversion analytics from Click Aggregator API.
+        
+        Note: Analytics endpoints are on the Click Aggregator API, not Click Router.
+        """
         params = {}
         if route_id:
             params["route_id"] = route_id
@@ -514,17 +563,20 @@ class ShortasConversions:
             params["created_to"] = to_date
 
         response = requests.get(
-            f"{self.api_base_url}/conversions",
-            headers={"Authorization": f"Bearer {self.auth_token}"},
+            f"{aggregator_api_url}/v1/conversions",
             params=params
         )
 
         response.raise_for_status()
         return response.json()
 
-    def get_summary(self, route_id: str = None, 
+    def get_summary(self, aggregator_api_url: str, route_id: str = None, 
                    from_date: str = None, to_date: str = None) -> Dict[str, Any]:
-        """Get conversion summary for dashboard"""
+        """
+        Get conversion summary for dashboard from Click Aggregator API.
+        
+        Note: Analytics endpoints are on the Click Aggregator API, not Click Router.
+        """
         params = {}
         if route_id:
             params["route_id"] = route_id
@@ -534,8 +586,7 @@ class ShortasConversions:
             params["to_date"] = to_date
 
         response = requests.get(
-            f"{self.api_base_url}/conversions/summary",
-            headers={"Authorization": f"Bearer {self.auth_token}"},
+            f"{aggregator_api_url}/v1/conversions/summary",
             params=params
         )
 
@@ -559,11 +610,14 @@ class ShortasConversions:
 
 # Usage example
 if __name__ == "__main__":
+    # Click Router API (for tracking conversions)
     conversions = ShortasConversions(
-        api_base_url="https://api.shortas.com/v1",
-        auth_token="your-jwt-token",
+        api_base_url="https://your-domain.com:5800",
         route_id="product-page-123"
     )
+    
+    # Click Aggregator API URL (for analytics)
+    aggregator_api_url = "https://api-aggregator.shortas.com"
 
     # Track a purchase
     result = conversions.track_purchase(
@@ -583,8 +637,9 @@ if __name__ == "__main__":
         metadata={"product_id": "headphones-123"}
     )
 
-    # Get analytics
+    # Get analytics (from Click Aggregator API)
     analytics = conversions.get_analytics(
+        aggregator_api_url=aggregator_api_url,
         route_id="product-page-123",
         from_date="2024-01-01",
         to_date="2024-01-31"

@@ -1,0 +1,323 @@
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+ --> click-tracker/benches/context_creation.rs:1:17
+  |
+1 | use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+  |                 ^^^^^^^^^
+  |
+  = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/context_creation.rs:45:41
+   |
+45 |             create_context_with_hashmap(black_box(hit))
+   |                                         ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/context_creation.rs:55:38
+   |
+55 |             TrackingPipeContext::new(black_box(hit))
+   |                                      ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/context_creation.rs:67:41
+   |
+67 |             create_context_with_hashmap(black_box(hit))
+   |                                         ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/context_creation.rs:74:38
+   |
+74 |             TrackingPipeContext::new(black_box(hit))
+   |                                      ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/context_creation.rs:89:41
+   |
+89 |             create_context_with_hashmap(black_box(hit))
+   |                                         ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+  --> click-tracker/benches/context_creation.rs:96:38
+   |
+96 |             TrackingPipeContext::new(black_box(hit))
+   |                                      ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/context_creation.rs:119:21
+    |
+119 |                     black_box(contexts)
+    |                     ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/context_creation.rs:135:21
+    |
+135 |                     black_box(contexts)
+    |                     ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/context_creation.rs:157:13
+    |
+157 |             black_box(contexts)
+    |             ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/context_creation.rs:169:13
+    |
+169 |             black_box(contexts)
+    |             ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/context_creation.rs:186:13
+    |
+186 |             black_box(context)
+    |             ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/context_creation.rs:196:13
+    |
+196 |             black_box(context)
+    |             ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/context_creation.rs:208:13
+    |
+208 |             black_box(value)
+    |             ^^^^^^^^^
+
+warning: use of deprecated function `criterion::black_box`: use `std::hint::black_box()` instead
+   --> click-tracker/benches/context_creation.rs:219:13
+    |
+219 |             black_box(value)
+    |             ^^^^^^^^^
+
+warning: fields `id`, `utc`, `hit`, and `spider` are never read
+  --> click-tracker/benches/context_creation.rs:20:5
+   |
+19 | struct TrackingPipeContextOld {
+   |        ---------------------- fields in this struct
+20 |     id: String,
+   |     ^^
+21 |     utc: chrono::DateTime<Utc>,
+   |     ^^^
+22 |     hit: Hit,
+   |     ^^^
+23 |     data: HashMap<&'static str, bool>, // Simplified for benchmark
+24 |     spider: bool,
+   |     ^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `click-tracker` (bench "context_creation") generated 16 warnings
+    Finished `bench` profile [optimized] target(s) in 0.18s
+     Running benches/context_creation.rs (/home/max/dev/shortas/redirect/target/release/deps/context_creation-f86434ed87c41e0d)
+Gnuplot not found, using plotters backend
+Benchmarking context_with_hashmap
+Benchmarking context_with_hashmap: Warming up for 3.0000 s
+Benchmarking context_with_hashmap: Collecting 100 samples in estimated 5.0003 s (20M iterations)
+Benchmarking context_with_hashmap: Analyzing
+context_with_hashmap    time:   [246.23 ns 247.31 ns 248.92 ns]
+                        change: [−1.0912% −0.3751% +0.2780%] (p = 0.31 > 0.05)
+                        No change in performance detected.
+Found 11 outliers among 100 measurements (11.00%)
+  3 (3.00%) high mild
+  8 (8.00%) high severe
+
+Benchmarking context_lazy_hashmap
+Benchmarking context_lazy_hashmap: Warming up for 3.0000 s
+Benchmarking context_lazy_hashmap: Collecting 100 samples in estimated 5.0006 s (21M iterations)
+Benchmarking context_lazy_hashmap: Analyzing
+context_lazy_hashmap    time:   [238.99 ns 240.31 ns 241.90 ns]
+                        change: [−0.2857% +0.3130% +0.8923%] (p = 0.31 > 0.05)
+                        No change in performance detected.
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) high mild
+  11 (11.00%) high severe
+
+Benchmarking context_comparison/with_hashmap_allocation
+Benchmarking context_comparison/with_hashmap_allocation: Warming up for 3.0000 s
+Benchmarking context_comparison/with_hashmap_allocation: Collecting 100 samples in estimated 5.0007 s (20M iterations)
+Benchmarking context_comparison/with_hashmap_allocation: Analyzing
+context_comparison/with_hashmap_allocation
+                        time:   [246.07 ns 246.96 ns 248.14 ns]
+                        change: [−0.5311% −0.2430% +0.0343%] (p = 0.11 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high severe
+Benchmarking context_comparison/lazy_hashmap
+Benchmarking context_comparison/lazy_hashmap: Warming up for 3.0000 s
+Benchmarking context_comparison/lazy_hashmap: Collecting 100 samples in estimated 5.0012 s (20M iterations)
+Benchmarking context_comparison/lazy_hashmap: Analyzing
+context_comparison/lazy_hashmap
+                        time:   [237.46 ns 238.02 ns 238.79 ns]
+                        change: [+0.6927% +2.8343% +5.3682%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 18 outliers among 100 measurements (18.00%)
+  3 (3.00%) high mild
+  15 (15.00%) high severe
+
+Benchmarking context_throughput/with_hashmap_throughput
+Benchmarking context_throughput/with_hashmap_throughput: Warming up for 3.0000 s
+Benchmarking context_throughput/with_hashmap_throughput: Collecting 100 samples in estimated 5.0004 s (20M iterations)
+Benchmarking context_throughput/with_hashmap_throughput: Analyzing
+context_throughput/with_hashmap_throughput
+                        time:   [245.96 ns 246.95 ns 248.18 ns]
+                        thrpt:  [4.0293 Melem/s 4.0494 Melem/s 4.0658 Melem/s]
+                 change:
+                        time:   [−0.7793% −0.5116% −0.2198%] (p = 0.00 < 0.05)
+                        thrpt:  [+0.2203% +0.5143% +0.7854%]
+                        Change within noise threshold.
+Found 12 outliers among 100 measurements (12.00%)
+  5 (5.00%) high mild
+  7 (7.00%) high severe
+Benchmarking context_throughput/lazy_hashmap_throughput
+Benchmarking context_throughput/lazy_hashmap_throughput: Warming up for 3.0000 s
+Benchmarking context_throughput/lazy_hashmap_throughput: Collecting 100 samples in estimated 5.0002 s (21M iterations)
+Benchmarking context_throughput/lazy_hashmap_throughput: Analyzing
+context_throughput/lazy_hashmap_throughput
+                        time:   [237.36 ns 238.26 ns 239.50 ns]
+                        thrpt:  [4.1753 Melem/s 4.1971 Melem/s 4.2130 Melem/s]
+                 change:
+                        time:   [−1.1033% −0.6436% −0.1840%] (p = 0.01 < 0.05)
+                        thrpt:  [+0.1843% +0.6478% +1.1156%]
+                        Change within noise threshold.
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  10 (10.00%) high severe
+
+Benchmarking context_batch/with_hashmap/10
+Benchmarking context_batch/with_hashmap/10: Warming up for 3.0000 s
+Benchmarking context_batch/with_hashmap/10: Collecting 100 samples in estimated 5.0052 s (1.6M iterations)
+Benchmarking context_batch/with_hashmap/10: Analyzing
+context_batch/with_hashmap/10
+                        time:   [3.1240 µs 3.1422 µs 3.1695 µs]
+                        change: [−1.0345% −0.3396% +0.3896%] (p = 0.41 > 0.05)
+                        No change in performance detected.
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) high mild
+  13 (13.00%) high severe
+Benchmarking context_batch/lazy_hashmap/10
+Benchmarking context_batch/lazy_hashmap/10: Warming up for 3.0000 s
+Benchmarking context_batch/lazy_hashmap/10: Collecting 100 samples in estimated 5.0014 s (1.6M iterations)
+Benchmarking context_batch/lazy_hashmap/10: Analyzing
+context_batch/lazy_hashmap/10
+                        time:   [3.0945 µs 3.1010 µs 3.1094 µs]
+                        change: [+0.8115% +1.2640% +1.6772%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+Benchmarking context_batch/with_hashmap/100
+Benchmarking context_batch/with_hashmap/100: Warming up for 3.0000 s
+Benchmarking context_batch/with_hashmap/100: Collecting 100 samples in estimated 5.0334 s (141k iterations)
+Benchmarking context_batch/with_hashmap/100: Analyzing
+context_batch/with_hashmap/100
+                        time:   [34.492 µs 34.542 µs 34.596 µs]
+                        change: [−0.9573% −0.2214% +0.3536%] (p = 0.56 > 0.05)
+                        No change in performance detected.
+Found 9 outliers among 100 measurements (9.00%)
+  5 (5.00%) high mild
+  4 (4.00%) high severe
+Benchmarking context_batch/lazy_hashmap/100
+Benchmarking context_batch/lazy_hashmap/100: Warming up for 3.0000 s
+Benchmarking context_batch/lazy_hashmap/100: Collecting 100 samples in estimated 5.0562 s (146k iterations)
+Benchmarking context_batch/lazy_hashmap/100: Analyzing
+context_batch/lazy_hashmap/100
+                        time:   [34.332 µs 34.422 µs 34.530 µs]
+                        change: [+0.0716% +0.8658% +1.5654%] (p = 0.02 < 0.05)
+                        Change within noise threshold.
+Found 11 outliers among 100 measurements (11.00%)
+  5 (5.00%) high mild
+  6 (6.00%) high severe
+Benchmarking context_batch/with_hashmap/1000
+Benchmarking context_batch/with_hashmap/1000: Warming up for 3.0000 s
+Benchmarking context_batch/with_hashmap/1000: Collecting 100 samples in estimated 5.4065 s (15k iterations)
+Benchmarking context_batch/with_hashmap/1000: Analyzing
+context_batch/with_hashmap/1000
+                        time:   [347.22 µs 349.09 µs 351.94 µs]
+                        change: [−0.7529% −0.1378% +0.4397%] (p = 0.67 > 0.05)
+                        No change in performance detected.
+Found 13 outliers among 100 measurements (13.00%)
+  4 (4.00%) high mild
+  9 (9.00%) high severe
+Benchmarking context_batch/lazy_hashmap/1000
+Benchmarking context_batch/lazy_hashmap/1000: Warming up for 3.0000 s
+Benchmarking context_batch/lazy_hashmap/1000: Collecting 100 samples in estimated 5.3726 s (15k iterations)
+Benchmarking context_batch/lazy_hashmap/1000: Analyzing
+context_batch/lazy_hashmap/1000
+                        time:   [352.25 µs 353.23 µs 354.50 µs]
+                        change: [−0.0954% +0.2634% +0.6240%] (p = 0.15 > 0.05)
+                        No change in performance detected.
+Found 14 outliers among 100 measurements (14.00%)
+  6 (6.00%) high mild
+  8 (8.00%) high severe
+
+Benchmarking context_memory/with_hashmap_memory_pressure
+Benchmarking context_memory/with_hashmap_memory_pressure: Warming up for 3.0000 s
+Benchmarking context_memory/with_hashmap_memory_pressure: Collecting 100 samples in estimated 5.2346 s (15k iterations)
+Benchmarking context_memory/with_hashmap_memory_pressure: Analyzing
+context_memory/with_hashmap_memory_pressure
+                        time:   [349.63 µs 351.07 µs 353.07 µs]
+                        change: [+0.0903% +0.7714% +1.3980%] (p = 0.02 < 0.05)
+                        Change within noise threshold.
+Found 14 outliers among 100 measurements (14.00%)
+  8 (8.00%) high mild
+  6 (6.00%) high severe
+Benchmarking context_memory/lazy_hashmap_memory_pressure
+Benchmarking context_memory/lazy_hashmap_memory_pressure: Warming up for 3.0000 s
+Benchmarking context_memory/lazy_hashmap_memory_pressure: Collecting 100 samples in estimated 5.3830 s (15k iterations)
+Benchmarking context_memory/lazy_hashmap_memory_pressure: Analyzing
+context_memory/lazy_hashmap_memory_pressure
+                        time:   [358.79 µs 360.87 µs 363.66 µs]
+                        change: [+2.9148% +3.7819% +4.8416%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 15 outliers among 100 measurements (15.00%)
+  4 (4.00%) high mild
+  11 (11.00%) high severe
+
+Benchmarking context_data_access/with_hashmap_add_data
+Benchmarking context_data_access/with_hashmap_add_data: Warming up for 3.0000 s
+Benchmarking context_data_access/with_hashmap_add_data: Collecting 100 samples in estimated 5.0011 s (17M iterations)
+Benchmarking context_data_access/with_hashmap_add_data: Analyzing
+context_data_access/with_hashmap_add_data
+                        time:   [291.10 ns 291.77 ns 292.62 ns]
+                        change: [−0.1932% +0.2948% +0.8137%] (p = 0.27 > 0.05)
+                        No change in performance detected.
+Found 11 outliers among 100 measurements (11.00%)
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+Benchmarking context_data_access/lazy_hashmap_add_data
+Benchmarking context_data_access/lazy_hashmap_add_data: Warming up for 3.0000 s
+Benchmarking context_data_access/lazy_hashmap_add_data: Collecting 100 samples in estimated 5.0006 s (17M iterations)
+Benchmarking context_data_access/lazy_hashmap_add_data: Analyzing
+context_data_access/lazy_hashmap_add_data
+                        time:   [297.09 ns 297.99 ns 299.09 ns]
+                        change: [−2.0549% −1.3528% −0.7128%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 15 outliers among 100 measurements (15.00%)
+  8 (8.00%) high mild
+  7 (7.00%) high severe
+Benchmarking context_data_access/with_hashmap_read_data
+Benchmarking context_data_access/with_hashmap_read_data: Warming up for 3.0000 s
+Benchmarking context_data_access/with_hashmap_read_data: Collecting 100 samples in estimated 5.0000 s (434M iterations)
+Benchmarking context_data_access/with_hashmap_read_data: Analyzing
+context_data_access/with_hashmap_read_data
+                        time:   [11.670 ns 11.791 ns 11.908 ns]
+                        change: [+5.7383% +6.5869% +7.4036%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 30 outliers among 100 measurements (30.00%)
+  21 (21.00%) low severe
+  4 (4.00%) high mild
+  5 (5.00%) high severe
+Benchmarking context_data_access/lazy_hashmap_read_data
+Benchmarking context_data_access/lazy_hashmap_read_data: Warming up for 3.0000 s
+Benchmarking context_data_access/lazy_hashmap_read_data: Collecting 100 samples in estimated 5.0001 s (362M iterations)
+Benchmarking context_data_access/lazy_hashmap_read_data: Analyzing
+context_data_access/lazy_hashmap_read_data
+                        time:   [13.745 ns 13.819 ns 13.922 ns]
+                        change: [−0.8096% +0.1205% +0.9286%] (p = 0.80 > 0.05)
+                        No change in performance detected.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+

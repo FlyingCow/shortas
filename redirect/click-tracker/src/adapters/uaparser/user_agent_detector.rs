@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 use tracing::info;
 use uaparser::{Parser, UserAgentParser};
 
-use crate::core::{Device, OS, UserAgent, UserAgentDetector};
+use crate::core::{Client, Device, OS, UserAgent, UserAgentDetector};
 
 static USER_AGENT_PARSER: OnceLock<UserAgentParser> = OnceLock::new();
 
@@ -63,6 +63,43 @@ impl UserAgentDetector for UAParserUserAgentDetector {
             patch: uaparser_user_agent
                 .patch
                 .map_or(None, |u| Some(u.to_string())),
+        }
+    }
+
+    /// Optimized method to parse all components in a single pass
+    fn parse_client(&self, user_agent_str: &str) -> Client {
+        // Parse all components at once using the underlying parser
+        let uaparser_user_agent = self.parser.parse_user_agent(user_agent_str);
+        let uaparser_os = self.parser.parse_os(user_agent_str);
+        let uaparser_device = self.parser.parse_device(user_agent_str);
+
+        Client {
+            user_agent: UserAgent {
+                family: uaparser_user_agent.family.to_string(),
+                major: uaparser_user_agent
+                    .major
+                    .map_or(None, |u| Some(u.to_string())),
+                minor: uaparser_user_agent
+                    .minor
+                    .map_or(None, |u| Some(u.to_string())),
+                patch: uaparser_user_agent
+                    .patch
+                    .map_or(None, |u| Some(u.to_string())),
+            },
+            os: OS {
+                family: uaparser_os.family.to_string(),
+                major: uaparser_os.major.map_or(None, |u| Some(u.to_string())),
+                minor: uaparser_os.minor.map_or(None, |u| Some(u.to_string())),
+                patch: uaparser_os.patch.map_or(None, |u| Some(u.to_string())),
+                patch_minor: uaparser_os
+                    .patch_minor
+                    .map_or(None, |u| Some(u.to_string())),
+            },
+            device: Device {
+                brand: uaparser_device.brand.map_or(None, |u| Some(u.to_string())),
+                family: uaparser_device.family.to_string(),
+                model: uaparser_device.model.map_or(None, |u| Some(u.to_string())),
+            },
         }
     }
 }
