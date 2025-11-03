@@ -39,9 +39,9 @@ use tokio::time::{timeout, Duration};
 
 use click_router::{
     adapters::{
+        api::conversion_routes,
         salvo::{salvo_proxy, SalvoRequest, SalvoResponse},
         RequestType, ResponseType,
-        api::conversion_routes,
     },
     app::AppBuilder,
     core::{
@@ -49,12 +49,12 @@ use click_router::{
         metrics::{Timer, METRICS},
         metrics_endpoint::create_metrics_router,
     },
-    settings::Settings,
     get_flow_router, init_flow_router,
+    settings::Settings,
 };
 
 /// Command-line arguments for the Click Router application
-/// 
+///
 /// This structure defines all the configurable parameters that can be passed
 /// via command line arguments or environment variables.
 #[derive(Parser, Debug)]
@@ -78,7 +78,7 @@ pub struct Args {
 }
 
 /// Main HTTP request handler for the Click Router
-/// 
+///
 /// This handler processes all incoming HTTP requests through the flow router,
 /// collecting metrics and generating appropriate responses.
 struct Redirect;
@@ -88,11 +88,11 @@ struct Redirect;
 #[async_trait]
 impl Handler for Redirect {
     /// Handles incoming HTTP requests through the flow router
-    /// 
+    ///
     /// This method processes each request through the complete flow pipeline,
     /// collecting metrics and generating the appropriate response based on
     /// the flow router's decision.
-    /// 
+    ///
     /// # Arguments
     /// * `req` - The incoming HTTP request
     /// * `depot` - Salvo's request-scoped data storage
@@ -118,8 +118,9 @@ impl Handler for Redirect {
             router.handle(
                 &RequestType::Salvo(&SalvoRequest::new(&req)),
                 &ResponseType::Salvo(&mut SalvoResponse::new(res)),
-            )
-        ).await;
+            ),
+        )
+        .await;
 
         let result = match timeout_result {
             Ok(result) => result,
@@ -138,7 +139,7 @@ impl Handler for Redirect {
         match result {
             Ok(flow_result) => {
                 METRICS.requests_success.inc();
-                
+
                 match flow_result {
                     FlowRouterResult::Empty(status_code) => res.status_code(status_code).render(""),
                     FlowRouterResult::Json(content, status_code) => {
@@ -147,6 +148,12 @@ impl Handler for Redirect {
                     FlowRouterResult::PlainText(content, status_code) => {
                         res.status_code(status_code).render(content)
                     }
+                    FlowRouterResult::Image(data, content_type, status_code) => {
+                        res.status_code(status_code)
+                            .add_header("Content-Type", content_type, true)
+                            .unwrap();
+                        let _ = res.write_body(data);
+                    }
                     FlowRouterResult::Proxied(url, _status_code) => {
                         let url = url.to_string();
                         let proxy = Proxy::new(url, HyperClient::default());
@@ -154,8 +161,12 @@ impl Handler for Redirect {
                     }
                     FlowRouterResult::Redirect(url, redirect_type) => {
                         match redirect_type {
-                            RedirectType::Permanent => res.status_code(StatusCode::PERMANENT_REDIRECT),
-                            RedirectType::Temporary => res.status_code(StatusCode::TEMPORARY_REDIRECT),
+                            RedirectType::Permanent => {
+                                res.status_code(StatusCode::PERMANENT_REDIRECT)
+                            }
+                            RedirectType::Temporary => {
+                                res.status_code(StatusCode::TEMPORARY_REDIRECT)
+                            }
                         };
                         res.add_header("Location", url.to_string(), true)
                             .unwrap()
@@ -164,13 +175,15 @@ impl Handler for Redirect {
                     FlowRouterResult::Retargeting(url, _script_urls) => res.render(url.to_string()),
                     FlowRouterResult::Error => {
                         METRICS.requests_error.inc();
-                        res.status_code(StatusCode::INTERNAL_SERVER_ERROR).render("")
+                        res.status_code(StatusCode::INTERNAL_SERVER_ERROR)
+                            .render("")
                     }
                 }
             }
             Err(_) => {
                 METRICS.requests_error.inc();
-                res.status_code(StatusCode::INTERNAL_SERVER_ERROR).render("");
+                res.status_code(StatusCode::INTERNAL_SERVER_ERROR)
+                    .render("");
             }
         }
 
@@ -196,11 +209,11 @@ impl ResolvesServerConfig<IoError> for ServerConfigResolverMock {
 }
 
 /// Main entry point for the Click Router application
-/// 
+///
 /// This function initializes the application, sets up the flow router with all
 /// necessary components, and starts both the main HTTP server and the metrics
 /// server (if enabled).
-/// 
+///
 /// The application supports:
 /// - TLS/SSL termination with dynamic certificate resolution
 /// - Concurrent main and metrics servers
@@ -225,7 +238,6 @@ async fn main() {
     .unwrap();
 
     let flow_router = AppBuilder::new(settings)
-        .with_default_modules()
         .with_geo_ip()
         .with_ua_parser()
         .with_fluvio()
@@ -234,6 +246,7 @@ async fn main() {
         .await
         //.with_dynamo()
         // .await
+        .with_default_modules()
         .build();
 
     init_flow_router(flow_router);

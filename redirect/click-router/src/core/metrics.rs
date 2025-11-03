@@ -26,52 +26,64 @@ use std::time::Instant;
 pub struct FlowRouterMetrics {
     /// Total number of requests processed
     pub requests_total: IntCounter,
-    
+
     /// Number of requests processed successfully
     pub requests_success: IntCounter,
-    
+
     /// Number of requests that resulted in errors
     pub requests_error: IntCounter,
-    
+
     /// Number of cache hits for route lookups
     pub route_cache_hits: IntCounter,
-    
+
     /// Number of cache misses for route lookups
     pub route_cache_misses: IntCounter,
-    
+
     /// Number of database queries for routes
     pub route_db_queries: IntCounter,
-    
+
     /// Number of user settings cache hits
     pub user_settings_cache_hits: IntCounter,
-    
+
     /// Number of user settings cache misses
     pub user_settings_cache_misses: IntCounter,
-    
+
+    /// Number of QR code cache hits
+    pub qr_cache_hits: IntCounter,
+
+    /// Number of QR code cache misses
+    pub qr_cache_misses: IntCounter,
+
     /// Number of hits registered
     pub hits_registered: IntCounter,
-    
+
     /// Current number of active requests being processed
     pub active_requests: IntGauge,
-    
+
     /// Histogram of request processing times
     pub request_duration: Histogram,
-    
+
     /// Histogram of flow processing times (the optimized part)
     pub flow_processing_duration: Histogram,
-    
+
     /// Histogram of database query times
     pub db_query_duration: Histogram,
-    
+
     /// Histogram of cache lookup times
     pub cache_lookup_duration: Histogram,
-    
+
+    /// Histogram of QR code cache lookup times
+    pub qr_cache_lookup_duration: Histogram,
+
+    /// Histogram of QR code generation times
+    pub qr_generation_duration: Histogram,
+
     /// Number of times the optimized iterative flow was used
     pub iterative_flow_usage: IntCounter,
-    
+
     /// Number of times the legacy recursive flow was used (should be 0 after optimization)
     pub recursive_flow_usage: IntCounter,
-    
+
     /// Memory allocations per request (estimated)
     pub memory_allocations_per_request: Histogram,
 }
@@ -80,26 +92,82 @@ impl Default for FlowRouterMetrics {
     /// Create a default metrics instance that doesn't register with Prometheus
     /// This is used as a fallback when metrics are already registered
     fn default() -> Self {
-        use prometheus::{IntCounter, IntGauge, Histogram, HistogramOpts};
-        
+        use prometheus::{Histogram, HistogramOpts, IntCounter, IntGauge};
+
         FlowRouterMetrics {
-            requests_total: IntCounter::new("fallback_requests_total", "Fallback counter").unwrap(),
-            requests_success: IntCounter::new("fallback_requests_success", "Fallback counter").unwrap(),
-            requests_error: IntCounter::new("fallback_requests_error", "Fallback counter").unwrap(),
-            route_cache_hits: IntCounter::new("fallback_route_cache_hits", "Fallback counter").unwrap(),
-            route_cache_misses: IntCounter::new("fallback_route_cache_misses", "Fallback counter").unwrap(),
-            route_db_queries: IntCounter::new("fallback_route_db_queries", "Fallback counter").unwrap(),
-            user_settings_cache_hits: IntCounter::new("fallback_user_settings_cache_hits", "Fallback counter").unwrap(),
-            user_settings_cache_misses: IntCounter::new("fallback_user_settings_cache_misses", "Fallback counter").unwrap(),
-            hits_registered: IntCounter::new("fallback_hits_registered", "Fallback counter").unwrap(),
+            requests_total: IntCounter::new("fallback_requests_total", "Fallback counter")
+                .unwrap(),
+            requests_success: IntCounter::new("fallback_requests_success", "Fallback counter")
+                .unwrap(),
+            requests_error: IntCounter::new("fallback_requests_error", "Fallback counter")
+                .unwrap(),
+            route_cache_hits: IntCounter::new("fallback_route_cache_hits", "Fallback counter")
+                .unwrap(),
+            route_cache_misses: IntCounter::new("fallback_route_cache_misses", "Fallback counter")
+                .unwrap(),
+            route_db_queries: IntCounter::new("fallback_route_db_queries", "Fallback counter")
+                .unwrap(),
+            user_settings_cache_hits: IntCounter::new(
+                "fallback_user_settings_cache_hits",
+                "Fallback counter",
+            )
+            .unwrap(),
+            user_settings_cache_misses: IntCounter::new(
+                "fallback_user_settings_cache_misses",
+                "Fallback counter",
+            )
+            .unwrap(),
+            qr_cache_hits: IntCounter::new("fallback_qr_cache_hits", "Fallback counter").unwrap(),
+            qr_cache_misses: IntCounter::new("fallback_qr_cache_misses", "Fallback counter")
+                .unwrap(),
+            hits_registered: IntCounter::new("fallback_hits_registered", "Fallback counter")
+                .unwrap(),
             active_requests: IntGauge::new("fallback_active_requests", "Fallback gauge").unwrap(),
-            request_duration: Histogram::with_opts(HistogramOpts::new("fallback_request_duration", "Fallback histogram")).unwrap(),
-            flow_processing_duration: Histogram::with_opts(HistogramOpts::new("fallback_flow_processing_duration", "Fallback histogram")).unwrap(),
-            db_query_duration: Histogram::with_opts(HistogramOpts::new("fallback_db_query_duration", "Fallback histogram")).unwrap(),
-            cache_lookup_duration: Histogram::with_opts(HistogramOpts::new("fallback_cache_lookup_duration", "Fallback histogram")).unwrap(),
-            iterative_flow_usage: IntCounter::new("fallback_iterative_flow_usage", "Fallback counter").unwrap(),
-            recursive_flow_usage: IntCounter::new("fallback_recursive_flow_usage", "Fallback counter").unwrap(),
-            memory_allocations_per_request: Histogram::with_opts(HistogramOpts::new("fallback_memory_allocations", "Fallback histogram")).unwrap(),
+            request_duration: Histogram::with_opts(HistogramOpts::new(
+                "fallback_request_duration",
+                "Fallback histogram",
+            ))
+            .unwrap(),
+            flow_processing_duration: Histogram::with_opts(HistogramOpts::new(
+                "fallback_flow_processing_duration",
+                "Fallback histogram",
+            ))
+            .unwrap(),
+            db_query_duration: Histogram::with_opts(HistogramOpts::new(
+                "fallback_db_query_duration",
+                "Fallback histogram",
+            ))
+            .unwrap(),
+            cache_lookup_duration: Histogram::with_opts(HistogramOpts::new(
+                "fallback_cache_lookup_duration",
+                "Fallback histogram",
+            ))
+            .unwrap(),
+            qr_cache_lookup_duration: Histogram::with_opts(HistogramOpts::new(
+                "fallback_qr_cache_lookup_duration",
+                "Fallback histogram",
+            ))
+            .unwrap(),
+            qr_generation_duration: Histogram::with_opts(HistogramOpts::new(
+                "fallback_qr_generation_duration",
+                "Fallback histogram",
+            ))
+            .unwrap(),
+            iterative_flow_usage: IntCounter::new(
+                "fallback_iterative_flow_usage",
+                "Fallback counter",
+            )
+            .unwrap(),
+            recursive_flow_usage: IntCounter::new(
+                "fallback_recursive_flow_usage",
+                "Fallback counter",
+            )
+            .unwrap(),
+            memory_allocations_per_request: Histogram::with_opts(HistogramOpts::new(
+                "fallback_memory_allocations",
+                "Fallback histogram",
+            ))
+            .unwrap(),
         }
     }
 }
@@ -112,95 +180,126 @@ impl FlowRouterMetrics {
                 "flow_router_requests_total",
                 "Total number of requests processed by the flow router"
             )?,
-            
+
             requests_success: register_int_counter!(
                 "flow_router_requests_success_total",
                 "Number of requests processed successfully"
             )?,
-            
+
             requests_error: register_int_counter!(
                 "flow_router_requests_error_total",
                 "Number of requests that resulted in errors"
             )?,
-            
+
             route_cache_hits: register_int_counter!(
                 "flow_router_route_cache_hits_total",
                 "Number of cache hits for route lookups"
             )?,
-            
+
             route_cache_misses: register_int_counter!(
                 "flow_router_route_cache_misses_total",
                 "Number of cache misses for route lookups"
             )?,
-            
+
             route_db_queries: register_int_counter!(
                 "flow_router_route_db_queries_total",
                 "Number of database queries for routes"
             )?,
-            
+
             user_settings_cache_hits: register_int_counter!(
                 "flow_router_user_settings_cache_hits_total",
                 "Number of user settings cache hits"
             )?,
-            
+
             user_settings_cache_misses: register_int_counter!(
                 "flow_router_user_settings_cache_misses_total",
                 "Number of user settings cache misses"
             )?,
-            
+
+            qr_cache_hits: register_int_counter!(
+                "flow_router_qr_cache_hits_total",
+                "Number of QR code cache hits"
+            )?,
+
+            qr_cache_misses: register_int_counter!(
+                "flow_router_qr_cache_misses_total",
+                "Number of QR code cache misses"
+            )?,
+
             hits_registered: register_int_counter!(
                 "flow_router_hits_registered_total",
                 "Number of hits registered"
             )?,
-            
+
             active_requests: register_int_gauge!(
                 "flow_router_active_requests",
                 "Current number of active requests being processed"
             )?,
-            
+
             request_duration: register_histogram!(
                 HistogramOpts::new(
                     "flow_router_request_duration_seconds",
                     "Histogram of request processing times in seconds"
-                ).buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0])
+                )
+                .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0])
             )?,
-            
+
             flow_processing_duration: register_histogram!(
                 HistogramOpts::new(
                     "flow_router_flow_processing_duration_seconds",
                     "Histogram of flow processing times in seconds (optimized iterative flow)"
-                ).buckets(vec![0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1])
+                )
+                .buckets(vec![0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1])
             )?,
-            
+
             db_query_duration: register_histogram!(
                 HistogramOpts::new(
                     "flow_router_db_query_duration_seconds",
                     "Histogram of database query times in seconds"
-                ).buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0])
+                )
+                .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0])
             )?,
-            
+
             cache_lookup_duration: register_histogram!(
                 HistogramOpts::new(
                     "flow_router_cache_lookup_duration_seconds",
                     "Histogram of cache lookup times in seconds"
-                ).buckets(vec![0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01])
+                )
+                .buckets(vec![0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01])
             )?,
-            
+
+            qr_cache_lookup_duration: register_histogram!(
+                HistogramOpts::new(
+                    "flow_router_qr_cache_lookup_duration_seconds",
+                    "Histogram of QR code cache lookup times in seconds"
+                )
+                .buckets(vec![0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01])
+            )?,
+
+            qr_generation_duration: register_histogram!(
+                HistogramOpts::new(
+                    "flow_router_qr_generation_duration_seconds",
+                    "Histogram of QR code generation times in seconds"
+                )
+                .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5])
+            )?,
+
             iterative_flow_usage: register_int_counter!(
                 "flow_router_iterative_flow_usage_total",
                 "Number of times the optimized iterative flow was used"
             )?,
-            
+
             recursive_flow_usage: register_int_counter!(
                 "flow_router_recursive_flow_usage_total",
                 "Number of times the legacy recursive flow was used (should be 0 after optimization)"
             )?,
-            
+
             memory_allocations_per_request: register_histogram!(
                 HistogramOpts::new(
                     "flow_router_memory_allocations_per_request",
                     "Estimated memory allocations per request"
-                ).buckets(vec![1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0])
+                )
+                .buckets(vec![1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0])
             )?,
         })
     }
@@ -208,77 +307,132 @@ impl FlowRouterMetrics {
     /// Create a new metrics instance with custom registry
     pub fn with_registry(registry: &Registry) -> Result<Self, prometheus::Error> {
         Ok(FlowRouterMetrics {
-            requests_total: IntCounter::with_opts(
-                Opts::new("flow_router_requests_total", "Total number of requests processed")
-            )?,
-            
-            requests_success: IntCounter::with_opts(
-                Opts::new("flow_router_requests_success_total", "Number of successful requests")
-            )?,
-            
-            requests_error: IntCounter::with_opts(
-                Opts::new("flow_router_requests_error_total", "Number of error requests")
-            )?,
-            
-            route_cache_hits: IntCounter::with_opts(
-                Opts::new("flow_router_route_cache_hits_total", "Route cache hits")
-            )?,
-            
-            route_cache_misses: IntCounter::with_opts(
-                Opts::new("flow_router_route_cache_misses_total", "Route cache misses")
-            )?,
-            
-            route_db_queries: IntCounter::with_opts(
-                Opts::new("flow_router_route_db_queries_total", "Route database queries")
-            )?,
-            
-            user_settings_cache_hits: IntCounter::with_opts(
-                Opts::new("flow_router_user_settings_cache_hits_total", "User settings cache hits")
-            )?,
-            
-            user_settings_cache_misses: IntCounter::with_opts(
-                Opts::new("flow_router_user_settings_cache_misses_total", "User settings cache misses")
-            )?,
-            
-            hits_registered: IntCounter::with_opts(
-                Opts::new("flow_router_hits_registered_total", "Hits registered")
-            )?,
-            
-            active_requests: IntGauge::with_opts(
-                Opts::new("flow_router_active_requests", "Active requests")
-            )?,
-            
+            requests_total: IntCounter::with_opts(Opts::new(
+                "flow_router_requests_total",
+                "Total number of requests processed",
+            ))?,
+
+            requests_success: IntCounter::with_opts(Opts::new(
+                "flow_router_requests_success_total",
+                "Number of successful requests",
+            ))?,
+
+            requests_error: IntCounter::with_opts(Opts::new(
+                "flow_router_requests_error_total",
+                "Number of error requests",
+            ))?,
+
+            route_cache_hits: IntCounter::with_opts(Opts::new(
+                "flow_router_route_cache_hits_total",
+                "Route cache hits",
+            ))?,
+
+            route_cache_misses: IntCounter::with_opts(Opts::new(
+                "flow_router_route_cache_misses_total",
+                "Route cache misses",
+            ))?,
+
+            route_db_queries: IntCounter::with_opts(Opts::new(
+                "flow_router_route_db_queries_total",
+                "Route database queries",
+            ))?,
+
+            user_settings_cache_hits: IntCounter::with_opts(Opts::new(
+                "flow_router_user_settings_cache_hits_total",
+                "User settings cache hits",
+            ))?,
+
+            user_settings_cache_misses: IntCounter::with_opts(Opts::new(
+                "flow_router_user_settings_cache_misses_total",
+                "User settings cache misses",
+            ))?,
+
+            qr_cache_hits: IntCounter::with_opts(Opts::new(
+                "flow_router_qr_cache_hits_total",
+                "QR code cache hits",
+            ))?,
+
+            qr_cache_misses: IntCounter::with_opts(Opts::new(
+                "flow_router_qr_cache_misses_total",
+                "QR code cache misses",
+            ))?,
+
+            hits_registered: IntCounter::with_opts(Opts::new(
+                "flow_router_hits_registered_total",
+                "Hits registered",
+            ))?,
+
+            active_requests: IntGauge::with_opts(Opts::new(
+                "flow_router_active_requests",
+                "Active requests",
+            ))?,
+
             request_duration: Histogram::with_opts(
-                HistogramOpts::new("flow_router_request_duration_seconds", "Request duration")
-                    .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0])
+                HistogramOpts::new(
+                    "flow_router_request_duration_seconds",
+                    "Request duration",
+                )
+                .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]),
             )?,
-            
+
             flow_processing_duration: Histogram::with_opts(
-                HistogramOpts::new("flow_router_flow_processing_duration_seconds", "Flow processing duration")
-                    .buckets(vec![0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1])
+                HistogramOpts::new(
+                    "flow_router_flow_processing_duration_seconds",
+                    "Flow processing duration",
+                )
+                .buckets(vec![
+                    0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1,
+                ]),
             )?,
-            
+
             db_query_duration: Histogram::with_opts(
-                HistogramOpts::new("flow_router_db_query_duration_seconds", "Database query duration")
-                    .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0])
+                HistogramOpts::new(
+                    "flow_router_db_query_duration_seconds",
+                    "Database query duration",
+                )
+                .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0]),
             )?,
-            
+
             cache_lookup_duration: Histogram::with_opts(
-                HistogramOpts::new("flow_router_cache_lookup_duration_seconds", "Cache lookup duration")
-                    .buckets(vec![0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01])
+                HistogramOpts::new(
+                    "flow_router_cache_lookup_duration_seconds",
+                    "Cache lookup duration",
+                )
+                .buckets(vec![0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01]),
             )?,
-            
-            iterative_flow_usage: IntCounter::with_opts(
-                Opts::new("flow_router_iterative_flow_usage_total", "Iterative flow usage")
+
+            qr_cache_lookup_duration: Histogram::with_opts(
+                HistogramOpts::new(
+                    "flow_router_qr_cache_lookup_duration_seconds",
+                    "QR code cache lookup duration",
+                )
+                .buckets(vec![0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01]),
             )?,
-            
-            recursive_flow_usage: IntCounter::with_opts(
-                Opts::new("flow_router_recursive_flow_usage_total", "Recursive flow usage")
+
+            qr_generation_duration: Histogram::with_opts(
+                HistogramOpts::new(
+                    "flow_router_qr_generation_duration_seconds",
+                    "QR code generation duration",
+                )
+                .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5]),
             )?,
-            
+
+            iterative_flow_usage: IntCounter::with_opts(Opts::new(
+                "flow_router_iterative_flow_usage_total",
+                "Iterative flow usage",
+            ))?,
+
+            recursive_flow_usage: IntCounter::with_opts(Opts::new(
+                "flow_router_recursive_flow_usage_total",
+                "Recursive flow usage",
+            ))?,
+
             memory_allocations_per_request: Histogram::with_opts(
-                HistogramOpts::new("flow_router_memory_allocations_per_request", "Memory allocations per request")
-                    .buckets(vec![1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0])
+                HistogramOpts::new(
+                    "flow_router_memory_allocations_per_request",
+                    "Memory allocations per request",
+                )
+                .buckets(vec![1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0]),
             )?,
         })
     }

@@ -1,6 +1,7 @@
 use anyhow::Result;
 use conditional::ConditionalModule;
 use not_found::NotFoundModule;
+use qr_code::QrCodeModule;
 use redirect_only::RedirectOnlyModule;
 use root::RootModule;
 
@@ -17,11 +18,13 @@ pub mod not_found;
 // pub mod open_graph_module;
 // pub mod paused_module;
 // pub mod robots_module;
+pub mod qr_code;
 pub mod root;
 
 #[derive(Clone)]
 pub enum FlowModules {
     Root(RootModule),
+    QrCode(QrCodeModule),
     Conditional(ConditionalModule),
     NotFound(NotFoundModule),
     RedirectOnly(RedirectOnlyModule),
@@ -36,6 +39,7 @@ impl FlowModule for FlowModules {
     ) -> Result<FlowStepContinuation> {
         match self {
             FlowModules::Root(module) => module.init(context, flow_router).await,
+            FlowModules::QrCode(module) => module.init(context, flow_router).await,
             FlowModules::Conditional(module) => module.init(context, flow_router).await,
             FlowModules::NotFound(module) => module.init(context, flow_router).await,
             FlowModules::RedirectOnly(module) => module.init(context, flow_router).await,
@@ -49,6 +53,7 @@ impl FlowModule for FlowModules {
     ) -> Result<FlowStepContinuation> {
         match self {
             FlowModules::Root(module) => module.handle_start(context, flow_router).await,
+            FlowModules::QrCode(module) => module.handle_start(context, flow_router).await,
             FlowModules::Conditional(module) => module.handle_start(context, flow_router).await,
             FlowModules::NotFound(module) => module.handle_start(context, flow_router).await,
             FlowModules::RedirectOnly(module) => module.handle_start(context, flow_router).await,
@@ -62,6 +67,7 @@ impl FlowModule for FlowModules {
     ) -> Result<FlowStepContinuation> {
         match self {
             FlowModules::Root(module) => module.handle_url_extract(context, flow_router).await,
+            FlowModules::QrCode(module) => module.handle_url_extract(context, flow_router).await,
             FlowModules::Conditional(module) => {
                 module.handle_url_extract(context, flow_router).await
             }
@@ -79,6 +85,7 @@ impl FlowModule for FlowModules {
     ) -> Result<FlowStepContinuation> {
         match self {
             FlowModules::Root(module) => module.handle_register(context, flow_router).await,
+            FlowModules::QrCode(module) => module.handle_register(context, flow_router).await,
             FlowModules::Conditional(module) => module.handle_register(context, flow_router).await,
             FlowModules::NotFound(module) => module.handle_register(context, flow_router).await,
             FlowModules::RedirectOnly(module) => module.handle_register(context, flow_router).await,
@@ -92,6 +99,7 @@ impl FlowModule for FlowModules {
     ) -> Result<FlowStepContinuation> {
         match self {
             FlowModules::Root(module) => module.handle_build_result(context, flow_router).await,
+            FlowModules::QrCode(module) => module.handle_build_result(context, flow_router).await,
             FlowModules::Conditional(module) => {
                 module.handle_build_result(context, flow_router).await
             }
@@ -109,6 +117,7 @@ impl FlowModule for FlowModules {
     ) -> Result<FlowStepContinuation> {
         match self {
             FlowModules::Root(module) => module.handle_end(context, flow_router).await,
+            FlowModules::QrCode(module) => module.handle_end(context, flow_router).await,
             FlowModules::Conditional(module) => module.handle_end(context, flow_router).await,
             FlowModules::NotFound(module) => module.handle_end(context, flow_router).await,
             FlowModules::RedirectOnly(module) => module.handle_end(context, flow_router).await,

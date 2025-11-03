@@ -8,7 +8,10 @@ use http::{
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use rand;
-use std::sync::{atomic::{AtomicU64, Ordering}, Arc};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+};
 use std::{
     self,
     collections::HashMap,
@@ -70,6 +73,8 @@ pub enum FlowRouterResult {
     Json(String, StatusCode),
     /// Return a plain text response with content and HTTP status code
     PlainText(String, StatusCode),
+    /// Return an image response with binary data, content type, and HTTP status code
+    Image(Vec<u8>, String, StatusCode),
     /// Proxy the request to another URI and return the response with the specified status code
     Proxied(Uri, StatusCode),
     /// Perform an HTTP redirect to the specified URI with the given redirect type
@@ -124,7 +129,7 @@ pub enum FlowRouterData {
     /// Numeric value for counters, percentages, and calculations
     Number(f64),
     /// Static string reference for labels and identifiers
-    String(&'static str),
+    String(String),
 }
 
 impl FlowRouterData {
@@ -195,8 +200,20 @@ impl<'a> FlowRouterContext<'a> {
     ///
     /// Adds a string value to the context's data
     ///
-    pub fn add_string(&mut self, bool_key: &'static str, value: &'static str) {
+    pub fn add_string(&mut self, bool_key: &'static str, value: String) {
         let _ = &self.data.insert(bool_key, FlowRouterData::String(value));
+    }
+
+    pub fn get_string(&mut self, key: &'static str) -> Option<String> {
+        let value = &self.data.get(key);
+
+        if let Some(value) = value {
+            if let FlowRouterData::String(str_value) = value {
+                return Some(str_value.clone());
+            }
+        }
+
+        None
     }
 
     ///
@@ -751,6 +768,19 @@ impl FlowRouter {
         Ok(user_settings)
     }
 
+    pub async fn get_main_route(
+        &self,
+        path: &str,
+        context: &FlowRouterContext<'_>,
+    ) -> Result<Option<Route>> {
+        let route = self
+            .routes_manager
+            .get_route(MAIN_SWITCH, context.in_route.host.as_str(), path)
+            .await?;
+
+        Ok(route)
+    }
+
     pub async fn get_route(
         &self,
         switch: &str,
@@ -790,6 +820,8 @@ impl FlowRouter {
                 context.main_route = Some(route_arc.clone());
                 context.out_route = Some(route_arc);
             }
+        } else {
+            context.out_route = context.main_route.clone();
         }
 
         let _ = &self.replace_debug_data(&mut context);

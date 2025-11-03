@@ -108,6 +108,10 @@ dyn-clone = "1.0.17"
 typed-builder = "0.21.0"
 signal-hook = "0.3.17"
 
+# QR code generation
+qrcode = "0.14.1"
+image = "0.25.5"
+
 # Tower ecosystem
 tower = { version = "0.5.2", features = ["full"] }
 

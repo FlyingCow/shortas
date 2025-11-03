@@ -1,7 +1,9 @@
-use aws_config::SdkConfig;
 use aws_config::timeout::TimeoutConfig;
+use aws_config::SdkConfig;
 use std::time::Duration;
 use tracing::info;
+
+use std::sync::Arc;
 
 use crate::{
     adapters::{
@@ -15,7 +17,8 @@ use crate::{
         fluvio::hit_registrar::FluvioHitRegistrar,
         geo_ip::geo_ip_location_detector::GeoIPLocationDetector,
         moka::{
-            crypto_cache::MokaCryptoCache, routes_cache::MokaRoutesCache, settings::Moka,
+            crypto_cache::MokaCryptoCache, qr_code_cache::MokaQrCodeCache,
+            routes_cache::MokaRoutesCache, settings::Moka,
             user_settings_cache::MokaUserSettingsCache,
         },
         mongodb::{
@@ -29,7 +32,7 @@ use crate::{
     core::{
         flow_router::FlowRouter,
         modules::{
-            conditional::ConditionalModule, not_found::NotFoundModule,
+            conditional::ConditionalModule, not_found::NotFoundModule, qr_code::QrCodeModule,
             redirect_only::RedirectOnlyModule, root::RootModule, FlowModules,
         },
     },
@@ -43,6 +46,7 @@ pub struct AppBuilder {
     user_settings_cache: Option<UserSettingsCacheType>,
     routes_cache: Option<RoutesCacheType>,
     crypto_cache: Option<CryptoCacheType>,
+    qr_code_cache: Option<Arc<MokaQrCodeCache>>,
     user_agent_detector: Option<UserAgentDetectorType>,
     location_detector: Option<LocationDetectorType>,
     hit_registrar: Option<HitRegistrarType>,
@@ -54,10 +58,10 @@ impl AppBuilder {
 
         // Configure timeouts for optimal performance
         let timeout_config = TimeoutConfig::builder()
-            .connect_timeout(Duration::from_secs(5))     // Connection establishment timeout
-            .read_timeout(Duration::from_secs(5))        // Socket read timeout
-            .operation_timeout(Duration::from_secs(10))  // Overall operation timeout
-            .operation_attempt_timeout(Duration::from_secs(5))  // Single attempt timeout
+            .connect_timeout(Duration::from_secs(5)) // Connection establishment timeout
+            .read_timeout(Duration::from_secs(5)) // Socket read timeout
+            .operation_timeout(Duration::from_secs(10)) // Overall operation timeout
+            .operation_attempt_timeout(Duration::from_secs(5)) // Single attempt timeout
             .build();
 
         shared_config = shared_config.timeout_config(timeout_config);
@@ -100,7 +104,12 @@ impl AppBuilder {
         &self,
         moka_settings: &Moka,
         aws_settings: &AWS,
-    ) -> (RoutesCacheType, CryptoCacheType, UserSettingsCacheType) {
+    ) -> (
+        RoutesCacheType,
+        CryptoCacheType,
+        UserSettingsCacheType,
+        Arc<MokaQrCodeCache>,
+    ) {
         let (routes_store, crypto_store, user_settings_store) =
             self.init_dynamo_stores(&aws_settings).await;
 
@@ -119,17 +128,25 @@ impl AppBuilder {
             moka_settings.user_settings_cache.clone(),
         ));
 
-        (routes_cache, crypto_cache, user_settings_cache)
+        let qr_code_cache = Arc::new(MokaQrCodeCache::new(moka_settings.qr_code_cache.clone()));
+
+        (
+            routes_cache,
+            crypto_cache,
+            user_settings_cache,
+            qr_code_cache,
+        )
     }
 
     pub async fn with_dynamo(mut self) -> Self {
-        let (routes_cache, crypto_cache, user_settings_cache) = self
+        let (routes_cache, crypto_cache, user_settings_cache, qr_code_cache) = self
             .init_moka_cache_with_dynamo_stores(&self.settings.moka, &self.settings.aws)
             .await;
 
         self.crypto_cache = Some(crypto_cache);
         self.routes_cache = Some(routes_cache);
         self.user_settings_cache = Some(user_settings_cache);
+        self.qr_code_cache = Some(qr_code_cache);
 
         self
     }
@@ -155,7 +172,12 @@ impl AppBuilder {
         &self,
         moka_settings: &Moka,
         mongodb_settings: &Mongodb,
-    ) -> (RoutesCacheType, CryptoCacheType, UserSettingsCacheType) {
+    ) -> (
+        RoutesCacheType,
+        CryptoCacheType,
+        UserSettingsCacheType,
+        Arc<MokaQrCodeCache>,
+    ) {
         let (routes_store, crypto_store, user_settings_store) =
             self.init_mongodb_stores(&mongodb_settings).await;
 
@@ -174,17 +196,25 @@ impl AppBuilder {
             moka_settings.user_settings_cache.clone(),
         ));
 
-        (routes_cache, crypto_cache, user_settings_cache)
+        let qr_code_cache = Arc::new(MokaQrCodeCache::new(moka_settings.qr_code_cache.clone()));
+
+        (
+            routes_cache,
+            crypto_cache,
+            user_settings_cache,
+            qr_code_cache,
+        )
     }
 
     pub async fn with_mongodb(mut self) -> Self {
-        let (routes_cache, crypto_cache, user_settings_cache) = self
+        let (routes_cache, crypto_cache, user_settings_cache, qr_code_cache) = self
             .init_moka_cache_with_mongodb_stores(&self.settings.moka, &self.settings.mongodb)
             .await;
 
         self.crypto_cache = Some(crypto_cache);
         self.routes_cache = Some(routes_cache);
         self.user_settings_cache = Some(user_settings_cache);
+        self.qr_code_cache = Some(qr_code_cache);
 
         self
     }
@@ -245,6 +275,16 @@ impl AppBuilder {
         self.modules.push(FlowModules::Root(RootModule::new(
             self.settings.redirect.clone(),
         )));
+
+        // Initialize QR code module with cache
+        if let Some(qr_cache) = &self.qr_code_cache {
+            self.modules
+                .push(FlowModules::QrCode(QrCodeModule::with_defaults(
+                    qr_cache.clone(),
+                )));
+        } else {
+            tracing::warn!("QR code cache not initialized, QR code module will not be available");
+        }
 
         self.modules
             .push(FlowModules::Conditional(ConditionalModule::new()));
