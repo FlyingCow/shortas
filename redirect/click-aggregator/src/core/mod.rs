@@ -18,7 +18,7 @@ pub use click_stream::ClickStreamSource;
 pub enum AggsPipeData {
     Bool(bool),
     Number(f64),
-    String(&'static str),
+    String(String),
 }
 
 impl AggsPipeData {
@@ -31,8 +31,8 @@ impl AggsPipeData {
     }
 
     pub fn is_string(&self, value: &str) -> bool {
-        if let AggsPipeData::String(str_value) = &self {
-            return value.eq_ignore_ascii_case(str_value);
+        if let AggsPipeData::String(str_value) = self {
+            return value.eq_ignore_ascii_case(str_value.as_str());
         }
 
         false
@@ -103,8 +103,8 @@ impl AggsPipeContext {
     ///
     /// Adds a string value to the context's data
     ///
-    pub fn add_string(&mut self, bool_key: &'static str, value: &'static str) {
-        let _ = &self.data.insert(bool_key, AggsPipeData::String(value));
+    pub fn add_string(&mut self, bool_key: &'static str, value: impl Into<String>) {
+        let _ = &self.data.insert(bool_key, AggsPipeData::String(value.into()));
     }
 
     ///

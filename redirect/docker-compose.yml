@@ -81,8 +81,8 @@ services:
   # Application Services
   click-router:
     build:
-      context: ./click-router
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: click-router/Dockerfile
     container_name: shortas-click-router
     restart: unless-stopped
     ports:
@@ -99,8 +99,8 @@ services:
 
   click-router-api:
     build:
-      context: ./click-router-api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: click-router-api/Dockerfile
     container_name: shortas-click-router-api
     restart: unless-stopped
     ports:
@@ -116,8 +116,8 @@ services:
 
   click-tracker:
     build:
-      context: ./click-tracker
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: click-tracker/Dockerfile
     container_name: shortas-click-tracker
     restart: unless-stopped
     environment:
@@ -131,8 +131,8 @@ services:
 
   click-aggregator:
     build:
-      context: ./click-aggregator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: click-aggregator/Dockerfile
     container_name: shortas-click-aggregator
     restart: unless-stopped
     environment:
@@ -146,8 +146,8 @@ services:
 
   click-aggregator-api:
     build:
-      context: ./click-aggregator-api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: click-aggregator-api/Dockerfile
     container_name: shortas-click-aggregator-api
     restart: unless-stopped
     ports:

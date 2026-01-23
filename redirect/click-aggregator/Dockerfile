@@ -11,15 +11,19 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy manifests
+# Copy workspace manifests
 COPY Cargo.toml Cargo.lock ./
 
-# Copy source code
-COPY src/ ./src/
-COPY config/ ./config/
+# Copy all workspace members (needed for workspace resolution)
+COPY click-router/ ./click-router/
+COPY click-router-api/ ./click-router-api/
+COPY click-tracker/ ./click-tracker/
+COPY click-aggregator/ ./click-aggregator/
+COPY click-aggregator-api/ ./click-aggregator-api/
+COPY infra/domains/ ./infra/domains/
 
 # Build the application
-RUN cargo build --release
+RUN cargo build --release -p click-aggregator
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -38,7 +42,7 @@ WORKDIR /app
 
 # Copy binary and config from builder
 COPY --from=builder /app/target/release/click-aggregator /app/
-COPY --from=builder /app/config/ ./config/
+COPY --from=builder /app/click-aggregator/config/ ./config/
 
 # Change ownership
 RUN chown -R shortas:shortas /app
@@ -52,5 +56,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Run the application
 CMD ["./click-aggregator", "-r", "production"]
-
-
