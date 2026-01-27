@@ -4,12 +4,12 @@ cd "$(dirname "$0")"
 mongosh "mongodb://root:example@mongo:27017/" <<EOF
 use shortas
 
-db.core_user_settings_local.insertOne({
+db.core_user_settings_main.insertOne({
     user_id: "01K4QMZ2G52WNRXFEDQ75KKAEE",
     user_email: "test@shortas.com"
 });
 
-db.core_routes_local.insertOne({
+db.core_routes_main.insertOne({
     switch: "main",
     link: "localhost%2Ftest",
     dest: "https://google.com",
@@ -23,13 +23,13 @@ db.core_routes_local.insertOne({
     }
 });
 
-db.core_routes_local.insertOne({
+db.core_routes_main.insertOne({
     switch: "test",
     link: "localhost%2Fconds",
     dest: "https://google.com?q=test"
 });
 
-db.core_routes_local.insertOne({
+db.core_routes_main.insertOne({
     switch: "main",
     link: "localhost%2Fconds",
     dest: "https://google.com?q=main",

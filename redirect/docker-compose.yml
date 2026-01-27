@@ -153,6 +153,8 @@ services:
         condition: service_started
       topic-setup:
         condition: service_started
+      domains:
+        condition: service_started
     networks:
       - shortas-net
 
@@ -220,6 +222,20 @@ services:
       - APP_RUN_MODE=production
     depends_on:
       - clickhouse
+    networks:
+      - shortas-net
+
+  domains:
+    build:
+      context: ..
+      dockerfile: redirect/infra/domains/Dockerfile
+    container_name: shortas-domains
+    hostname: domains
+    restart: unless-stopped
+    ports:
+      - "5801:5801"
+    environment:
+      - RUST_LOG=info
     networks:
       - shortas-net
 

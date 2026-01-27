@@ -1,0 +1,67 @@
+# Multi-stage build for domains
+FROM rust:1.88-slim as builder
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    g++ \
+    make \
+    cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy workspace manifests from redirect repo
+COPY redirect/Cargo.toml redirect/Cargo.lock ./redirect/
+
+# Copy all workspace members (needed for workspace resolution)
+COPY redirect/click-router/ ./redirect/click-router/
+COPY redirect/click-router-api/ ./redirect/click-router-api/
+COPY redirect/click-tracker/ ./redirect/click-tracker/
+COPY redirect/click-aggregator/ ./redirect/click-aggregator/
+COPY redirect/click-aggregator-api/ ./redirect/click-aggregator-api/
+COPY redirect/infra/domains/ ./redirect/infra/domains/
+
+# Copy external salvo dependency
+COPY salvo/ ./salvo/
+
+# Build the application from the redirect workspace
+WORKDIR /app/redirect
+RUN cargo build --release -p domains
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -r -s /bin/false shortas
+
+# Set working directory
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/redirect/target/release/domains /app/
+
+# Change ownership
+RUN chown -R shortas:shortas /app
+
+# Switch to non-root user
+USER shortas
+
+# Expose port
+EXPOSE 5801
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5801/ || exit 1
+
+# Run the application
+CMD ["./domains"]

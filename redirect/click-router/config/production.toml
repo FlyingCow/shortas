@@ -54,5 +54,5 @@ time_to_live_minutes = 240   # 4 hours
 time_to_idle_minutes = 120   # 2 hours
 
 [redirect]
-not_found_url = "http://localhost:5801/404/{}"
-index_url = "http://localhost:5801/index/{}"
+not_found_url = "http://domains:5801/404/{}"
+index_url = "http://domains:5801/index/{}"
