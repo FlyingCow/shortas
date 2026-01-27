@@ -140,7 +140,7 @@ services:
     container_name: shortas-click-router
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "5800:5800"
     environment:
       - RUST_LOG=info
       - APP_RUN_MODE=production
