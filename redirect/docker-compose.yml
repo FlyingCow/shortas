@@ -47,42 +47,96 @@ services:
       - shortas-net
 
   # Fluvio streaming
-  fluvio-sc:
+  sc:
     image: infinyon/fluvio:stable
-    container_name: shortas-fluvio-sc
-    restart: unless-stopped
+    container_name: sc
+    hostname: sc
     ports:
       - "9103:9003"
     environment:
       - RUST_LOG=info
     command: "./fluvio-run sc --local /fluvio/metadata"
     volumes:
-      - fluvio_metadata:/fluvio/metadata
+      - sc-metadata:/fluvio/metadata
     networks:
       - shortas-net
 
-  fluvio-spu:
+  sc-setup:
+    build: .
+    container_name: sc-setup
+    environment:
+      - RUST_LOG=info
+    depends_on:
+      - sc
+    command: >
+      bash -c "
+        echo 'Waiting for SC to be ready...' &&
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+          if fluvio profile add docker sc:9003 docker 2>/dev/null; then
+            echo 'Profile added successfully'
+            break
+          fi
+          echo \"Attempt $$i: SC not ready, retrying in 3s...\"
+          sleep 3
+        done &&
+        sleep 2 &&
+        fluvio cluster spu register --id 5001 -p spu:9010 -l spu:9010 --private-server spu:9011 &&
+        echo 'SPU registered successfully'
+      "
+    networks:
+      - shortas-net
+
+  spu:
     image: infinyon/fluvio:stable
-    container_name: shortas-fluvio-spu
-    restart: unless-stopped
+    container_name: spu
+    hostname: spu
+    environment:
+      - RUST_LOG=info
+    depends_on:
+      sc-setup:
+        condition: service_completed_successfully
     ports:
       - "9110:9010"
       - "9111:9011"
+    command: "./fluvio-run spu -i 5001 -p spu:9010 -v spu:9011 --sc-addr sc:9004 --log-base-dir /fluvio/data"
+    volumes:
+      - spu-data:/fluvio/data
+    networks:
+      - shortas-net
+
+  topic-setup:
+    build: .
+    container_name: topic-setup
     environment:
       - RUST_LOG=info
-    volumes:
-      - fluvio_data:/fluvio/data
-    command: "./fluvio-run spu -i 5001 -p fluvio-spu:9010 -v fluvio-spu:9011 --sc-addr fluvio-sc:9004 --log-base-dir /fluvio/data"
     depends_on:
-      - fluvio-sc
+      - spu
+    command: >
+      bash -c "
+        echo 'Waiting for SPU to be ready...' &&
+        fluvio profile add docker sc:9003 docker &&
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+          if fluvio cluster spu list 2>/dev/null | grep -q 'Online'; then
+            echo 'SPU is online'
+            break
+          fi
+          echo \"Attempt $$i: SPU not ready, retrying in 3s...\"
+          sleep 3
+        done &&
+        fluvio topic create hit-stream-main &&
+        echo 'Topic hit-stream-main created' &&
+        fluvio topic create click-aggs-main &&
+        echo 'Topic click-aggs-main created' &&
+        fluvio topic list
+      "
     networks:
       - shortas-net
 
   # Application Services
   click-router:
     build:
-      context: .
-      dockerfile: click-router/Dockerfile
+      context: ..
+      dockerfile: redirect/click-router/Dockerfile
     container_name: shortas-click-router
     restart: unless-stopped
     ports:
@@ -91,16 +145,21 @@ services:
       - RUST_LOG=info
       - APP_RUN_MODE=production
     depends_on:
-      - mongo
-      - redis
-      - clickhouse
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+      clickhouse:
+        condition: service_started
+      topic-setup:
+        condition: service_started
     networks:
       - shortas-net
 
   click-router-api:
     build:
-      context: .
-      dockerfile: click-router-api/Dockerfile
+      context: ..
+      dockerfile: redirect/click-router-api/Dockerfile
     container_name: shortas-click-router-api
     restart: unless-stopped
     ports:
@@ -116,38 +175,42 @@ services:
 
   click-tracker:
     build:
-      context: .
-      dockerfile: click-tracker/Dockerfile
+      context: ..
+      dockerfile: redirect/click-tracker/Dockerfile
     container_name: shortas-click-tracker
     restart: unless-stopped
     environment:
       - RUST_LOG=info
       - APP_RUN_MODE=production
     depends_on:
-      - redis
-      - fluvio-spu
+      redis:
+        condition: service_started
+      topic-setup:
+        condition: service_started
     networks:
       - shortas-net
 
   click-aggregator:
     build:
-      context: .
-      dockerfile: click-aggregator/Dockerfile
+      context: ..
+      dockerfile: redirect/click-aggregator/Dockerfile
     container_name: shortas-click-aggregator
     restart: unless-stopped
     environment:
       - RUST_LOG=info
       - APP_RUN_MODE=production
     depends_on:
-      - clickhouse
-      - fluvio-spu
+      clickhouse:
+        condition: service_started
+      topic-setup:
+        condition: service_started
     networks:
       - shortas-net
 
   click-aggregator-api:
     build:
-      context: .
-      dockerfile: click-aggregator-api/Dockerfile
+      context: ..
+      dockerfile: redirect/click-aggregator-api/Dockerfile
     container_name: shortas-click-aggregator-api
     restart: unless-stopped
     ports:
@@ -167,9 +230,8 @@ volumes:
     driver: local
   redis_data:
     driver: local
-  fluvio_metadata:
-    driver: local
-  fluvio_data:
-    driver: local
+  sc-metadata:
+  spu-data:
+
 
 

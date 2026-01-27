@@ -1,17 +1,17 @@
 [kafka]
 [kafka.click_stream]
-topic = "click-aggs-local"
+topic = "click-aggs-main"
 hosts = ["kafka:9092", "kafka:9093"]
 
 [fluvio]
 [fluvio.click_stream]
-topic = "click-aggs-local"
-host = "localhost:9103"
+topic = "click-aggs-main"
+host = "sc:9003"
 consumer = "aggs"
 
 [clickhouse]
 [clickhouse.click_stream_store]
-url = "http://localhost:8123"
+url = "http://clickhouse:8123"
 user = "default"
 password = "clickhouse"
 max_rows = 100_000

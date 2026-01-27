@@ -27,7 +27,7 @@ iteration_seconds = 1
 [fluvio]
 [fluvio.hit_stream]
 topic = "hit-stream-main"
-host = "localhost:9003"
+host = "sc:9003"
 batch_size = 500      # Optimized: balance between throughput and latency
 linger = 100          # 100ms batching window
 

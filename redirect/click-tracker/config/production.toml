@@ -27,12 +27,12 @@ ack_timeout_secs = 60
 [fluvio]
 [fluvio.hit_stream]
 topic = "hit-stream-main"
-host = "localhost:9003"
+host = "sc:9003"
 consumer = "hit-tracker"
 
 [fluvio.click_aggs]
-topic = "click-aggs-local"
-host = "localhost:9003"
+topic = "click-aggs-main"
+host = "sc:9003"
 batch_size = 500           # Optimized: Increased from 100 for better throughput
 linger_millis = 100        # Optimized: Reduced from 500ms for lower latency
 
@@ -44,5 +44,5 @@ yaml = "./data/ua-parser/regexes.yaml"
 mmdb = "./data/geo-ip/GeoLite2-Country.mmdb"
 
 [redis]
-host = "redis://:eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81@cache"
+host = "redis://:eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81@redis:6379"
 password = "eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81"

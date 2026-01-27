@@ -1,31 +1,38 @@
 # Multi-stage build for click-router
-FROM rust:1.75-slim as builder
+FROM rust:1.88-slim as builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
     ca-certificates \
+    g++ \
+    make \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy workspace manifests
-COPY Cargo.toml Cargo.lock ./
+# Copy workspace manifests from redirect repo
+COPY redirect/Cargo.toml redirect/Cargo.lock ./redirect/
 
 # Copy all workspace members (needed for workspace resolution)
-COPY click-router/ ./click-router/
-COPY click-router-api/ ./click-router-api/
-COPY click-tracker/ ./click-tracker/
-COPY click-aggregator/ ./click-aggregator/
-COPY click-aggregator-api/ ./click-aggregator-api/
-COPY infra/domains/ ./infra/domains/
+COPY redirect/click-router/ ./redirect/click-router/
+COPY redirect/click-router-api/ ./redirect/click-router-api/
+COPY redirect/click-tracker/ ./redirect/click-tracker/
+COPY redirect/click-aggregator/ ./redirect/click-aggregator/
+COPY redirect/click-aggregator-api/ ./redirect/click-aggregator-api/
+COPY redirect/infra/domains/ ./redirect/infra/domains/
+
+# Copy external salvo dependency
+COPY salvo/ ./salvo/
 
 # Copy data files
-COPY data/ ./data/
+COPY redirect/data/ ./redirect/data/
 
-# Build the application
+# Build the application from the redirect workspace
+WORKDIR /app/redirect
 RUN cargo build --release -p click-router
 
 # Runtime stage
@@ -43,9 +50,9 @@ RUN useradd -r -s /bin/false shortas
 WORKDIR /app
 
 # Copy binary and config from builder
-COPY --from=builder /app/target/release/click-router /app/
-COPY --from=builder /app/click-router/config/ ./config/
-COPY --from=builder /app/data/ ./data/
+COPY --from=builder /app/redirect/target/release/click-router /app/
+COPY --from=builder /app/redirect/click-router/config/ ./config/
+COPY --from=builder /app/redirect/data/ ./data/
 
 # Change ownership
 RUN chown -R shortas:shortas /app

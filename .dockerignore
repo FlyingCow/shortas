@@ -1,0 +1,51 @@
+# Git
+**/.git
+**/.gitignore
+
+# Rust build artifacts
+**/target/
+**/*.rs.bk
+
+# IDE
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+
+# OS
+**/.DS_Store
+**/Thumbs.db
+
+# Documentation
+**/*.md
+**/docs/
+
+# Logs
+**/*.log
+**/logs/
+
+# Temporary files
+**/tmp/
+**/temp/
+**/*.tmp
+
+# Environment files
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Test files (benches needed for Cargo.toml parsing)
+**/tests/
+
+# Coverage and profiling
+**/coverage/
+**/*.gcov
+**/*.gcno
+**/*.gcda
+**/*.prof
+**/perf.data*
+
+# Docker files (not needed inside build)
+**/Dockerfile*
+**/docker-compose*.yml
+**/.dockerignore
