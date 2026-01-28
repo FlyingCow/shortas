@@ -46,6 +46,22 @@ services:
     networks:
       - shortas-net
 
+  minio:
+    image: minio/minio:latest
+    container_name: shortas-minio
+    restart: unless-stopped
+    ports:
+      - "9002:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - shortas-net
+
   # Fluvio streaming
   sc:
     image: infinyon/fluvio:stable
@@ -209,6 +225,43 @@ services:
     networks:
       - shortas-net
 
+  clickhouse-migrations:
+    image: alpine:latest
+    container_name: shortas-clickhouse-migrations
+    depends_on:
+      clickhouse:
+        condition: service_started
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=clickhouse
+      - CLICKHOUSE_DATABASE=shortas
+    volumes:
+      - ./click-aggregator-api/migrations:/app/migrations:ro
+      - ./click-aggregator-api/scripts:/app/scripts:ro
+    working_dir: /app
+    command:
+      - /bin/sh
+      - -c
+      - |
+        apk add --no-cache curl bash
+        echo "Waiting for ClickHouse to be ready..."
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+          if curl -s "http://clickhouse:8123/ping" | grep -q "Ok"; then
+            echo "ClickHouse is ready"
+            break
+          fi
+          echo "Attempt $$i: ClickHouse not ready, retrying in 3s..."
+          sleep 3
+        done
+        echo "Creating database if not exists..."
+        curl -s "http://clickhouse:8123/?user=default&password=clickhouse" --data-binary "CREATE DATABASE IF NOT EXISTS shortas"
+        echo "Running migrations..."
+        cd /app/scripts && bash apply_migrations.sh
+    networks:
+      - shortas-net
+
   click-aggregator-api:
     build:
       context: ..
@@ -221,7 +274,8 @@ services:
       - RUST_LOG=info
       - APP_RUN_MODE=production
     depends_on:
-      - clickhouse
+      clickhouse-migrations:
+        condition: service_completed_successfully
     networks:
       - shortas-net
 
@@ -245,6 +299,8 @@ volumes:
   clickhouse_data:
     driver: local
   redis_data:
+    driver: local
+  minio_data:
     driver: local
   sc-metadata:
   spu-data:

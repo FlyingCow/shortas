@@ -109,6 +109,26 @@ else
 fi
 echo ""
 
+# Apply migration 003
+echo -e "${BLUE}Applying migration 003: Create conversions tables...${NC}"
+if execute_file_statements "${MIGRATION_DIR}/003_create_conversions_tables.sql" "Create conversions tables"; then
+    echo -e "${GREEN}✓ Migration 003 applied${NC}"
+else
+    echo -e "${RED}✗ Migration 003 failed${NC}"
+    exit 1
+fi
+echo ""
+
+# Apply migration 004
+echo -e "${BLUE}Applying migration 004: Create conversion materialized views...${NC}"
+if execute_file_statements "${MIGRATION_DIR}/004_create_conversion_materialized_views.sql" "Create conversion materialized views"; then
+    echo -e "${GREEN}✓ Migration 004 applied${NC}"
+else
+    echo -e "${RED}✗ Migration 004 failed${NC}"
+    exit 1
+fi
+echo ""
+
 echo "========================================"
 echo -e "${GREEN}All migrations applied successfully!${NC}"
 echo "========================================"
