@@ -31,6 +31,10 @@ services:
       CLICKHOUSE_PASSWORD: clickhouse
     volumes:
       - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/config.d/storage.xml:/etc/clickhouse-server/config.d/storage.xml:ro
+    depends_on:
+      minio-setup:
+        condition: service_completed_successfully
     networks:
       - shortas-net
 
@@ -59,6 +63,25 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
+    networks:
+      - shortas-net
+
+  minio-setup:
+    image: minio/mc:latest
+    container_name: shortas-minio-setup
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+        echo 'Waiting for MinIO to be ready...'
+        until mc alias set myminio http://minio:9000 minioadmin minioadmin; do
+          echo 'MinIO not ready, retrying in 2s...'
+          sleep 2
+        done
+        echo 'Creating clickhouse bucket...'
+        mc mb myminio/clickhouse --ignore-existing
+        echo 'MinIO setup complete'
+      "
     networks:
       - shortas-net
 

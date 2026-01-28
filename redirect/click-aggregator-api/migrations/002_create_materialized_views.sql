@@ -8,6 +8,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS click_stream_hourly_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(hour)
 ORDER BY (owner_id, route_id, hour, country, device_family, user_agent_family)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -42,6 +43,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS click_stream_daily_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -69,6 +71,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS click_stream_geographic_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date, country, location)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -100,6 +103,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS click_stream_device_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date, device_family, os_family)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -134,6 +138,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS click_stream_browser_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date, user_agent_family)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -162,6 +167,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS click_stream_route_performance_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -193,6 +199,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS click_stream_owner_workspace_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, workspace_id, date)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -219,6 +226,7 @@ ENGINE = AggregatingMergeTree()
 PARTITION BY toYYYYMMDD(created)
 ORDER BY (owner_id, route_id, toStartOfMinute(created))
 TTL created + INTERVAL 7 DAY
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     route_id,
@@ -239,6 +247,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS click_stream_top_destinations_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date, dest)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -264,6 +273,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS click_stream_traffic_type_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(hour)
 ORDER BY (owner_id, route_id, hour, is_bot)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -289,6 +299,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS click_stream_session_mv
 ENGINE = AggregatingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -315,6 +326,7 @@ ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMMDD(minute)
 ORDER BY (owner_id, route_id, minute)
 TTL minute + INTERVAL 24 HOUR
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,

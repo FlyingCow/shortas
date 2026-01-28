@@ -43,4 +43,5 @@ CREATE TABLE IF NOT EXISTS click_stream (
     is_unique UInt8,
     is_bot UInt8
 ) ENGINE = MergeTree()
-ORDER BY id;
+ORDER BY id
+SETTINGS storage_policy = 's3_main';

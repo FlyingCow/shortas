@@ -7,6 +7,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS conversion_rates_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date, conversion_type)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -39,6 +40,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS conversion_attribution_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date, attribution_type)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     route_id,
@@ -67,6 +69,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS conversion_funnels_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, funnel_name, date, step_position)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     workspace_id,
@@ -95,6 +98,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS conversion_revenue_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -123,6 +127,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS conversion_geographic_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date, country)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -156,6 +161,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS conversion_device_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date, device_family)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -196,6 +202,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS conversion_hourly_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(hour)
 ORDER BY (owner_id, route_id, hour, conversion_type)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,
@@ -222,6 +229,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS conversion_goals_performance_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date, goal_name)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     cg.owner_id,
     cg.workspace_id,
@@ -260,6 +268,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS conversion_multi_touch_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(date)
 ORDER BY (owner_id, route_id, date, attribution_position)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     route_id,
@@ -286,6 +295,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS conversion_cohort_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(cohort_date)
 ORDER BY (owner_id, route_id, cohort_date, conversion_date)
+SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
     creator_id,

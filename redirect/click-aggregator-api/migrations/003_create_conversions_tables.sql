@@ -57,7 +57,8 @@ CREATE TABLE IF NOT EXISTS conversions (
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(created)
 ORDER BY (owner_id, route_id, created, conversion_type)
-TTL created + INTERVAL 2 YEAR;
+TTL created + INTERVAL 2 YEAR
+SETTINGS storage_policy = 's3_main';
 
 -- 2. Conversion Attribution Table
 -- Links conversions to their originating clicks for detailed attribution analysis
@@ -93,7 +94,8 @@ CREATE TABLE IF NOT EXISTS conversion_attribution (
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(conversion_created)
 ORDER BY (owner_id, route_id, conversion_created, attribution_position)
-TTL conversion_created + INTERVAL 2 YEAR;
+TTL conversion_created + INTERVAL 2 YEAR
+SETTINGS storage_policy = 's3_main';
 
 -- 3. Conversion Funnels Table
 -- Tracks multi-step conversion processes
@@ -130,7 +132,8 @@ CREATE TABLE IF NOT EXISTS conversion_funnels (
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(step_created)
 ORDER BY (owner_id, funnel_name, user_id, step_position)
-TTL step_created + INTERVAL 1 YEAR;
+TTL step_created + INTERVAL 1 YEAR
+SETTINGS storage_policy = 's3_main';
 
 -- 4. Conversion Goals Table
 -- Defines conversion goals and targets for routes
@@ -160,4 +163,5 @@ CREATE TABLE IF NOT EXISTS conversion_goals (
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(created)
 ORDER BY (owner_id, route_id, goal_name)
-TTL created + INTERVAL 1 YEAR;
+TTL created + INTERVAL 1 YEAR
+SETTINGS storage_policy = 's3_main';
