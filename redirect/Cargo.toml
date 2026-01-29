@@ -16,7 +16,7 @@ authors = ["Max Cechina <max@cechina.tech>"]
 license = "MIT"
 repository = "https://github.com/FlyingCow/shortas"
 homepage = "https://shortas.com"
-documentation = "https://shortas.tech/"
+documentation = "https://shortas.work/"
 
 [workspace.dependencies]
 # Core async runtime and utilities

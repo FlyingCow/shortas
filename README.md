@@ -147,7 +147,7 @@ make format           Run cargo fmt
 
 ## Documentation
 
-Full documentation is hosted at [shortas.tech](https://shortas.tech/) and built with Jekyll from the `docs/` directory.
+Full documentation is hosted at [shortas.work](https://shortas.work/) and built with Jekyll from the `docs/` directory.
 
 ## License
 

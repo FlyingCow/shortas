@@ -26,4 +26,4 @@ MIT — see [LICENSE](https://github.com/FlyingCow/shortas/blob/main/LICENSE) fo
 ## Links
 
 - [GitHub Repository](https://github.com/FlyingCow/shortas)
-- [Documentation](https://shortas.tech/)
+- [Documentation](https://shortas.work/)
