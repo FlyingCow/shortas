@@ -1,4 +1,9 @@
 version: "3.8"
+include:
+  - ../../redirect/docker-compose.yml
+  - ../../api/docker-compose.yml
+  - ../../ui/docker-compose.yml
+
 networks:
   base-net:
     driver: bridge

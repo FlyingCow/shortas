@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  postgres:
+  shortas-api-postgres:
     image: postgres:15-alpine
-    container_name: shortas-postgres
+    container_name: shortas-api-postgres
     environment:
       POSTGRES_DB: shortas_dev_db
       POSTGRES_USER: shortas_user
@@ -18,7 +18,39 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - shortas-net
+
+  shortas-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shortas-api
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8090
+      - ApiSettings__ClickRouterApi__BaseUrl=http://click-router-api:8080
+      - ApiSettings__ClickAggregatorApi__BaseUrl=http://click-aggregator-api:8080
+      - Keycloak__Authority=http://keycloak:8080/realms/shortas-dev
+      - Keycloak__Audience=shortas-api
+      - Keycloak__RequireHttpsMetadata=false
+      - ConnectionStrings__DefaultConnection=Host=shortas-api-postgres;Database=shortas_dev_db;Username=shortas_user;Password=shortas_password;Port=5432
+    depends_on:
+      shortas-api-postgres:
+        condition: service_healthy
+    networks:
+      - shortas-net
+    volumes:
+      - ./logs:/app/logs
+
+networks:
+  shortas-net:
 
 volumes:
   postgres_data:
+  shortas-net:
+    external: true
 
