@@ -5,7 +5,7 @@ use click_router::{
     },
     adapters::{RequestType, ResponseType},
 };
-use salvo::{prelude::*, Server, TcpListener};
+use salvo::{prelude::*, Server};
 use std::time::Duration;
 use tokio::time::sleep;
 
