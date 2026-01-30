@@ -1,6 +1,7 @@
 {
   "realm": "shortas-dev",
   "enabled": true,
+  "loginTheme": "shortas",
   "sslRequired": "none",
   "registrationAllowed": true,
   "registrationEmailAsUsername": true,
