@@ -3,7 +3,7 @@ import { getToken, updateToken, isAuthenticated, isInitialized } from '../config
 import { useMockData, mockAnalytics, mockRoutes, mockUserSettings } from '../config/development';
 
 // API base URLs
-const PROXY_API_URL = process.env.REACT_APP_PROXY_API_URL || 'http://localhost:5050';
+const PROXY_API_URL = process.env.REACT_APP_PROXY_API_URL || 'http://localhost:8090';
 const ROUTER_API_URL = `${PROXY_API_URL}/api/v1`;
 const AGGREGATOR_API_URL = `${PROXY_API_URL}/api/aggregator/v1`;
 

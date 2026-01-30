@@ -35,6 +35,12 @@ services:
     depends_on:
       minio-setup:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O /dev/null http://localhost:8123/ping || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
     networks:
       - shortas-net
 
@@ -204,7 +210,7 @@ services:
     container_name: shortas-click-router-api
     restart: unless-stopped
     ports:
-      - "8081:8080"
+      - "5810:5810"
     environment:
       - RUST_LOG=info
       - APP_RUN_MODE=production
@@ -253,7 +259,7 @@ services:
     container_name: shortas-clickhouse-migrations
     depends_on:
       clickhouse:
-        condition: service_started
+        condition: service_healthy
     environment:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_PORT=8123
@@ -270,14 +276,20 @@ services:
       - |
         apk add --no-cache curl bash
         echo "Waiting for ClickHouse to be ready..."
+        READY=0
         for i in 1 2 3 4 5 6 7 8 9 10; do
           if curl -s "http://clickhouse:8123/ping" | grep -q "Ok"; then
             echo "ClickHouse is ready"
+            READY=1
             break
           fi
           echo "Attempt $$i: ClickHouse not ready, retrying in 3s..."
           sleep 3
         done
+        if [ "$$READY" -ne 1 ]; then
+          echo "ClickHouse failed to become ready after 10 attempts"
+          exit 1
+        fi
         echo "Creating database if not exists..."
         curl -s "http://clickhouse:8123/?user=default&password=clickhouse" --data-binary "CREATE DATABASE IF NOT EXISTS shortas"
         echo "Running migrations..."
@@ -292,7 +304,7 @@ services:
     container_name: shortas-click-aggregator-api
     restart: unless-stopped
     ports:
-      - "8082:8080"
+      - "5820:5820"
     environment:
       - RUST_LOG=info
       - APP_RUN_MODE=production

@@ -1,3 +1,9 @@
+[server]
+threads = 8
+listen_os_signals = true
+exit = true
+port = 5820
+
 [clickhouse]
 url = "http://clickhouse:8123"
 user = "default"

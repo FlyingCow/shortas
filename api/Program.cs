@@ -49,7 +49,10 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger"; // Set Swagger UI at /swagger
 });
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // Add CORS
 app.UseCors("DashboardPolicy");
@@ -68,4 +71,4 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.Run("http://localhost:5050");
+app.Run();

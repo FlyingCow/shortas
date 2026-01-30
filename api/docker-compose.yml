@@ -32,8 +32,8 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8090
-      - ApiSettings__ClickRouterApi__BaseUrl=http://click-router-api:8080
-      - ApiSettings__ClickAggregatorApi__BaseUrl=http://click-aggregator-api:8080
+      - ApiSettings__ClickRouterApi__BaseUrl=http://click-router-api:5810
+      - ApiSettings__ClickAggregatorApi__BaseUrl=http://click-aggregator-api:5820
       - Keycloak__Authority=http://keycloak:8080/realms/shortas-dev
       - Keycloak__Audience=shortas-api
       - Keycloak__RequireHttpsMetadata=false

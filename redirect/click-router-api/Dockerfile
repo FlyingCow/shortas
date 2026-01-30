@@ -58,11 +58,11 @@ RUN chown -R shortas:shortas /app
 USER shortas
 
 # Expose port
-EXPOSE 8080
+EXPOSE 5810
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:5810/health || exit 1
 
 # Run the application
 CMD ["./click-router-api", "-r", "production"]
