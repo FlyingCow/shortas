@@ -172,7 +172,7 @@ const Dashboard: React.FC = () => {
   const GENERAL_COLORS = ['var(--primary-500)', 'var(--success-500)', 'var(--warning-500)', 'var(--error-500)', 'var(--primary-600)'];
 
   return (
-    <div className="container" style={{ maxHeight: '100vh', overflow: 'auto' }}>
+    <div className="container">
       {/* Compact Page Header with Inline Controls */}
       <div style={{
         display: 'flex',

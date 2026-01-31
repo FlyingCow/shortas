@@ -153,8 +153,7 @@ const workspaceStyles = `
 }
 
 .workspace-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 .workspace-card-header {
@@ -170,7 +169,7 @@ const workspaceStyles = `
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  background: var(--color-primary);
   border-radius: 12px;
   color: white;
   flex-shrink: 0;
@@ -209,7 +208,7 @@ const workspaceStyles = `
 }
 
 .workspace-type-system {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-primary);
   color: white;
 }
 

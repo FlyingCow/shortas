@@ -1,6 +1,5 @@
 import React from 'react';
-import { Container, Row, Col, Card, Button, Alert, Badge } from 'react-bootstrap';
-import { AlertTriangle, Server, Settings, Database } from 'lucide-react';
+import { AlertTriangle, Server, Settings, Database, RefreshCw } from 'lucide-react';
 import './KeycloakError.css';
 
 interface KeycloakErrorProps {
@@ -72,78 +71,53 @@ const KeycloakError: React.FC<KeycloakErrorProps> = ({ error, onRetry, onEnableM
   };
 
   return (
-    <Container fluid className="vh-100 bg-light d-flex align-items-center justify-content-center">
-      <Row className="w-100 justify-content-center">
-        <Col lg={8} xl={6}>
-          <Card className="shadow">
-            <Card.Body className="p-5">
-              <div className="text-center mb-4">
-                {getIcon()}
-                <h2 className="mt-3">{getTitle()}</h2>
-              </div>
-              
-              <Alert variant="danger" className="mb-4">
-                {error}
-              </Alert>
+    <div className="auth-page">
+      <div className="auth-card" style={{ maxWidth: '600px' }}>
+        <div className="auth-card-body">
+          <div className="error-header">
+            {getIcon()}
+            <h2>{getTitle()}</h2>
+          </div>
 
-              <div className="mb-4">
-                <h5>Solutions:</h5>
-                <ul className="list-unstyled">
-                  {getSolutions().map((solution, index) => (
-                    <li key={index} className="mb-2">
-                      <span className="me-2">💡</span>
-                      {solution}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          <div className="error-message">
+            <p>{error}</p>
+          </div>
 
-              <div className="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
-                <Button variant="primary" onClick={onRetry}>
-                  <AlertTriangle size={16} className="me-2" />
-                  Retry Connection
-                </Button>
-                
-                <Button variant="secondary" onClick={onEnableMockData}>
-                  <Database size={16} className="me-2" />
-                  Use Mock Data Instead
-                </Button>
-              </div>
+          <div className="error-solutions">
+            <h3>Solutions:</h3>
+            <ul>
+              {getSolutions().map((solution, index) => (
+                <li key={index}>{solution}</li>
+              ))}
+            </ul>
+          </div>
 
-              <Row>
-                <Col md={6}>
-                  <Card className="bg-light">
-                    <Card.Body className="p-3">
-                      <h6 className="text-primary mb-2">Quick Test:</h6>
-                      <code className="d-block bg-dark text-light p-2 rounded mb-2">
-                        ./test-keycloak.sh
-                      </code>
-                      <p className="small text-muted mb-0">
-                        Run this script to test your Keycloak setup
-                      </p>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                
-                <Col md={6}>
-                  <Card className="bg-light">
-                    <Card.Body className="p-3">
-                      <h6 className="text-info mb-2">Mock Data Mode:</h6>
-                      <code className="d-block bg-dark text-light p-2 rounded mb-2">
-                        REACT_APP_USE_MOCK_DATA=true
-                      </code>
-                      <p className="small text-muted mb-0">
-                        Add this to .env.local to bypass Keycloak
-                      </p>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+          <div className="error-actions">
+            <button className="btn btn-primary" onClick={onRetry}>
+              <RefreshCw size={16} />
+              Retry Connection
+            </button>
+            <button className="btn btn-outline" onClick={onEnableMockData}>
+              <Database size={16} />
+              Use Mock Data Instead
+            </button>
+          </div>
+
+          <div className="error-help">
+            <div className="help-section">
+              <h4>Quick Test:</h4>
+              <code>./test-keycloak.sh</code>
+              <p>Run this script to test your Keycloak setup</p>
+            </div>
+            <div className="help-section">
+              <h4>Mock Data Mode:</h4>
+              <code>REACT_APP_USE_MOCK_DATA=true</code>
+              <p>Add this to .env.local to bypass Keycloak</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

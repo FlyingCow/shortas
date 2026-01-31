@@ -152,8 +152,7 @@ const domainStyles = `
 }
 
 .domain-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 .domain-card-header {
@@ -169,7 +168,7 @@ const domainStyles = `
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  background: var(--color-primary);
   border-radius: 12px;
   color: white;
   flex-shrink: 0;

@@ -91,20 +91,19 @@ body {
 }
 
 .retry-button {
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 6px;
   padding: 0.75rem 1.5rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease;
   font-size: 0.875rem;
 }
 
 .retry-button:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  background: var(--color-primary-hover);
 }
 
 
@@ -114,20 +113,19 @@ body {
   align-items: center;
   justify-content: center;
   padding: 0.75rem 1.5rem;
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   color: white;
   border-radius: 6px;
   text-decoration: none;
   font-weight: 600;
   font-size: 0.875rem;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease;
   border: none;
   cursor: pointer;
 }
 
 .btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  background: var(--color-primary-hover);
 }
 
 .btn-secondary {
@@ -141,7 +139,7 @@ body {
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  background: var(--color-error);
 }
 
 .card {
@@ -154,8 +152,7 @@ body {
 }
 
 .card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .card-header {
