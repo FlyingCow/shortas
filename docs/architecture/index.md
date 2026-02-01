@@ -43,6 +43,20 @@ Short URL click flow:
               Click Aggregator ──▶ ClickHouse
 ```
 
+```
+Cache invalidation flow:
+
+  Management API ──▶ Click Router API ──▶ MongoDB write
+                                │
+                                ▼
+                          RabbitMQ (fanout)
+                         ╱      │      ╲
+                        ▼       ▼       ▼
+                   Click     Click     Click
+                   Router    Router    Router
+                   (Moka)    (Moka)    (Moka)
+```
+
 ## Services
 
 ### Click Router
@@ -55,6 +69,8 @@ The entry point for all short URL requests. Built on Salvo (a custom fork) runni
 2. **Route lookup** — query MongoDB (with Moka in-memory cache)
 3. **Registration** — emit a click event to `hit-stream-main`
 4. **Result building** — return a redirect response, QR code, proxy, or retarget HTML
+
+Each instance runs a RabbitMQ consumer that listens for cache invalidation messages and evicts stale entries from the Moka cache. If RabbitMQ is unavailable, caches degrade gracefully via TTL expiry.
 
 Supports TLS with dynamic certificate resolution via the Domains service.
 
@@ -75,7 +91,7 @@ Consumes from `click-aggs-main` and batch-inserts events into ClickHouse. ClickH
 
 ### Click Router API
 
-REST API for route management — creating, updating, and deleting short links. Uses MongoDB for storage and Redis for caching. Includes OpenAPI documentation.
+REST API for route management — creating, updating, and deleting short links. Supports lookup by composite key (`switch/domain/path`) and by route ID. Uses MongoDB for storage and Redis for caching. After successful writes, publishes cache invalidation messages to RabbitMQ so all Click Router instances can evict stale Moka cache entries. Includes OpenAPI documentation.
 
 ### Click Aggregator API
 
@@ -97,6 +113,7 @@ Resolves custom domains and serves TLS certificates for the Click Router.
 | MongoDB | Route data | Short URL mappings, routing policies, link metadata |
 | ClickHouse | Analytics | Click events, aggregated metrics, time-series data |
 | Redis | Ephemeral state | Sessions, cache entries |
+| RabbitMQ | Cache invalidation | Route and user settings change events |
 | MinIO | Object storage | ClickHouse data files |
 
 ## Event Streaming
@@ -105,6 +122,15 @@ Fluvio provides the event bus between services:
 
 - **`hit-stream-main`** — raw click events from Click Router to Click Tracker
 - **`click-aggs-main`** — enriched events from Click Tracker to Click Aggregator
+
+## Cache Invalidation
+
+RabbitMQ broadcasts cache invalidation events from Click Router API to all Click Router instances using fanout exchanges:
+
+- **`cache.invalidation.routes`** — route create/update/delete events
+- **`cache.invalidation.user_settings`** — user settings change events
+
+Each Click Router instance binds an exclusive auto-delete queue to each exchange. Messages are non-persistent (delivery mode 1) since cache invalidation is ephemeral — if RabbitMQ restarts, the Moka cache TTL provides eventual consistency.
 
 ## Authentication
 
