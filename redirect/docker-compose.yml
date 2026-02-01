@@ -20,6 +20,22 @@ services:
     networks:
       - shortas-net
 
+  mongo-express:
+    image: mongo-express
+    container_name: mongo-express
+    restart: always
+    ports:
+      - 8081:8081
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://root:example@mongo:27017/
+      ME_CONFIG_BASICAUTH_ENABLED: true
+      ME_CONFIG_BASICAUTH_USERNAME: mongoexpressuser
+      ME_CONFIG_BASICAUTH_PASSWORD: mongoexpresspass
+    depends_on:
+      - mongo
+    networks:
+      - shortas-net
+
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     container_name: shortas-clickhouse
@@ -250,7 +266,7 @@ services:
       clickhouse:
         condition: service_started
       topic-setup:
-        condition: service_started
+        condition: service_completed_successfully
     networks:
       - shortas-net
 

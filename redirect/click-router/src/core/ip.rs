@@ -59,6 +59,7 @@ impl IPExtractor {
     pub fn detect(&self, request: &RequestType, debug: bool) -> Option<IPInfo> {
         if debug {
             if let Some(debug_ip) = get_debug(&request) {
+                tracing::warn!("Debug IP address detected.");
                 let addr = IpAddr::from_str(debug_ip.as_str());
 
                 if let Ok(addr) = addr {

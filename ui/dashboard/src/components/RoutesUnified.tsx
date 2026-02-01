@@ -89,30 +89,20 @@ const Routes: React.FC = () => {
     setShowEditModal(true);
   };
 
-  const handleSaveRoute = async (routeData: any) => {
+  const handleSaveRoute = async (routeData: Partial<RouteDto>) => {
     try {
-      // Strip fields managed by the API
-      const { id, status, terminal, ttl, domain, ...cleanedData } = routeData;
-      if (cleanedData.properties) {
-        const { routeId, ownerId, creatorId, ...restProps } = cleanedData.properties;
-        cleanedData.properties = restProps;
-      }
-
-      if (editingRoute) {
-        if (!editingRoute.id) {
-          alert('Cannot update route: missing ID');
-          return;
-        }
-        await apiService.routes.update(editingRoute.id, cleanedData);
+      // RouteForm already strips API-managed fields and validates
+      if (editingRoute?.id) {
+        await apiService.routes.update(editingRoute.id, routeData);
       } else {
-        await apiService.routes.create(cleanedData);
+        await apiService.routes.create(routeData);
       }
       await fetchRoutes();
       setShowEditModal(false);
       setEditingRoute(null);
     } catch (err) {
       console.error('Failed to save route:', err);
-      alert('Failed to save route. Please try again.');
+      throw err; // Re-throw so RouteForm can show inline error
     }
   };
 

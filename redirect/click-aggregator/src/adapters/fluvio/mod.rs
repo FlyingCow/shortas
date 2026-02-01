@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use flume::Sender;
 use fluvio::{
     consumer::{ConsumerConfigExtBuilder, ConsumerStream, OffsetManagementStrategy},
@@ -7,12 +7,16 @@ use fluvio::{
 use futures::StreamExt;
 use settings::ClickStreamConfig;
 use std::time::Duration;
+use tracing::{info, warn};
 
 use tokio_util::sync::CancellationToken;
 
 use crate::core::{ClickStreamItem, ClickStreamSource};
 
 pub mod settings;
+
+const MAX_CONNECT_RETRIES: u32 = 10;
+const RETRY_DELAY: Duration = Duration::from_secs(3);
 
 pub struct FluvioHitStream {
     settings: ClickStreamConfig,
@@ -32,27 +36,48 @@ impl ClickStreamSource for FluvioHitStream {
     async fn pull(&self, ts: Sender<ClickStreamItem>, token: CancellationToken) -> Result<()> {
         let settings = self.settings.clone();
 
-        let config = ConsumerConfigExtBuilder::default()
-            .topic(settings.topic)
-            .offset_consumer(settings.consumer)
-            .offset_start(Offset::beginning())
-            .offset_strategy(OffsetManagementStrategy::Auto)
-            .offset_flush(Duration::from_millis(10000))
-            .max_bytes(100000000)
-            .build()
-            .expect("Failed to build consumer config");
+        // Retry consumer creation — the topic/partition may not be ready yet
+        let mut stream = None;
+        for attempt in 1..=MAX_CONNECT_RETRIES {
+            let config = ConsumerConfigExtBuilder::default()
+                .topic(settings.topic.clone())
+                .offset_consumer(settings.consumer.clone())
+                .offset_start(Offset::beginning())
+                .offset_strategy(OffsetManagementStrategy::Auto)
+                .offset_flush(Duration::from_millis(10000))
+                .max_bytes(100000000)
+                .build()
+                .context("Failed to build consumer config")?;
 
-        let mut stream = self
-            .fluvio
-            .consumer_with_config(config)
-            .await
-            .expect("Can not create fluvio hits consumer.");
+            match self.fluvio.consumer_with_config(config).await {
+                Ok(s) => {
+                    info!(topic = %settings.topic, "Fluvio consumer connected");
+                    stream = Some(s);
+                    break;
+                }
+                Err(err) => {
+                    if attempt == MAX_CONNECT_RETRIES {
+                        return Err(err).context("Can not create fluvio hits consumer after retries");
+                    }
+                    warn!(
+                        attempt,
+                        max = MAX_CONNECT_RETRIES,
+                        error = %err,
+                        "Fluvio consumer not ready, retrying in {}s...",
+                        RETRY_DELAY.as_secs()
+                    );
+                    tokio::time::sleep(RETRY_DELAY).await;
+                }
+            }
+        }
+
+        let mut stream = stream.expect("unreachable: loop guarantees stream or early return");
 
         while let Some(Ok(record)) = stream.next().await {
             let hit =
-                serde_json::from_slice(record.as_ref()).expect("Can not deserialize hit object.");
+                serde_json::from_slice(record.as_ref()).context("Can not deserialize hit object")?;
 
-            ts.send(hit).expect("Can not re-send a hit to consumer.");
+            ts.send(hit).context("Can not re-send a hit to consumer")?;
 
             if token.is_cancelled() {
                 break;

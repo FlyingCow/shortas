@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, A
 import { apiService, RouteDto, RoutingPolicy, DomainDto } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import WorldMap from './WorldMap';
-import PolicyEditor from './PolicyEditor';
+import RouteForm from './RouteForm';
 import './DesignSystem.css';
 
 const RoutesWithSidebar: React.FC = () => {
@@ -17,8 +17,8 @@ const RoutesWithSidebar: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [workspaceFilter, setWorkspaceFilter] = useState('all');
   const [selectedRoute, setSelectedRoute] = useState<RouteDto | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [editingRoute, setEditingRoute] = useState<RouteDto | null>(null);
-  const [editFormData, setEditFormData] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [timeRange, setTimeRange] = useState('7d');
@@ -91,136 +91,19 @@ const RoutesWithSidebar: React.FC = () => {
     }
   };
 
-  const cleanCondition = (condition: any): any => {
-    if (!condition || typeof condition !== 'object') return condition;
-
-    const cleaned: any = {};
-
-    for (const [key, value] of Object.entries(condition)) {
-      if (value === null || value === undefined) continue;
-
-      if (typeof value === 'object' && !Array.isArray(value)) {
-        // Recursively clean nested objects
-        const cleanedNested: any = {};
-        for (const [nestedKey, nestedValue] of Object.entries(value)) {
-          // Skip empty strings, empty arrays, null, undefined
-          if (nestedValue === null || nestedValue === undefined || nestedValue === '') continue;
-          if (Array.isArray(nestedValue) && nestedValue.length === 0) continue;
-          cleanedNested[nestedKey] = nestedValue;
-        }
-        if (Object.keys(cleanedNested).length > 0) {
-          cleaned[key] = cleanedNested;
-        }
-      } else if (Array.isArray(value)) {
-        if (value.length > 0) {
-          cleaned[key] = value.map((item) =>
-            typeof item === 'object' ? cleanCondition(item) : item
-          );
-        }
-      } else {
-        cleaned[key] = value;
-      }
-    }
-
-    return cleaned;
-  };
-
-  const cleanPolicy = (policy: any): any => {
-    if (!policy || policy === 'Basic' || policy === 'Mirroring') return policy;
-
-    if (typeof policy === 'object' && 'Conditional' in policy) {
-      return {
-        Conditional: (policy.Conditional || []).map((cond: any) => ({
-          key: cond.key,
-          condition: cleanCondition(cond.condition)
-        }))
-      };
-    }
-
-    return policy;
-  };
-
   const handleEditRoute = (route: RouteDto) => {
     setEditingRoute(route);
-    setEditFormData({
-      link: route.link || '',
-      dest: route.dest || '',
-      code: route.code ?? 302,
-      switch: route.switch || 'main',
-      destFormat: route.destFormat || 'Http',
-      policy: cleanPolicy(route.policy) || 'Basic',
-      domainId: route.domainId || route.properties?.domainId || '',
-      properties: { ...route.properties }
-    });
-  };
-
-  const handleSaveRoute = async () => {
-    try {
-      // Validate required fields
-      if (!editFormData.link?.trim()) {
-        alert('Link is required');
-        return;
-      }
-      if (!editFormData.dest?.trim()) {
-        alert('Destination URL is required');
-        return;
-      }
-      if (!editFormData.domainId?.trim()) {
-        alert('Domain is required. Please select a domain.');
-        return;
-      }
-
-      // Strip fields managed by the API
-      const { id, status, terminal, ttl, domain, ...cleanedData } = editFormData as any;
-      if (cleanedData.properties) {
-        const { routeId, ownerId, creatorId, ...restProps } = cleanedData.properties;
-        cleanedData.properties = restProps;
-      }
-
-      if (editingRoute) {
-        if (!editingRoute.id) {
-          alert('Cannot update route: missing ID');
-          return;
-        }
-        await apiService.routes.update(editingRoute.id, cleanedData);
-      } else {
-        await apiService.routes.create(cleanedData);
-      }
-      await fetchRoutes();
-      setEditingRoute(null);
-      setEditFormData(null);
-    } catch (err: any) {
-      console.error('Failed to save route:', err);
-      alert('Failed to save route. Please try again.');
-    }
+    setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
     setEditingRoute(null);
-    setEditFormData(null);
+    setIsEditing(false);
   };
 
   const handleCreateRoute = () => {
     setEditingRoute(null);
-    setEditFormData({
-      link: '',
-      dest: '',
-      code: 302,
-      switch: 'main',
-      destFormat: 'Http',
-      policy: 'Basic',
-      domainId: '',
-      properties: {
-        routeId: '',
-        domainId: '',
-        ownerId: '',
-        scripts: [],
-        tags: [],
-        custom: {},
-        opengraph: false,
-        allowDebug: false
-      }
-    });
+    setIsEditing(true);
   };
 
 
@@ -376,7 +259,7 @@ const RoutesWithSidebar: React.FC = () => {
   }
 
   return (
-    <div className={`routes-with-sidebar ${editFormData ? 'editing' : ''}`}>
+    <div className={`routes-with-sidebar ${isEditing ? 'editing' : ''}`}>
       {/* Sidebar */}
       <div className="routes-sidebar">
         <div className="sidebar-content">
@@ -500,136 +383,28 @@ const RoutesWithSidebar: React.FC = () => {
 
       {/* Main Content */}
       <div className="main-content">
-        {editFormData ? (
-          <div className="route-edit-content">
+        {isEditing ? (
+          <div className="route-edit-content" style={{ padding: '1.5rem' }}>
             <div className="edit-header">
               <h2>{editingRoute ? 'Edit Route' : 'Create New Route'}</h2>
             </div>
-
-            <div className="edit-form">
-              <div className="form-section">
-                <h3>Basic Information</h3>
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Link *</label>
-                    <input
-                      type="text"
-                      value={editFormData.link}
-                      onChange={(e) => setEditFormData({...editFormData, link: e.target.value})}
-                      placeholder="example.com/mylink"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Destination *</label>
-                    <input
-                      type="text"
-                      value={editFormData.dest}
-                      onChange={(e) => setEditFormData({...editFormData, dest: e.target.value})}
-                      placeholder="https://example.com/destination"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Domain *</label>
-                    <select
-                      className="form-dropdown"
-                      value={editFormData.properties?.domainId || ''}
-                      onChange={(e) => setEditFormData({
-                        ...editFormData,
-                        domainId: e.target.value, // Set at top level for C# API
-                        properties: {...editFormData.properties, domainId: e.target.value}
-                      })}
-                      required
-                    >
-                      <option value="">Select a domain...</option>
-                      {domains.map((domain) => (
-                        <option key={domain.id} value={domain.id}>
-                          {domain.name}
-                        </option>
-                      ))}
-                    </select>
-                    <small>Domain is required for all routes</small>
-                  </div>
-                  <div className="form-group">
-                    <label>Workspace *</label>
-                    <select
-                      className="form-dropdown"
-                      value={editFormData.properties?.workspaceId || ''}
-                      onChange={(e) => setEditFormData({
-                        ...editFormData,
-                        properties: {...editFormData.properties, workspaceId: e.target.value}
-                      })}
-                      required
-                      disabled={!!editingRoute}
-                    >
-                      <option value="">Select a workspace...</option>
-                      {workspaces.map((workspace) => (
-                        <option key={workspace.id} value={workspace.id}>
-                          {workspace.name}
-                        </option>
-                      ))}
-                    </select>
-                    <small>{editingRoute ? 'Workspace cannot be changed after creation' : 'Workspace is required and cannot be changed later'}</small>
-                  </div>
-                  <div className="form-group">
-                    <label>Status Code</label>
-                    <select
-                      className="form-dropdown"
-                      value={editFormData.code ?? 302}
-                      onChange={(e) => setEditFormData({...editFormData, code: parseInt(e.target.value)})}
-                    >
-                      <option value={301}>301 - Permanent Redirect</option>
-                      <option value={302}>302 - Temporary Redirect</option>
-                      <option value={307}>307 - Temporary Redirect (Preserve Method)</option>
-                      <option value={308}>308 - Permanent Redirect (Preserve Method)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="form-section">
-                <PolicyEditor
-                  policy={editFormData.policy}
-                  onChange={(policy) => setEditFormData({...editFormData, policy})}
-                />
-              </div>
-
-              <div className="form-section">
-                <h3>Properties</h3>
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Tags (comma-separated)</label>
-                    <input
-                      type="text"
-                      value={editFormData.properties?.tags?.join(', ') || ''}
-                      onChange={(e) => setEditFormData({
-                        ...editFormData,
-                        properties: {
-                          ...editFormData.properties,
-                          tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-                        }
-                      })}
-                      placeholder="marketing, campaign, promo"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Form Actions */}
-            <div className="edit-actions">
-              <button 
-                className="btn btn-outline"
-                onClick={handleCancelEdit}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn btn-primary"
-                onClick={handleSaveRoute}
-              >
-                Save Route
-              </button>
-            </div>
+            <RouteForm
+              route={editingRoute}
+              domains={domains}
+              workspaces={workspaces}
+              showWorkspace
+              onSave={async (data) => {
+                if (editingRoute?.id) {
+                  await apiService.routes.update(editingRoute.id, data);
+                } else {
+                  await apiService.routes.create(data);
+                }
+                await fetchRoutes();
+                setEditingRoute(null);
+                setIsEditing(false);
+              }}
+              onCancel={handleCancelEdit}
+            />
           </div>
         ) : selectedRoute ? (
           <div className="analytics-content">
