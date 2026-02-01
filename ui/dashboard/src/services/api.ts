@@ -25,24 +25,28 @@ const createApiInstance = (baseURL: string): AxiosInstance => {
         if (!isInitialized()) {
           return Promise.reject(new Error('Keycloak not initialized'));
         }
-        
+
         if (!isAuthenticated()) {
           return Promise.reject(new Error('User not authenticated'));
         }
-        
+
         const token = getToken();
         if (!token) {
           return Promise.reject(new Error('No authentication token available'));
         }
-        
-        // Ensure token is valid (refresh if needed)
-        await updateToken(30);
-        const refreshedToken = getToken();
-        if (refreshedToken) {
-          config.headers.Authorization = `Bearer ${refreshedToken}`;
+
+        // Try to refresh the token, but fall back to the current token if refresh fails
+        try {
+          await updateToken(30);
+        } catch {
+          // Token refresh failed (e.g. Keycloak unreachable) — use existing token
+        }
+        const currentToken = getToken();
+        if (currentToken) {
+          config.headers.Authorization = `Bearer ${currentToken}`;
         }
       } catch (error) {
-        console.error('Failed to update token:', error);
+        console.error('Failed to set auth token:', error);
         return Promise.reject(error);
       }
       return config;
