@@ -69,8 +69,9 @@ impl UserSettingsCache for MokaUserSettingsCache {
         Ok(cache_result.value)
     }
 
-    async fn invalidate(&self, server_name: &str) -> Result<()> {
-        self.cache.invalidate(server_name).await;
+    async fn invalidate(&self, user_id: &str) -> Result<()> {
+        let key = get_key(user_id);
+        self.cache.invalidate(&key).await;
 
         Ok(())
     }

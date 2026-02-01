@@ -107,6 +107,27 @@ services:
     networks:
       - shortas-net
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: shortas-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - shortas-net
+
   # Fluvio streaming
   sc:
     image: infinyon/fluvio:stable
@@ -216,6 +237,8 @@ services:
         condition: service_started
       domains:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - shortas-net
 
@@ -231,8 +254,12 @@ services:
       - RUST_LOG=info
       - APP_RUN_MODE=production
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - shortas-net
 
@@ -352,6 +379,8 @@ volumes:
   redis_data:
     driver: local
   minio_data:
+    driver: local
+  rabbitmq_data:
     driver: local
   sc-metadata:
   spu-data:

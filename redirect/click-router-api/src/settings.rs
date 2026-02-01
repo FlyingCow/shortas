@@ -1,7 +1,11 @@
 use config::{Config, ConfigError, Environment, File};
 use serde_derive::Deserialize;
 
-use crate::adapters::{aws::aws_settings::AWS, mongodb::settings::Mongodb};
+use crate::adapters::{
+    aws::aws_settings::AWS,
+    mongodb::settings::Mongodb,
+    rabbitmq::settings::RabbitMqSettings,
+};
 
 #[derive(Debug, Deserialize, Clone)]
 #[allow(unused)]
@@ -18,6 +22,7 @@ pub struct Settings {
     pub aws: AWS,
     pub mongodb: Mongodb,
     pub server: Server,
+    pub rabbitmq: Option<RabbitMqSettings>,
 }
 const DEV_RUN_MODE: &str = "development";
 

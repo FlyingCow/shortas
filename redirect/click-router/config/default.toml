@@ -57,6 +57,12 @@ mmdb = "../data/geo-ip/GeoLite2-Country.mmdb"
 not_found_url = "http://domains:5801/404/{}"
 index_url = "http://domains:5801/index/{}"
 
+[rabbitmq]
+uri = "amqp://guest:guest@rabbitmq:5672/%2f"
+route_exchange = "cache.invalidation.routes"
+user_settings_exchange = "cache.invalidation.user_settings"
+reconnect_seconds = 5
+
 [server]
 threads = 8
 listen_os_signals = true

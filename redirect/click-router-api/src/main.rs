@@ -48,6 +48,8 @@ async fn main() -> Result<()> {
     AppBuilder::new(settings)
         .with_mongodb()
         .await
+        .with_rabbitmq()
+        .await
         .build()?
         .run()
         .await?;

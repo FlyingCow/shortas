@@ -115,6 +115,30 @@ impl RoutesStore for MongodbRoutesStore {
         }
     }
 
+    async fn get_route_by_route_id(&self, route_id: &str) -> Result<Option<Route>> {
+        let filter = doc! { "properties.route_id": route_id };
+
+        match self.collection.find_one(filter).await? {
+            Some(doc) => {
+                let route = Route {
+                    switch: doc.switch.clone(),
+                    link: doc.link.clone(),
+                    dest: doc.dest.clone(),
+                    dest_format: doc.dest_format.clone(),
+                    code: doc.code,
+                    ttl: doc.ttl,
+                    status: doc.status.clone(),
+                    terminal: doc.terminal.clone(),
+                    policy: doc.policy.clone(),
+                    properties: doc.properties.clone(),
+                    ..Default::default()
+                };
+                Ok(Some(route))
+            }
+            None => Ok(None),
+        }
+    }
+
     async fn invalidate_route(&self, _switch: &str, _link: &str) -> Result<()> {
         // MongoDB doesn't need explicit invalidation like DynamoDB
         Ok(())

@@ -25,6 +25,7 @@ use crate::{
             crypto_store::MongodbCryptoStore, routes_store::MongodbRoutesStore, settings::Mongodb,
             user_settings_store::MongodbUserSettingsStore,
         },
+        rabbitmq::consumer::start_cache_invalidation_consumer,
         uaparser::user_agent_detector::UAParserUserAgentDetector,
         CryptoCacheType, CryptoStoreType, HitRegistrarType, LocationDetectorType, RoutesCacheType,
         RoutesStoreType, UserAgentDetectorType, UserSettingsCacheType, UserSettingsStoreType,
@@ -216,6 +217,27 @@ impl AppBuilder {
         self.user_settings_cache = Some(user_settings_cache);
         self.qr_code_cache = Some(qr_code_cache);
 
+        self
+    }
+
+    pub fn with_rabbitmq(self) -> Self {
+        if let Some(ref rmq_settings) = self.settings.rabbitmq {
+            if let (Some(ref routes_cache), Some(ref user_settings_cache)) =
+                (&self.routes_cache, &self.user_settings_cache)
+            {
+                start_cache_invalidation_consumer(
+                    rmq_settings.clone(),
+                    routes_cache.clone(),
+                    user_settings_cache.clone(),
+                );
+            } else {
+                tracing::warn!(
+                    "RabbitMQ consumer requires caches to be initialized first, skipping"
+                );
+            }
+        } else {
+            tracing::info!("RabbitMQ settings not configured, skipping consumer");
+        }
         self
     }
 

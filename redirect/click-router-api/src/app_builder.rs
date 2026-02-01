@@ -1,9 +1,10 @@
 use anyhow::Result;
 use salvo::prelude::*;
 use std::sync::Arc;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::adapters;
+use crate::adapters::rabbitmq::publisher::RabbitMqPublisher;
 use crate::core::{CryptoStore, RoutesStore, UserSettingsStore};
 use crate::settings::Server as ServerSettings;
 use crate::{adapters::api::app_state::AppState, settings::Settings};
@@ -15,6 +16,7 @@ pub struct AppBuilder {
     pub(super) routes_store: Option<Box<dyn RoutesStore + Send + Sync + 'static>>,
     pub(super) crypto_store: Option<Box<dyn CryptoStore + Send + Sync + 'static>>,
     pub(super) user_settings_store: Option<Box<dyn UserSettingsStore + Send + Sync + 'static>>,
+    pub(super) rabbitmq_publisher: Option<RabbitMqPublisher>,
 }
 
 #[derive(Clone)]
@@ -29,9 +31,10 @@ impl Api {
         routes_store: Box<dyn RoutesStore + Send + Sync>,
         crypto_store: Box<dyn CryptoStore + Send + Sync>,
         user_settings_store: Box<dyn UserSettingsStore + Send + Sync>,
+        rabbitmq_publisher: Option<RabbitMqPublisher>,
     ) -> Self {
         Api {
-            api_pool: AppState::new(routes_store, crypto_store, user_settings_store),
+            api_pool: AppState::new(routes_store, crypto_store, user_settings_store, rabbitmq_publisher),
             settings,
         }
     }
@@ -104,7 +107,24 @@ impl AppBuilder {
             routes_store: None,
             crypto_store: None,
             user_settings_store: None,
+            rabbitmq_publisher: None,
         }
+    }
+
+    pub async fn with_rabbitmq(&mut self) -> &mut Self {
+        if let Some(ref rmq_settings) = self.settings.rabbitmq {
+            match RabbitMqPublisher::new(rmq_settings).await {
+                Ok(publisher) => {
+                    self.rabbitmq_publisher = Some(publisher);
+                }
+                Err(e) => {
+                    warn!("Failed to connect to RabbitMQ, continuing without publisher: {}", e);
+                }
+            }
+        } else {
+            info!("RabbitMQ settings not configured, skipping publisher");
+        }
+        self
     }
 
     pub fn build(&self) -> Result<Api> {
@@ -115,6 +135,7 @@ impl AppBuilder {
             self.routes_store.clone().unwrap(),
             self.crypto_store.clone().unwrap(),
             self.user_settings_store.clone().unwrap(),
+            self.rabbitmq_publisher.clone(),
         );
 
         Ok(router)

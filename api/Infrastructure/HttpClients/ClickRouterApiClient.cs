@@ -30,14 +30,19 @@ public class ClickRouterApiClient
 
     /// <summary>
     /// Get route by ID from Click Router API
-    /// NOTE: This endpoint is not available in the Rust Click Router API.
-    /// Use GetRouteAsync with domain/path instead.
     /// </summary>
-    [Obsolete("The Click Router API does not support getting routes by ID. Use GetRouteAsync instead.")]
-    public Task<Result<RouteDto?>> GetRouteByIdAsync(Guid id, string userId)
+    public async Task<Result<RouteDto?>> GetRouteByIdAsync(Guid id, string userId)
     {
-        _logger.LogWarning("GetRouteByIdAsync is not supported by Click Router API. Use GetRouteAsync with domain/path instead.");
-        return Task.FromResult(Result<RouteDto?>.Failure("NOT_SUPPORTED", "Getting routes by ID is not supported. Use domain/path instead."));
+        try
+        {
+            var response = await _httpClient.GetAsync($"/v1/routes/{id}");
+            return await HandleResponse<RouteDto, ClickRouterRouteDto>(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get route by ID {RouteId}", id);
+            return Result<RouteDto?>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+        }
     }
 
     /// <summary>
@@ -73,26 +78,40 @@ public class ClickRouterApiClient
 
     /// <summary>
     /// Update route by ID via Click Router API
-    /// NOTE: This endpoint is not available in the Rust Click Router API.
-    /// Use UpdateRouteAsync with domain/path instead.
     /// </summary>
-    [Obsolete("The Click Router API does not support updating routes by ID. Use UpdateRouteAsync instead.")]
-    public Task<Result<RouteDto>> UpdateRouteByIdAsync(Guid id, string userId, RouteDto route)
+    public async Task<Result<RouteDto>> UpdateRouteByIdAsync(Guid id, string userId, RouteDto route)
     {
-        _logger.LogWarning("UpdateRouteByIdAsync is not supported by Click Router API. Use UpdateRouteAsync with domain/path instead.");
-        return Task.FromResult(Result<RouteDto>.Failure("NOT_SUPPORTED", "Updating routes by ID is not supported. Use domain/path instead."));
+        try
+        {
+            var apiDto = ClickRouterRouteDto.FromDto(route);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PutAsync($"/v1/routes/{id}", content);
+            return await HandleResponse<RouteDto, ClickRouterRouteDto>(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update route by ID {RouteId}", id);
+            return Result<RouteDto>.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+        }
     }
 
     /// <summary>
     /// Delete route by ID via Click Router API
-    /// NOTE: This endpoint is not available in the Rust Click Router API.
-    /// Use DeleteRouteAsync with domain/path instead.
     /// </summary>
-    [Obsolete("The Click Router API does not support deleting routes by ID. Use DeleteRouteAsync instead.")]
-    public Task<Result> DeleteRouteByIdAsync(Guid id, string userId)
+    public async Task<Result> DeleteRouteByIdAsync(Guid id, string userId)
     {
-        _logger.LogWarning("DeleteRouteByIdAsync is not supported by Click Router API. Use DeleteRouteAsync with domain/path instead.");
-        return Task.FromResult(Result.Failure("NOT_SUPPORTED", "Deleting routes by ID is not supported. Use domain/path instead."));
+        try
+        {
+            var response = await _httpClient.DeleteAsync($"/v1/routes/{id}");
+            return await HandleResponse(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete route by ID {RouteId}", id);
+            return Result.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+        }
     }
 
     /// <summary>

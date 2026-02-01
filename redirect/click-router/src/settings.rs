@@ -6,6 +6,7 @@ use crate::adapters::fluvio::settings::Fluvio;
 use crate::adapters::geo_ip::settings::GeoIP;
 use crate::adapters::moka::settings::Moka;
 use crate::adapters::mongodb::settings::Mongodb;
+use crate::adapters::rabbitmq::settings::RabbitMqSettings;
 use crate::adapters::uaparser::settings::UAParser;
 #[derive(Default, Debug, Deserialize, Clone)]
 #[allow(unused)]
@@ -31,6 +32,7 @@ pub struct Settings {
     pub geo_ip: GeoIP,
     pub server: Server,
     pub redirect: Redirect,
+    pub rabbitmq: Option<RabbitMqSettings>,
 }
 const DEV_RUN_MODE: &'static str = "development";
 

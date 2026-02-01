@@ -46,6 +46,7 @@ pub mod geo_ip;
 pub mod memory;
 pub mod moka;
 pub mod mongodb;
+pub mod rabbitmq;
 pub mod rdkafka;
 pub mod salvo;
 pub mod uaparser;

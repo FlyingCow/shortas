@@ -244,6 +244,7 @@ async fn main() {
         .await
         .with_mongodb()
         .await
+        .with_rabbitmq()
         //.with_dynamo()
         // .await
         .with_default_modules()

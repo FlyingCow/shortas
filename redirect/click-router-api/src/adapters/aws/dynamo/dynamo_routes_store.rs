@@ -66,7 +66,12 @@ impl RoutesStore for DynamoRoutesStore {
         todo!()
     }
 
-    async fn invalidate_route(&self, _switch: &str, link: &str) -> Result<()> {
+    async fn get_route_by_route_id(&self, _route_id: &str) -> Result<Option<Route>> {
+        // DynamoDB uses composite key (switch, link); route_id lookup requires a GSI
+        Ok(None)
+    }
+
+    async fn invalidate_route(&self, _switch: &str, _link: &str) -> Result<()> {
         todo!()
     }
 

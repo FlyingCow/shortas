@@ -14,6 +14,11 @@ routes_collection = "routes"
 crypto_collection = "crypto"
 user_settings_collection = "user_settings"
 
+[rabbitmq]
+uri = "amqp://guest:guest@rabbitmq:5672/%2f"
+route_exchange = "cache.invalidation.routes"
+user_settings_exchange = "cache.invalidation.user_settings"
+
 [server]
 threads = 8
 listen_os_signals = true
