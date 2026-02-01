@@ -91,16 +91,21 @@ const Routes: React.FC = () => {
 
   const handleSaveRoute = async (routeData: any) => {
     try {
+      // Strip fields managed by the API
+      const { id, status, terminal, ttl, domain, ...cleanedData } = routeData;
+      if (cleanedData.properties) {
+        const { routeId, ownerId, creatorId, ...restProps } = cleanedData.properties;
+        cleanedData.properties = restProps;
+      }
+
       if (editingRoute) {
-        // Update existing route
         if (!editingRoute.id) {
           alert('Cannot update route: missing ID');
           return;
         }
-        await apiService.routes.update(editingRoute.id, routeData);
+        await apiService.routes.update(editingRoute.id, cleanedData);
       } else {
-        // Create new route
-        await apiService.routes.create(routeData);
+        await apiService.routes.create(cleanedData);
       }
       await fetchRoutes();
       setShowEditModal(false);

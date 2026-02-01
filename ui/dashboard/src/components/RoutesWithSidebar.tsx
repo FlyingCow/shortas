@@ -146,13 +146,10 @@ const RoutesWithSidebar: React.FC = () => {
       link: route.link || '',
       dest: route.dest || '',
       code: route.code ?? 302,
-      status: route.status || 'Active',
       switch: route.switch || 'main',
       destFormat: route.destFormat || 'Http',
-      ttl: route.ttl ?? 0,
-      terminal: route.terminal || 'External',
       policy: cleanPolicy(route.policy) || 'Basic',
-      domainId: route.domainId || route.properties?.domainId || '', // Include top-level domainId
+      domainId: route.domainId || route.properties?.domainId || '',
       properties: { ...route.properties }
     });
   };
@@ -173,14 +170,21 @@ const RoutesWithSidebar: React.FC = () => {
         return;
       }
 
+      // Strip fields managed by the API
+      const { id, status, terminal, ttl, domain, ...cleanedData } = editFormData as any;
+      if (cleanedData.properties) {
+        const { routeId, ownerId, creatorId, ...restProps } = cleanedData.properties;
+        cleanedData.properties = restProps;
+      }
+
       if (editingRoute) {
         if (!editingRoute.id) {
           alert('Cannot update route: missing ID');
           return;
         }
-        await apiService.routes.update(editingRoute.id, editFormData);
+        await apiService.routes.update(editingRoute.id, cleanedData);
       } else {
-        await apiService.routes.create(editFormData);
+        await apiService.routes.create(cleanedData);
       }
       await fetchRoutes();
       setEditingRoute(null);
@@ -202,13 +206,10 @@ const RoutesWithSidebar: React.FC = () => {
       link: '',
       dest: '',
       code: 302,
-      status: 'Active',
       switch: 'main',
       destFormat: 'Http',
-      ttl: 0,
-      terminal: 'External',
       policy: 'Basic',
-      domainId: '', // Initialize top-level domainId
+      domainId: '',
       properties: {
         routeId: '',
         domainId: '',
@@ -582,38 +583,6 @@ const RoutesWithSidebar: React.FC = () => {
                       <option value={308}>308 - Permanent Redirect (Preserve Method)</option>
                     </select>
                   </div>
-                  <div className="form-group">
-                    <label>Status</label>
-                    <select
-                      className="form-dropdown"
-                      value={editFormData.status || 'Active'}
-                      onChange={(e) => setEditFormData({...editFormData, status: e.target.value})}
-                    >
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                      <option value="Pending">Pending</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>TTL (seconds)</label>
-                    <input
-                      type="number"
-                      value={editFormData.ttl ?? 0}
-                      onChange={(e) => setEditFormData({...editFormData, ttl: parseInt(e.target.value)})}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Terminal</label>
-                    <select
-                      className="form-dropdown"
-                      value={editFormData.terminal || 'External'}
-                      onChange={(e) => setEditFormData({...editFormData, terminal: e.target.value})}
-                    >
-                      <option value="External">External</option>
-                      <option value="Internal">Internal</option>
-                    </select>
-                  </div>
                 </div>
               </div>
 
@@ -627,18 +596,6 @@ const RoutesWithSidebar: React.FC = () => {
               <div className="form-section">
                 <h3>Properties</h3>
                 <div className="form-grid">
-                  <div className="form-group">
-                    <label>Route ID</label>
-                    <input
-                      type="text"
-                      value={editFormData.properties?.routeId || ''}
-                      onChange={(e) => setEditFormData({
-                        ...editFormData,
-                        properties: {...editFormData.properties, routeId: e.target.value}
-                      })}
-                      placeholder="my-route-001"
-                    />
-                  </div>
                   <div className="form-group">
                     <label>Tags (comma-separated)</label>
                     <input

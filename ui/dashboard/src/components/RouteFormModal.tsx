@@ -11,6 +11,22 @@ interface RouteFormModalProps {
   route?: RouteDto | null;
 }
 
+// Fields managed by the API — never sent on create/update
+const API_MANAGED_FIELDS = ['id', 'status', 'terminal', 'ttl', 'domain'] as const;
+
+const stripApiManagedFields = (data: Partial<RouteDto>): Partial<RouteDto> => {
+  const cleaned = { ...data };
+  for (const key of API_MANAGED_FIELDS) {
+    delete (cleaned as any)[key];
+  }
+  // Strip routeId from properties — API generates it
+  if (cleaned.properties) {
+    const { routeId, ownerId, creatorId, ...restProps } = cleaned.properties;
+    cleaned.properties = restProps as any;
+  }
+  return cleaned;
+};
+
 export const RouteFormModal: React.FC<RouteFormModalProps> = ({
   show,
   onClose,
@@ -24,9 +40,6 @@ export const RouteFormModal: React.FC<RouteFormModalProps> = ({
     dest: '',
     destFormat: 'Http',
     code: 302,
-    ttl: 0,
-    status: 'Active',
-    terminal: 'External',
     policy: 'Basic',
     domainId: undefined,
   });
@@ -47,9 +60,6 @@ export const RouteFormModal: React.FC<RouteFormModalProps> = ({
         dest: '',
         destFormat: 'Http',
         code: 302,
-        ttl: 0,
-        status: 'Active',
-        terminal: 'External',
         policy: 'Basic',
         domainId: undefined,
       });
@@ -68,18 +78,16 @@ export const RouteFormModal: React.FC<RouteFormModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate domain is selected
     if (!formData.domainId || formData.domainId.trim() === '') {
       alert('Domain is required. Please select a domain.');
       return;
     }
 
-    // Ensure domainId is set in both top-level and properties for compatibility
     const dataToSave: Partial<RouteDto> = {
       ...formData,
       properties: formData.properties ? {
         ...formData.properties,
-        domainId: formData.domainId!, // Also set in properties for compatibility
+        domainId: formData.domainId!,
       } : {
         routeId: '',
         domainId: formData.domainId!,
@@ -92,7 +100,7 @@ export const RouteFormModal: React.FC<RouteFormModalProps> = ({
       }
     };
 
-    onSave(dataToSave);
+    onSave(stripApiManagedFields(dataToSave));
   };
 
   const handleChange = (field: keyof RouteDto, value: any) => {
@@ -184,51 +192,16 @@ export const RouteFormModal: React.FC<RouteFormModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="label">Status</label>
+                    <label className="label">HTTP Code</label>
                     <select
                       className="input"
-                      value={formData.status || 'Active'}
-                      onChange={(e) => handleChange('status', e.target.value)}
-                    >
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                      <option value="Pending">Pending</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-sm">
-                  <div>
-                    <label className="label">HTTP Code</label>
-                    <input
-                      type="number"
-                      className="input"
-                      placeholder="302"
                       value={formData.code || 302}
                       onChange={(e) => handleChange('code', parseInt(e.target.value))}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label">TTL (seconds)</label>
-                    <input
-                      type="number"
-                      className="input"
-                      placeholder="0"
-                      value={formData.ttl || 0}
-                      onChange={(e) => handleChange('ttl', parseInt(e.target.value))}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label">Terminal</label>
-                    <select
-                      className="input"
-                      value={formData.terminal || 'External'}
-                      onChange={(e) => handleChange('terminal', e.target.value)}
                     >
-                      <option value="External">External</option>
-                      <option value="Internal">Internal</option>
+                      <option value={301}>301 - Permanent</option>
+                      <option value={302}>302 - Temporary</option>
+                      <option value={307}>307 - Temporary (Preserve Method)</option>
+                      <option value={308}>308 - Permanent (Preserve Method)</option>
                     </select>
                   </div>
                 </div>
@@ -246,40 +219,6 @@ export const RouteFormModal: React.FC<RouteFormModalProps> = ({
               {/* Properties */}
               <div className="space-y-sm">
                 <h3 className="text-lg font-semibold">Properties (Optional)</h3>
-
-                <div className="grid grid-cols-2 gap-sm">
-                  <div>
-                    <label className="label">Route ID</label>
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder="my-route-001"
-                      value={formData.properties?.routeId || ''}
-                      onChange={(e) =>
-                        handleChange('properties', {
-                          ...formData.properties,
-                          routeId: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label">Domain ID</label>
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder="example-com"
-                      value={formData.properties?.domainId || ''}
-                      onChange={(e) =>
-                        handleChange('properties', {
-                          ...formData.properties,
-                          domainId: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
 
                 <div>
                   <label className="label">Tags (comma-separated)</label>
