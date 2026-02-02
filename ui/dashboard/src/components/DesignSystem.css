@@ -3290,7 +3290,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  min-height: 200px;
   padding-bottom: 1rem;
 }
 
@@ -4584,5 +4584,340 @@ body {
 
   .app-main-wrapper {
     margin-left: 0 !important;
+  }
+}
+
+/* ===================================================================
+   Dashboard
+   =================================================================== */
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.dashboard-subtitle {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0.25rem 0 0 0;
+}
+
+.dashboard-controls {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+}
+
+.dashboard-date-range {
+  display: flex;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.dashboard-date-btn {
+  padding: 0.375rem 0.75rem;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dashboard-date-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.dashboard-date-btn.active {
+  background: var(--color-primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-refreshing {
+  position: fixed;
+  top: 4.5rem;
+  right: 1.5rem;
+  background: var(--color-primary);
+  color: white;
+  padding: 0.375rem 0.875rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  z-index: 100;
+  box-shadow: var(--shadow-md);
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Stats Cards */
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.dashboard-stat-icon {
+  padding: 0.5rem;
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dashboard-stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.dashboard-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Chart Cards */
+
+.dashboard-section {
+  margin-bottom: 0.75rem;
+}
+
+.dashboard-chart-card {
+  padding: 1.25rem;
+}
+
+.dashboard-chart-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-chart-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0 0 1rem 0;
+}
+
+/* Chart Grid Layouts */
+
+.dashboard-row-geo {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 0.75rem;
+}
+
+.dashboard-row-distribution {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+/* Custom Tooltip */
+
+.dashboard-tooltip {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 0.625rem 0.75rem;
+  box-shadow: var(--shadow-lg);
+  font-size: 0.8125rem;
+  min-width: 140px;
+}
+
+.dashboard-tooltip-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.375rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.dashboard-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.1875rem 0;
+}
+
+.dashboard-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dashboard-tooltip-name {
+  color: var(--text-secondary);
+  flex: 1;
+  white-space: nowrap;
+}
+
+.dashboard-tooltip-value {
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Pie Legend */
+
+.dashboard-pie-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.375rem 0.875rem;
+  margin-top: 0.75rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--border-secondary);
+}
+
+.dashboard-pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.dashboard-pie-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dashboard-pie-legend-label {
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Table */
+
+.dashboard-table {
+  width: 100%;
+  font-size: 0.8125rem;
+  border-collapse: collapse;
+}
+
+.dashboard-table th {
+  padding: 0.625rem 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: left;
+  border-bottom: 2px solid var(--border-primary);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dashboard-table td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--border-secondary);
+  color: var(--text-primary);
+}
+
+.dashboard-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dashboard-table tbody tr:hover td {
+  background-color: var(--bg-secondary);
+}
+
+/* Empty State */
+
+.dashboard-empty-state {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.dashboard-empty-state p {
+  margin: 0;
+}
+
+/* Spin animation class */
+
+.icon-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Responsive */
+
+@media (max-width: 1200px) {
+  .dashboard-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .dashboard-row-geo {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-row-distribution {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .dashboard-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-stats {
+    grid-template-columns: repeat(2, 1fr);
   }
 }

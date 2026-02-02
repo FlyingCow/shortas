@@ -7,12 +7,14 @@ declare module 'react-simple-maps' {
       scale?: number;
       center?: [number, number];
     };
+    width?: number;
+    height?: number;
     style?: React.CSSProperties;
     children?: ReactNode;
   }
 
   export interface GeographiesProps {
-    geography: string;
+    geography: string | Record<string, any>;
     children: (args: { geographies: any[] }) => ReactNode;
   }
 
