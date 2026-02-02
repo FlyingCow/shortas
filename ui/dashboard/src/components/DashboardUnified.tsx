@@ -358,31 +358,34 @@ const Dashboard: React.FC = () => {
         <div className="card dashboard-chart-card">
           <h3 className="dashboard-chart-title">Top Countries</h3>
           <p className="dashboard-chart-desc">By click volume</p>
-          <div style={{ height: '300px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analytics?.clicks_by_country?.slice(0, 8) || []} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-secondary)" horizontal={false} />
-                <XAxis
-                  type="number"
-                  stroke="var(--text-muted)"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={formatAxisNumber}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="country"
-                  stroke="var(--text-muted)"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  width={90}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar name="Clicks" dataKey="clicks" fill="var(--primary-500)" radius={[0, 4, 4, 0]} barSize={20} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="route-analytics-countries">
+            {(analytics?.clicks_by_country || []).length > 0 ? (
+              (analytics?.clicks_by_country || []).map((country: any, index: number) => {
+                const totalClicks = stats?.totalClicks || 1;
+                const percentage = Math.round((country.clicks / totalClicks) * 100);
+                return (
+                  <div key={country.country} className="ra-country-row">
+                    <span className="ra-country-rank">{index + 1}</span>
+                    <span className="ra-country-name">{country.country}</span>
+                    <div className="ra-country-bar-wrap">
+                      <div className="ra-country-bar">
+                        <div
+                          className="ra-country-bar-fill"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="ra-country-value">{country.clicks.toLocaleString()}</span>
+                    <span className="ra-country-pct">{percentage}%</span>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="dashboard-empty-state" style={{ padding: '2rem 0' }}>
+                <Globe size={28} style={{ opacity: 0.4 }} />
+                <p>No geographic data</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
