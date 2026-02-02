@@ -4921,3 +4921,123 @@ body {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ===================================================================
+   Route Analytics (inside RoutesWithSidebar)
+   =================================================================== */
+
+.route-analytics-body {
+  padding: 1.5rem;
+}
+
+.route-analytics-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.route-analytics-geo {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 0.75rem;
+}
+
+.route-analytics-distribution {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+/* Country list inside route analytics */
+
+.route-analytics-countries {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ra-country-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.ra-country-row:last-child {
+  border-bottom: none;
+}
+
+.ra-country-rank {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  width: 1.25rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ra-country-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ra-country-bar-wrap {
+  flex: 1;
+  min-width: 60px;
+}
+
+.ra-country-bar {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ra-country-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--primary-500);
+  transition: width 0.3s ease;
+}
+
+.ra-country-value {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 3.5rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ra-country-pct {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+/* Responsive for route analytics */
+
+@media (max-width: 1200px) {
+  .route-analytics-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .route-analytics-geo {
+    grid-template-columns: 1fr;
+  }
+
+  .route-analytics-distribution {
+    grid-template-columns: 1fr;
+  }
+}

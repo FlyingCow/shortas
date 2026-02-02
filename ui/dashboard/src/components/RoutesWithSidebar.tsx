@@ -1,11 +1,92 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit, Trash2, Search, BarChart3, MousePointer, Users, Clock, Activity } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  BarChart3,
+  MousePointer,
+  Users,
+  Activity,
+  Bot,
+  Globe,
+  RefreshCw
+} from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell,
+  CartesianGrid
+} from 'recharts';
 import { apiService, RouteDto, RoutingPolicy, DomainDto } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import WorldMap from './WorldMap';
 import RouteForm from './RouteForm';
 import './DesignSystem.css';
+
+// Shared chart constants and helpers (matching DashboardUnified)
+
+const CHART_COLORS = [
+  'var(--primary-500)',
+  'var(--success-500)',
+  'var(--warning-500)',
+  'var(--error-500)',
+  'var(--primary-400)',
+  'var(--success-400)',
+  'var(--warning-400)',
+  'var(--primary-600)',
+];
+
+const TRAFFIC_COLORS = ['var(--success-500)', 'var(--error-500)'];
+
+const formatAxisNumber = (value: number): string => {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
+  return value.toString();
+};
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="dashboard-tooltip">
+      {label != null && label !== '' && (
+        <div className="dashboard-tooltip-label">{label}</div>
+      )}
+      {payload.map((entry: any, i: number) => {
+        const percent = entry.payload?.percent;
+        return (
+          <div key={i} className="dashboard-tooltip-row">
+            <span className="dashboard-tooltip-dot" style={{ backgroundColor: entry.color || entry.fill }} />
+            <span className="dashboard-tooltip-name">{entry.name}</span>
+            <span className="dashboard-tooltip-value">
+              {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
+              {percent != null && ` (${(percent * 100).toFixed(1)}%)`}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const PieLegend: React.FC<{ items: { name: string; color: string }[] }> = ({ items }) => (
+  <div className="dashboard-pie-legend">
+    {items.slice(0, 6).map((item, i) => (
+      <div key={i} className="dashboard-pie-legend-item">
+        <span className="dashboard-pie-legend-dot" style={{ backgroundColor: item.color }} />
+        <span className="dashboard-pie-legend-label">{item.name}</span>
+      </div>
+    ))}
+  </div>
+);
 
 const RoutesWithSidebar: React.FC = () => {
   const [routes, setRoutes] = useState<RouteDto[]>([]);
@@ -106,25 +187,18 @@ const RoutesWithSidebar: React.FC = () => {
     setIsEditing(true);
   };
 
-
   const fetchAnalytics = useCallback(async (route: RouteDto) => {
     try {
       setAnalyticsLoading(true);
 
-      // Calculate date range
       const endDate = new Date();
       const startDate = new Date();
 
       switch (timeRange) {
-        case '24h':
-          startDate.setHours(startDate.getHours() - 24);
-          break;
-        case '7d':
-          startDate.setDate(startDate.getDate() - 7);
-          break;
-        case '30d':
-          startDate.setDate(startDate.getDate() - 30);
-          break;
+        case '24h': startDate.setHours(startDate.getHours() - 24); break;
+        case '7d': startDate.setDate(startDate.getDate() - 7); break;
+        case '30d': startDate.setDate(startDate.getDate() - 30); break;
+        case '90d': startDate.setDate(startDate.getDate() - 90); break;
       }
 
       const fromDate = startDate.toISOString().split('T')[0];
@@ -132,7 +206,6 @@ const RoutesWithSidebar: React.FC = () => {
       const fromHour = startDate.toISOString().replace('T', ' ').substring(0, 13);
       const toHour = endDate.toISOString().replace('T', ' ').substring(0, 13);
 
-      // Fetch stats for this specific route using materialized views
       const [dailyStats, geographicStats, deviceStats, browserStats, trafficStats] = await Promise.all([
         apiService.clickstream.getDailyStats({ routeId: route.id, fromDate, toDate }),
         apiService.clickstream.getGeographicStats({ routeId: route.id, fromDate, toDate }),
@@ -141,7 +214,6 @@ const RoutesWithSidebar: React.FC = () => {
         apiService.clickstream.getTrafficTypeStats({ routeId: route.id, fromHour, toHour }),
       ]);
 
-      // Calculate totals from daily stats
       const totals = dailyStats.reduce((acc, stat) => ({
         totalClicks: acc.totalClicks + stat.total_clicks,
         uniqueClicks: acc.uniqueClicks + stat.unique_clicks,
@@ -149,16 +221,16 @@ const RoutesWithSidebar: React.FC = () => {
         humanClicks: acc.humanClicks + stat.human_clicks,
       }), { totalClicks: 0, uniqueClicks: 0, botClicks: 0, humanClicks: 0 });
 
-      // Transform data for charts
+      const humanStat = trafficStats.find(stat => !stat.is_bot);
+      const botStat = trafficStats.find(stat => stat.is_bot);
+
       const analyticsData = {
         totalClicks: totals.totalClicks,
-        totalConversions: 0, // Not available yet
-        conversionRate: '0',
         uniqueVisitors: totals.uniqueClicks,
-        avgTimeOnPage: 0, // Not available yet
-        bounceRate: '0',
-        topCountries: geographicStats.slice(0, 10).map((stat, index, arr) => {
-          const percentage = arr.length > 0 && totals.totalClicks > 0
+        humanClicks: totals.humanClicks,
+        botClicks: totals.botClicks,
+        topCountries: geographicStats.slice(0, 10).map(stat => {
+          const percentage = totals.totalClicks > 0
             ? (stat.total_clicks / totals.totalClicks) * 100
             : 0;
           return {
@@ -167,37 +239,41 @@ const RoutesWithSidebar: React.FC = () => {
             percentage: Math.round(percentage)
           };
         }),
-        topBrowsers: browserStats.slice(0, 10).map((stat, index, arr) => {
-          const percentage = arr.length > 0 && totals.totalClicks > 0
-            ? (stat.total_clicks / totals.totalClicks) * 100
-            : 0;
-          return {
-            name: stat.user_agent_family,
-            clicks: stat.total_clicks,
-            percentage: Math.round(percentage)
-          };
-        }),
+        topBrowsers: browserStats.slice(0, 8).map(stat => ({
+          name: stat.user_agent_family,
+          clicks: stat.total_clicks,
+        })),
+        topDevices: deviceStats.slice(0, 8).map(stat => ({
+          device: `${stat.device_family} (${stat.os_family})`,
+          clicks: stat.total_clicks,
+        })),
+        trafficType: [
+          { name: 'Human', value: humanStat?.total_clicks || 0 },
+          { name: 'Bot', value: botStat?.total_clicks || 0 },
+        ],
         dailyClicks: dailyStats.map(stat => ({
           date: new Date(stat.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           clicks: stat.total_clicks,
-          conversions: 0 // Not available yet
         })),
-        hourlyClicks: [] // Not implemented yet
       };
 
       setAnalytics(analyticsData);
     } catch (err: any) {
       console.error('Failed to fetch analytics:', err);
-      console.error('Error response:', err.response?.data);
-      console.error('Error status:', err.response?.status);
     } finally {
       setAnalyticsLoading(false);
     }
   }, [timeRange]);
 
+  // Refetch analytics when route or time range changes
+  useEffect(() => {
+    if (selectedRoute) {
+      fetchAnalytics(selectedRoute);
+    }
+  }, [selectedRoute, fetchAnalytics]);
+
   const handleSelectRoute = (route: RouteDto) => {
     setSelectedRoute(route);
-    fetchAnalytics(route);
   };
 
   const getPolicyType = (policy?: RoutingPolicy): string => {
@@ -213,27 +289,13 @@ const RoutesWithSidebar: React.FC = () => {
 
   const getPolicyBadgeClass = (policyType: string): string => {
     switch (policyType) {
-      case 'Conditional':
-        return 'table-status-info';
-      case 'Challenge':
-        return 'table-status-warning';
-      case 'File':
-        return 'table-status-secondary';
-      case 'Mirroring':
-        return 'table-status-info';
-      default:
-        return 'table-status-secondary';
+      case 'Conditional': return 'table-status-info';
+      case 'Challenge': return 'table-status-warning';
+      case 'File': return 'table-status-secondary';
+      case 'Mirroring': return 'table-status-info';
+      default: return 'table-status-secondary';
     }
   };
-
-  const getCountryColor = (index: number, clicks: number) => {
-    if (clicks === 0) {
-      return '#f1f5f9'; // Light gray for countries with no traffic
-    }
-    const colors = ['#667eea', '#764ba2', '#4facfe', '#00f2fe', '#fa709a'];
-    return colors[index % colors.length];
-  };
-
 
   const filteredRoutes = routes.filter(route => {
     const matchesSearch = route.link.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -258,6 +320,13 @@ const RoutesWithSidebar: React.FC = () => {
     );
   }
 
+  const humanRate = analytics && analytics.totalClicks > 0
+    ? `${((analytics.humanClicks / analytics.totalClicks) * 100).toFixed(0)}%`
+    : null;
+  const botRate = analytics && analytics.totalClicks > 0
+    ? `${((analytics.botClicks / analytics.totalClicks) * 100).toFixed(0)}%`
+    : null;
+
   return (
     <div className={`routes-with-sidebar ${isEditing ? 'editing' : ''}`}>
       {/* Sidebar */}
@@ -274,7 +343,7 @@ const RoutesWithSidebar: React.FC = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
+
             <div className="control-group">
               <select
                 className="control-dropdown"
@@ -408,184 +477,303 @@ const RoutesWithSidebar: React.FC = () => {
           </div>
         ) : selectedRoute ? (
           <div className="analytics-content">
+            {/* Analytics Header */}
             <div className="analytics-header">
               <div className="route-info">
                 <h2>{selectedRoute.link}</h2>
                 <p className="route-destination">{selectedRoute.dest}</p>
                 <div className="route-actions-header">
-                  <button 
+                  <button
                     className="btn btn-outline btn-sm"
                     onClick={() => handleEditRoute(selectedRoute)}
                   >
                     <Edit size={16} />
                     Edit Route
                   </button>
-                  
-                  {/* Time Range Selector */}
-                  <div className="time-range-selector">
-                    <button 
-                      className={`time-range-btn ${timeRange === '24h' ? 'active' : ''}`}
-                      onClick={() => setTimeRange('24h')}
-                    >
-                      24h
-                    </button>
-                    <button 
-                      className={`time-range-btn ${timeRange === '7d' ? 'active' : ''}`}
-                      onClick={() => setTimeRange('7d')}
-                    >
-                      7d
-                    </button>
-                    <button 
-                      className={`time-range-btn ${timeRange === '30d' ? 'active' : ''}`}
-                      onClick={() => setTimeRange('30d')}
-                    >
-                      30d
-                    </button>
+
+                  <div className="dashboard-date-range">
+                    {[
+                      { value: '24h', label: '24h' },
+                      { value: '7d', label: '7d' },
+                      { value: '30d', label: '30d' },
+                      { value: '90d', label: '90d' },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        className={`dashboard-date-btn ${timeRange === option.value ? 'active' : ''}`}
+                        onClick={() => setTimeRange(option.value)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
                   </div>
+
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={() => selectedRoute && fetchAnalytics(selectedRoute)}
+                    disabled={analyticsLoading}
+                    title="Refresh analytics"
+                  >
+                    <RefreshCw size={14} className={analyticsLoading ? 'icon-spin' : ''} />
+                  </button>
                 </div>
               </div>
             </div>
 
-            {analyticsLoading ? (
+            {/* Analytics Body */}
+            {analyticsLoading && !analytics ? (
               <div className="welcome-content">
                 <LoadingSpinner />
                 <p>Loading analytics...</p>
               </div>
             ) : analytics ? (
-              <div className="analytics-content">
-                {/* Metrics Grid */}
-                <div className="metrics-grid">
-                  <div className="metric-card">
-                    <div className="metric-icon">
-                      <MousePointer size={24} />
+              <div className="route-analytics-body">
+                {/* Refreshing indicator */}
+                {analyticsLoading && (
+                  <div className="dashboard-refreshing">Updating...</div>
+                )}
+
+                {/* Stats Cards */}
+                <div className="route-analytics-stats">
+                  {[
+                    { icon: MousePointer, value: analytics.totalClicks, label: 'Total Clicks', color: 'var(--primary-500)' },
+                    { icon: Users, value: analytics.uniqueVisitors, label: 'Unique Visitors', color: 'var(--success-500)' },
+                    { icon: Activity, value: analytics.humanClicks, label: humanRate ? `Human (${humanRate})` : 'Human', color: 'var(--success-600)' },
+                    { icon: Bot, value: analytics.botClicks, label: botRate ? `Bot (${botRate})` : 'Bot', color: 'var(--error-500)' },
+                  ].map((stat, idx) => (
+                    <div key={idx} className="card dashboard-stat-card">
+                      <div className="dashboard-stat-icon" style={{ color: stat.color }}>
+                        <stat.icon size={20} />
+                      </div>
+                      <div>
+                        <div className="dashboard-stat-value">
+                          {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value || '0'}
+                        </div>
+                        <div className="dashboard-stat-label">{stat.label}</div>
+                      </div>
                     </div>
-                    <div className="metric-content">
-                      <div className="metric-value">{analytics.totalClicks.toLocaleString()}</div>
-                      <div className="metric-label">Total Clicks</div>
-                    </div>
-                  </div>
-                  
-                  <div className="metric-card">
-                    <div className="metric-icon">
-                      <Activity size={24} />
-                    </div>
-                    <div className="metric-content">
-                      <div className="metric-value">{analytics.totalConversions.toLocaleString()}</div>
-                      <div className="metric-label">Conversions</div>
-                    </div>
-                  </div>
-                  
-                  <div className="metric-card">
-                    <div className="metric-icon">
-                      <Users size={24} />
-                    </div>
-                    <div className="metric-content">
-                      <div className="metric-value">{analytics.uniqueVisitors.toLocaleString()}</div>
-                      <div className="metric-label">Unique Visitors</div>
-                    </div>
-                  </div>
-                  
-                  <div className="metric-card">
-                    <div className="metric-icon">
-                      <Clock size={24} />
-                    </div>
-                    <div className="metric-content">
-                      <div className="metric-value">{analytics.avgTimeOnPage}s</div>
-                      <div className="metric-label">Avg. Time</div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
-                {/* Charts Grid */}
-                <div className="charts-grid">
-                  {/* Daily Clicks Chart */}
-                  <div className="routes-chart-card">
-                    <h4>Daily Clicks</h4>
-                    <div className="chart-container">
-                      <ResponsiveContainer width="100%" height={350}>
+                {/* Daily Clicks - Full Width Area Chart */}
+                <div className="dashboard-section">
+                  <div className="card dashboard-chart-card">
+                    <h3 className="dashboard-chart-title">Clicks Over Time</h3>
+                    <p className="dashboard-chart-desc">Daily click trends for this route</p>
+                    <div style={{ height: '280px' }}>
+                      <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={analytics.dailyClicks}>
-                          <XAxis dataKey="date" />
-                          <YAxis />
-                          <Tooltip 
-                            contentStyle={{
-                              backgroundColor: 'var(--bg-elevated)',
-                              border: '1px solid var(--border-primary)',
-                              borderRadius: '0px'
-                            }}
+                          <defs>
+                            <linearGradient id="routeClicksGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.15} />
+                              <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-secondary)" vertical={false} />
+                          <XAxis
+                            dataKey="date"
+                            stroke="var(--text-muted)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={false}
                           />
-                          <Area 
-                            type="monotone" 
-                            dataKey="clicks" 
-                            stroke="#667eea" 
-                            fill="#667eea" 
-                            fillOpacity={0.1}
+                          <YAxis
+                            stroke="var(--text-muted)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={false}
+                            width={45}
+                            tickFormatter={formatAxisNumber}
+                          />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Area
+                            type="monotone"
+                            dataKey="clicks"
+                            name="Clicks"
+                            stroke="var(--primary-500)"
+                            fill="url(#routeClicksGradient)"
                             strokeWidth={2}
+                            dot={false}
+                            activeDot={{ r: 4, fill: 'var(--primary-500)', stroke: 'var(--bg-primary)', strokeWidth: 2 }}
                           />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
-
-                  {/* Top Browsers Chart */}
-                  <div className="routes-chart-card">
-                    <h4>Top Browsers</h4>
-                    <div className="chart-container">
-                      <ResponsiveContainer width="100%" height={350}>
-                        <BarChart data={analytics.topBrowsers}>
-                          <XAxis dataKey="name" />
-                          <YAxis />
-                          <Tooltip 
-                            contentStyle={{
-                              backgroundColor: 'var(--bg-elevated)',
-                              border: '1px solid var(--border-primary)',
-                              borderRadius: '0px'
-                            }}
-                          />
-                          <Bar dataKey="clicks" fill="#4facfe" radius={[0, 0, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
                 </div>
 
-                {/* Map and Countries Row */}
-                <div className="map-countries-row">
-                  {/* World Map - Half Width */}
-                  <div className="routes-chart-card map-half">
-                    <h4>Traffic by Country</h4>
-                    <div className="chart-container">
-                      <WorldMap data={analytics.topCountries} height={450} />
+                {/* Geographic Section */}
+                <div className="dashboard-section route-analytics-geo">
+                  <div className="card dashboard-chart-card">
+                    <h3 className="dashboard-chart-title">
+                      <Globe size={16} style={{ color: 'var(--primary-500)' }} />
+                      Geographic Distribution
+                    </h3>
+                    <p className="dashboard-chart-desc">Hover to see details</p>
+                    <div style={{ height: '300px' }}>
+                      <WorldMap data={analytics.topCountries} height={300} />
                     </div>
                   </div>
-
-                  {/* Top Countries List - Half Width */}
-                  <div className="routes-chart-card countries-half">
-                    <h4>Top Countries</h4>
-                    <div className="countries-list">
-                      {analytics.topCountries.map((country: any, index: number) => (
-                        <div key={country.name} className="country-item">
-                          <div className="country-info">
-                            <div className="country-name">{country.name}</div>
-                            <div className="country-clicks">{country.clicks || 0} clicks</div>
-                          </div>
-                          <div className="country-stats">
-                            <div className="country-percentage">{country.percentage || 0}%</div>
-                            <div className="country-bar">
-                              <div 
-                                className="country-bar-fill"
-                                style={{ 
-                                  width: `${country.percentage || 0}%`,
-                                  backgroundColor: getCountryColor(index, country.clicks || 0)
-                                }}
-                              />
+                  <div className="card dashboard-chart-card">
+                    <h3 className="dashboard-chart-title">Top Countries</h3>
+                    <p className="dashboard-chart-desc">By click volume</p>
+                    <div className="route-analytics-countries">
+                      {analytics.topCountries.length > 0 ? (
+                        analytics.topCountries.map((country: any, index: number) => (
+                          <div key={country.name} className="ra-country-row">
+                            <span className="ra-country-rank">{index + 1}</span>
+                            <span className="ra-country-name">{country.name}</span>
+                            <div className="ra-country-bar-wrap">
+                              <div className="ra-country-bar">
+                                <div
+                                  className="ra-country-bar-fill"
+                                  style={{ width: `${country.percentage || 0}%` }}
+                                />
+                              </div>
                             </div>
+                            <span className="ra-country-value">{(country.clicks || 0).toLocaleString()}</span>
+                            <span className="ra-country-pct">{country.percentage || 0}%</span>
                           </div>
+                        ))
+                      ) : (
+                        <div className="dashboard-empty-state" style={{ padding: '2rem 0' }}>
+                          <Globe size={28} style={{ opacity: 0.4 }} />
+                          <p>No geographic data</p>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 </div>
 
+                {/* Distribution Section */}
+                <div className="dashboard-section route-analytics-distribution">
+                  {/* Top Browsers - Horizontal Bar Chart */}
+                  <div className="card dashboard-chart-card">
+                    <h3 className="dashboard-chart-title">Browsers</h3>
+                    <p className="dashboard-chart-desc">By browser</p>
+                    <div style={{ height: '220px' }}>
+                      {analytics.topBrowsers.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={analytics.topBrowsers} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-secondary)" horizontal={false} />
+                            <XAxis
+                              type="number"
+                              stroke="var(--text-muted)"
+                              fontSize={11}
+                              tickLine={false}
+                              axisLine={false}
+                              tickFormatter={formatAxisNumber}
+                            />
+                            <YAxis
+                              type="category"
+                              dataKey="name"
+                              stroke="var(--text-muted)"
+                              fontSize={11}
+                              tickLine={false}
+                              axisLine={false}
+                              width={80}
+                            />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Bar name="Clicks" dataKey="clicks" fill="var(--primary-500)" radius={[0, 4, 4, 0]} barSize={18} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="dashboard-empty-state">
+                          <Activity size={28} style={{ opacity: 0.4 }} />
+                          <p>No browser data</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Device Distribution - Pie Chart */}
+                  <div className="card dashboard-chart-card">
+                    <h3 className="dashboard-chart-title">Devices</h3>
+                    <p className="dashboard-chart-desc">By device type</p>
+                    <div style={{ height: '200px' }}>
+                      {analytics.topDevices.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={analytics.topDevices}
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={70}
+                              innerRadius={45}
+                              dataKey="clicks"
+                              nameKey="device"
+                              paddingAngle={2}
+                              stroke="var(--bg-primary)"
+                              strokeWidth={2}
+                            >
+                              {analytics.topDevices.map((_: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip content={<CustomTooltip />} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="dashboard-empty-state">
+                          <Activity size={28} style={{ opacity: 0.4 }} />
+                          <p>No device data</p>
+                        </div>
+                      )}
+                    </div>
+                    {analytics.topDevices.length > 0 && (
+                      <PieLegend
+                        items={analytics.topDevices.map((entry: any, i: number) => ({
+                          name: entry.device,
+                          color: CHART_COLORS[i % CHART_COLORS.length],
+                        }))}
+                      />
+                    )}
+                  </div>
+
+                  {/* Traffic Type - Pie Chart */}
+                  <div className="card dashboard-chart-card">
+                    <h3 className="dashboard-chart-title">Traffic Type</h3>
+                    <p className="dashboard-chart-desc">Bot vs Human</p>
+                    <div style={{ height: '200px' }}>
+                      {analytics.trafficType.some((t: any) => t.value > 0) ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={analytics.trafficType}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => percent > 0.05 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
+                              outerRadius={70}
+                              innerRadius={45}
+                              dataKey="value"
+                              paddingAngle={3}
+                              stroke="var(--bg-primary)"
+                              strokeWidth={2}
+                            >
+                              <Cell key="cell-0" fill={TRAFFIC_COLORS[0]} />
+                              <Cell key="cell-1" fill={TRAFFIC_COLORS[1]} />
+                            </Pie>
+                            <Tooltip content={<CustomTooltip />} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="dashboard-empty-state">
+                          <Activity size={28} style={{ opacity: 0.4 }} />
+                          <p>No traffic data</p>
+                        </div>
+                      )}
+                    </div>
+                    {analytics.trafficType.some((t: any) => t.value > 0) && (
+                      <PieLegend
+                        items={analytics.trafficType.map((entry: any, i: number) => ({
+                          name: entry.name,
+                          color: TRAFFIC_COLORS[i],
+                        }))}
+                      />
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="welcome-content">
