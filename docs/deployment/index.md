@@ -18,7 +18,7 @@ docker compose up -d
 ```
 
 This starts:
-- **Infrastructure**: MongoDB 7, ClickHouse, Redis 7, MinIO, Fluvio (SC + SPU)
+- **Infrastructure**: MongoDB 7, ClickHouse, Redis 7, MinIO, Fluvio (SC + SPU), RabbitMQ
 - **Init containers**: MinIO bucket setup, Fluvio topic creation, ClickHouse migrations
 - **Application services**: click-router, click-router-api, click-tracker, click-aggregator, click-aggregator-api, domains
 
@@ -43,8 +43,8 @@ Starts the dashboard and landing page. This compose file includes the redirect c
 ## Service Dependencies
 
 ```
-click-router         → mongo, redis, clickhouse, fluvio (topics), domains
-click-router-api     → mongo, redis
+click-router         → mongo, redis, clickhouse, fluvio (topics), rabbitmq, domains
+click-router-api     → mongo, redis, rabbitmq
 click-tracker        → redis, fluvio (topics)
 click-aggregator     → clickhouse, fluvio (topics)
 click-aggregator-api → clickhouse (after migrations)
@@ -86,12 +86,11 @@ Multi-stage builds minimize image sizes:
 
 ## Health Checks
 
-All services expose health endpoints. Use the Makefile from the `redirect/` directory:
+All services expose health endpoints. Docker Compose healthchecks monitor service status automatically:
 
 ```bash
-make health-check          # All services
-make health-check-infra    # Infrastructure only
-make health-check-apps     # Application services only
+make ps    # Show service status and health
+make logs  # Tail service logs
 ```
 
 ## Networking

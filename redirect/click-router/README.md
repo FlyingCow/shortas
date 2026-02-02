@@ -41,9 +41,9 @@ Supports dynamic TLS certificate resolution through the Domains service (port 58
 ## Build
 
 ```bash
-# From the redirect/ directory
+# From the repository root
 make build-click-router
 
 # Or directly
-cargo build -p click-router
+cargo build --manifest-path redirect/Cargo.toml -p click-router
 ```

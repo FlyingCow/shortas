@@ -35,49 +35,40 @@ docker compose up -d
 ```
 
 This brings up:
-- Infrastructure: MongoDB, ClickHouse, Redis, MinIO, Fluvio
+- Infrastructure: MongoDB, ClickHouse, Redis, MinIO, Fluvio, RabbitMQ
 - Application services: click-router, click-router-api, click-tracker, click-aggregator, click-aggregator-api, domains
 - ClickHouse migrations (runs automatically)
-
-Verify services are healthy:
-
-```bash
-make health-check
-```
 
 ## Option 2: Local Development
 
 ### 1. Start Infrastructure
 
 ```bash
-cd redirect
-make infra-start
+make up
 ```
 
-This runs MongoDB, ClickHouse, Redis, MinIO, and Fluvio in Docker containers.
+This runs all infrastructure and application services in Docker containers.
 
 ### 2. Build Rust Services
 
 ```bash
-cd redirect
 make build
 ```
 
-### 3. Run the Management API
+### 3. Build & Run the Management API
 
 ```bash
-cd api
-dotnet run
+make build-api
+cd api && dotnet run
 ```
 
 The API starts on port 5050 with Swagger UI at `http://localhost:5050/swagger`.
 
-### 4. Run the Dashboard
+### 4. Build & Run the Dashboard
 
 ```bash
-cd ui/dashboard
-npm install
-npm start
+make build-ui
+cd ui/dashboard && npm start
 ```
 
 The dashboard opens at `http://localhost:3000`.
@@ -98,6 +89,8 @@ The dashboard opens at `http://localhost:3000`.
 | Redis | 6379 |
 | MinIO (API) | 9002 |
 | MinIO (Console) | 9001 |
+| RabbitMQ | 5672 |
+| RabbitMQ (Management) | 15672 |
 
 ## Next Steps
 

@@ -34,24 +34,27 @@ The `docker-compose.yml` in this directory brings up the full stack:
 - **Redis 7** — session tracking and cache (port 6379)
 - **MinIO** — object storage backing ClickHouse (port 9002)
 - **Fluvio** — event streaming (SC port 9103, SPU ports 9110-9111)
+- **RabbitMQ** — cache invalidation messaging (port 5672, management UI port 15672)
 
 ## Build
+
+All `make` targets run from the repository root (`../`).
 
 ```bash
 # Debug build
 make build
 
 # Release build
-make build-release
+make release
 
 # Run tests
 make test
 
-# Lint
-make lint
+# Clippy
+make clippy
 
 # Format
-make format
+make fmt
 ```
 
 ## Docker

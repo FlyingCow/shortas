@@ -19,16 +19,16 @@ Git submodules:
 
 ## Build
 
+All `make` targets run from the repository root.
+
 ### Rust Services
 
 ```bash
-cd redirect
-
-# Debug build
+# Debug build (all services)
 make build
 
 # Release build
-make build-release
+make release
 
 # Build a specific service
 make build-click-router
@@ -38,84 +38,59 @@ make build-click-tracker
 ### .NET API
 
 ```bash
-cd api
-dotnet build
+make build-api
 ```
 
 ### Dashboard
 
 ```bash
-cd ui/dashboard
-npm install
-npm run build
-```
-
-### Landing Page
-
-```bash
-cd ui/landing
-npm install
-npm run build
+make build-ui
 ```
 
 ## Test
 
 ```bash
-cd redirect
-
-# Run all tests
+# Run all Rust tests
 make test
 
-# Watch mode
-make test-watch
+# Test a specific service
+make test-click-router
 
-# Coverage (generates HTML report in coverage/)
-make test-coverage
+# .NET API tests
+make test-api
+
+# Dashboard tests
+make test-ui
 ```
 
 ## Lint & Format
 
 ```bash
-cd redirect
-
 # Clippy
-make lint
+make clippy
 
 # Rustfmt
-make format
+make fmt
 
-# Full check (lint + test + build)
+# Cargo check
 make check
 ```
 
 ## Infrastructure
 
-Start the backing services locally:
-
 ```bash
-cd redirect
-
-# Custom stack (MongoDB, ClickHouse, Redis, MinIO, Fluvio)
-make infra-start-custom
-
-# Or AWS LocalStack (DynamoDB, Kinesis)
-make infra-start-aws
+# Start all services (infrastructure + applications)
+make up
 
 # Stop
-make infra-stop
+make down
 
-# Clean reset (removes volumes)
-make infra-reset
+# View logs
+make logs
+
+# Service status
+make ps
 ```
-
-## Validate Environment
-
-```bash
-cd redirect
-make validate
-```
-
-Checks that Rust, Cargo, Docker, and Docker Compose are installed.
 
 ## Project Layout
 

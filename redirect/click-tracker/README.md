@@ -35,9 +35,9 @@ Fluvio (hit-stream-main) → click-tracker → Fluvio (click-aggs-main)
 ## Build
 
 ```bash
-# From the redirect/ directory
+# From the repository root
 make build-click-tracker
 
 # Or directly
-cargo build -p click-tracker
+cargo build --manifest-path redirect/Cargo.toml -p click-tracker
 ```

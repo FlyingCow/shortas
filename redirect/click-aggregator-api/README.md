@@ -37,9 +37,9 @@ bash apply_migrations.sh
 ## Build
 
 ```bash
-# From the redirect/ directory
+# From the repository root
 make build-click-aggregator-api
 
 # Or directly
-cargo build -p click-aggregator-api
+cargo build --manifest-path redirect/Cargo.toml -p click-aggregator-api
 ```

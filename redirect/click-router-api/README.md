@@ -32,9 +32,9 @@ Runs on port 8080 (mapped to 8081 in Docker Compose).
 ## Build
 
 ```bash
-# From the redirect/ directory
+# From the repository root
 make build-click-router-api
 
 # Or directly
-cargo build -p click-router-api
+cargo build --manifest-path redirect/Cargo.toml -p click-router-api
 ```
