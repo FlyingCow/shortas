@@ -647,35 +647,32 @@ const RoutesWithSidebar: React.FC = () => {
 
                 {/* Distribution Section */}
                 <div className="dashboard-section route-analytics-distribution">
-                  {/* Top Browsers - Horizontal Bar Chart */}
+                  {/* Browser Distribution - Pie Chart */}
                   <div className="card dashboard-chart-card">
                     <h3 className="dashboard-chart-title">Browsers</h3>
                     <p className="dashboard-chart-desc">By browser</p>
-                    <div style={{ height: '220px' }}>
+                    <div style={{ height: '200px' }}>
                       {analytics.topBrowsers.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={analytics.topBrowsers} layout="vertical">
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-secondary)" horizontal={false} />
-                            <XAxis
-                              type="number"
-                              stroke="var(--text-muted)"
-                              fontSize={11}
-                              tickLine={false}
-                              axisLine={false}
-                              tickFormatter={formatAxisNumber}
-                            />
-                            <YAxis
-                              type="category"
-                              dataKey="name"
-                              stroke="var(--text-muted)"
-                              fontSize={11}
-                              tickLine={false}
-                              axisLine={false}
-                              width={80}
-                            />
+                          <PieChart>
+                            <Pie
+                              data={analytics.topBrowsers}
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={70}
+                              innerRadius={45}
+                              dataKey="clicks"
+                              nameKey="name"
+                              paddingAngle={2}
+                              stroke="var(--bg-primary)"
+                              strokeWidth={2}
+                            >
+                              {analytics.topBrowsers.map((_: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                              ))}
+                            </Pie>
                             <Tooltip content={<CustomTooltip />} />
-                            <Bar name="Clicks" dataKey="clicks" fill="var(--primary-500)" radius={[0, 4, 4, 0]} barSize={18} />
-                          </BarChart>
+                          </PieChart>
                         </ResponsiveContainer>
                       ) : (
                         <div className="dashboard-empty-state">
@@ -684,6 +681,14 @@ const RoutesWithSidebar: React.FC = () => {
                         </div>
                       )}
                     </div>
+                    {analytics.topBrowsers.length > 0 && (
+                      <PieLegend
+                        items={analytics.topBrowsers.map((entry: any, i: number) => ({
+                          name: entry.name,
+                          color: CHART_COLORS[i % CHART_COLORS.length],
+                        }))}
+                      />
+                    )}
                   </div>
 
                   {/* Device Distribution - Pie Chart */}
