@@ -22,17 +22,11 @@ impl MongodbUserSettingsStore {
     }
 }
 
-#[async_trait::async_trait()]
+#[async_trait::async_trait]
 impl UserSettingsStore for MongodbUserSettingsStore {
-    async fn invalidate(&self, _: &str) -> Result<()> {
-        Ok(())
-    }
-    async fn get(&self, user_id: &str) -> Result<Option<UserSettings>> {
+    async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
         let filter = doc! { "user_id": user_id };
 
-        Ok(match self.collection.find_one(filter).await? {
-            Some(settings) => Some(settings),
-            None => None,
-        })
+        Ok(self.collection.find_one(filter).await?)
     }
 }

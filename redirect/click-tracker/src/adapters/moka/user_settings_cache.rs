@@ -1,0 +1,73 @@
+use std::time::Duration;
+
+use anyhow::Result;
+use moka::future::Cache;
+
+use crate::adapters::UserSettingsStoreType;
+use crate::core::user_settings::UserSettingsCache;
+use crate::core::UserSettingsStore;
+use crate::core::UserSettings;
+
+use super::settings::UserSettingsCacheSettings;
+
+const KEY_PREFIX: &str = "settings";
+
+#[derive(Clone, Debug)]
+pub struct UserSettingsCacheItem {
+    value: Option<UserSettings>,
+}
+
+#[derive(Clone)]
+pub struct MokaUserSettingsCache {
+    cache: Cache<String, UserSettingsCacheItem>,
+    user_settings_store: UserSettingsStoreType,
+}
+
+impl MokaUserSettingsCache {
+    pub fn new(
+        user_settings_store: UserSettingsStoreType,
+        settings: UserSettingsCacheSettings,
+    ) -> Self {
+        let cache = Cache::builder()
+            .max_capacity(settings.max_capacity)
+            .time_to_live(Duration::from_secs(settings.time_to_live_minutes * 60))
+            .time_to_idle(Duration::from_secs(settings.time_to_idle_minutes * 60))
+            .build();
+
+        Self {
+            cache,
+            user_settings_store,
+        }
+    }
+}
+
+fn get_key(user_id: &str) -> String {
+    format!("{}_{}", KEY_PREFIX, user_id)
+}
+
+#[async_trait::async_trait]
+impl UserSettingsCache for MokaUserSettingsCache {
+    async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
+        let key = get_key(user_id);
+
+        let cache_result = self
+            .cache
+            .get_with(key, async move {
+                let user_settings_result =
+                    self.user_settings_store.get_user_settings(user_id).await;
+                UserSettingsCacheItem {
+                    value: user_settings_result.unwrap(),
+                }
+            })
+            .await;
+
+        Ok(cache_result.value)
+    }
+
+    async fn invalidate(&self, user_id: &str) -> Result<()> {
+        let key = get_key(user_id);
+        self.cache.invalidate(&key).await;
+
+        Ok(())
+    }
+}

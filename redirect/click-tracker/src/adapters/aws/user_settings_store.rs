@@ -80,10 +80,7 @@ impl DynamoUserSettingsStore {
 
 #[async_trait::async_trait]
 impl UserSettingsStore for DynamoUserSettingsStore {
-    async fn invalidate(&self, _: &str) -> Result<()> {
-        Ok(())
-    }
-    async fn get(&self, user_id: &str) -> Result<Option<UserSettings>> {
+    async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
         let item = self
             .client
             .get_item()

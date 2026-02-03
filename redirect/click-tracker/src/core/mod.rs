@@ -19,6 +19,7 @@ pub use hit_stream::HitStreamSource;
 use session::Session;
 use ulid::Ulid;
 pub use user_agent::UserAgentDetector;
+pub use user_settings::UserSettingsCache;
 pub use user_settings::UserSettingsManager;
 pub use user_settings::UserSettingsStore;
 

@@ -2,43 +2,32 @@ use anyhow::Result;
 
 use super::UserSettings;
 
+use crate::adapters::UserSettingsCacheType;
+
 #[async_trait::async_trait]
 pub trait UserSettingsStore {
-    async fn get(&self, user_id: &str) -> Result<Option<UserSettings>>;
+    async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>>;
+}
+
+#[async_trait::async_trait]
+pub trait UserSettingsCache {
+    async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>>;
     async fn invalidate(&self, user_id: &str) -> Result<()>;
 }
 
-#[async_trait::async_trait]
-pub trait UserSettingsManager {
-    async fn get(&self, user_id: &str) -> Result<Option<UserSettings>>;
+#[derive(Clone)]
+pub struct UserSettingsManager {
+    user_settings_cache: UserSettingsCacheType,
 }
 
-pub struct DefaultUserSettingsManager<S>
-where
-    S: UserSettingsStore + Send + Sync,
-{
-    user_settings_store: S,
-}
-
-#[async_trait::async_trait]
-impl<S> UserSettingsManager for DefaultUserSettingsManager<S>
-where
-    S: UserSettingsStore + Send + Sync,
-{
-    async fn get(&self, user_id: &str) -> Result<Option<UserSettings>> {
-        let user_settings_result = self.user_settings_store.get(user_id).await;
-
-        user_settings_result
-    }
-}
-
-impl<S> DefaultUserSettingsManager<S>
-where
-    S: UserSettingsStore + Send + Sync,
-{
-    pub fn new(user_settings_store: S) -> Self {
+impl UserSettingsManager {
+    pub fn new(user_settings_cache: UserSettingsCacheType) -> Self {
         Self {
-            user_settings_store,
+            user_settings_cache,
         }
+    }
+
+    pub async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
+        self.user_settings_cache.get_user_settings(user_id).await
     }
 }

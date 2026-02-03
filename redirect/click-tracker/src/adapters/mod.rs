@@ -14,7 +14,7 @@ use flume::Sender;
 use fluvio::FluvioClickAggsRegistrar;
 use geo_ip::geo_ip_location_detector::GeoIPLocationDetector;
 use kafka::KafkaClickAggsRegistrar;
-use moka::user_settings_store::MokaDecoratedUserSettingsStore;
+use moka::user_settings_cache::MokaUserSettingsCache;
 use redis::session_detector::RedisSessionDetector;
 use std::net::IpAddr;
 use tokio_util::sync::CancellationToken;
@@ -25,7 +25,7 @@ use crate::{
     adapters::mongodb::user_settings_store::MongodbUserSettingsStore,
     core::{
         ClickStreamItem, Country, Hit, HitStreamSource, UserAgent, UserAgentDetector,
-        UserSettingsStore,
+        UserSettingsCache, UserSettingsStore,
         aggs::ClickAggsRegistrar,
         location::LocationDetector,
         session::{Session, SessionDetector},
@@ -76,34 +76,38 @@ impl HitStreamSource for HitStreamSourceType {
     }
 }
 
-pub enum UserSettingsStoreType<S>
-where
-    S: UserSettingsStore + Send + Sync,
-{
-    //Redis,
+#[derive(Clone)]
+pub enum UserSettingsStoreType {
     Mongodb(MongodbUserSettingsStore),
     Dynamo(DynamoUserSettingsStore),
-    Moka(MokaDecoratedUserSettingsStore<S>),
 }
 
 #[async_trait::async_trait]
-impl<S> UserSettingsStore for UserSettingsStoreType<S>
-where
-    S: UserSettingsStore + Send + Sync,
-{
-    async fn get(&self, user_id: &str) -> Result<Option<crate::core::UserSettings>> {
+impl UserSettingsStore for UserSettingsStoreType {
+    async fn get_user_settings(&self, user_id: &str) -> Result<Option<crate::core::UserSettings>> {
         match self {
-            UserSettingsStoreType::Mongodb(store) => store.get(user_id).await,
-            UserSettingsStoreType::Dynamo(store) => store.get(user_id).await,
-            UserSettingsStoreType::Moka(store) => store.get(user_id).await,
+            UserSettingsStoreType::Mongodb(store) => store.get_user_settings(user_id).await,
+            UserSettingsStoreType::Dynamo(store) => store.get_user_settings(user_id).await,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum UserSettingsCacheType {
+    Moka(MokaUserSettingsCache),
+}
+
+#[async_trait::async_trait]
+impl UserSettingsCache for UserSettingsCacheType {
+    async fn get_user_settings(&self, user_id: &str) -> Result<Option<crate::core::UserSettings>> {
+        match self {
+            UserSettingsCacheType::Moka(cache) => cache.get_user_settings(user_id).await,
         }
     }
 
     async fn invalidate(&self, user_id: &str) -> Result<()> {
         match self {
-            UserSettingsStoreType::Mongodb(store) => store.invalidate(user_id).await,
-            UserSettingsStoreType::Dynamo(store) => store.invalidate(user_id).await,
-            UserSettingsStoreType::Moka(store) => store.invalidate(user_id).await,
+            UserSettingsCacheType::Moka(cache) => cache.invalidate(user_id).await,
         }
     }
 }
