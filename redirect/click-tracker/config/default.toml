@@ -51,6 +51,11 @@ mmdb = "../data/geo-ip/GeoLite2-Country.mmdb"
 host = "redis://:eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81@cache"
 password = "eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81"
 
+[rabbitmq]
+uri = "amqp://guest:guest@rabbitmq:5672/%2f"
+user_settings_exchange = "cache.invalidation.user_settings"
+reconnect_seconds = 5
+
 [server]
 threads = 8
 listen_os_signals = true

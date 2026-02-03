@@ -40,6 +40,7 @@ fluvio.workspace = true
 tokio-graceful-shutdown.workspace = true
 flume.workspace = true
 futures.workspace = true
+lapin.workspace = true
 mongodb.workspace = true
 
 [dev-dependencies]

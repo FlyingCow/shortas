@@ -8,9 +8,13 @@ use clap::Parser;
 use click_tracker::{
     App, FluvioHitStream, KafkaHitStream, Settings,
     adapters::{
+        mongodb::user_settings_store::MongodbUserSettingsStore,
+        rabbitmq::consumer,
         ClickAggsRegistrarType, HitStreamSourceType, LocationDetectorType, SessionDetectorType,
-        UserAgentDetectorType, fluvio::FluvioClickAggsRegistrar,
+        UserAgentDetectorType, UserSettingsCacheType,
+        fluvio::FluvioClickAggsRegistrar,
         geo_ip::geo_ip_location_detector::GeoIPLocationDetector,
+        moka::user_settings_cache::MokaUserSettingsCache,
         redis::session_detector::RedisSessionDetector,
         uaparser::user_agent_detector::UAParserUserAgentDetector,
     },
@@ -63,6 +67,18 @@ async fn init_modules(settings: &Settings, token: CancellationToken) -> Vec<Clic
     ]
 }
 
+async fn init_user_settings_cache_for_rabbitmq(
+    settings: &Settings,
+) -> Option<UserSettingsCacheType> {
+    let _rmq = settings.rabbitmq.as_ref()?;
+    let store = MongodbUserSettingsStore::new(&settings.mongodb).await;
+    let cache = MokaUserSettingsCache::new(
+        click_tracker::adapters::UserSettingsStoreType::Mongodb(store),
+        settings.moka.user_settings_cache.clone(),
+    );
+    Some(UserSettingsCacheType::Moka(cache))
+}
+
 async fn init_sources(settings: Settings) -> Vec<HitStreamSourceType> {
     let _kafka_stream = KafkaHitStream;
     let fluvio_stream = FluvioHitStream::connect(settings.fluvio.hit_stream).await;
@@ -82,6 +98,15 @@ async fn start(token: CancellationToken) -> Result<()> {
     .expect("Can not load settings toml.");
 
     let modules = init_modules(&settings, token.clone()).await;
+
+    if let (Some(rmq), Some(user_settings_cache)) = (
+        settings.rabbitmq.as_ref(),
+        init_user_settings_cache_for_rabbitmq(&settings).await,
+    ) {
+        consumer::start_user_settings_cache_invalidation_consumer(rmq.clone(), user_settings_cache);
+    } else if settings.rabbitmq.is_some() {
+        tracing::warn!("RabbitMQ configured but user settings cache init skipped");
+    }
 
     let pipe = TrackingPipe::new(modules);
 

@@ -4,6 +4,7 @@ pub mod geo_ip;
 pub mod kafka;
 pub mod moka;
 pub mod mongodb;
+pub mod rabbitmq;
 pub mod redis;
 pub mod uaparser;
 
