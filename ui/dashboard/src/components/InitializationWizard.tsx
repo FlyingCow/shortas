@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, ChevronLeft, ChevronRight, Rocket, Globe, Settings, CheckCircle } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Rocket, Globe, CheckCircle } from 'lucide-react';
 import { apiService, CreateDomainDto } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
@@ -253,8 +253,7 @@ interface WizardStep {
 
 const steps: WizardStep[] = [
   { number: 1, label: 'Domain', icon: <Globe size={20} /> },
-  { number: 2, label: 'Settings', icon: <Settings size={20} /> },
-  { number: 3, label: 'Complete', icon: <Check size={20} /> },
+  { number: 2, label: 'Complete', icon: <Check size={20} /> },
 ];
 
 interface InitializationWizardProps {
@@ -270,15 +269,11 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete 
 
   // Form data
   const [domainName, setDomainName] = useState('');
-  const [debugMode, setDebugMode] = useState(false);
-  const [allowOverflow, setAllowOverflow] = useState(false);
 
   const canProceed = () => {
     switch (currentStep) {
       case 1:
         return domainName.trim().length > 0;
-      case 2:
-        return true; // Settings are optional
       default:
         return true;
     }
@@ -384,53 +379,6 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete 
         return (
           <div className="wizard-step-content">
             <h2 className="wizard-step-title">
-              <Settings size={24} />
-              User Preferences
-            </h2>
-            <p className="wizard-step-description">
-              Configure your initial settings. You can change these later in your account settings.
-            </p>
-
-            <div className="checkbox-group">
-              <input
-                type="checkbox"
-                id="debug-mode"
-                checked={debugMode}
-                onChange={(e) => setDebugMode(e.target.checked)}
-              />
-              <label htmlFor="debug-mode">
-                <strong>Enable Debug Mode</strong>
-                <br />
-                <small>Shows additional debugging information in responses</small>
-              </label>
-            </div>
-
-            <div className="checkbox-group">
-              <input
-                type="checkbox"
-                id="allow-overflow"
-                checked={allowOverflow}
-                onChange={(e) => setAllowOverflow(e.target.checked)}
-              />
-              <label htmlFor="allow-overflow">
-                <strong>Allow Overflow</strong>
-                <br />
-                <small>Permits handling of overflow traffic beyond normal limits</small>
-              </label>
-            </div>
-
-            {error && (
-              <div className="alert alert-error" style={{ marginTop: '1rem' }}>
-                {error}
-              </div>
-            )}
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="wizard-step-content">
-            <h2 className="wizard-step-title">
               <Check size={24} />
               Review & Complete
             </h2>
@@ -439,22 +387,12 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete 
             </p>
 
             <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600 }}>Configuration Summary</h3>
+              <h3 style={{ margin: '0 0 1rem 0', fontSize: 'var(--font-size-md)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--text-primary)' }}>Configuration Summary</h3>
 
               <div style={{ display: 'grid', gap: '0.75rem' }}>
                 <div>
-                  <strong style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Domain:</strong>
-                  <div style={{ marginTop: '0.25rem' }}>{domainName}</div>
-                </div>
-
-                <div>
-                  <strong style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Debug Mode:</strong>
-                  <div style={{ marginTop: '0.25rem' }}>{debugMode ? 'Enabled' : 'Disabled'}</div>
-                </div>
-
-                <div>
-                  <strong style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Allow Overflow:</strong>
-                  <div style={{ marginTop: '0.25rem' }}>{allowOverflow ? 'Enabled' : 'Disabled'}</div>
+                  <strong style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>Domain:</strong>
+                  <div style={{ marginTop: '0.25rem', color: 'var(--text-primary)' }}>{domainName}</div>
                 </div>
               </div>
             </div>
