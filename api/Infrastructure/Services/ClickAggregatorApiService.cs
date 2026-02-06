@@ -301,12 +301,12 @@ public class ClickAggregatorApiService : IClickStreamService
                 .AsNoTracking()
                 .Include(r => r.Domain)
                 .Where(r => uniqueGuids.Contains(r.Id))
-                .Select(r => new { r.Id, r.Switch, DomainName = r.Domain != null ? r.Domain.Name : null })
+                .Select(r => new { r.Id, r.Link, DomainName = r.Domain != null ? r.Domain.Name : null })
                 .ToListAsync();
 
             return routes.ToDictionary(
                 r => r.Id.ToString(),
-                r => (r.Switch, r.DomainName));
+                r => (r.Link, r.DomainName));
         }
         catch (Exception ex)
         {

@@ -261,11 +261,15 @@ const clickstreamStyles = `
   white-space: nowrap;
 }
 
-.cs-route-id {
+.cs-route-name {
   font-size: 0.8125rem;
-  font-family: monospace;
   color: var(--text-primary);
   font-weight: 500;
+}
+
+.cs-route-domain {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
 }
 
 .cs-ip {
@@ -339,7 +343,8 @@ interface ClickEvent {
   id: string;
   timestamp: string;
   url: string;
-  routeId: string;
+  routeName: string;
+  routeDomainName: string;
   country: string;
   city: string;
   device: string;
@@ -353,7 +358,7 @@ interface ClickEvent {
 interface ClickstreamFilters {
   device: string;
   country: string;
-  routeId: string;
+  route: string;
   search: string;
 }
 
@@ -366,7 +371,7 @@ const Clickstream: React.FC = () => {
   const [filters, setFilters] = useState<ClickstreamFilters>({
     device: 'all',
     country: 'all',
-    routeId: 'all',
+    route: 'all',
     search: ''
   });
   const [stats, setStats] = useState({
@@ -387,7 +392,8 @@ const Clickstream: React.FC = () => {
       id: apiEvent.id,
       timestamp: apiEvent.created,
       url: apiEvent.dest || '',
-      routeId: apiEvent.routeId || '',
+      routeName: apiEvent.routeName || '',
+      routeDomainName: apiEvent.routeDomainName || '',
       country: apiEvent.country || 'Unknown',
       city: city,
       device: apiEvent.deviceFamily || 'Unknown',
@@ -445,7 +451,6 @@ const Clickstream: React.FC = () => {
       const params = {
         startDate,
         endDate,
-        ...(filters.routeId !== 'all' && { routeId: filters.routeId })
       };
 
       const [rawEvents, rawStats] = await Promise.all([
@@ -468,7 +473,7 @@ const Clickstream: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters.routeId, getDateRange]);
+  }, [getDateRange]);
 
   const refreshData = useCallback(async () => {
     if (!isLive) return;
@@ -478,7 +483,6 @@ const Clickstream: React.FC = () => {
       const params = {
         startDate,
         endDate,
-        ...(filters.routeId !== 'all' && { routeId: filters.routeId })
       };
 
       const [rawEvents, rawStats] = await Promise.all([
@@ -497,7 +501,7 @@ const Clickstream: React.FC = () => {
     } catch (err) {
       console.error('Error refreshing clickstream data:', err);
     }
-  }, [isLive, filters.routeId, getDateRange]);
+  }, [isLive, getDateRange]);
 
   const applyFilters = useCallback(() => {
     let filtered = events;
@@ -510,14 +514,19 @@ const Clickstream: React.FC = () => {
       filtered = filtered.filter(e => e.country.toLowerCase().includes(filters.country.toLowerCase()));
     }
 
-    if (filters.routeId !== 'all') {
-      filtered = filtered.filter(e => e.routeId === filters.routeId);
+    if (filters.route !== 'all') {
+      const routeFilter = filters.route.toLowerCase();
+      filtered = filtered.filter(e =>
+        e.routeName.toLowerCase().includes(routeFilter) ||
+        e.routeDomainName.toLowerCase().includes(routeFilter)
+      );
     }
 
     if (filters.search) {
       filtered = filtered.filter(e =>
         e.url.toLowerCase().includes(filters.search.toLowerCase()) ||
-        e.routeId.toLowerCase().includes(filters.search.toLowerCase()) ||
+        e.routeName.toLowerCase().includes(filters.search.toLowerCase()) ||
+        e.routeDomainName.toLowerCase().includes(filters.search.toLowerCase()) ||
         e.city.toLowerCase().includes(filters.search.toLowerCase()) ||
         e.country.toLowerCase().includes(filters.search.toLowerCase())
       );
@@ -717,9 +726,9 @@ const Clickstream: React.FC = () => {
             <input
               type="text"
               className="cs-filter-input"
-              placeholder="Route ID..."
-              value={filters.routeId === 'all' ? '' : filters.routeId}
-              onChange={(e) => setFilters(prev => ({ ...prev, routeId: e.target.value || 'all' }))}
+              placeholder="Route name..."
+              value={filters.route === 'all' ? '' : filters.route}
+              onChange={(e) => setFilters(prev => ({ ...prev, route: e.target.value || 'all' }))}
             />
 
             <div className="search-box" style={{ marginBottom: 0 }}>
@@ -748,7 +757,8 @@ const Clickstream: React.FC = () => {
                   <thead>
                     <tr>
                       <th>Time</th>
-                      <th>Route ID</th>
+                      <th>Route</th>
+                      <th>Domain</th>
                       <th>Destination</th>
                       <th>Location</th>
                       <th>Device</th>
@@ -767,7 +777,10 @@ const Clickstream: React.FC = () => {
                           </div>
                         </td>
                         <td>
-                          <span className="cs-route-id">{event.routeId}</span>
+                          <span className="cs-route-name">{event.routeName || '—'}</span>
+                        </td>
+                        <td>
+                          <span className="cs-route-domain">{event.routeDomainName || '—'}</span>
                         </td>
                         <td>
                           <div className="cs-url" title={event.url}>
@@ -815,7 +828,7 @@ const Clickstream: React.FC = () => {
                     <Activity size={48} />
                     <h3>No events found</h3>
                     <p>
-                      {filters.search || filters.device !== 'all' || filters.routeId !== 'all' || filters.country !== 'all'
+                      {filters.search || filters.device !== 'all' || filters.route !== 'all' || filters.country !== 'all'
                         ? 'No events match your current filters.'
                         : 'No click events have been recorded yet.'}
                     </p>

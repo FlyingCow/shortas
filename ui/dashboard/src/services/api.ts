@@ -202,6 +202,8 @@ export interface ClickStreamEvent {
   ownerId: string;
   creatorId: string;
   routeId: string;
+  routeName?: string | null;
+  routeDomainName?: string | null;
   workspaceId: string;
   created: string;
   dest: string;
@@ -285,6 +287,8 @@ export interface BrowserStatsDto {
 
 export interface RoutePerformanceDto {
   route_id: string;
+  route_name?: string | null;
+  route_domain_name?: string | null;
   total_clicks: number;
   unique_visitors: number;
   bot_clicks: number;
