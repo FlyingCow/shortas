@@ -247,6 +247,14 @@ public class RoutePerformanceDto
     [JsonPropertyName("route_id")]
     public string RouteId { get; set; } = string.Empty;
 
+    /// <summary>Route name (enriched from local data)</summary>
+    [JsonPropertyName("route_name")]
+    public string? RouteName { get; set; }
+
+    /// <summary>Route domain name (enriched from local data)</summary>
+    [JsonPropertyName("route_domain_name")]
+    public string? RouteDomainName { get; set; }
+
     [JsonPropertyName("total_clicks")]
     public long TotalClicks { get; set; }
 

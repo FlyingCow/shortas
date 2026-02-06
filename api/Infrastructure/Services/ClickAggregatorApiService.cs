@@ -1,6 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using ShortasProxyApi.Domain.Interfaces;
 using ShortasProxyApi.Domain.Common;
 using ShortasProxyApi.Application.DTOs;
+using ShortasProxyApi.Infrastructure.Data;
 using ShortasProxyApi.Infrastructure.HttpClients;
 
 namespace ShortasProxyApi.Infrastructure.Services;
@@ -8,15 +10,18 @@ namespace ShortasProxyApi.Infrastructure.Services;
 /// <summary>
 /// Service implementation that uses ClickAggregatorApiClient for HTTP communication.
 /// This service implements the IClickStreamService interface and delegates to the HTTP client.
+/// Enriches upstream clickstream data with route name and domain name from the local database.
 /// </summary>
 public class ClickAggregatorApiService : IClickStreamService
 {
     private readonly ClickAggregatorApiClient _httpClient;
+    private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<ClickAggregatorApiService> _logger;
 
-    public ClickAggregatorApiService(ClickAggregatorApiClient httpClient, ILogger<ClickAggregatorApiService> logger)
+    public ClickAggregatorApiService(ClickAggregatorApiClient httpClient, ApplicationDbContext dbContext, ILogger<ClickAggregatorApiService> logger)
     {
         _httpClient = httpClient;
+        _dbContext = dbContext;
         _logger = logger;
     }
 
@@ -34,6 +39,9 @@ public class ClickAggregatorApiService : IClickStreamService
         {
             return Result<List<ClickStreamDto>>.Failure(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
         }
+
+        // Enrich with route name and domain name from local data
+        await EnrichClickStreamWithRouteDataAsync(result.Value);
 
         return Result<List<ClickStreamDto>>.Success(result.Value);
     }
@@ -204,7 +212,14 @@ public class ClickAggregatorApiService : IClickStreamService
     {
         _logger.LogDebug("Getting route performance - ownerId {OwnerId}, fromDate {FromDate}, toDate {ToDate}, limit {Limit}",
             ownerId, fromDate, toDate, limit);
-        return await _httpClient.GetRoutePerformanceAsync(ownerId, fromDate, toDate, limit);
+        var result = await _httpClient.GetRoutePerformanceAsync(ownerId, fromDate, toDate, limit);
+
+        if (result.IsSuccess)
+        {
+            await EnrichRoutePerformanceWithRouteDataAsync(result.Value);
+        }
+
+        return result;
     }
 
     public async Task<Result<List<TopDestinationDto>>> GetTopDestinationsAsync(string? ownerId = null, string? routeId = null, string? fromDate = null, string? toDate = null, int? limit = null)
@@ -219,6 +234,85 @@ public class ClickAggregatorApiService : IClickStreamService
         _logger.LogDebug("Getting traffic type stats - ownerId {OwnerId}, routeId {RouteId}, fromHour {FromHour}, toHour {ToHour}",
             ownerId, routeId, fromHour, toHour);
         return await _httpClient.GetTrafficTypeStatsAsync(ownerId, routeId, fromHour, toHour);
+    }
+
+    #endregion
+
+    #region Route Data Enrichment
+
+    /// <summary>
+    /// Batch-fetches route names and domain names from the local database
+    /// and enriches the clickstream DTOs.
+    /// </summary>
+    private async Task EnrichClickStreamWithRouteDataAsync(List<ClickStreamDto> items)
+    {
+        if (items.Count == 0) return;
+
+        var routeLookup = await GetRouteLookupAsync(items.Select(i => i.RouteId));
+
+        foreach (var item in items)
+        {
+            if (routeLookup.TryGetValue(item.RouteId, out var routeInfo))
+            {
+                item.RouteName = routeInfo.Name;
+                item.RouteDomainName = routeInfo.DomainName;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Batch-fetches route names and domain names from the local database
+    /// and enriches the route performance DTOs.
+    /// </summary>
+    private async Task EnrichRoutePerformanceWithRouteDataAsync(List<RoutePerformanceDto> items)
+    {
+        if (items.Count == 0) return;
+
+        var routeLookup = await GetRouteLookupAsync(items.Select(i => i.RouteId));
+
+        foreach (var item in items)
+        {
+            if (routeLookup.TryGetValue(item.RouteId, out var routeInfo))
+            {
+                item.RouteName = routeInfo.Name;
+                item.RouteDomainName = routeInfo.DomainName;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Fetches route data from the local database for the given route IDs.
+    /// Returns a dictionary mapping route ID string to (Name, DomainName).
+    /// </summary>
+    private async Task<Dictionary<string, (string Name, string? DomainName)>> GetRouteLookupAsync(IEnumerable<string> routeIds)
+    {
+        var uniqueGuids = routeIds
+            .Where(id => Guid.TryParse(id, out _))
+            .Select(Guid.Parse)
+            .Distinct()
+            .ToList();
+
+        if (uniqueGuids.Count == 0)
+            return new Dictionary<string, (string, string?)>();
+
+        try
+        {
+            var routes = await _dbContext.Routes
+                .AsNoTracking()
+                .Include(r => r.Domain)
+                .Where(r => uniqueGuids.Contains(r.Id))
+                .Select(r => new { r.Id, r.Switch, DomainName = r.Domain != null ? r.Domain.Name : null })
+                .ToListAsync();
+
+            return routes.ToDictionary(
+                r => r.Id.ToString(),
+                r => (r.Switch, r.DomainName));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to enrich clickstream with route data; returning data without enrichment");
+            return new Dictionary<string, (string, string?)>();
+        }
     }
 
     #endregion

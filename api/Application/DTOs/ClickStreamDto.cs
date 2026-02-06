@@ -20,6 +20,13 @@ public class ClickStreamDto
     public string OwnerId { get; set; } = string.Empty;
     public string CreatorId { get; set; } = string.Empty;
     public string RouteId { get; set; } = string.Empty;
+
+    /// <summary>Route name (enriched from local data)</summary>
+    public string? RouteName { get; set; }
+
+    /// <summary>Route domain name (enriched from local data)</summary>
+    public string? RouteDomainName { get; set; }
+
     public string WorkspaceId { get; set; } = string.Empty;
     public DateTime Created { get; set; }
     public string Dest { get; set; } = string.Empty;
