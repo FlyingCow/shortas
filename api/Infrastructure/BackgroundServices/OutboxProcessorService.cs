@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ShortasProxyApi.Domain.Entities;
 using ShortasProxyApi.Domain.Interfaces;
+using RouteSearchDoc = ShortasProxyApi.Domain.Interfaces.RouteSearchDocument;
 
 namespace ShortasProxyApi.Infrastructure.BackgroundServices;
 
@@ -56,6 +57,7 @@ public class OutboxProcessorService : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var outboxRepository = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
         var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+        var routeSearchService = scope.ServiceProvider.GetRequiredService<IRouteSearchService>();
 
         // Get pending messages
         var messages = await outboxRepository.GetPendingMessagesAsync(batchSize: 10);
@@ -70,9 +72,22 @@ public class OutboxProcessorService : BackgroundService
             if (cancellationToken.IsCancellationRequested)
                 break;
 
-            await ProcessMessageAsync(message, outboxRepository, httpClientFactory, cancellationToken);
+            if (IsSearchIndexEvent(message.EventType))
+            {
+                await ProcessSearchIndexMessageAsync(message, outboxRepository, routeSearchService, cancellationToken);
+            }
+            else
+            {
+                await ProcessMessageAsync(message, outboxRepository, httpClientFactory, cancellationToken);
+            }
         }
     }
+
+    private static bool IsSearchIndexEvent(string eventType) =>
+        eventType is OutboxEventType.RouteSearchIndex
+                  or OutboxEventType.RouteSearchDelete
+                  or OutboxEventType.RouteSearchBulkIndex
+                  or OutboxEventType.RouteSearchBulkDelete;
 
     private async Task ProcessMessageAsync(
         OutboxMessage message,
@@ -118,6 +133,75 @@ public class OutboxProcessorService : BackgroundService
         {
             _logger.LogError(ex, "Error processing outbox message {MessageId}", message.Id);
 
+            message.ErrorMessage = ex.Message;
+            await HandleFailureAsync(message);
+            await outboxRepository.UpdateAsync(message);
+            await outboxRepository.SaveChangesAsync();
+        }
+    }
+
+    private async Task ProcessSearchIndexMessageAsync(
+        OutboxMessage message,
+        IOutboxRepository outboxRepository,
+        IRouteSearchService routeSearchService,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            message.Status = OutboxMessageStatus.Processing;
+            await outboxRepository.UpdateAsync(message);
+            await outboxRepository.SaveChangesAsync();
+
+            Domain.Common.Result? result = null;
+
+            switch (message.EventType)
+            {
+                case OutboxEventType.RouteSearchIndex:
+                    var doc = JsonSerializer.Deserialize<RouteSearchDoc>(message.Payload, _jsonOptions);
+                    if (doc != null)
+                        result = await routeSearchService.IndexRouteAsync(doc);
+                    break;
+
+                case OutboxEventType.RouteSearchDelete:
+                    var deletePayload = JsonSerializer.Deserialize<JsonElement>(message.Payload, _jsonOptions);
+                    var routeId = deletePayload.GetProperty("id").GetString();
+                    if (!string.IsNullOrEmpty(routeId))
+                        result = await routeSearchService.DeleteRouteAsync(routeId);
+                    break;
+
+                case OutboxEventType.RouteSearchBulkIndex:
+                    var docs = JsonSerializer.Deserialize<List<RouteSearchDoc>>(message.Payload, _jsonOptions);
+                    if (docs != null && docs.Count > 0)
+                        result = await routeSearchService.IndexRoutesAsync(docs);
+                    break;
+
+                case OutboxEventType.RouteSearchBulkDelete:
+                    var ids = JsonSerializer.Deserialize<List<string>>(message.Payload, _jsonOptions);
+                    if (ids != null && ids.Count > 0)
+                        result = await routeSearchService.DeleteRoutesAsync(ids);
+                    break;
+            }
+
+            if (result != null && result.IsSuccess)
+            {
+                message.Status = OutboxMessageStatus.Completed;
+                message.ProcessedAt = DateTime.UtcNow;
+                message.ErrorMessage = null;
+                _logger.LogInformation("Processed search index message {MessageId}, Event: {EventType}",
+                    message.Id, message.EventType);
+            }
+            else
+            {
+                message.ErrorMessage = result?.Error ?? "Unknown search index error";
+                await HandleFailureAsync(message);
+            }
+
+            await outboxRepository.UpdateAsync(message);
+            await outboxRepository.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing search index message {MessageId}", message.Id);
             message.ErrorMessage = ex.Message;
             await HandleFailureAsync(message);
             await outboxRepository.UpdateAsync(message);

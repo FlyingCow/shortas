@@ -15,12 +15,14 @@ namespace ShortasProxyApi.Presentation.Controllers;
 public class RoutesController : ControllerBase
 {
     private readonly IRouteService _routeService;
+    private readonly IRouteSearchService _routeSearchService;
     private readonly ILogger<RoutesController> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public RoutesController(IRouteService routeService, ILogger<RoutesController> logger)
+    public RoutesController(IRouteService routeService, IRouteSearchService routeSearchService, ILogger<RoutesController> logger)
     {
         _routeService = routeService;
+        _routeSearchService = routeSearchService;
         _logger = logger;
         _jsonOptions = new JsonSerializerOptions
         {
@@ -285,6 +287,90 @@ public class RoutesController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Full-text search routes by link, domain name, or destination URL
+    /// </summary>
+    /// <param name="q">Search query</param>
+    /// <param name="page">Page number (default: 1)</param>
+    /// <param name="pageSize">Page size (default: 20)</param>
+    /// <param name="workspaceId">Filter by workspace ID (optional)</param>
+    /// <returns>Search results with pagination</returns>
+    [HttpGet("search")]
+    public async Task<ActionResult<object>> SearchRoutes(
+        [FromQuery] string q,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? workspaceId = null)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Search query 'q' is required" });
+        }
+
+        var userId = this.GetUserId();
+        var result = await _routeSearchService.SearchAsync(q, userId, workspaceId, page, pageSize);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        var (results, totalCount) = result.Value;
+
+        return Ok(new
+        {
+            data = results,
+            pagination = new
+            {
+                page,
+                pageSize,
+                totalCount,
+                totalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            }
+        });
+    }
+
+    /// <summary>
+    /// Reindex all routes in the search index.
+    /// Useful after initial Elasticsearch deployment or index corruption.
+    /// </summary>
+    [HttpPost("search/reindex")]
+    public async Task<ActionResult<object>> ReindexRoutes()
+    {
+        var userId = this.GetUserId();
+
+        // Fetch all routes for the user from the database
+        var listResult = await _routeService.ListRoutesAsync(page: 1, pageSize: 10000, ownerId: userId);
+
+        if (listResult.IsFailure)
+        {
+            return HandleError(listResult.ErrorCode ?? "UNKNOWN_ERROR", listResult.Error);
+        }
+
+        var (routes, totalCount) = listResult.Value;
+
+        var searchDocuments = routes.Select(r => new RouteSearchDocument
+        {
+            Id = r.Id.ToString(),
+            Link = r.Link,
+            Switch = r.Switch,
+            Dest = r.Dest,
+            DomainName = r.Domain?.Name,
+            Status = r.Status,
+            OwnerId = r.Properties?.OwnerId,
+            WorkspaceId = r.Properties?.WorkspaceId,
+        }).ToList();
+
+        var indexResult = await _routeSearchService.IndexRoutesAsync(searchDocuments);
+
+        if (indexResult.IsFailure)
+        {
+            return HandleError(indexResult.ErrorCode ?? "UNKNOWN_ERROR", indexResult.Error);
+        }
+
+        return Ok(new { message = $"Reindexed {searchDocuments.Count} routes", count = searchDocuments.Count });
     }
 
     private ActionResult HandleError(string errorCode, string errorMessage)

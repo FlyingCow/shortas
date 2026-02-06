@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Nest;
 using ShortasProxyApi.Application.Services;
 using ShortasProxyApi.Domain.Interfaces;
 using ShortasProxyApi.Infrastructure.Data;
@@ -22,6 +23,19 @@ public static class ServiceCollectionExtensions
         // Add Entity Framework
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+
+        // Add Elasticsearch
+        var elasticsearchUrl = configuration["Elasticsearch:Url"] ?? "http://localhost:9200";
+        var connectionSettings = new ConnectionSettings(new Uri(elasticsearchUrl))
+            .DefaultMappingFor<RouteSearchDocument>(m => m
+                .IndexName(configuration["Elasticsearch:IndexName"] ?? "routes")
+                .IdProperty(p => p.Id)
+            )
+            .EnableDebugMode()
+            .ThrowExceptions(false);
+
+        services.AddSingleton<IElasticClient>(new ElasticClient(connectionSettings));
+        services.AddScoped<IRouteSearchService, ElasticsearchRouteSearchService>();
 
         // Add HTTP clients with Polly for resilience
         services.AddHttpClient("ClickRouterApi", client =>
@@ -148,6 +162,6 @@ public static class ServiceCollectionExtensions
 
     private static IAsyncPolicy<HttpResponseMessage> GetTimeoutPolicy()
     {
-        return Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(10));
+        return Polly.Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(10));
     }
 }

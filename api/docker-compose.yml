@@ -21,6 +21,25 @@ services:
     networks:
       - shortas-net
 
+  shortas-api-elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.16
+    container_name: shortas-api-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shortas-net
+
   shortas-api:
     build:
       context: .
@@ -34,12 +53,15 @@ services:
       - ASPNETCORE_URLS=http://+:8090
       - ApiSettings__ClickRouterApi__BaseUrl=http://click-router-api:5810
       - ApiSettings__ClickAggregatorApi__BaseUrl=http://click-aggregator-api:5820
+      - Elasticsearch__Url=http://shortas-api-elasticsearch:9200
       - Keycloak__Authority=http://keycloak:8080/realms/shortas-dev
       - Keycloak__Audience=shortas-api
       - Keycloak__RequireHttpsMetadata=false
       - ConnectionStrings__DefaultConnection=Host=shortas-api-postgres;Database=shortas_dev_db;Username=shortas_user;Password=shortas_password;Port=5432
     depends_on:
       shortas-api-postgres:
+        condition: service_healthy
+      shortas-api-elasticsearch:
         condition: service_healthy
     networks:
       - shortas-net
@@ -51,6 +73,7 @@ networks:
 
 volumes:
   postgres_data:
+  elasticsearch_data:
   shortas-net:
     external: true
 

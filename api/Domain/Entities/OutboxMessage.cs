@@ -45,4 +45,10 @@ public static class OutboxEventType
     public const string UserSettingsCreated = "UserSettingsCreated";
     public const string UserSettingsUpdated = "UserSettingsUpdated";
     public const string UserSettingsDeleted = "UserSettingsDeleted";
+
+    // Route search index events (Elasticsearch)
+    public const string RouteSearchIndex = "RouteSearchIndex";
+    public const string RouteSearchDelete = "RouteSearchDelete";
+    public const string RouteSearchBulkIndex = "RouteSearchBulkIndex";
+    public const string RouteSearchBulkDelete = "RouteSearchBulkDelete";
 }

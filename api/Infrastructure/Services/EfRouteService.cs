@@ -7,6 +7,7 @@ using ShortasProxyApi.Infrastructure.Data;
 using ShortasProxyApi.Infrastructure.HttpClients;
 using ShortasProxyApi.Application.Extensions;
 using RouteEntity = ShortasProxyApi.Domain.Entities.Route;
+using RouteSearchDoc = ShortasProxyApi.Domain.Interfaces.RouteSearchDocument;
 
 namespace ShortasProxyApi.Infrastructure.Services;
 
@@ -162,6 +163,10 @@ public class EfRouteService : IRouteService
                     $"Failed to create route in click-router API: {apiResult.Error}");
             }
 
+            // Enqueue search index update via outbox
+            await EnqueueSearchIndexAsync(savedRoute);
+            await _context.SaveChangesAsync();
+
             await transaction.CommitAsync();
 
             _logger.LogInformation("Route created: {RouteId}, Link: {Link}", route.Id, route.Link);
@@ -281,6 +286,10 @@ public class EfRouteService : IRouteService
                     $"Failed to update route in click-router API: {apiResult.Error}");
             }
 
+            // Enqueue search index update via outbox
+            await EnqueueSearchIndexAsync(existingRoute);
+            await _context.SaveChangesAsync();
+
             await transaction.CommitAsync();
 
             _logger.LogInformation("Route updated by ID: {RouteId}, Link: {Link}", existingRoute.Id, existingRoute.Link);
@@ -377,6 +386,10 @@ public class EfRouteService : IRouteService
                     $"Failed to update route in click-router API: {apiResult.Error}");
             }
 
+            // Enqueue search index update via outbox
+            await EnqueueSearchIndexAsync(existingRoute);
+            await _context.SaveChangesAsync();
+
             await transaction.CommitAsync();
 
             _logger.LogInformation("Route updated: {RouteId}, Link: {Link}", existingRoute.Id, existingRoute.Link);
@@ -427,6 +440,10 @@ public class EfRouteService : IRouteService
                 return Result.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
                     $"Failed to delete route in click-router API: {apiResult.Error}");
             }
+
+            // Enqueue search index delete via outbox
+            await EnqueueSearchDeleteAsync(existingRoute);
+            await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
 
@@ -485,6 +502,10 @@ public class EfRouteService : IRouteService
                 return Result.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
                     $"Failed to delete route in click-router API: {apiResult.Error}");
             }
+
+            // Enqueue search index delete via outbox
+            await EnqueueSearchDeleteAsync(existingRoute);
+            await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
 
@@ -578,6 +599,10 @@ public class EfRouteService : IRouteService
                 return Result<List<RouteEntity>>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
                     $"Failed to bulk create routes in click-router API: {apiResult.Error}");
             }
+
+            // Enqueue search index update via outbox
+            await EnqueueSearchBulkIndexAsync(savedRoutes);
+            await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
 
@@ -678,6 +703,10 @@ public class EfRouteService : IRouteService
                     $"Failed to bulk update routes in click-router API: {apiResult.Error}");
             }
 
+            // Enqueue search index update via outbox
+            await EnqueueSearchBulkIndexAsync(routes);
+            await _context.SaveChangesAsync();
+
             await transaction.CommitAsync();
 
             _logger.LogInformation("Bulk updated {Count} routes", routes.Count);
@@ -740,6 +769,10 @@ public class EfRouteService : IRouteService
                 return Result.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
                     $"Failed to bulk delete routes in click-router API: {apiResult.Error}");
             }
+
+            // Enqueue search index delete via outbox
+            await EnqueueSearchBulkDeleteAsync(routesToDelete);
+            await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
 
@@ -837,4 +870,66 @@ public class EfRouteService : IRouteService
         _logger.LogWarning("Unable to extract domain/path from route link: {Link}", route.Link);
         return (switchParam, string.Empty, string.Empty);
     }
+
+    #region Search Index Outbox Helpers
+
+    private static RouteSearchDoc ToSearchDocument(RouteEntity route)
+    {
+        return new RouteSearchDoc
+        {
+            Id = route.Id.ToString(),
+            Link = route.Link,
+            Switch = route.Switch,
+            Dest = route.Dest,
+            DomainName = route.Domain?.Name,
+            Status = route.Status,
+            OwnerId = route.Properties?.OwnerId,
+            WorkspaceId = route.Properties?.WorkspaceId,
+        };
+    }
+
+    private async Task EnqueueSearchIndexAsync(RouteEntity route)
+    {
+        var doc = ToSearchDocument(route);
+        await _context.OutboxMessages.AddAsync(new OutboxMessage
+        {
+            EventType = OutboxEventType.RouteSearchIndex,
+            AggregateId = route.Id.ToString(),
+            Payload = JsonSerializer.Serialize(doc, _jsonOptions)
+        });
+    }
+
+    private async Task EnqueueSearchDeleteAsync(RouteEntity route)
+    {
+        await _context.OutboxMessages.AddAsync(new OutboxMessage
+        {
+            EventType = OutboxEventType.RouteSearchDelete,
+            AggregateId = route.Id.ToString(),
+            Payload = JsonSerializer.Serialize(new { id = route.Id.ToString() }, _jsonOptions)
+        });
+    }
+
+    private async Task EnqueueSearchBulkIndexAsync(List<RouteEntity> routes)
+    {
+        var docs = routes.Select(ToSearchDocument).ToList();
+        await _context.OutboxMessages.AddAsync(new OutboxMessage
+        {
+            EventType = OutboxEventType.RouteSearchBulkIndex,
+            AggregateId = string.Join(",", routes.Select(r => r.Id)),
+            Payload = JsonSerializer.Serialize(docs, _jsonOptions)
+        });
+    }
+
+    private async Task EnqueueSearchBulkDeleteAsync(List<RouteEntity> routes)
+    {
+        var ids = routes.Select(r => r.Id.ToString()).ToList();
+        await _context.OutboxMessages.AddAsync(new OutboxMessage
+        {
+            EventType = OutboxEventType.RouteSearchBulkDelete,
+            AggregateId = string.Join(",", ids),
+            Payload = JsonSerializer.Serialize(ids, _jsonOptions)
+        });
+    }
+
+    #endregion
 }

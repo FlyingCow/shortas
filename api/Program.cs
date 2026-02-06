@@ -3,6 +3,7 @@ using ShortasProxyApi.Infrastructure;
 using ShortasProxyApi.Application;
 using ShortasProxyApi.Presentation;
 using ShortasProxyApi.Infrastructure.Security;
+using ShortasProxyApi.Domain.Interfaces;
 using Serilog;
 using ShortasProxyApi.Infrastructure.Data;
 
@@ -39,6 +40,21 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Ensure Elasticsearch index exists
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var searchService = scope.ServiceProvider.GetRequiredService<IRouteSearchService>();
+        await searchService.EnsureIndexAsync();
+        Log.Information("Elasticsearch index initialized");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Failed to initialize Elasticsearch index; search will be unavailable until ES is reachable");
+    }
+}
 
 // Configure the HTTP request pipeline
 // Enable Swagger first (before any other middleware)
