@@ -6,6 +6,7 @@ ASP.NET Core 9 REST API for managing workspaces, routes, domains, certificates, 
 
 - ASP.NET Core 9 / C# 12
 - Entity Framework Core 8 with PostgreSQL
+- Elasticsearch 7.17 (NEST client) for full-text route search
 - Keycloak JWT authentication
 - FluentValidation
 - Serilog logging
@@ -16,13 +17,26 @@ ASP.NET Core 9 REST API for managing workspaces, routes, domains, certificates, 
 
 | Controller | Base Path | Description |
 |-----------|-----------|-------------|
-| Routes | `/api/routes` | Short link CRUD |
+| Routes | `/api/v1/routes` | Short link CRUD and search |
 | Workspaces | `/api/workspaces` | Multi-tenant workspace management |
 | Domains | `/api/domains` | Custom domain configuration |
 | Certificates | `/api/certificates` | TLS certificate management |
 | ClickStream | `/api/clickstream` | Analytics proxy to Click Aggregator API |
 | User | `/api/user` | User profile and settings |
 | Health | `/api/health` | Health check |
+
+### Route Search (Elasticsearch)
+
+Routes are indexed in Elasticsearch and searchable by link, domain name, and destination URL.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/routes/search?q=<query>` | Full-text search across routes |
+| `POST` | `/api/v1/routes/search/reindex` | Rebuild the search index from the database |
+
+The search endpoint supports pagination (`page`, `pageSize`) and workspace filtering (`workspaceId`).
+
+**Real-time sync:** Route changes (create, update, delete) are automatically propagated to Elasticsearch via the outbox pattern. The `OutboxProcessorService` background worker picks up `RouteSearchIndex`, `RouteSearchDelete`, `RouteSearchBulkIndex`, and `RouteSearchBulkDelete` events and applies them to the search index.
 
 ## Project Structure
 
@@ -31,10 +45,12 @@ api/
 ├── Presentation/       HTTP controllers
 ├── Application/        Business logic, DTOs, services
 ├── Domain/             Entities and interfaces
-├── Infrastructure/     EF Core, repositories, security, HTTP clients
+├── Infrastructure/     EF Core, repositories, security, HTTP clients,
+│                       Elasticsearch service, outbox processor
 ├── Persistence/        Database context and configurations
 ├── Program.cs          Startup and dependency injection
 ├── appsettings.json    Configuration
+├── docker-compose.yml  PostgreSQL + Elasticsearch + API
 └── Dockerfile          Multi-stage Docker build
 ```
 
@@ -52,7 +68,15 @@ The API starts on port 5050. Swagger UI is available at `http://localhost:5050/s
 docker compose up -d
 ```
 
-Starts the API (port 8090) and PostgreSQL (port 5433).
+Starts the following services:
+
+| Service | Container | Port |
+|---------|-----------|------|
+| API | `shortas-api` | 8090 |
+| PostgreSQL 15 | `shortas-api-postgres` | 5433 |
+| Elasticsearch 7.17 | `shortas-api-elasticsearch` | 9200 |
+
+The API waits for both PostgreSQL and Elasticsearch health checks before starting.
 
 ## Configuration
 
@@ -65,6 +89,23 @@ Key settings in `appsettings.json`:
 | `Keycloak:Audience` | JWT audience |
 | `ApiSettings:ClickRouterApi:BaseUrl` | Click Router API URL |
 | `ApiSettings:ClickAggregatorApi:BaseUrl` | Click Aggregator API URL |
+| `Elasticsearch:Url` | Elasticsearch node URL (default: `http://localhost:9200`) |
+| `Elasticsearch:IndexName` | Search index name (default: `routes`) |
+
+## Elasticsearch
+
+The API uses Elasticsearch for full-text route search. On startup, the `routes` index is created automatically with a custom analyzer that supports partial and prefix matching.
+
+**Index initialization:** `Program.cs` calls `IRouteSearchService.EnsureIndexAsync()` at startup. If Elasticsearch is unreachable, the API starts normally and search returns errors until the connection is restored.
+
+**Reindexing:** If the index is out of sync (e.g. after a fresh Elasticsearch deployment), call:
+
+```bash
+curl -X POST http://localhost:8090/api/v1/routes/search/reindex \
+  -H "Authorization: Bearer <token>"
+```
+
+This fetches all routes from PostgreSQL and bulk-indexes them into Elasticsearch.
 
 ## Database Migrations
 

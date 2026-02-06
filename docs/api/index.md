@@ -21,11 +21,23 @@ Authentication: JWT bearer tokens issued by Keycloak.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/routes` | List routes for the current workspace |
-| GET | `/api/routes/{id}` | Get a route by ID |
-| POST | `/api/routes` | Create a new route |
-| PUT | `/api/routes/{id}` | Update a route |
-| DELETE | `/api/routes/{id}` | Delete a route |
+| GET | `/api/v1/routes` | List routes (paginated, filterable by status/workspace) |
+| GET | `/api/v1/routes/{id}` | Get a route by ID |
+| POST | `/api/v1/routes` | Create a new route |
+| PUT | `/api/v1/routes/{id}` | Update a route |
+| DELETE | `/api/v1/routes/{id}` | Delete a route |
+| POST | `/api/v1/routes/bulk` | Bulk create routes |
+| PUT | `/api/v1/routes/bulk` | Bulk update routes |
+| DELETE | `/api/v1/routes/bulk` | Bulk delete routes |
+
+#### Route Search (Elasticsearch)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/routes/search?q={query}` | Full-text search by link, domain, or destination |
+| POST | `/api/v1/routes/search/reindex` | Rebuild the Elasticsearch index from PostgreSQL |
+
+The search endpoint supports `page`, `pageSize`, and `workspaceId` query parameters. The index is kept in sync automatically via the outbox pattern — see the [Architecture](/architecture/#search-index-sync) page for details.
 
 #### Workspaces
 
