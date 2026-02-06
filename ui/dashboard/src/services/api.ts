@@ -309,6 +309,28 @@ export interface TrafficTypeStatsDto {
   unique_ips: number;
 }
 
+// Route Search Types (Elasticsearch)
+export interface RouteSearchResult {
+  id: string;
+  link: string;
+  switch: string;
+  dest?: string;
+  domainName?: string;
+  status: string;
+  ownerId?: string;
+  workspaceId?: string;
+}
+
+export interface SearchPaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  };
+}
+
 // Domain Types
 export interface DomainDto {
   id: string;
@@ -441,6 +463,16 @@ export const apiService = {
 
     bulkDelete: async (routeIds: string[]) => {
       const response = await routerApi.delete('/routes/bulk', { data: routeIds });
+      return response.data;
+    },
+
+    search: async (params: { q: string; page?: number; pageSize?: number; workspaceId?: string }): Promise<SearchPaginatedResponse<RouteSearchResult>> => {
+      const response = await routerApi.get('/routes/search', { params });
+      return response.data;
+    },
+
+    reindex: async (): Promise<{ message: string; count: number }> => {
+      const response = await routerApi.post('/routes/search/reindex');
       return response.data;
     },
   },

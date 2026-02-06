@@ -13,7 +13,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 // Removed Bootstrap Dropdown imports - using unified controls
-import { apiService, RouteDto, PaginatedResponse, RoutingPolicy } from '../services/api';
+import { apiService, RouteDto, PaginatedResponse, RoutingPolicy, RouteSearchResult } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import RouteFormModal from './RouteFormModal';
 import './DesignSystem.css';
@@ -31,32 +31,59 @@ const Routes: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingRoute, setEditingRoute] = useState<RouteDto | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isSearchMode, setIsSearchMode] = useState(false);
 
   useEffect(() => {
     fetchRoutes();
   }, [currentPage, statusFilter]);
 
-  const fetchRoutes = async () => {
+  const fetchRoutes = async (overrideSearch?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const params: any = {
-        page: currentPage,
-        pageSize
-      };
+      const effectiveSearch = overrideSearch !== undefined ? overrideSearch : searchTerm;
 
-      if (statusFilter !== 'all') {
-        params.status = statusFilter;
+      if (effectiveSearch.trim()) {
+        // Use Elasticsearch full-text search
+        const response = await apiService.routes.search({
+          q: effectiveSearch.trim(),
+          page: currentPage,
+          pageSize,
+        });
+        // Map search results to RouteDto-compatible objects for display
+        const mapped: RouteDto[] = response.data.map((r: RouteSearchResult) => ({
+          id: r.id,
+          switch: r.switch,
+          link: r.link,
+          dest: r.dest || '',
+          destFormat: 'Http',
+          code: 0,
+          ttl: 0,
+          status: r.status,
+          terminal: 'External',
+          domain: r.domainName ? { id: '', name: r.domainName, ownerId: '' } : undefined,
+        }));
+        setRoutes(mapped);
+        setTotalPages(response.pagination.totalPages);
+        setTotalCount(response.pagination.totalCount);
+        setIsSearchMode(true);
+      } else {
+        // Use standard list endpoint
+        const params: any = {
+          page: currentPage,
+          pageSize,
+        };
+
+        if (statusFilter !== 'all') {
+          params.status = statusFilter;
+        }
+
+        const response: PaginatedResponse<RouteDto> = await apiService.routes.list(params);
+        setRoutes(response.data);
+        setTotalPages(response.pagination.totalPages);
+        setTotalCount(response.pagination.totalCount);
+        setIsSearchMode(false);
       }
-
-      if (searchTerm) {
-        params.search = searchTerm;
-      }
-
-      const response: PaginatedResponse<RouteDto> = await apiService.routes.list(params);
-      setRoutes(response.data);
-      setTotalPages(response.pagination.totalPages);
-      setTotalCount(response.pagination.totalCount);
     } catch (err) {
       console.error('Failed to fetch routes:', err);
       setError('Failed to load routes. Please try again.');
@@ -157,7 +184,7 @@ const Routes: React.FC = () => {
       <div className="alert alert-error">
         <h3>Error Loading Routes</h3>
         <p>{error}</p>
-        <button className="btn btn-primary" onClick={fetchRoutes}>
+        <button className="btn btn-primary" onClick={() => fetchRoutes()}>
           Retry
         </button>
       </div>
@@ -191,11 +218,11 @@ const Routes: React.FC = () => {
                 <Search size={16} className="input-icon" />
                 <input
                   type="text"
-                  placeholder="Search routes..."
+                  placeholder="Search by link, domain, or destination..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  style={{ minWidth: '200px' }}
+                  style={{ minWidth: '280px' }}
                 />
               </div>
 
@@ -234,11 +261,12 @@ const Routes: React.FC = () => {
                 <thead>
                   <tr>
                     <th>Short URL</th>
+                    <th>Domain</th>
                     <th>Destination</th>
-                    <th>Policy</th>
+                    {!isSearchMode && <th>Policy</th>}
                     <th>Status</th>
-                    <th>Code</th>
-                    <th>TTL</th>
+                    {!isSearchMode && <th>Code</th>}
+                    {!isSearchMode && <th>TTL</th>}
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -258,6 +286,11 @@ const Routes: React.FC = () => {
                         </div>
                       </td>
                       <td>
+                        <span className="table-cell-secondary">
+                          {route.domain?.name || '—'}
+                        </span>
+                      </td>
+                      <td>
                         <div className="table-cell-content">
                           <span 
                             className="table-cell-primary" 
@@ -265,20 +298,24 @@ const Routes: React.FC = () => {
                           >
                             {route.dest.length > 50 ? `${route.dest.substring(0, 50)}...` : route.dest}
                           </span>
-                          <button
-                            className="table-action-btn table-action-btn-primary"
-                            onClick={() => window.open(route.dest, '_blank')}
-                            title="Open destination"
-                          >
-                            <ExternalLink size={14} />
-                          </button>
+                          {route.dest && (
+                            <button
+                              className="table-action-btn table-action-btn-primary"
+                              onClick={() => window.open(route.dest, '_blank')}
+                              title="Open destination"
+                            >
+                              <ExternalLink size={14} />
+                            </button>
+                          )}
                         </div>
                       </td>
-                      <td>
-                        <span className={`table-status-badge ${getPolicyBadgeClass(getPolicyType(route.policy))}`}>
-                          {getPolicyType(route.policy)}
-                        </span>
-                      </td>
+                      {!isSearchMode && (
+                        <td>
+                          <span className={`table-status-badge ${getPolicyBadgeClass(getPolicyType(route.policy))}`}>
+                            {getPolicyType(route.policy)}
+                          </span>
+                        </td>
+                      )}
                       <td>
                         <span className={`table-status-badge ${
                           route.status.toLowerCase() === 'active' ? 'table-status-success' :
@@ -288,14 +325,18 @@ const Routes: React.FC = () => {
                           {route.status}
                         </span>
                       </td>
-                      <td>
-                        <span className="table-status-badge table-status-secondary">
-                          {route.code}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="table-metric">{route.ttl}s</span>
-                      </td>
+                      {!isSearchMode && (
+                        <td>
+                          <span className="table-status-badge table-status-secondary">
+                            {route.code}
+                          </span>
+                        </td>
+                      )}
+                      {!isSearchMode && (
+                        <td>
+                          <span className="table-metric">{route.ttl}s</span>
+                        </td>
+                      )}
                       <td>
                         <div className="table-action-buttons">
                           <button
@@ -330,11 +371,12 @@ const Routes: React.FC = () => {
                   </div>
                   {searchTerm && (
                     <button
-                      className="table-action-btn"
+                      className="btn btn-secondary"
                       onClick={() => {
                         setSearchTerm('');
+                        setIsSearchMode(false);
                         setCurrentPage(1);
-                        fetchRoutes();
+                        fetchRoutes('');
                       }}
                     >
                       Clear search

@@ -26,7 +26,7 @@ import {
   Cell,
   CartesianGrid
 } from 'recharts';
-import { apiService, RouteDto, RoutingPolicy, DomainDto } from '../services/api';
+import { apiService, RouteDto, RoutingPolicy, DomainDto, RouteSearchResult } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import WorldMap from './WorldMap';
 import RouteForm from './RouteForm';
@@ -103,6 +103,9 @@ const RoutesWithSidebar: React.FC = () => {
   const [analytics, setAnalytics] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [timeRange, setTimeRange] = useState('7d');
+  const [searchResults, setSearchResults] = useState<RouteDto[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchRoutes();
@@ -113,6 +116,58 @@ const RoutesWithSidebar: React.FC = () => {
   useEffect(() => {
     fetchRoutes();
   }, [workspaceFilter]);
+
+  // Debounced Elasticsearch search
+  useEffect(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    if (!searchTerm.trim()) {
+      setSearchResults(null);
+      setSearchLoading(false);
+      return;
+    }
+
+    setSearchLoading(true);
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const wsId = workspaceFilter !== 'all' ? workspaceFilter : undefined;
+        const response = await apiService.routes.search({
+          q: searchTerm.trim(),
+          page: 1,
+          pageSize: 100,
+          workspaceId: wsId,
+        });
+        // Map search results to RouteDto-compatible objects
+        const mapped: RouteDto[] = response.data.map((r: RouteSearchResult) => ({
+          id: r.id,
+          switch: r.switch,
+          link: r.link,
+          dest: r.dest || '',
+          destFormat: 'Http',
+          code: 0,
+          ttl: 0,
+          status: r.status,
+          terminal: 'External',
+          domain: r.domainName ? { id: '', name: r.domainName, ownerId: '' } : undefined,
+        }));
+        setSearchResults(mapped);
+      } catch (err: any) {
+        console.error('Search failed:', err);
+        // Fall back to showing no results rather than error
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchTerm, workspaceFilter]);
 
   const fetchRoutes = async () => {
     try {
@@ -297,11 +352,11 @@ const RoutesWithSidebar: React.FC = () => {
     }
   };
 
-  const filteredRoutes = routes.filter(route => {
-    const matchesSearch = route.link.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         route.dest.toLowerCase().includes(searchTerm.toLowerCase());
+  // Use ES search results when search is active, otherwise use local routes with status filter
+  const baseRoutes = searchResults !== null ? searchResults : routes;
+  const filteredRoutes = baseRoutes.filter(route => {
     const matchesStatus = statusFilter === 'all' || route.status.toLowerCase() === statusFilter.toLowerCase();
-    return matchesSearch && matchesStatus;
+    return matchesStatus;
   });
 
   if (loading) {
@@ -335,10 +390,10 @@ const RoutesWithSidebar: React.FC = () => {
           {/* Search and Filters */}
           <div className="sidebar-controls">
             <div className="search-box">
-              <Search size={16} />
+              {searchLoading ? <RefreshCw size={16} className="icon-spin" /> : <Search size={16} />}
               <input
                 type="text"
-                placeholder="Search routes..."
+                placeholder="Search by link, domain, destination..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -382,6 +437,11 @@ const RoutesWithSidebar: React.FC = () => {
               >
                 <div className="route-info">
                   <div className="route-link">{route.link}</div>
+                  {route.domain?.name && (
+                    <div className="route-domain-name" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {route.domain.name}
+                    </div>
+                  )}
                   <div className="route-destination">
                     {route.dest.length > 30 ? `${route.dest.substring(0, 30)}...` : route.dest}
                   </div>
@@ -389,10 +449,12 @@ const RoutesWithSidebar: React.FC = () => {
                     <span className={`route-status ${route.status.toLowerCase()}`}>
                       {route.status}
                     </span>
-                    <span className={`table-status-badge ${getPolicyBadgeClass(getPolicyType(route.policy))}`}>
-                      {getPolicyType(route.policy)}
-                    </span>
-                    <span className="route-code">{route.code}</span>
+                    {route.policy && (
+                      <span className={`table-status-badge ${getPolicyBadgeClass(getPolicyType(route.policy))}`}>
+                        {getPolicyType(route.policy)}
+                      </span>
+                    )}
+                    {route.code > 0 && <span className="route-code">{route.code}</span>}
                   </div>
                 </div>
                 <div className="route-actions">
@@ -435,12 +497,12 @@ const RoutesWithSidebar: React.FC = () => {
         <div className="sidebar-footer">
           <div className="footer-stats">
             <div className="stat-item">
-              <span className="stat-label">Total Routes</span>
-              <span className="stat-value">{routes.length}</span>
+              <span className="stat-label">{searchResults !== null ? 'Results' : 'Total Routes'}</span>
+              <span className="stat-value">{filteredRoutes.length}</span>
             </div>
             <div className="stat-item">
               <span className="stat-label">Active</span>
-              <span className="stat-value">{routes.filter(r => r.status === 'active').length}</span>
+              <span className="stat-value">{filteredRoutes.filter(r => r.status.toLowerCase() === 'active').length}</span>
             </div>
           </div>
           <button className="btn btn-primary w-100" onClick={handleCreateRoute}>
