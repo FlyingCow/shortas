@@ -229,8 +229,7 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="dashboard-header" style={{ marginTop: '0.5rem' }}>
-        <div />
+      <div className="dashboard-header" style={{ marginTop: '1.5rem', justifyContent: 'flex-start' }}>
         <div className="dashboard-controls">
           <div className="dashboard-date-range">
             {[

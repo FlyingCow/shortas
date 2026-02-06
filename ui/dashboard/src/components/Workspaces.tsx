@@ -439,7 +439,7 @@ const Workspaces: React.FC = () => {
     <>
       <style>{workspaceStyles}</style>
       <div className="container">
-        <div className="page-header" style={{ marginTop: '0.5rem' }}>
+        <div className="page-header" style={{ marginTop: '1.5rem' }}>
           <div />
           <button className="btn btn-primary" onClick={handleCreate}>
             <Plus size={20} />

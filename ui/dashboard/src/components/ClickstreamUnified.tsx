@@ -625,7 +625,7 @@ const Clickstream: React.FC = () => {
       <style>{clickstreamStyles}</style>
       <div className="container">
         {/* Page Header */}
-        <div className="page-header" style={{ marginTop: '0.5rem' }}>
+        <div className="page-header" style={{ marginTop: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div className={`cs-live-indicator ${isLive ? 'live' : 'paused'}`}>
               <span className="cs-live-dot" />
