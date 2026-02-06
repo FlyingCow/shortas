@@ -210,14 +210,7 @@ public class EfRouteService : IRouteService
             if (existingRoute.Properties == null || existingRoute.Properties.OwnerId != userId)
                 return Result<RouteEntity>.Failure(Error.Forbidden());
 
-            // Validate domain is mandatory
-            if (!route.DomainId.HasValue)
-            {
-                await transaction.RollbackAsync();
-                return Result<RouteEntity>.Failure(Error.Required("Domain is required for route update"));
-            }
-
-            // Update route properties (Link is immutable after creation)
+            // Update route properties (Link, DomainId are immutable after creation)
             existingRoute.Switch = route.Switch;
             existingRoute.Dest = route.Dest;
             existingRoute.DestFormat = route.DestFormat;
@@ -226,27 +219,6 @@ public class EfRouteService : IRouteService
             existingRoute.Status = route.Status;
             existingRoute.Terminal = route.Terminal;
             existingRoute.Policy = route.Policy;
-            existingRoute.DomainId = route.DomainId;
-
-            // Load domain from database if DomainId has changed and validate ownership
-            if (existingRoute.DomainId != route.DomainId || existingRoute.Domain == null)
-            {
-                existingRoute.Domain = await _context.RouteDomains
-                    .FirstOrDefaultAsync(d => d.Id == route.DomainId.Value);
-
-                if (existingRoute.Domain == null)
-                {
-                    await transaction.RollbackAsync();
-                    return Result<RouteEntity>.Failure(Error.NotFound("Domain", route.DomainId.Value.ToString()));
-                }
-
-                // Verify domain belongs to current user
-                if (existingRoute.Domain.OwnerId != userId)
-                {
-                    await transaction.RollbackAsync();
-                    return Result<RouteEntity>.Failure(Error.Forbidden("Domain does not belong to user"));
-                }
-            }
 
             if (route.Properties != null)
             {
@@ -688,10 +660,12 @@ public class EfRouteService : IRouteService
                     return Result<List<RouteEntity>>.Failure(Error.Forbidden($"Domain {route.Domain.Name} does not belong to user"));
                 }
 
-                // Link is immutable after creation — preserve existing value
+                // Link and DomainId are immutable after creation — preserve existing values
                 if (existingRouteLookup.TryGetValue(route.Id, out var existing))
                 {
                     route.Link = existing.Link;
+                    route.DomainId = existing.DomainId;
+                    route.Domain = existing.Domain;
                 }
             }
 

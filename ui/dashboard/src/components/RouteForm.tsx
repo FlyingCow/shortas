@@ -312,6 +312,29 @@ const RouteForm: React.FC<RouteFormProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route]);
 
+  // Auto-select domain when there is exactly one available and creating a new route
+  const singleDomain = !isEdit && domains.length === 1;
+  useEffect(() => {
+    if (singleDomain && !formData.domainId) {
+      const domainId = domains[0].id;
+      setFormData((prev) => ({ ...prev, domainId }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [domains, singleDomain]);
+
+  // Auto-select workspace when there is exactly one available and creating a new route
+  const singleWorkspace = !isEdit && (workspaces || []).length === 1;
+  useEffect(() => {
+    if (singleWorkspace && !formData.properties?.workspaceId) {
+      const wsId = workspaces![0].id;
+      setFormData((prev) => ({
+        ...prev,
+        properties: { ...prev.properties, workspaceId: wsId } as any,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaces, singleWorkspace]);
+
   // Escape key handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -404,9 +427,10 @@ const RouteForm: React.FC<RouteFormProps> = ({
       };
 
       const cleaned = stripApiManagedFields(dataToSave);
-      // Link is immutable after creation — don't send it on update
+      // Link and domain are immutable after creation — don't send them on update
       if (isEdit) {
         delete (cleaned as any).link;
+        delete (cleaned as any).domainId;
       }
       await onSave(cleaned);
     } catch (err: any) {
@@ -473,7 +497,7 @@ const RouteForm: React.FC<RouteFormProps> = ({
                   handlePropertyChange('domainId', e.target.value);
                 }}
                 onBlur={() => handleBlur('domainId')}
-                disabled={saving}
+                disabled={saving || isEdit || singleDomain}
               >
                 <option value="">Select a domain...</option>
                 {domains.map((d) => (
@@ -483,7 +507,11 @@ const RouteForm: React.FC<RouteFormProps> = ({
                 ))}
               </select>
               {fieldError('domainId') || (
-                <span className="rf-helper">Choose the domain for this short link</span>
+                <span className="rf-helper">
+                  {isEdit
+                    ? 'Domain cannot be changed after creation'
+                    : 'Choose the domain for this short link'}
+                </span>
               )}
             </div>
 
@@ -533,7 +561,7 @@ const RouteForm: React.FC<RouteFormProps> = ({
                   className="rf-select"
                   value={formData.properties?.workspaceId || ''}
                   onChange={(e) => handlePropertyChange('workspaceId', e.target.value)}
-                  disabled={saving || isEdit}
+                  disabled={saving || isEdit || singleWorkspace}
                 >
                   <option value="">Select a workspace...</option>
                   {(workspaces || []).map((ws: any) => (

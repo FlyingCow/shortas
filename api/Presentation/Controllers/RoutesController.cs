@@ -171,6 +171,13 @@ public class RoutesController : ControllerBase
             return BadRequest(new { error = "VALIDATION_ERROR", message = "Route link cannot be changed after creation" });
         }
 
+        // Validate that Domain has not been changed (immutable after creation)
+        var existingDomainId = existingRouteResult.Value.DomainId;
+        if (routeDto.DomainId.HasValue && existingDomainId.HasValue && routeDto.DomainId.Value != existingDomainId.Value)
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Route domain cannot be changed after creation" });
+        }
+
         // Validate that WorkspaceId has not been changed
         var existingWorkspaceId = existingRouteResult.Value.Properties?.WorkspaceId;
         var newWorkspaceId = routeDto.Properties?.WorkspaceId;
