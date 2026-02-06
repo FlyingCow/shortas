@@ -143,13 +143,7 @@ const Analytics: React.FC = () => {
   const COLORS = ['var(--primary-500)', 'var(--success-500)', 'var(--warning-500)', 'var(--error-500)', 'var(--primary-600)'];
 
   return (
-    <div className="container">
-      {/* Page Header */}
-      <div className="page-header">
-        <h1 className="page-title">Analytics</h1>
-        <p className="page-subtitle">Detailed insights into your URL performance</p>
-      </div>
-
+    <div className="container" style={{ paddingTop: '1.5rem' }}>
       {/* Date Range Selector */}
       <div className="card mb-lg">
         <div className="card-body">

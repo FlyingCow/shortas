@@ -439,14 +439,8 @@ const Workspaces: React.FC = () => {
     <>
       <style>{workspaceStyles}</style>
       <div className="container">
-        <div className="page-header">
-          <div className="page-title">
-            <Briefcase size={32} />
-            <div>
-              <h1>Workspaces</h1>
-              <p>Organize your routes into workspaces</p>
-            </div>
-          </div>
+        <div className="page-header" style={{ marginTop: '0.5rem' }}>
+          <div />
           <button className="btn btn-primary" onClick={handleCreate}>
             <Plus size={20} />
             Create Workspace

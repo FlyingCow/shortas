@@ -167,13 +167,7 @@ const StatsAnalytics: React.FC = () => {
   }));
 
   return (
-    <div className="container">
-      {/* Header */}
-      <div className="page-header">
-        <h1 className="page-title">Advanced Analytics</h1>
-        <p className="page-subtitle">Comprehensive statistics from materialized views</p>
-      </div>
-
+    <div className="container" style={{ paddingTop: '1.5rem' }}>
       {/* Date Range Selector */}
       <div className="card mb-lg">
         <div className="card-body">

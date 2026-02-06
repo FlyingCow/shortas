@@ -334,14 +334,8 @@ const Domains: React.FC = () => {
     <>
       <style>{domainStyles}</style>
       <div className="container">
-        <div className="page-header">
-        <div className="page-title">
-          <Globe size={32} />
-          <div>
-            <h1>Domains</h1>
-            <p>Manage your domains and SSL certificates</p>
-          </div>
-        </div>
+        <div className="page-header" style={{ marginTop: '0.5rem' }}>
+        <div />
         <button className="btn btn-primary" onClick={handleCreateDomain}>
           <Plus size={20} />
           Add Domain

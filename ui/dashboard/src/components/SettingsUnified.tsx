@@ -139,13 +139,7 @@ const Settings: React.FC = () => {
   }
 
   return (
-    <div className="container">
-      {/* Page Header */}
-      <div className="page-header">
-        <h1 className="page-title">Settings</h1>
-        <p className="page-subtitle">Manage your account preferences and security settings</p>
-      </div>
-
+    <div className="container" style={{ paddingTop: '1.5rem' }}>
       {/* Success/Error Messages */}
       {success && (
         <div className="alert alert-success">

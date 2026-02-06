@@ -229,11 +229,8 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="dashboard-header">
-        <div>
-          <h1 className="dashboard-title">Dashboard</h1>
-          <p className="dashboard-subtitle">Performance overview</p>
-        </div>
+      <div className="dashboard-header" style={{ marginTop: '0.5rem' }}>
+        <div />
         <div className="dashboard-controls">
           <div className="dashboard-date-range">
             {[
