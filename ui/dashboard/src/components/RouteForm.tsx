@@ -403,7 +403,12 @@ const RouteForm: React.FC<RouteFormProps> = ({
             },
       };
 
-      await onSave(stripApiManagedFields(dataToSave));
+      const cleaned = stripApiManagedFields(dataToSave);
+      // Link is immutable after creation — don't send it on update
+      if (isEdit) {
+        delete (cleaned as any).link;
+      }
+      await onSave(cleaned);
     } catch (err: any) {
       const message =
         err?.response?.data?.message ||
@@ -493,10 +498,15 @@ const RouteForm: React.FC<RouteFormProps> = ({
                 value={formData.link || ''}
                 onChange={(e) => handleChange('link', e.target.value)}
                 onBlur={() => handleBlur('link')}
-                disabled={saving}
+                disabled={saving || isEdit}
+                readOnly={isEdit}
               />
               {fieldError('link') || (
-                <span className="rf-helper">The path after the domain (e.g. promo, launch-2025)</span>
+                <span className="rf-helper">
+                  {isEdit
+                    ? 'Link cannot be changed after creation'
+                    : 'The path after the domain (e.g. promo, launch-2025)'}
+                </span>
               )}
             </div>
 

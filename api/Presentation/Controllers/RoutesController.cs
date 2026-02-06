@@ -164,6 +164,13 @@ public class RoutesController : ControllerBase
             return NotFound(new { error = "NOT_FOUND", message = "Route not found" });
         }
 
+        // Validate that Link has not been changed (immutable after creation)
+        var existingLink = existingRouteResult.Value.Link;
+        if (!string.IsNullOrWhiteSpace(routeDto.Link) && routeDto.Link != existingLink)
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Route link cannot be changed after creation" });
+        }
+
         // Validate that WorkspaceId has not been changed
         var existingWorkspaceId = existingRouteResult.Value.Properties?.WorkspaceId;
         var newWorkspaceId = routeDto.Properties?.WorkspaceId;

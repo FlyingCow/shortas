@@ -217,9 +217,8 @@ public class EfRouteService : IRouteService
                 return Result<RouteEntity>.Failure(Error.Required("Domain is required for route update"));
             }
 
-            // Update route properties
+            // Update route properties (Link is immutable after creation)
             existingRoute.Switch = route.Switch;
-            existingRoute.Link = route.Link;
             existingRoute.Dest = route.Dest;
             existingRoute.DestFormat = route.DestFormat;
             existingRoute.Code = route.Code;
@@ -670,6 +669,9 @@ public class EfRouteService : IRouteService
 
             var domainLookup = domains.ToDictionary(d => d.Id);
 
+            // Build lookup of existing routes to preserve immutable fields
+            var existingRouteLookup = existingRoutes.ToDictionary(r => r.Id);
+
             // Validate all domains exist and belong to user, then assign to routes
             foreach (var route in routes)
             {
@@ -684,6 +686,12 @@ public class EfRouteService : IRouteService
                 if (route.Domain.OwnerId != userId)
                 {
                     return Result<List<RouteEntity>>.Failure(Error.Forbidden($"Domain {route.Domain.Name} does not belong to user"));
+                }
+
+                // Link is immutable after creation — preserve existing value
+                if (existingRouteLookup.TryGetValue(route.Id, out var existing))
+                {
+                    route.Link = existing.Link;
                 }
             }
 
