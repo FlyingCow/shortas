@@ -1,239 +1,206 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, Briefcase, Users } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Briefcase, Calendar, Shield, X } from 'lucide-react';
 import { apiService, WorkspaceDto, CreateWorkspaceDto } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
 const workspaceStyles = `
-.modal-content {
-  background: var(--bg-elevated);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
-  width: 100%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-header {
-  padding: var(--space-lg);
-  border-bottom: 1px solid var(--border-primary);
+.ws-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
-.modal-header h2 {
-  margin: 0;
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
+.ws-search {
+  position: relative;
+  flex: 1;
+  max-width: 360px;
+}
+
+.ws-search svg {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.ws-search input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
   color: var(--text-primary);
+  font-size: 0.8125rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 2rem;
-  line-height: 1;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
+.ws-search input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.ws-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.ws-count {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* Cards grid */
+.ws-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 0.75rem;
+}
+
+.ws-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.ws-card:hover {
+  border-color: var(--border-secondary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.ws-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.ws-icon {
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
-}
-
-.modal-close:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.modal-body {
-  padding: var(--space-lg);
-  overflow-y: auto;
-  flex: 1;
-}
-
-.modal-footer {
-  padding: var(--space-lg);
-  border-top: 1px solid var(--border-primary);
-  display: flex;
-  gap: var(--space-md);
-  justify-content: flex-end;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.form-group:last-child {
-  margin-bottom: 0;
-}
-
-.form-group label {
-  font-weight: 500;
-  color: var(--text-primary);
-  font-size: 0.875rem;
-}
-
-.form-group input,
-.form-group textarea {
-  padding: 0.75rem;
-  border: 1px solid var(--border-primary);
-  border-radius: 0;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  transition: all var(--transition-normal);
-}
-
-.form-group input:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-alpha);
-}
-
-.form-group input::placeholder,
-.form-group textarea::placeholder {
-  color: var(--text-tertiary);
-}
-
-.form-group input:disabled,
-.form-group textarea:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.table-controls {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.5rem;
-}
-
-.table-controls .search-box {
-  margin-bottom: 0;
-  flex: 1;
-  max-width: 400px;
-}
-
-.control-group {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.control-label {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.workspaces-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
-  margin-top: 1.5rem;
-}
-
-.workspace-card {
-  padding: 1.5rem;
-  transition: all 0.2s ease;
-}
-
-.workspace-card:hover {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-
-.workspace-card-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.workspace-icon {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-primary);
-  border-radius: 12px;
-  color: white;
   flex-shrink: 0;
 }
 
-.workspace-info {
+.ws-icon-user {
+  background: var(--primary-50, rgba(59, 130, 246, 0.08));
+  color: var(--color-primary);
+}
+
+.ws-icon-system {
+  background: rgba(139, 92, 246, 0.08);
+  color: #8b5cf6;
+}
+
+.ws-info {
   flex: 1;
   min-width: 0;
 }
 
-.workspace-name {
-  font-size: 1.125rem;
+.ws-name {
+  font-size: 0.9375rem;
   font-weight: 600;
+  color: var(--text-primary);
   margin: 0 0 0.25rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ws-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.ws-badge-system {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+}
+
+.ws-badge-role {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.ws-desc {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ws-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-primary);
+}
+
+.ws-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.ws-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.ws-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ws-action-btn:hover {
+  background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
-.workspace-role {
-  display: inline-block;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  background: var(--secondary-light);
-  color: var(--secondary);
-  font-weight: 500;
+.ws-action-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--color-error);
 }
 
-.workspace-type-badge {
-  display: inline-block;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.workspace-type-system {
-  background: var(--color-primary);
-  color: white;
-}
-
-.workspace-description {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin: 0.5rem 0 1rem 0;
-  line-height: 1.5;
-}
-
-.workspace-meta {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.875rem;
-  color: var(--text-tertiary);
-  margin-bottom: 1rem;
-}
-
-.workspace-card-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
-
-.empty-state-full {
+/* Empty state */
+.ws-empty {
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
@@ -241,30 +208,155 @@ const workspaceStyles = `
   justify-content: center;
   padding: 4rem 2rem;
   text-align: center;
-  color: var(--text-secondary);
 }
 
-.empty-state-full svg {
-  color: var(--text-tertiary);
+.ws-empty-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border-radius: 50%;
+  color: var(--text-muted);
   margin-bottom: 1rem;
 }
 
-.empty-state-full h3 {
-  margin: 0 0 0.5rem 0;
+.ws-empty h3 {
+  margin: 0 0 0.375rem 0;
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
-.empty-state-full p {
-  margin: 0 0 1.5rem 0;
-  max-width: 400px;
+.ws-empty p {
+  margin: 0 0 1.25rem 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  max-width: 320px;
+}
+
+/* Modal */
+.ws-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.ws-modal {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  width: 100%;
+  max-width: 460px;
+  overflow: hidden;
+}
+
+.ws-modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ws-modal-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ws-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ws-modal-close:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.ws-modal-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ws-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.ws-field label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.ws-field input,
+.ws-field textarea {
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  resize: vertical;
+}
+
+.ws-field input:focus,
+.ws-field textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.ws-field input::placeholder,
+.ws-field textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.ws-field input:disabled,
+.ws-field textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ws-modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-primary);
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 `;
 
+/* ---------- Modal component ---------- */
 interface WorkspaceModalProps {
   show: boolean;
   workspace?: WorkspaceDto;
   onClose: () => void;
-  onSave: (workspace: CreateWorkspaceDto) => Promise<void>;
+  onSave: (data: CreateWorkspaceDto) => Promise<void>;
 }
 
 const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClose, onSave }) => {
@@ -274,40 +366,27 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
 
   useEffect(() => {
     if (show) {
-      if (workspace) {
-        setName(workspace.name);
-        setDescription(workspace.description);
-      } else {
-        setName('');
-        setDescription('');
-      }
+      setName(workspace?.name || '');
+      setDescription(workspace?.description || '');
       setSaving(false);
     }
   }, [workspace, show]);
 
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && show && !saving) {
-        onClose();
-      }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && show && !saving) onClose();
     };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [show, saving, onClose]);
 
   const handleSubmit = async () => {
-    if (!name.trim()) {
-      alert('Workspace name is required');
-      return;
-    }
-
+    if (!name.trim()) return;
     setSaving(true);
     try {
-      await onSave({ name, description });
+      await onSave({ name: name.trim(), description: description.trim() });
       onClose();
-    } catch (error) {
-      console.error('Failed to save workspace:', error);
+    } catch {
       alert('Failed to save workspace. Please try again.');
     } finally {
       setSaving(false);
@@ -317,49 +396,42 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
   if (!show) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{workspace ? 'Edit Workspace' : 'Create New Workspace'}</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
+    <div className="ws-modal-overlay" onClick={() => !saving && onClose()}>
+      <div className="ws-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="ws-modal-header">
+          <h2>{workspace ? 'Edit Workspace' : 'Create Workspace'}</h2>
+          <button className="ws-modal-close" onClick={() => !saving && onClose()}>
+            <X size={16} />
+          </button>
         </div>
-
-        <div className="modal-body">
-          <div className="form-group">
-            <label>Workspace Name *</label>
+        <div className="ws-modal-body">
+          <div className="ws-field">
+            <label>Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit();
-                }
-              }}
-              placeholder="My Workspace"
+              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSubmit()}
+              placeholder="Marketing, Engineering, ..."
               autoFocus
               disabled={saving}
             />
           </div>
-          <div className="form-group">
-            <label>Description</label>
+          <div className="ws-field">
+            <label>Description (optional)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe your workspace..."
+              placeholder="What is this workspace for?"
               rows={3}
               disabled={saving}
             />
           </div>
         </div>
-
-        <div className="modal-footer">
-          <button className="btn btn-outline" onClick={onClose} disabled={saving}>
-            Cancel
-          </button>
-          <button className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Saving...' : (workspace ? 'Update Workspace' : 'Create Workspace')}
+        <div className="ws-modal-footer">
+          <button className="btn btn-outline btn-sm" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={saving || !name.trim()}>
+            {saving ? 'Saving...' : workspace ? 'Save Changes' : 'Create Workspace'}
           </button>
         </div>
       </div>
@@ -367,6 +439,7 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
   );
 };
 
+/* ---------- Main component ---------- */
 const Workspaces: React.FC = () => {
   const [workspaces, setWorkspaces] = useState<WorkspaceDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -375,9 +448,7 @@ const Workspaces: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingWorkspace, setEditingWorkspace] = useState<WorkspaceDto | undefined>();
 
-  useEffect(() => {
-    loadWorkspaces();
-  }, []);
+  useEffect(() => { loadWorkspaces(); }, []);
 
   const loadWorkspaces = async () => {
     try {
@@ -393,69 +464,46 @@ const Workspaces: React.FC = () => {
     }
   };
 
-  const handleCreate = () => {
-    setEditingWorkspace(undefined);
-    setShowModal(true);
-  };
+  const handleCreate = () => { setEditingWorkspace(undefined); setShowModal(true); };
+  const handleEdit = (ws: WorkspaceDto) => { setEditingWorkspace(ws); setShowModal(true); };
 
-  const handleEdit = (workspace: WorkspaceDto) => {
-    setEditingWorkspace(workspace);
-    setShowModal(true);
-  };
-
-  const handleSave = async (workspaceData: CreateWorkspaceDto) => {
+  const handleSave = async (data: CreateWorkspaceDto) => {
     if (editingWorkspace) {
-      await apiService.workspaces.update(editingWorkspace.id, workspaceData);
+      await apiService.workspaces.update(editingWorkspace.id, data);
     } else {
-      await apiService.workspaces.create(workspaceData);
+      await apiService.workspaces.create(data);
     }
     await loadWorkspaces();
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this workspace? This action cannot be undone.')) {
-      return;
-    }
-
+  const handleDelete = async (ws: WorkspaceDto) => {
+    if (!window.confirm(`Delete "${ws.name}"? This cannot be undone.`)) return;
     try {
-      await apiService.workspaces.delete(id);
+      await apiService.workspaces.delete(ws.id);
       await loadWorkspaces();
     } catch (err: any) {
-      console.error('Failed to delete workspace:', err);
       alert(err.response?.data?.message || 'Failed to delete workspace');
     }
   };
 
-  const filteredWorkspaces = workspaces.filter((workspace) =>
-    workspace.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    workspace.description.toLowerCase().includes(searchTerm.toLowerCase())
+  const filtered = workspaces.filter((ws) =>
+    ws.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ws.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  if (loading) return <LoadingSpinner />;
 
   return (
     <>
       <style>{workspaceStyles}</style>
       <div className="container">
-        <div className="page-header" style={{ marginTop: '1.5rem' }}>
-          <div />
-          <button className="btn btn-primary" onClick={handleCreate}>
-            <Plus size={20} />
-            Create Workspace
-          </button>
-        </div>
-
-        {error && (
-          <div className="alert alert-error">
-            {error}
-          </div>
-        )}
-
-        <div className="table-controls">
-          <div className="search-box">
-            <Search size={16} />
+        {/* Toolbar */}
+        <div className="ws-toolbar">
+          <div className="ws-search">
+            <Search size={15} />
             <input
               type="text"
               placeholder="Search workspaces..."
@@ -463,82 +511,80 @@ const Workspaces: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="control-group">
-            <span className="control-label">Total: {workspaces.length}</span>
-          </div>
+          <span className="ws-count">{filtered.length} workspace{filtered.length !== 1 ? 's' : ''}</span>
+          <button className="btn btn-primary btn-sm" onClick={handleCreate}>
+            <Plus size={16} />
+            Create Workspace
+          </button>
         </div>
 
-        <div className="workspaces-grid">
-          {filteredWorkspaces.length === 0 ? (
-            <div className="empty-state-full">
-              <Briefcase size={64} />
-              <h3>No workspaces found</h3>
+        {error && (
+          <div className="alert alert-error" style={{ marginBottom: '1rem' }}>{error}</div>
+        )}
+
+        {/* Cards */}
+        <div className="ws-grid">
+          {filtered.length === 0 ? (
+            <div className="ws-empty">
+              <div className="ws-empty-icon">
+                <Briefcase size={24} />
+              </div>
+              <h3>{searchTerm ? 'No matches' : 'No workspaces yet'}</h3>
               <p>
                 {searchTerm
-                  ? 'No workspaces match your search criteria'
-                  : 'Create your first workspace to organize your routes'}
+                  ? 'Try a different search term.'
+                  : 'Create a workspace to organize your routes and collaborate with your team.'}
               </p>
               {!searchTerm && (
-                <button className="btn btn-primary" onClick={handleCreate}>
-                  <Plus size={20} />
+                <button className="btn btn-primary btn-sm" onClick={handleCreate}>
+                  <Plus size={16} />
                   Create Workspace
                 </button>
               )}
             </div>
           ) : (
-            filteredWorkspaces.map((workspace) => (
-              <div key={workspace.id} className="workspace-card card">
-                <div className="workspace-card-header">
-                  <div className="workspace-icon">
-                    <Briefcase size={24} />
+            filtered.map((ws) => {
+              const isSystem = ws.type === 'System';
+              const canEdit = !isSystem && (ws.userRole === 'Owner' || ws.userRole === 'Admin');
+              const canDelete = !isSystem && ws.userRole === 'Owner';
+
+              return (
+                <div key={ws.id} className="ws-card">
+                  <div className="ws-card-top">
+                    <div className={`ws-icon ${isSystem ? 'ws-icon-system' : 'ws-icon-user'}`}>
+                      {isSystem ? <Shield size={18} /> : <Briefcase size={18} />}
+                    </div>
+                    <div className="ws-info">
+                      <h3 className="ws-name">
+                        {ws.name}
+                        {isSystem && <span className="ws-badge ws-badge-system">System</span>}
+                        {ws.userRole && <span className="ws-badge ws-badge-role">{ws.userRole}</span>}
+                      </h3>
+                      {ws.description && <p className="ws-desc">{ws.description}</p>}
+                    </div>
                   </div>
-                  <div className="workspace-info">
-                    <h3 className="workspace-name">{workspace.name}</h3>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                      {workspace.type === 'System' && (
-                        <span className="workspace-type-badge workspace-type-system">System</span>
+
+                  <div className="ws-footer">
+                    <div className="ws-meta">
+                      <Calendar size={12} />
+                      {formatDate(ws.createdAt)}
+                    </div>
+                    <div className="ws-actions">
+                      {canEdit && (
+                        <button className="ws-action-btn" onClick={() => handleEdit(ws)} title="Edit">
+                          <Edit size={14} />
+                        </button>
                       )}
-                      {workspace.userRole && (
-                        <span className="workspace-role">{workspace.userRole}</span>
+                      {canDelete && (
+                        <button className="ws-action-btn danger" onClick={() => handleDelete(ws)} title="Delete">
+                          <Trash2 size={14} />
+                        </button>
                       )}
                     </div>
                   </div>
                 </div>
-
-                {workspace.description && (
-                  <p className="workspace-description">{workspace.description}</p>
-                )}
-
-                <div className="workspace-meta">
-                  <span>Created {new Date(workspace.createdAt).toLocaleDateString()}</span>
-                </div>
-
-                <div className="workspace-card-actions">
-                  {workspace.type !== 'System' && (workspace.userRole === 'Owner' || workspace.userRole === 'Admin') && (
-                    <>
-                      <button
-                        className="btn btn-outline btn-sm"
-                        onClick={() => handleEdit(workspace)}
-                        title="Edit workspace"
-                      >
-                        <Edit size={16} />
-                        Edit
-                      </button>
-                      {workspace.userRole === 'Owner' && (
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => handleDelete(workspace.id)}
-                          title="Delete workspace"
-                        >
-                          <Trash2 size={16} />
-                          Delete
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
@@ -546,10 +592,7 @@ const Workspaces: React.FC = () => {
       <WorkspaceModal
         show={showModal}
         workspace={editingWorkspace}
-        onClose={() => {
-          setShowModal(false);
-          setEditingWorkspace(undefined);
-        }}
+        onClose={() => { setShowModal(false); setEditingWorkspace(undefined); }}
         onSave={handleSave}
       />
     </>
