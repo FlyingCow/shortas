@@ -61,3 +61,68 @@ impl Settings {
         s.try_deserialize()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_settings_loads_default_config() {
+        let settings = Settings::new(Some("development"), Some("./config"));
+        assert!(settings.is_ok(), "Failed to load settings: {:?}", settings.err());
+
+        let s = settings.unwrap();
+        assert_eq!(s.server.port, 3001);
+        assert_eq!(s.dns.txt_record_name, "_shortas-domain-challenge");
+        assert!(!s.dns.allowed_ipv4.is_empty());
+    }
+
+    #[test]
+    fn test_settings_default_run_mode_is_development() {
+        let settings = Settings::new(None, Some("./config"));
+        assert!(settings.is_ok());
+    }
+
+    #[test]
+    fn test_settings_mongodb_fields() {
+        let settings = Settings::new(Some("development"), Some("./config")).unwrap();
+        assert!(!settings.mongodb.connection_string.is_empty());
+        assert!(!settings.mongodb.database_name.is_empty());
+        assert!(!settings.mongodb.collection.is_empty());
+    }
+
+    #[test]
+    fn test_settings_worker_fields() {
+        let settings = Settings::new(Some("development"), Some("./config")).unwrap();
+        assert!(settings.worker.check_interval_seconds > 0);
+        assert!(settings.worker.batch_size > 0);
+        assert!(settings.worker.recheck_interval_minutes > 0);
+        assert!(settings.worker.failed_recheck_interval_minutes > 0);
+    }
+
+    #[test]
+    fn test_settings_dns_fields() {
+        let settings = Settings::new(Some("development"), Some("./config")).unwrap();
+        assert!(!settings.dns.txt_record_name.is_empty());
+        // allowed_ipv6 can be empty
+    }
+
+    #[test]
+    fn test_settings_nonexistent_run_mode_falls_back() {
+        // Non-existent run mode file is optional, should still load default
+        let settings = Settings::new(Some("nonexistent_mode"), Some("./config"));
+        assert!(settings.is_ok());
+    }
+
+    #[test]
+    #[should_panic(expected = "No configuration folder specified")]
+    fn test_settings_panics_without_path() {
+        let _ = Settings::new(Some("development"), None);
+    }
+
+    #[test]
+    fn test_settings_invalid_path_fails() {
+        let settings = Settings::new(Some("development"), Some("/nonexistent/path"));
+        assert!(settings.is_err());
+    }
+}

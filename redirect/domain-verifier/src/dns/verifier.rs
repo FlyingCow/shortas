@@ -237,3 +237,106 @@ impl DnsVerifier {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dns_settings(ipv4: Vec<&str>, ipv6: Vec<&str>) -> DnsSettings {
+        DnsSettings {
+            txt_record_name: "_shortas-domain-challenge".into(),
+            allowed_ipv4: ipv4.into_iter().map(String::from).collect(),
+            allowed_ipv6: ipv6.into_iter().map(String::from).collect(),
+        }
+    }
+
+    #[test]
+    fn test_dns_verifier_new_parses_valid_ipv4() {
+        let settings = dns_settings(vec!["203.0.113.10", "1.2.3.4"], vec![]);
+        let verifier = DnsVerifier::new(&settings).unwrap();
+
+        assert_eq!(verifier.allowed_ipv4.len(), 2);
+        assert_eq!(verifier.allowed_ipv4[0], Ipv4Addr::new(203, 0, 113, 10));
+        assert_eq!(verifier.allowed_ipv4[1], Ipv4Addr::new(1, 2, 3, 4));
+    }
+
+    #[test]
+    fn test_dns_verifier_new_skips_invalid_ipv4() {
+        let settings = dns_settings(vec!["203.0.113.10", "not-an-ip", "1.2.3.4"], vec![]);
+        let verifier = DnsVerifier::new(&settings).unwrap();
+
+        assert_eq!(verifier.allowed_ipv4.len(), 2);
+    }
+
+    #[test]
+    fn test_dns_verifier_new_parses_valid_ipv6() {
+        let settings = dns_settings(vec![], vec!["::1", "2001:db8::1"]);
+        let verifier = DnsVerifier::new(&settings).unwrap();
+
+        assert_eq!(verifier.allowed_ipv6.len(), 2);
+        assert_eq!(verifier.allowed_ipv6[0], Ipv6Addr::LOCALHOST);
+    }
+
+    #[test]
+    fn test_dns_verifier_new_skips_invalid_ipv6() {
+        let settings = dns_settings(vec![], vec!["::1", "not-ipv6"]);
+        let verifier = DnsVerifier::new(&settings).unwrap();
+
+        assert_eq!(verifier.allowed_ipv6.len(), 1);
+    }
+
+    #[test]
+    fn test_dns_verifier_new_stores_txt_record_name() {
+        let settings = dns_settings(vec![], vec![]);
+        let verifier = DnsVerifier::new(&settings).unwrap();
+
+        assert_eq!(verifier.txt_record_name, "_shortas-domain-challenge");
+    }
+
+    #[test]
+    fn test_dns_verifier_new_empty_lists() {
+        let settings = dns_settings(vec![], vec![]);
+        let verifier = DnsVerifier::new(&settings).unwrap();
+
+        assert!(verifier.allowed_ipv4.is_empty());
+        assert!(verifier.allowed_ipv6.is_empty());
+    }
+
+    #[test]
+    fn test_verification_result_fields() {
+        let result = VerificationResult {
+            status: VerificationStatus::Verified,
+            reason: VerificationReason::TxtRecordValid,
+        };
+
+        assert_eq!(result.status, VerificationStatus::Verified);
+        assert_eq!(result.reason, VerificationReason::TxtRecordValid);
+    }
+
+    #[test]
+    fn test_verification_result_clone() {
+        let result = VerificationResult {
+            status: VerificationStatus::Failed,
+            reason: VerificationReason::ARecordMissing,
+        };
+
+        let cloned = result.clone();
+        assert_eq!(cloned.status, VerificationStatus::Failed);
+        assert_eq!(cloned.reason, VerificationReason::ARecordMissing);
+    }
+
+    #[tokio::test]
+    async fn test_verify_nonexistent_domain_fails() {
+        let settings = dns_settings(vec!["203.0.113.10"], vec![]);
+        let verifier = DnsVerifier::new(&settings).unwrap();
+
+        let domain = Domain::new(
+            "d1".into(),
+            "this-domain-definitely-does-not-exist-xyz123.example".into(),
+            "o1".into(),
+        );
+
+        let result = verifier.verify(&domain).await;
+        assert_eq!(result.status, VerificationStatus::Failed);
+    }
+}
