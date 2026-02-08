@@ -6,6 +6,7 @@ members = [
     "click-aggregator-api",
     "click-router-api",
     "click-tracker",
+    "domain-verifier",
     "infra/domains",
 ]
 
@@ -118,6 +119,9 @@ tower = { version = "0.5.2", features = ["full"] }
 
 # HTTP body utilities
 http-body-util = "0.1.1"
+
+# DNS resolution
+hickory-resolver = "0.24"
 
 # Development dependencies
 criterion = { version = "0.6.0", features = ["html_reports", "async_futures"] }

@@ -51,4 +51,8 @@ public static class OutboxEventType
     public const string RouteSearchDelete = "RouteSearchDelete";
     public const string RouteSearchBulkIndex = "RouteSearchBulkIndex";
     public const string RouteSearchBulkDelete = "RouteSearchBulkDelete";
+
+    // Domain verification events
+    public const string DomainVerificationRequested = "DomainVerificationRequested";
+    public const string DomainRemovalRequested = "DomainRemovalRequested";
 }

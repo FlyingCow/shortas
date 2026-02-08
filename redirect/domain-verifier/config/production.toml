@@ -1,0 +1,23 @@
+[server]
+port = 3001
+
+[mongodb]
+connection_string = "mongodb://root:example@mongo:27017/"
+database_name = "shortas"
+collection = "domains"
+
+[rabbitmq]
+uri = "amqp://guest:guest@rabbitmq:5672/%2f"
+domain_state_exchange = "domain.state.changed"
+reconnect_seconds = 5
+
+[dns]
+txt_record_name = "_shortas-domain-challenge"
+allowed_ipv4 = ["203.0.113.10"]
+allowed_ipv6 = []
+
+[worker]
+check_interval_seconds = 60
+batch_size = 100
+recheck_interval_minutes = 30
+failed_recheck_interval_minutes = 5

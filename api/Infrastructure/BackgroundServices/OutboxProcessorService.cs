@@ -76,6 +76,10 @@ public class OutboxProcessorService : BackgroundService
             {
                 await ProcessSearchIndexMessageAsync(message, outboxRepository, routeSearchService, cancellationToken);
             }
+            else if (IsDomainVerificationEvent(message.EventType))
+            {
+                await ProcessDomainVerificationMessageAsync(message, outboxRepository, httpClientFactory, cancellationToken);
+            }
             else
             {
                 await ProcessMessageAsync(message, outboxRepository, httpClientFactory, cancellationToken);
@@ -88,6 +92,10 @@ public class OutboxProcessorService : BackgroundService
                   or OutboxEventType.RouteSearchDelete
                   or OutboxEventType.RouteSearchBulkIndex
                   or OutboxEventType.RouteSearchBulkDelete;
+
+    private static bool IsDomainVerificationEvent(string eventType) =>
+        eventType is OutboxEventType.DomainVerificationRequested
+                  or OutboxEventType.DomainRemovalRequested;
 
     private async Task ProcessMessageAsync(
         OutboxMessage message,
@@ -362,6 +370,108 @@ public class OutboxProcessorService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending outbox message {MessageId} to click-router-api", message.Id);
+            message.ErrorMessage = ex.Message;
+            return false;
+        }
+    }
+
+    private async Task ProcessDomainVerificationMessageAsync(
+        OutboxMessage message,
+        IOutboxRepository outboxRepository,
+        IHttpClientFactory httpClientFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            message.Status = OutboxMessageStatus.Processing;
+            await outboxRepository.UpdateAsync(message);
+            await outboxRepository.SaveChangesAsync();
+
+            var httpClient = httpClientFactory.CreateClient("DomainVerifier");
+
+            var success = await SendToDomainVerifierAsync(message, httpClient, cancellationToken);
+
+            if (success)
+            {
+                message.Status = OutboxMessageStatus.Completed;
+                message.ProcessedAt = DateTime.UtcNow;
+                message.ErrorMessage = null;
+
+                _logger.LogInformation(
+                    "Successfully processed domain verification message {MessageId}, Event: {EventType}",
+                    message.Id,
+                    message.EventType);
+            }
+            else
+            {
+                await HandleFailureAsync(message);
+            }
+
+            await outboxRepository.UpdateAsync(message);
+            await outboxRepository.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing domain verification message {MessageId}", message.Id);
+
+            message.ErrorMessage = ex.Message;
+            await HandleFailureAsync(message);
+            await outboxRepository.UpdateAsync(message);
+            await outboxRepository.SaveChangesAsync();
+        }
+    }
+
+    private async Task<bool> SendToDomainVerifierAsync(
+        OutboxMessage message,
+        HttpClient httpClient,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            HttpResponseMessage? response = null;
+
+            switch (message.EventType)
+            {
+                case OutboxEventType.DomainVerificationRequested:
+                    var content = new StringContent(message.Payload, System.Text.Encoding.UTF8, "application/json");
+                    response = await httpClient.PostAsync("/v1/domains", content, cancellationToken);
+                    break;
+
+                case OutboxEventType.DomainRemovalRequested:
+                    var removePayload = JsonSerializer.Deserialize<JsonElement>(message.Payload, _jsonOptions);
+                    var domainId = removePayload.GetProperty("id").GetString();
+                    if (!string.IsNullOrEmpty(domainId))
+                    {
+                        response = await httpClient.DeleteAsync($"/v1/domains/{domainId}", cancellationToken);
+                    }
+                    break;
+
+                default:
+                    _logger.LogWarning("Unknown domain verification event type: {EventType}", message.EventType);
+                    return false;
+            }
+
+            if (response != null && response.IsSuccessStatusCode)
+            {
+                return true;
+            }
+
+            if (response != null)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                message.ErrorMessage = $"HTTP {response.StatusCode}: {errorContent}";
+                _logger.LogWarning(
+                    "Failed to send domain verification message {MessageId} to domain-verifier. Status: {StatusCode}, Error: {Error}",
+                    message.Id,
+                    response.StatusCode,
+                    errorContent);
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending domain verification message {MessageId} to domain-verifier", message.Id);
             message.ErrorMessage = ex.Message;
             return false;
         }

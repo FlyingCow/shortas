@@ -332,10 +332,22 @@ export interface SearchPaginatedResponse<T> {
 }
 
 // Domain Types
+export type DomainVerificationStatus = 'Pending' | 'Verified' | 'Failed';
+
 export interface DomainDto {
   id: string;
   name: string;
   ownerId: string;
+  verificationStatus: DomainVerificationStatus;
+  verificationReason: string;
+  lastVerificationCheck?: string;
+  nextVerificationCheck?: string;
+}
+
+export interface DnsConfigDto {
+  txtRecordName: string;
+  allowedIpv4: string[];
+  allowedIpv6: string[];
 }
 
 export interface CreateDomainDto {
@@ -618,6 +630,16 @@ export const apiService = {
 
     delete: async (id: string): Promise<void> => {
       const response = await routerApi.delete(`/domains/${id}`);
+      return response.data;
+    },
+
+    triggerVerification: async (id: string): Promise<DomainDto> => {
+      const response = await routerApi.post(`/domains/${id}/verify`);
+      return response.data;
+    },
+
+    getDnsConfig: async (): Promise<DnsConfigDto> => {
+      const response = await routerApi.get('/domains/dns-config');
       return response.data;
     },
   },

@@ -13,7 +13,20 @@ public class RouteDomain
 
     public string OwnerId { get; set; } = string.Empty;
 
+    // Verification status
+    public DomainVerificationStatus VerificationStatus { get; set; } = DomainVerificationStatus.Pending;
+    public string VerificationReason { get; set; } = "not_checked";
+    public DateTime? LastVerificationCheck { get; set; }
+    public DateTime? NextVerificationCheck { get; set; }
+
     // Navigation properties
     public ICollection<Route> Routes { get; set; } = new List<Route>();
     public ICollection<Certificate> Certificates { get; set; } = new List<Certificate>();
+}
+
+public enum DomainVerificationStatus
+{
+    Pending,
+    Verified,
+    Failed
 }

@@ -97,8 +97,23 @@ public static class ServiceCollectionExtensions
         .AddPolicyHandler(GetCircuitBreakerPolicy())
         .AddPolicyHandler(GetTimeoutPolicy());
 
+        // Register HTTP client for Domain Verifier
+        services.AddHttpClient("DomainVerifier", client =>
+        {
+            var baseUrl = configuration["ApiSettings:DomainVerifier:BaseUrl"] ?? "http://localhost:3001";
+            var timeout = configuration.GetValue<int>("ApiSettings:DomainVerifier:Timeout", 30);
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(timeout);
+        })
+        .AddPolicyHandler(GetRetryPolicy())
+        .AddPolicyHandler(GetCircuitBreakerPolicy())
+        .AddPolicyHandler(GetTimeoutPolicy());
+
         // Register Outbox background service
         services.AddHostedService<OutboxProcessorService>();
+
+        // Register Domain Verification Consumer
+        services.AddHostedService<DomainVerificationConsumer>();
 
         // Add JWT Authentication
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

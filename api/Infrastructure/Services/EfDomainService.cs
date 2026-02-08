@@ -90,6 +90,23 @@ public class EfDomainService : IDomainService
 
             // Add domain to database
             await _context.RouteDomains.AddAsync(domain);
+
+            // Create outbox message for domain verification
+            var verificationPayload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                id = domain.Id.ToString(),
+                name = domain.Name,
+                owner_id = domain.OwnerId
+            });
+
+            var outboxMessage = new OutboxMessage
+            {
+                EventType = OutboxEventType.DomainVerificationRequested,
+                AggregateId = domain.Id.ToString(),
+                Payload = verificationPayload
+            };
+
+            await _context.OutboxMessages.AddAsync(outboxMessage);
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Domain created: {DomainId}, Name: {DomainName}, OwnerId: {OwnerId}", domain.Id, domain.Name, domain.OwnerId);
@@ -171,6 +188,21 @@ public class EfDomainService : IDomainService
             // Check if domain has routes
             if (existingDomain.Routes.Any())
                 return Result.Failure(Error.Conflict("Cannot delete domain with existing routes"));
+
+            // Create outbox message for domain removal
+            var removalPayload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                id = existingDomain.Id.ToString()
+            });
+
+            var outboxMessage = new OutboxMessage
+            {
+                EventType = OutboxEventType.DomainRemovalRequested,
+                AggregateId = existingDomain.Id.ToString(),
+                Payload = removalPayload
+            };
+
+            await _context.OutboxMessages.AddAsync(outboxMessage);
 
             // Delete domain
             _context.RouteDomains.Remove(existingDomain);
