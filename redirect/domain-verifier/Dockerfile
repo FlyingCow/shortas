@@ -1,4 +1,4 @@
-# Multi-stage build for click-router
+# Multi-stage build for domain-verifier
 FROM rust:1.88-slim as builder
 
 # Install system dependencies
@@ -26,15 +26,12 @@ COPY redirect/click-aggregator-api/ ./redirect/click-aggregator-api/
 COPY redirect/domain-verifier/ ./redirect/domain-verifier/
 COPY redirect/infra/domains/ ./redirect/infra/domains/
 
-# Copy external salvo dependency
+# Copy external salvo dependency (needed for workspace resolution)
 COPY salvo/ ./salvo/
-
-# Copy data files
-COPY redirect/data/ ./redirect/data/
 
 # Build the application from the redirect workspace
 WORKDIR /app/redirect
-RUN cargo build --release -p click-router
+RUN cargo build --release -p domain-verifier
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -42,6 +39,7 @@ FROM debian:bookworm-slim
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -51,9 +49,8 @@ RUN useradd -r -s /bin/false shortas
 WORKDIR /app
 
 # Copy binary and config from builder
-COPY --from=builder /app/redirect/target/release/click-router /app/
-COPY --from=builder /app/redirect/click-router/config/ ./config/
-COPY --from=builder /app/redirect/data/ ./data/
+COPY --from=builder /app/redirect/target/release/domain-verifier /app/
+COPY --from=builder /app/redirect/domain-verifier/config/ ./config/
 
 # Change ownership
 RUN chown -R shortas:shortas /app
@@ -62,11 +59,11 @@ RUN chown -R shortas:shortas /app
 USER shortas
 
 # Expose port
-EXPOSE 5800
+EXPOSE 3001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:3001/health || exit 1
 
 # Run the application
-CMD ["./click-router", "-r", "production"]
+CMD ["./domain-verifier", "-r", "production"]

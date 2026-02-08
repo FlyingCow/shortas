@@ -357,6 +357,25 @@ services:
     networks:
       - shortas-net
 
+  domain-verifier:
+    build:
+      context: ..
+      dockerfile: redirect/domain-verifier/Dockerfile
+    container_name: shortas-domain-verifier
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - RUST_LOG=info
+      - APP_RUN_MODE=production
+    depends_on:
+      mongo:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - shortas-net
+
   domains:
     build:
       context: ..
