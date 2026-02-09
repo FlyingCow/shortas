@@ -3,43 +3,53 @@ use serde::{Deserialize, Serialize};
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct Condition {
     
+    #[serde(default)]
     #[serde(alias="default_operator", alias="DEFAULT_OPERATOR")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_operator: Option<DefaultOperator>,
 
+    #[serde(default)]
     #[serde(alias="ua", alias="UA")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ua: Option<UA>,
 
+    #[serde(default)]
     #[serde(alias="os", alias="OS")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub os: Option<OS>,
 
+    #[serde(default)]
     #[serde(alias="date", alias="DATE")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub date: Option<Date>,
     //Query: Query,
 
+    #[serde(default)]
     #[serde(alias="rnd", alias="RND")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rnd: Option<RND>,
 
+    #[serde(default)]
     #[serde(alias="day_of_week", alias="DAY_OF_WEEK")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub day_of_week: Option<DayOfWeek>,
 
+    #[serde(default)]
     #[serde(alias="day_of_month", alias="DAY_OF_MONTH")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub day_of_month: Option<DayOfMonth>,
 
+    #[serde(default)]
     #[serde(alias="month", alias="MONTH")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub month: Option<Month>,
 
+    #[serde(default)]
     #[serde(alias="and", alias="AND")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub and: Option<Vec<Box<Condition>>>,
 
+    #[serde(default)]
     #[serde(alias="or", alias="OR")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub or: Option<Vec<Box<Condition>>>

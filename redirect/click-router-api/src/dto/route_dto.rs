@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use salvo::oapi::ToSchema;
 use serde_json::Value;
 
+use crate::model::route::RoutingPolicy;
+
 /// Route DTO for API responses
 ///
 /// This DTO provides a clean API interface for routes,
@@ -25,6 +27,10 @@ pub struct RouteDto {
     pub status: String,
     /// Routing terminal type
     pub terminal: String,
+    /// Routing policy (Basic, Conditional, etc.)
+    #[serde(default)]
+    #[salvo(schema(value_type = serde_json::Value))]
+    pub policy: RoutingPolicy,
     /// Route properties
     pub properties: RoutePropertiesDto,
 }
@@ -70,6 +76,7 @@ impl RouteDto {
         ttl: Option<u64>,
         status: String,
         terminal: String,
+        policy: RoutingPolicy,
         properties: RoutePropertiesDto,
     ) -> Self {
         Self {
@@ -81,6 +88,7 @@ impl RouteDto {
             ttl,
             status,
             terminal,
+            policy,
             properties,
         }
     }
@@ -96,6 +104,7 @@ impl RouteDto {
             ttl: None,
             status: "Active".to_string(),
             terminal: "External".to_string(),
+            policy: RoutingPolicy::default(),
             properties: RoutePropertiesDto::default(),
         }
     }
@@ -262,6 +271,7 @@ impl From<crate::model::route::Route> for RouteDto {
                 crate::model::route::RoutingTerminal::Internal => "Internal".to_string(),
                 crate::model::route::RoutingTerminal::Middleware => "Middleware".to_string(),
             },
+            policy: route.policy,
             properties: RoutePropertiesDto {
                 route_id: route.properties.route_id,
                 domain_id: route.properties.domain_id,
@@ -307,6 +317,7 @@ impl From<&crate::model::route::Route> for RouteDto {
                 crate::model::route::RoutingTerminal::Internal => "Internal".to_string(),
                 crate::model::route::RoutingTerminal::Middleware => "Middleware".to_string(),
             },
+            policy: route.policy.clone(),
             properties: RoutePropertiesDto {
                 route_id: route.properties.route_id.clone(),
                 domain_id: route.properties.domain_id.clone(),
@@ -353,7 +364,7 @@ impl Into<crate::model::route::Route> for RouteDto {
                 "Middleware" => RoutingTerminal::Middleware,
                 _ => RoutingTerminal::External,
             },
-            policy: crate::model::route::RoutingPolicy::Basic, // Default policy
+            policy: self.policy,
             properties: RouteProperties {
                 route_id: self.properties.route_id,
                 domain_id: self.properties.domain_id,

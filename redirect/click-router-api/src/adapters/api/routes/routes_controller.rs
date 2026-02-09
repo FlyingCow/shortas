@@ -424,6 +424,7 @@ pub async fn bulk_create_routes(req: &mut Request, depot: &mut Depot, res: &mut 
     let routes_dto: Vec<RouteDto> = match req.parse_json().await {
         Ok(routes_dto) => routes_dto,
         Err(e) => {
+            tracing::error!("Failed to parse bulk create request body: {}", e);
             let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
                 ValidationError::InvalidInput {
                     field: "body".to_string(),
