@@ -138,6 +138,9 @@ public class EfRouteService : IRouteService
             await _context.Routes.AddAsync(route);
             await _context.SaveChangesAsync();
 
+            // Update cached route count for the domain
+            await IncrementRouteCountAsync(route.DomainId!.Value, 1);
+
             // Reload route with domain to ensure navigation property is populated
             var savedRoute = await _context.Routes
                 .Include(r => r.Domain)
@@ -401,6 +404,12 @@ public class EfRouteService : IRouteService
             _context.Routes.Remove(existingRoute);
             await _context.SaveChangesAsync();
 
+            // Update cached route count for the domain
+            if (existingRoute.DomainId.HasValue)
+            {
+                await IncrementRouteCountAsync(existingRoute.DomainId.Value, -1);
+            }
+
             // Propagate to click-router API synchronously
             var apiResult = await _clickRouterApiClient.DeleteRouteByIdAsync(id, userId);
 
@@ -462,6 +471,12 @@ public class EfRouteService : IRouteService
             // Delete route
             _context.Routes.Remove(existingRoute);
             await _context.SaveChangesAsync();
+
+            // Update cached route count for the domain
+            if (existingRoute.DomainId.HasValue)
+            {
+                await IncrementRouteCountAsync(existingRoute.DomainId.Value, -1);
+            }
 
             // Propagate to click-router API synchronously
             var apiResult = await _clickRouterApiClient.DeleteRouteAsync(domain, path, userId);
@@ -550,6 +565,16 @@ public class EfRouteService : IRouteService
             // Add routes to database
             await _context.Routes.AddRangeAsync(routes);
             await _context.SaveChangesAsync();
+
+            // Update cached route counts per domain
+            var countsByDomain = routes
+                .Where(r => r.DomainId.HasValue)
+                .GroupBy(r => r.DomainId!.Value)
+                .Select(g => new { DomainId = g.Key, Count = g.Count() });
+            foreach (var group in countsByDomain)
+            {
+                await IncrementRouteCountAsync(group.DomainId, group.Count);
+            }
 
             // Reload routes with domains to ensure navigation properties are populated
             var routeIds = routes.Select(r => r.Id).ToList();
@@ -741,6 +766,16 @@ public class EfRouteService : IRouteService
             _context.Routes.RemoveRange(routesToDelete);
             await _context.SaveChangesAsync();
 
+            // Update cached route counts per domain
+            var countsByDomain = routesToDelete
+                .Where(r => r.DomainId.HasValue)
+                .GroupBy(r => r.DomainId!.Value)
+                .Select(g => new { DomainId = g.Key, Count = g.Count() });
+            foreach (var group in countsByDomain)
+            {
+                await IncrementRouteCountAsync(group.DomainId, -group.Count);
+            }
+
             // Propagate to click-router API synchronously
             var apiResult = await _clickRouterApiClient.BulkDeleteRoutesAsync(userId, routeIds);
 
@@ -852,6 +887,36 @@ public class EfRouteService : IRouteService
         _logger.LogWarning("Unable to extract domain/path from route link: {Link}", route.Link);
         return (switchParam, string.Empty, string.Empty);
     }
+
+    #region Route Count Helpers
+
+    /// <summary>
+    /// Atomically increment (or decrement) the cached route count for a domain.
+    /// Uses upsert semantics: creates the row if it doesn't exist yet.
+    /// </summary>
+    private async Task IncrementRouteCountAsync(Guid domainId, int delta)
+    {
+        var countRow = await _context.DomainRouteCounts
+            .FirstOrDefaultAsync(c => c.DomainId == domainId);
+
+        if (countRow == null)
+        {
+            countRow = new DomainRouteCount
+            {
+                DomainId = domainId,
+                RouteCount = Math.Max(0, delta)
+            };
+            await _context.DomainRouteCounts.AddAsync(countRow);
+        }
+        else
+        {
+            countRow.RouteCount = Math.Max(0, countRow.RouteCount + delta);
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
+    #endregion
 
     #region Search Index Outbox Helpers
 

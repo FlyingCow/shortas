@@ -19,6 +19,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<OutboxMessage> OutboxMessages { get; set; }
     public DbSet<Workspace> Workspaces { get; set; }
     public DbSet<UserWorkspace> UserWorkspaces { get; set; }
+    public DbSet<DomainRouteCount> DomainRouteCounts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +34,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
         modelBuilder.ApplyConfiguration(new WorkspaceConfiguration());
         modelBuilder.ApplyConfiguration(new UserWorkspaceConfiguration());
+        modelBuilder.ApplyConfiguration(new DomainRouteCountConfiguration());
     }
 }
 

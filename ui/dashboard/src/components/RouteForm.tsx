@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RouteDto, RoutingPolicy, DomainDto } from '../services/api';
+import { Shuffle } from 'lucide-react';
+import { RouteDto, RoutingPolicy, DomainDto, apiService } from '../services/api';
 import PolicyEditor from './PolicyEditor';
 import './DesignSystem.css';
 
@@ -245,6 +246,19 @@ const routeFormStyles = `
   line-height: 1;
   padding: 0 0.25rem;
 }
+.rf-input-with-action {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+.rf-generate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  padding: 0.5rem 0.75rem;
+}
 .rf-code-option-desc {
   font-size: 0.6875rem;
   color: var(--text-muted);
@@ -301,6 +315,7 @@ const RouteForm: React.FC<RouteFormProps> = ({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [generatingLink, setGeneratingLink] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Re-initialize when route prop changes
@@ -390,6 +405,32 @@ const RouteForm: React.FC<RouteFormProps> = ({
       return next;
     });
     return error;
+  };
+
+  const handleGenerateLink = async () => {
+    const domainId = formData.domainId?.trim();
+    if (!domainId) {
+      setErrors((prev) => ({ ...prev, domainId: 'Select a domain first to generate a link' }));
+      setTouched((prev) => ({ ...prev, domainId: true }));
+      return;
+    }
+    setGeneratingLink(true);
+    try {
+      const result = await apiService.routes.suggestLink(domainId);
+      handleChange('link', result.link);
+      // Clear link error if present
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.link;
+        return next;
+      });
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message || 'Failed to generate link';
+      setSaveError(message);
+    } finally {
+      setGeneratingLink(false);
+    }
   };
 
   const validate = (): boolean => {
@@ -519,21 +560,36 @@ const RouteForm: React.FC<RouteFormProps> = ({
               <label className="rf-label">
                 Short Link<span className="rf-required">*</span>
               </label>
-              <input
-                className={fieldClass('link')}
-                type="text"
-                placeholder="my-link"
-                value={formData.link || ''}
-                onChange={(e) => handleChange('link', e.target.value)}
-                onBlur={() => handleBlur('link')}
-                disabled={saving || isEdit}
-                readOnly={isEdit}
-              />
+              <div className="rf-input-with-action">
+                <input
+                  className={fieldClass('link')}
+                  type="text"
+                  placeholder="my-link"
+                  value={formData.link || ''}
+                  onChange={(e) => handleChange('link', e.target.value)}
+                  onBlur={() => handleBlur('link')}
+                  disabled={saving || isEdit}
+                  readOnly={isEdit}
+                  style={{ flex: 1 }}
+                />
+                {!isEdit && (
+                  <button
+                    type="button"
+                    className="btn btn-outline rf-generate-btn"
+                    onClick={handleGenerateLink}
+                    disabled={saving || generatingLink}
+                    title="Generate a random short link"
+                  >
+                    <Shuffle size={14} />
+                    {generatingLink ? 'Generating...' : 'Generate'}
+                  </button>
+                )}
+              </div>
               {fieldError('link') || (
                 <span className="rf-helper">
                   {isEdit
                     ? 'Link cannot be changed after creation'
-                    : 'The path after the domain (e.g. promo, launch-2025)'}
+                    : 'The path after the domain (e.g. promo, launch-2025) or click Generate'}
                 </span>
               )}
             </div>

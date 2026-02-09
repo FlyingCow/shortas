@@ -538,11 +538,11 @@ const Domains: React.FC = () => {
   const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set());
   const [verifyingDomains, setVerifyingDomains] = useState<Set<string>>(new Set());
   const [dnsConfig, setDnsConfig] = useState<DnsConfigDto | null>(null);
+  const [dnsConfigLoading, setDnsConfigLoading] = useState(false);
   const [copiedRecord, setCopiedRecord] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDomains();
-    fetchDnsConfig();
   }, []);
 
   const fetchDomains = async () => {
@@ -560,6 +560,8 @@ const Domains: React.FC = () => {
   };
 
   const fetchDnsConfig = async () => {
+    if (dnsConfig || dnsConfigLoading) return;
+    setDnsConfigLoading(true);
     try {
       const config = await apiService.domains.getDnsConfig();
       setDnsConfig(config);
@@ -571,6 +573,8 @@ const Domains: React.FC = () => {
         allowedIpv4: ['203.0.113.10'],
         allowedIpv6: []
       });
+    } finally {
+      setDnsConfigLoading(false);
     }
   };
 
@@ -638,6 +642,7 @@ const Domains: React.FC = () => {
   };
 
   const toggleDnsPanel = (domainId: string) => {
+    const isExpanding = !expandedDomains.has(domainId);
     setExpandedDomains(prev => {
       const next = new Set(prev);
       if (next.has(domainId)) {
@@ -647,6 +652,9 @@ const Domains: React.FC = () => {
       }
       return next;
     });
+    if (isExpanding) {
+      fetchDnsConfig();
+    }
   };
 
   const getStatusBadge = (status: DomainVerificationStatus) => {
@@ -796,6 +804,11 @@ const Domains: React.FC = () => {
                     {expandedDomains.has(domain.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   </button>
 
+                  {expandedDomains.has(domain.id) && dnsConfigLoading && !dnsConfig && (
+                    <div className="dom-dns-content" style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
+                      Loading DNS configuration...
+                    </div>
+                  )}
                   {expandedDomains.has(domain.id) && dnsConfig && (
                     <div className="dom-dns-content">
                       <div className="dom-dns-section">

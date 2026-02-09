@@ -16,13 +16,15 @@ public class RoutesController : ControllerBase
 {
     private readonly IRouteService _routeService;
     private readonly IRouteSearchService _routeSearchService;
+    private readonly ISlashTagGenerator _slashTagGenerator;
     private readonly ILogger<RoutesController> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public RoutesController(IRouteService routeService, IRouteSearchService routeSearchService, ILogger<RoutesController> logger)
+    public RoutesController(IRouteService routeService, IRouteSearchService routeSearchService, ISlashTagGenerator slashTagGenerator, ILogger<RoutesController> logger)
     {
         _routeService = routeService;
         _routeSearchService = routeSearchService;
+        _slashTagGenerator = slashTagGenerator;
         _logger = logger;
         _jsonOptions = new JsonSerializerOptions
         {
@@ -301,6 +303,30 @@ public class RoutesController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Suggest a unique slash tag (short link path) for a given domain.
+    /// Uses a probabilistic approach starting with the shortest possible length (3 chars).
+    /// </summary>
+    /// <param name="domainId">The domain ID to generate a unique tag for</param>
+    /// <returns>A suggested unique slash tag</returns>
+    [HttpGet("suggest-link")]
+    public async Task<ActionResult<object>> SuggestLink([FromQuery] Guid domainId)
+    {
+        if (domainId == Guid.Empty)
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "domainId is required" });
+        }
+
+        var result = await _slashTagGenerator.GenerateAsync(domainId);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        return Ok(new { link = result.Value });
     }
 
     /// <summary>

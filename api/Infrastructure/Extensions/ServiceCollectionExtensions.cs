@@ -73,6 +73,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOutboxRepository, OutboxRepository>();
 
         // Register EF services for database access with eventual consistency
+        services.AddScoped<ISlashTagGenerator, SlashTagGenerator>();
         services.AddScoped<IRouteService, EfRouteService>();
         services.AddScoped<IDomainService, EfDomainService>();
         services.AddScoped<IWorkspaceService, EfWorkspaceService>();

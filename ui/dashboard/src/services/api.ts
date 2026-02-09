@@ -478,6 +478,11 @@ export const apiService = {
       return response.data;
     },
 
+    suggestLink: async (domainId: string): Promise<{ link: string }> => {
+      const response = await routerApi.get('/routes/suggest-link', { params: { domainId } });
+      return response.data;
+    },
+
     search: async (params: { q: string; page?: number; pageSize?: number; workspaceId?: string }): Promise<SearchPaginatedResponse<RouteSearchResult>> => {
       const response = await routerApi.get('/routes/search', { params });
       return response.data;
