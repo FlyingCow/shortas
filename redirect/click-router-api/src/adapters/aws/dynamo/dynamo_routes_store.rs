@@ -142,4 +142,15 @@ impl RoutesStore for DynamoRoutesStore {
 
         Ok(to_entity(item)?)
     }
+
+    async fn get_routes_by_link(&self, _link: &str) -> Result<Vec<Route>> {
+        // DynamoDB requires a GSI on link to query by link only
+        // For now, return empty - implement with GSI when needed
+        todo!("Implement with GSI on link")
+    }
+
+    async fn delete_routes_by_link(&self, _link: &str) -> Result<u64> {
+        // DynamoDB requires a GSI on link to query and then delete
+        todo!("Implement with GSI on link")
+    }
 }

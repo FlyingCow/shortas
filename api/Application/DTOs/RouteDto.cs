@@ -2,6 +2,15 @@ namespace ShortasProxyApi.Application.DTOs;
 
 using ShortasProxyApi.Domain.Entities;
 
+/// <summary>
+/// DTO for conditional route destination - pairs a condition with a destination URL
+/// </summary>
+public class ConditionDestinationDto
+{
+    public string Dest { get; set; } = string.Empty;
+    public Expression Condition { get; set; } = new();
+}
+
 public class RouteDto
 {
     public string? Id { get; set; }  // Internal ID for route operations
@@ -19,6 +28,10 @@ public class RouteDto
     // Domain relationship
     public Guid? DomainId { get; set; }
     public DomainDto? Domain { get; set; }
+
+    // Conditional routes - used for master/child pattern
+    // When conditions are provided, the API creates child routes for each condition
+    public List<ConditionDestinationDto>? Conditions { get; set; }
 }
 
 public class RoutePropertiesDto

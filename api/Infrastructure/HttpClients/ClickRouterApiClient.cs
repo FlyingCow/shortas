@@ -188,7 +188,7 @@ public class ClickRouterApiClient
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync("/v1/routes/bulk", content);
-            return await HandleListResponse<RouteDto, ClickRouterRouteDto>(response);
+            return await HandleBulkResponse<RouteDto, ClickRouterRouteDto>(response, "routes");
         }
         catch (Exception ex)
         {
@@ -210,7 +210,7 @@ public class ClickRouterApiClient
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PutAsync("/v1/routes/bulk", content);
-            return await HandleListResponse<RouteDto, ClickRouterRouteDto>(response);
+            return await HandleBulkResponse<RouteDto, ClickRouterRouteDto>(response, "routes");
         }
         catch (Exception ex)
         {
@@ -568,6 +568,42 @@ public class ClickRouterApiClient
             }
 
             var apiDtos = JsonSerializer.Deserialize<List<TApiDto>>(content, _jsonOptions);
+            if (apiDtos == null)
+            {
+                return Result<List<TAppDto>>.Success(new List<TAppDto>());
+            }
+
+            // Map API DTOs to Application DTOs
+            var appDtos = apiDtos.Select(apiDto => MapToApplicationDto<TAppDto, TApiDto>(apiDto)).ToList();
+            return Result<List<TAppDto>>.Success(appDtos);
+        }
+
+        return await HandleErrorResponse<List<TAppDto>>(response);
+    }
+
+    /// <summary>
+    /// Handle bulk response where the array is nested under a key in a wrapper object.
+    /// E.g. {"message": "...", "count": N, "routes": [...]}
+    /// </summary>
+    private async Task<Result<List<TAppDto>>> HandleBulkResponse<TAppDto, TApiDto>(HttpResponseMessage response, string arrayKey)
+        where TApiDto : class
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrEmpty(content))
+            {
+                return Result<List<TAppDto>>.Success(new List<TAppDto>());
+            }
+
+            using var doc = JsonDocument.Parse(content);
+            if (!doc.RootElement.TryGetProperty(arrayKey, out var arrayElement))
+            {
+                _logger.LogWarning("Bulk response missing expected key '{Key}'. Response: {Content}", arrayKey, content);
+                return Result<List<TAppDto>>.Success(new List<TAppDto>());
+            }
+
+            var apiDtos = JsonSerializer.Deserialize<List<TApiDto>>(arrayElement.GetRawText(), _jsonOptions);
             if (apiDtos == null)
             {
                 return Result<List<TAppDto>>.Success(new List<TAppDto>());

@@ -118,6 +118,11 @@ export interface ConditionalRouting {
   condition: Expression;
 }
 
+export interface ConditionRouteDto {
+  dest: string;           // Destination URL for this condition
+  condition: Expression;  // Matching conditions
+}
+
 export interface ChallengeRouting {
   type?: string;
   title?: string;
@@ -150,6 +155,7 @@ export interface RouteDto {
   policy?: RoutingPolicy;
   domainId?: string;
   domain?: DomainDto;
+  conditions?: ConditionRouteDto[];  // Conditional routes for master/child pattern
   properties?: {
     routeId: string;
     domainId: string;

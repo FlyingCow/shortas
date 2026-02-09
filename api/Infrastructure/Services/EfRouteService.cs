@@ -918,6 +918,90 @@ public class EfRouteService : IRouteService
 
     #endregion
 
+    #region Route Family Helpers
+
+    /// <summary>
+    /// Get all routes in a family by link (master and all child routes)
+    /// </summary>
+    private async Task<List<RouteEntity>> GetRouteFamilyAsync(string link)
+    {
+        return await _context.Routes
+            .Include(r => r.Properties)
+            .Include(r => r.Domain)
+            .Where(r => r.Link == link)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Generate switch name for child route (1-indexed: cond-1, cond-2, etc.)
+    /// </summary>
+    private static string GenerateChildSwitch(int index) => $"cond-{index + 1}";
+
+    /// <summary>
+    /// Generate conditional policy from conditions list
+    /// </summary>
+    private static ConditionalPolicy GenerateConditionalPolicy(List<Application.DTOs.ConditionDestinationDto> conditions)
+    {
+        var policy = new ConditionalPolicy();
+        for (int i = 0; i < conditions.Count; i++)
+        {
+            policy.Conditions.Add(new ConditionalRouting
+            {
+                Key = GenerateChildSwitch(i),
+                Condition = conditions[i].Condition
+            });
+        }
+        return policy;
+    }
+
+    /// <summary>
+    /// Create child routes for conditional routing
+    /// </summary>
+    private List<RouteEntity> CreateChildRoutes(
+        RouteEntity masterRoute,
+        List<Application.DTOs.ConditionDestinationDto> conditions)
+    {
+        var childRoutes = new List<RouteEntity>();
+        for (int i = 0; i < conditions.Count; i++)
+        {
+            var condition = conditions[i];
+            var childRoute = new RouteEntity
+            {
+                Id = Guid.NewGuid(),
+                Switch = GenerateChildSwitch(i),
+                Link = masterRoute.Link,
+                Dest = condition.Dest,
+                DestFormat = masterRoute.DestFormat,
+                Code = masterRoute.Code,
+                Ttl = masterRoute.Ttl,
+                Status = masterRoute.Status,
+                Terminal = masterRoute.Terminal,
+                Policy = new BasicPolicy(),
+                DomainId = masterRoute.DomainId,
+                Domain = masterRoute.Domain,
+                Properties = masterRoute.Properties != null ? new RouteProperties
+                {
+                    RouteId = null,  // Will be set after save
+                    DomainId = masterRoute.Properties.DomainId,
+                    OwnerId = masterRoute.Properties.OwnerId,
+                    CreatorId = masterRoute.Properties.CreatorId,
+                    WorkspaceId = masterRoute.Properties.WorkspaceId,
+                    Scripts = masterRoute.Properties.Scripts,
+                    Tags = masterRoute.Properties.Tags,
+                    Custom = masterRoute.Properties.Custom,
+                    Native = masterRoute.Properties.Native,
+                    Bundling = masterRoute.Properties.Bundling,
+                    Opengraph = masterRoute.Properties.Opengraph,
+                    AllowDebug = masterRoute.Properties.AllowDebug
+                } : null
+            };
+            childRoutes.Add(childRoute);
+        }
+        return childRoutes;
+    }
+
+    #endregion
+
     #region Search Index Outbox Helpers
 
     private static RouteSearchDoc ToSearchDocument(RouteEntity route)

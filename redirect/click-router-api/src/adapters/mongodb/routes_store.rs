@@ -143,4 +143,36 @@ impl RoutesStore for MongodbRoutesStore {
         // MongoDB doesn't need explicit invalidation like DynamoDB
         Ok(())
     }
+
+    async fn get_routes_by_link(&self, link: &str) -> Result<Vec<Route>> {
+        let filter = doc! { "link": link };
+        let mut cursor = self.collection.find(filter).await?;
+
+        let mut routes = Vec::new();
+        while cursor.advance().await? {
+            let doc = cursor.deserialize_current()?;
+            let route = Route {
+                switch: doc.switch.clone(),
+                link: doc.link.clone(),
+                dest: doc.dest.clone(),
+                dest_format: doc.dest_format.clone(),
+                code: doc.code,
+                ttl: doc.ttl,
+                status: doc.status.clone(),
+                terminal: doc.terminal.clone(),
+                policy: doc.policy.clone(),
+                properties: doc.properties.clone(),
+                ..Default::default()
+            };
+            routes.push(route);
+        }
+
+        Ok(routes)
+    }
+
+    async fn delete_routes_by_link(&self, link: &str) -> Result<u64> {
+        let filter = doc! { "link": link };
+        let result = self.collection.delete_many(filter).await?;
+        Ok(result.deleted_count)
+    }
 }

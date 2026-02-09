@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Shuffle } from 'lucide-react';
-import { RouteDto, RoutingPolicy, DomainDto, apiService } from '../services/api';
-import PolicyEditor from './PolicyEditor';
+import { RouteDto, RoutingPolicy, DomainDto, ConditionRouteDto, ConditionalRouting, apiService } from '../services/api';
+import { ConditionsEditor } from './ConditionsEditor';
 import './DesignSystem.css';
 
 interface RouteFormProps {
@@ -71,15 +71,20 @@ const cleanPolicy = (policy: any): any => {
   return policy;
 };
 
-const getPolicyType = (policy?: RoutingPolicy): string => {
-  if (!policy || policy === 'Basic') return 'Basic';
-  if (policy === 'Mirroring') return 'Mirroring';
-  if (typeof policy === 'object') {
-    if ('Conditional' in policy) return 'Conditional';
-    if ('Challenge' in policy) return 'Challenge';
-    if ('File' in policy) return 'File';
+// Parse existing conditional policy into conditions array
+// Note: For existing routes with conditional policy, we can't fully reconstruct
+// the destination URLs since they're stored in child routes, not in the policy itself.
+// This function is mainly for display purposes and new conditions.
+const parseConditionsFromPolicy = (policy?: RoutingPolicy): ConditionRouteDto[] => {
+  if (!policy || typeof policy !== 'object' || !('Conditional' in policy)) {
+    return [];
   }
-  return 'Basic';
+  // Conditional policy only contains keys and conditions, not destinations
+  // We return the conditions with empty destinations - the API will handle this
+  return (policy.Conditional || []).map((routing: ConditionalRouting) => ({
+    dest: '',  // Destination is stored in child routes, not in the policy
+    condition: routing.condition,
+  }));
 };
 
 const HTTP_CODES: { value: number; label: string; desc: string }[] = [
@@ -283,10 +288,15 @@ const RouteForm: React.FC<RouteFormProps> = ({
 
   const buildInitialData = (): Partial<RouteDto> => {
     if (route) {
+      // For edit mode, use conditions from route if available, otherwise parse from policy
+      const conditions = route.conditions?.length
+        ? route.conditions
+        : parseConditionsFromPolicy(route.policy);
       return {
         ...route,
         policy: cleanPolicy(route.policy) || 'Basic',
         domainId: route.domainId || route.properties?.domainId || '',
+        conditions,
       };
     }
     return {
@@ -297,6 +307,7 @@ const RouteForm: React.FC<RouteFormProps> = ({
       code: 302,
       policy: 'Basic',
       domainId: '',
+      conditions: [],
       properties: {
         routeId: '',
         domainId: '',
@@ -453,6 +464,7 @@ const RouteForm: React.FC<RouteFormProps> = ({
     try {
       const dataToSave: Partial<RouteDto> = {
         ...formData,
+        switch: 'main',  // Always set switch to 'main' - child routes are managed by API
         properties: formData.properties
           ? { ...formData.properties, domainId: formData.domainId! }
           : {
@@ -466,6 +478,9 @@ const RouteForm: React.FC<RouteFormProps> = ({
               allowDebug: false,
             },
       };
+
+      // Remove policy field - it's auto-determined based on conditions
+      delete (dataToSave as any).policy;
 
       const cleaned = stripApiManagedFields(dataToSave);
       // Link and domain are immutable after creation — don't send them on update
@@ -487,8 +502,8 @@ const RouteForm: React.FC<RouteFormProps> = ({
 
   // Determine which collapsible sections should default open
   const hasNonDefaultRedirect =
-    isEdit && ((formData.code && formData.code !== 302) || (formData.switch && formData.switch !== 'main'));
-  const hasNonBasicPolicy = isEdit && getPolicyType(formData.policy as RoutingPolicy) !== 'Basic';
+    isEdit && (formData.code && formData.code !== 302);
+  const hasConditions = (formData.conditions?.length ?? 0) > 0;
   const hasTags = (formData.properties?.tags?.length ?? 0) > 0;
   const hasFlags = formData.properties?.opengraph || formData.properties?.allowDebug;
   const hasTagsOrFlags = isEdit && (hasTags || hasFlags);
@@ -656,30 +671,16 @@ const RouteForm: React.FC<RouteFormProps> = ({
               </select>
             </div>
 
-            <div className="rf-field">
-              <label className="rf-label">Switch</label>
-              <input
-                className="rf-input"
-                type="text"
-                placeholder="main"
-                value={formData.switch || 'main'}
-                onChange={(e) => handleChange('switch', e.target.value)}
-                disabled={saving}
-              />
-              <span className="rf-helper">
-                Named variant of this route (default: main)
-              </span>
-            </div>
           </div>
         </details>
 
-        {/* Section 3: Routing Policy */}
-        <details className="rf-section" open={hasNonBasicPolicy || undefined}>
-          <summary>Routing Policy</summary>
+        {/* Section 3: Conditional Routes */}
+        <details className="rf-section" open={hasConditions || undefined}>
+          <summary>Conditional Routes</summary>
           <div className="rf-section-body">
-            <PolicyEditor
-              policy={(formData.policy as RoutingPolicy) || 'Basic'}
-              onChange={(policy) => handleChange('policy' as any, policy)}
+            <ConditionsEditor
+              conditions={formData.conditions || []}
+              onChange={(conditions) => handleChange('conditions' as any, conditions)}
             />
           </div>
         </details>
