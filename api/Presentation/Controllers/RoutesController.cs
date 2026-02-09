@@ -101,58 +101,18 @@ public class RoutesController : ControllerBase
         var route = result.Value;
         var routeDto = MapToDto(route);
 
-        // If this is a master route with conditional policy, populate conditions from child routes
+        // If this is a conditional route, extract conditions from the policy
+        // (dest is stored inline in ConditionalRouting since management DB stores one route)
         if (route.Switch == "main" && route.Policy is ConditionalPolicy conditionalPolicy)
         {
-            routeDto.Conditions = await GetConditionsFromChildRoutes(route.Link, conditionalPolicy, userId);
+            routeDto.Conditions = conditionalPolicy.Conditions.Select(c => new ConditionDestinationDto
+            {
+                Dest = c.Dest ?? "",
+                Condition = c.Condition
+            }).ToList();
         }
 
         return Ok(routeDto);
-    }
-
-    /// <summary>
-    /// Get conditions by loading destinations from child routes
-    /// </summary>
-    private async Task<List<ConditionDestinationDto>> GetConditionsFromChildRoutes(
-        string link,
-        ConditionalPolicy conditionalPolicy,
-        string userId)
-    {
-        var conditions = new List<ConditionDestinationDto>();
-
-        // Get all routes with the same link
-        var listResult = await _routeService.ListRoutesAsync(
-            page: 1,
-            pageSize: 1000,
-            search: link,
-            ownerId: userId);
-
-        if (!listResult.IsSuccess)
-        {
-            return conditions;
-        }
-
-        var childRoutes = listResult.Value.Routes
-            .Where(r => r.Link == link && r.Switch != "main")
-            .ToDictionary(r => r.Switch, r => r);
-
-        // Match conditions from policy with child route destinations
-        foreach (var routing in conditionalPolicy.Conditions)
-        {
-            var dest = "";
-            if (childRoutes.TryGetValue(routing.Key, out var childRoute))
-            {
-                dest = childRoute.Dest ?? "";
-            }
-
-            conditions.Add(new ConditionDestinationDto
-            {
-                Dest = dest,
-                Condition = routing.Condition
-            });
-        }
-
-        return conditions;
     }
 
     /// <summary>
@@ -204,87 +164,45 @@ public class RoutesController : ControllerBase
     }
 
     /// <summary>
-    /// Create a route with conditions (master + child routes pattern)
+    /// Create a route with conditions.
+    /// Stores ONE route in management DB with ConditionalPolicy (conditions+dests in policy JSON).
+    /// The service layer builds the route family (master + children) for click-router.
     /// </summary>
     private async Task<ActionResult<RouteDto>> CreateRouteWithConditions(RouteDto routeDto, string userId)
     {
         var conditions = routeDto.Conditions!;
-        var routesToCreate = new List<Domain.Entities.Route>();
 
-        // Create master route with Conditional policy
-        var masterRoute = MapFromDto(routeDto);
-        masterRoute.Switch = "main";
-        masterRoute.Policy = GenerateConditionalPolicy(conditions);
+        // Create a single route with Conditional policy (includes dest per condition)
+        var route = MapFromDto(routeDto);
+        route.Switch = "main";
+        route.Policy = GenerateConditionalPolicy(conditions);
 
         // Ensure Properties exists and set OwnerId
-        if (masterRoute.Properties == null)
+        if (route.Properties == null)
         {
-            masterRoute.Properties = new Domain.Entities.RouteProperties();
+            route.Properties = new Domain.Entities.RouteProperties();
         }
-        masterRoute.Properties.OwnerId = userId;
-        masterRoute.Properties.CreatorId = userId;
+        route.Properties.OwnerId = userId;
+        route.Properties.CreatorId = userId;
 
         // Validate that WorkspaceId is provided (mandatory field)
-        if (string.IsNullOrWhiteSpace(masterRoute.Properties.WorkspaceId))
+        if (string.IsNullOrWhiteSpace(route.Properties.WorkspaceId))
         {
             return BadRequest(new { error = "VALIDATION_ERROR", message = "Workspace is required when creating a route" });
         }
 
-        routesToCreate.Add(masterRoute);
-
-        // Create child routes for each condition
-        for (int i = 0; i < conditions.Count; i++)
-        {
-            var condition = conditions[i];
-            var childRoute = new Domain.Entities.Route
-            {
-                Id = Guid.NewGuid(),
-                Switch = GenerateChildSwitch(i),
-                Link = routeDto.Link,
-                Dest = condition.Dest,
-                DestFormat = routeDto.DestFormat,
-                Code = routeDto.Code,
-                Ttl = routeDto.Ttl,
-                Status = routeDto.Status,
-                Terminal = routeDto.Terminal,
-                Policy = new BasicPolicy(),
-                DomainId = routeDto.DomainId,
-                Properties = new Domain.Entities.RouteProperties
-                {
-                    DomainId = masterRoute.Properties?.DomainId,
-                    OwnerId = userId,
-                    CreatorId = userId,
-                    WorkspaceId = masterRoute.Properties?.WorkspaceId,
-                    Scripts = masterRoute.Properties?.Scripts,
-                    Tags = masterRoute.Properties?.Tags,
-                    Custom = masterRoute.Properties?.Custom,
-                    Native = masterRoute.Properties?.Native,
-                    Bundling = masterRoute.Properties?.Bundling,
-                    Opengraph = masterRoute.Properties?.Opengraph ?? false,
-                    AllowDebug = masterRoute.Properties?.AllowDebug ?? false
-                }
-            };
-            routesToCreate.Add(childRoute);
-        }
-
-        var result = await _routeService.BulkCreateRoutesAsync(routesToCreate);
+        // CreateRouteAsync saves ONE route to DB, and the service handles
+        // building the route family for click-router propagation.
+        var result = await _routeService.CreateRouteAsync(route);
 
         if (result.IsFailure)
         {
             return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
         }
 
-        // Return the master route
-        var masterResult = result.Value.FirstOrDefault(r => r.Switch == "main");
-        if (masterResult == null)
-        {
-            return StatusCode(500, new { error = "INTERNAL_ERROR", message = "Failed to retrieve master route after creation" });
-        }
-
-        var createdRouteDto = MapToDto(masterResult);
-        // Include conditions in the response
+        var createdRouteDto = MapToDto(result.Value);
         createdRouteDto.Conditions = conditions;
-        return CreatedAtAction(nameof(GetRoute), new { id = masterResult.Id.ToString() }, createdRouteDto);
+        return CreatedAtAction(nameof(GetRoute), new { id = result.Value.Id.ToString() }, createdRouteDto);
     }
 
     /// <summary>
@@ -293,7 +211,7 @@ public class RoutesController : ControllerBase
     private static string GenerateChildSwitch(int index) => $"cond-{index + 1}";
 
     /// <summary>
-    /// Generate conditional policy from conditions list
+    /// Generate conditional policy from conditions list (includes dest for management DB storage)
     /// </summary>
     private static ConditionalPolicy GenerateConditionalPolicy(List<ConditionDestinationDto> conditions)
     {
@@ -303,7 +221,8 @@ public class RoutesController : ControllerBase
             policy.Conditions.Add(new ConditionalRouting
             {
                 Key = GenerateChildSwitch(i),
-                Condition = conditions[i].Condition
+                Condition = conditions[i].Condition,
+                Dest = conditions[i].Dest
             });
         }
         return policy;
@@ -381,6 +300,9 @@ public class RoutesController : ControllerBase
         route.Switch = "main";
         route.Policy = new BasicPolicy();
 
+        // UpdateRouteByIdAsync handles click-router propagation.
+        // If the route was previously conditional, the service will clean up
+        // old child routes on click-router.
         var result = await _routeService.UpdateRouteByIdAsync(routeId, userId, route);
 
         if (result.IsFailure)
@@ -388,15 +310,14 @@ public class RoutesController : ControllerBase
             return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
         }
 
-        // Delete any existing child routes since we're now a Basic route
-        await DeleteChildRoutes(existingLink, userId);
-
         var updatedRouteDto = MapToDto(result.Value);
         return Ok(updatedRouteDto);
     }
 
     /// <summary>
-    /// Update a route with conditions (master + child routes pattern)
+    /// Update a route with conditions.
+    /// Updates ONE route in management DB with new ConditionalPolicy (conditions+dests in policy JSON).
+    /// The service layer rebuilds the route family on click-router.
     /// </summary>
     private async Task<ActionResult<RouteDto>> UpdateRouteWithConditions(
         Guid routeId,
@@ -405,97 +326,24 @@ public class RoutesController : ControllerBase
         string userId)
     {
         var conditions = routeDto.Conditions!;
-        var existingLink = existingRoute.Link;
 
-        // First, delete all existing child routes
-        await DeleteChildRoutes(existingLink, userId);
+        // Update the single route with new conditional policy (includes dest per condition)
+        var route = MapFromDto(routeDto);
+        route.Switch = "main";
+        route.Policy = GenerateConditionalPolicy(conditions);
 
-        // Update master route with new conditional policy
-        var masterRoute = MapFromDto(routeDto);
-        masterRoute.Switch = "main";
-        masterRoute.Policy = GenerateConditionalPolicy(conditions);
+        // UpdateRouteByIdAsync updates ONE route in DB, and the service handles
+        // rebuilding the route family for click-router propagation.
+        var result = await _routeService.UpdateRouteByIdAsync(routeId, userId, route);
 
-        var masterResult = await _routeService.UpdateRouteByIdAsync(routeId, userId, masterRoute);
-
-        if (masterResult.IsFailure)
+        if (result.IsFailure)
         {
-            return HandleError(masterResult.ErrorCode ?? "UNKNOWN_ERROR", masterResult.Error);
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
         }
 
-        // Create new child routes
-        var childRoutes = new List<Domain.Entities.Route>();
-        for (int i = 0; i < conditions.Count; i++)
-        {
-            var condition = conditions[i];
-            var childRoute = new Domain.Entities.Route
-            {
-                Id = Guid.NewGuid(),
-                Switch = GenerateChildSwitch(i),
-                Link = existingLink,
-                Dest = condition.Dest,
-                DestFormat = existingRoute.DestFormat,
-                Code = existingRoute.Code,
-                Ttl = existingRoute.Ttl,
-                Status = existingRoute.Status,
-                Terminal = existingRoute.Terminal,
-                Policy = new BasicPolicy(),
-                DomainId = existingRoute.DomainId,
-                Properties = new Domain.Entities.RouteProperties
-                {
-                    DomainId = existingRoute.Properties?.DomainId,
-                    OwnerId = userId,
-                    CreatorId = userId,
-                    WorkspaceId = existingRoute.Properties?.WorkspaceId,
-                    Scripts = existingRoute.Properties?.Scripts,
-                    Tags = existingRoute.Properties?.Tags,
-                    Custom = existingRoute.Properties?.Custom,
-                    Native = existingRoute.Properties?.Native,
-                    Bundling = existingRoute.Properties?.Bundling,
-                    Opengraph = existingRoute.Properties?.Opengraph ?? false,
-                    AllowDebug = existingRoute.Properties?.AllowDebug ?? false
-                }
-            };
-            childRoutes.Add(childRoute);
-        }
-
-        if (childRoutes.Count > 0)
-        {
-            var bulkResult = await _routeService.BulkCreateRoutesAsync(childRoutes);
-            if (bulkResult.IsFailure)
-            {
-                return HandleError(bulkResult.ErrorCode ?? "UNKNOWN_ERROR", bulkResult.Error);
-            }
-        }
-
-        var updatedRouteDto = MapToDto(masterResult.Value);
+        var updatedRouteDto = MapToDto(result.Value);
         updatedRouteDto.Conditions = conditions;
         return Ok(updatedRouteDto);
-    }
-
-    /// <summary>
-    /// Delete all child routes for a given link
-    /// </summary>
-    private async Task DeleteChildRoutes(string link, string userId)
-    {
-        // Get all routes with the same link that are not the master route
-        var listResult = await _routeService.ListRoutesAsync(
-            page: 1,
-            pageSize: 1000,
-            search: link,
-            ownerId: userId);
-
-        if (listResult.IsSuccess)
-        {
-            var childRouteIds = listResult.Value.Routes
-                .Where(r => r.Link == link && r.Switch != "main")
-                .Select(r => r.Id.ToString())
-                .ToList();
-
-            if (childRouteIds.Count > 0)
-            {
-                await _routeService.BulkDeleteRoutesAsync(userId, childRouteIds);
-            }
-        }
     }
 
     /// <summary>
@@ -527,13 +375,7 @@ public class RoutesController : ControllerBase
 
         var existingRoute = existingRouteResult.Value;
 
-        // If this is a master route, delete all child routes first
-        if (existingRoute.Switch == "main")
-        {
-            await DeleteChildRoutes(existingRoute.Link, userId);
-        }
-
-        // Delete the route
+        // Delete the route (service handles click-router family cleanup for conditional routes)
         var result = await _routeService.DeleteRouteByIdAsync(routeId, userId);
 
         if (result.IsFailure)

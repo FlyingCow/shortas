@@ -116,6 +116,7 @@ export interface DateCondition {
 export interface ConditionalRouting {
   key: string;
   condition: Expression;
+  dest?: string;  // Destination URL stored inline in the policy
 }
 
 export interface ConditionRouteDto {

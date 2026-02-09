@@ -1,5 +1,6 @@
 using ShortasProxyApi.Application.DTOs;
 using ShortasProxyApi.Domain.Common;
+using ShortasProxyApi.Domain.Entities;
 using System.Text;
 using System.Text.Json;
 
@@ -160,18 +161,53 @@ public class ClickRouterApiClient
     /// <summary>
     /// Delete route by domain and path via Click Router API
     /// </summary>
-    public async Task<Result> DeleteRouteAsync(string domain, string path, string userId)
+    public async Task<Result> DeleteRouteAsync(string domain, string path, string userId, string switchParam = "main")
     {
         try
         {
-            var switchValue = "main";
-            var response = await _httpClient.DeleteAsync($"/v1/routes/{switchValue}/{domain}/{path}");
+            var response = await _httpClient.DeleteAsync($"/v1/routes/{switchParam}/{domain}/{path}");
             return await HandleResponse(response);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete route {Switch}/{Domain}/{Path}", "main", domain, path);
+            _logger.LogError(ex, "Failed to delete route {Switch}/{Domain}/{Path}", switchParam, domain, path);
             return Result.Failure("EXTERNAL_SERVICE_ERROR", "Failed to communicate with Click Router API");
+        }
+    }
+
+    /// <summary>
+    /// Delete a route family from click-router (master + all children from a conditional policy).
+    /// Best-effort: logs warnings for individual failures but doesn't fail the overall operation.
+    /// </summary>
+    public async Task DeleteRouteFamilyAsync(string link, ConditionalPolicy? oldPolicy)
+    {
+        var parts = link.Split('/', 2);
+        if (parts.Length < 2)
+        {
+            _logger.LogWarning("Cannot extract domain/path from link: {Link}", link);
+            return;
+        }
+        var domain = parts[0];
+        var path = parts[1];
+
+        // Delete the master route
+        var masterResult = await DeleteRouteAsync(domain, path, "", "main");
+        if (masterResult.IsFailure)
+        {
+            _logger.LogWarning("Failed to delete master route from click-router: {Domain}/{Path}", domain, path);
+        }
+
+        // Delete child routes if old policy was conditional
+        if (oldPolicy != null)
+        {
+            foreach (var condition in oldPolicy.Conditions)
+            {
+                var childResult = await DeleteRouteAsync(domain, path, "", condition.Key);
+                if (childResult.IsFailure)
+                {
+                    _logger.LogWarning("Failed to delete child route {Key} from click-router: {Domain}/{Path}", condition.Key, domain, path);
+                }
+            }
         }
     }
 

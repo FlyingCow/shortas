@@ -71,6 +71,10 @@ public class ConditionalRouting
 
     [JsonPropertyName("condition")]
     public Expression Condition { get; set; } = new();
+
+    [JsonPropertyName("dest")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Dest { get; set; }
 }
 
 /// <summary>

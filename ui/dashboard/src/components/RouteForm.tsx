@@ -71,18 +71,14 @@ const cleanPolicy = (policy: any): any => {
   return policy;
 };
 
-// Parse existing conditional policy into conditions array
-// Note: For existing routes with conditional policy, we can't fully reconstruct
-// the destination URLs since they're stored in child routes, not in the policy itself.
-// This function is mainly for display purposes and new conditions.
+// Parse existing conditional policy into conditions array.
+// Destinations are stored inline in the policy (single-route model).
 const parseConditionsFromPolicy = (policy?: RoutingPolicy): ConditionRouteDto[] => {
   if (!policy || typeof policy !== 'object' || !('Conditional' in policy)) {
     return [];
   }
-  // Conditional policy only contains keys and conditions, not destinations
-  // We return the conditions with empty destinations - the API will handle this
   return (policy.Conditional || []).map((routing: ConditionalRouting) => ({
-    dest: '',  // Destination is stored in child routes, not in the policy
+    dest: routing.dest || '',
     condition: routing.condition,
   }));
 };
