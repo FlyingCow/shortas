@@ -163,7 +163,11 @@ public static class MappingExtensions
         {
             Id = entity.Id,
             Name = entity.Name,
-            OwnerId = entity.OwnerId
+            OwnerId = entity.OwnerId,
+            VerificationStatus = entity.VerificationStatus.ToString(),
+            VerificationReason = entity.VerificationReason,
+            LastVerificationCheck = entity.LastVerificationCheck,
+            NextVerificationCheck = entity.NextVerificationCheck
         };
     }
 

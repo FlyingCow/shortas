@@ -1,7 +1,7 @@
 use chrono::{Duration, Utc};
 use std::sync::Arc;
 use tokio::time::interval;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::adapters::api::app_state::AppState;
 use crate::adapters::rabbitmq::messages::DomainStateChangedMessage;
@@ -78,27 +78,27 @@ impl VerificationWorker {
                 continue;
             }
 
-            // Publish state change if status changed
-            if previous_status != domain.status {
-                if let Some(ref publisher) = self.app_state.rabbitmq_publisher {
-                    publisher
-                        .publish_domain_state_changed(&DomainStateChangedMessage {
-                            domain_id: domain.id.clone(),
-                            domain_name: domain.name.clone(),
-                            owner_id: domain.owner_id.clone(),
-                            status: domain.status.clone(),
-                            verification_reason: domain.verification_reason.clone(),
-                            last_check_at: domain.last_check_at.map(|dt| dt.timestamp_millis()),
-                            next_check_at: domain.next_check_at.map(|dt| dt.timestamp_millis()),
-                        })
-                        .await;
-                }
-
-                info!(
-                    "Domain {} ({}) verification: {:?} -> {:?}",
-                    domain.name, domain.id, previous_status, domain.status
-                );
+            // Always publish state after verification
+            if let Some(ref publisher) = self.app_state.rabbitmq_publisher {
+                publisher
+                    .publish_domain_state_changed(&DomainStateChangedMessage {
+                        domain_id: domain.id.clone(),
+                        domain_name: domain.name.clone(),
+                        owner_id: domain.owner_id.clone(),
+                        status: domain.status.clone(),
+                        verification_reason: domain.verification_reason.to_string(),
+                        last_check_at: domain.last_check_at.map(|dt| dt.timestamp_millis()),
+                        next_check_at: domain.next_check_at.map(|dt| dt.timestamp_millis()),
+                    })
+                    .await;
+            } else {
+                warn!("RabbitMQ publisher not available, cannot publish domain state change");
             }
+
+            info!(
+                "Domain {} ({}) verification complete: {:?} -> {:?}",
+                domain.name, domain.id, previous_status, domain.status
+            );
         }
     }
 }

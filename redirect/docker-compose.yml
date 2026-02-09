@@ -2,6 +2,7 @@ version: '3.8'
 
 networks:
   shortas-net:
+    name: shortas-net
     driver: bridge
 
 services:
@@ -104,27 +105,6 @@ services:
         mc mb myminio/clickhouse --ignore-existing
         echo 'MinIO setup complete'
       "
-    networks:
-      - shortas-net
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: shortas-rabbitmq
-    restart: unless-stopped
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
     networks:
       - shortas-net
 
@@ -364,7 +344,7 @@ services:
     container_name: shortas-domain-verifier
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "5830:5830"
     environment:
       - RUST_LOG=info
       - APP_RUN_MODE=production

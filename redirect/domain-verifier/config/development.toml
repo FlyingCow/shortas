@@ -1,5 +1,5 @@
 [server]
-port = 3001
+port = 5830
 
 [mongodb]
 connection_string = "mongodb://root:example@localhost:27017/"

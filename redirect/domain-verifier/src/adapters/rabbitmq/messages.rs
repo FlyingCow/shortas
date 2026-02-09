@@ -1,14 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-use crate::model::{VerificationReason, VerificationStatus};
+use crate::model::VerificationStatus;
 
+/// Message published to RabbitMQ when domain verification state changes.
+/// Note: verification_reason is serialized as a string (not enum) for C# compatibility.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DomainStateChangedMessage {
     pub domain_id: String,
     pub domain_name: String,
     pub owner_id: String,
     pub status: VerificationStatus,
-    pub verification_reason: VerificationReason,
+    pub verification_reason: String,
     pub last_check_at: Option<i64>,
     pub next_check_at: Option<i64>,
 }
@@ -24,7 +26,7 @@ mod tests {
             domain_name: "example.com".into(),
             owner_id: "owner1".into(),
             status: VerificationStatus::Verified,
-            verification_reason: VerificationReason::TxtRecordValid,
+            verification_reason: "txt_record_valid".into(),
             last_check_at: Some(1700000000000),
             next_check_at: Some(1700001800000),
         };
@@ -48,7 +50,7 @@ mod tests {
             domain_name: "test.com".into(),
             owner_id: "o2".into(),
             status: VerificationStatus::Pending,
-            verification_reason: VerificationReason::NotChecked,
+            verification_reason: "not_checked".into(),
             last_check_at: None,
             next_check_at: None,
         };
@@ -67,14 +69,14 @@ mod tests {
             domain_name: "bad.com".into(),
             owner_id: "o3".into(),
             status: VerificationStatus::Failed,
-            verification_reason: VerificationReason::ARecordInvalid,
+            verification_reason: "a_record_invalid".into(),
             last_check_at: Some(1700000000000),
             next_check_at: Some(1700000300000),
         };
 
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains("\"failed\""));
-        assert!(json.contains("\"a_record_invalid\""));
+        assert!(json.contains("a_record_invalid"));
     }
 
     #[test]
@@ -84,7 +86,7 @@ mod tests {
             domain_name: "err.com".into(),
             owner_id: "o4".into(),
             status: VerificationStatus::Failed,
-            verification_reason: VerificationReason::DnsError("SERVFAIL".into()),
+            verification_reason: "dns_error: SERVFAIL".into(),
             last_check_at: None,
             next_check_at: None,
         };
@@ -92,10 +94,7 @@ mod tests {
         let json = serde_json::to_string(&msg).unwrap();
         let deserialized: DomainStateChangedMessage = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(
-            deserialized.verification_reason,
-            VerificationReason::DnsError("SERVFAIL".into())
-        );
+        assert_eq!(deserialized.verification_reason, "dns_error: SERVFAIL");
     }
 
     #[test]
@@ -105,7 +104,7 @@ mod tests {
             domain_name: "example.com".into(),
             owner_id: "o1".into(),
             status: VerificationStatus::Verified,
-            verification_reason: VerificationReason::TxtRecordValid,
+            verification_reason: "txt_record_valid".into(),
             last_check_at: Some(100),
             next_check_at: Some(200),
         };

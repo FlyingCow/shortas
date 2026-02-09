@@ -1,10 +1,10 @@
 use anyhow::Result;
 use lapin::{
-    options::{BasicPublishOptions, ExchangeDeclareOptions},
+    options::{BasicPublishOptions, ConfirmSelectOptions, ExchangeDeclareOptions},
     types::FieldTable,
     BasicProperties, Channel, Connection, ConnectionProperties, ExchangeKind,
 };
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use super::messages::DomainStateChangedMessage;
 use crate::settings::RabbitMqSettings;
@@ -19,6 +19,11 @@ impl RabbitMqPublisher {
     pub async fn new(settings: &RabbitMqSettings) -> Result<Self> {
         let conn = Connection::connect(&settings.uri, ConnectionProperties::default()).await?;
         let channel = conn.create_channel().await?;
+
+        // Enable publisher confirms
+        channel
+            .confirm_select(ConfirmSelectOptions::default())
+            .await?;
 
         channel
             .exchange_declare(
@@ -52,11 +57,16 @@ impl RabbitMqPublisher {
             }
         };
 
+        debug!(
+            "Publishing domain state changed message: {} -> {}",
+            message.domain_id, message.status
+        );
+
         let properties = BasicProperties::default()
             .with_delivery_mode(2) // persistent
             .with_content_type("application/json".into());
 
-        if let Err(e) = self
+        match self
             .channel
             .basic_publish(
                 &self.domain_state_exchange,
@@ -67,12 +77,26 @@ impl RabbitMqPublisher {
             )
             .await
         {
-            warn!("Failed to publish domain state changed message: {}", e);
-        } else {
-            info!(
-                "Published domain state changed: {} -> {}",
-                message.domain_id, message.status
-            );
+            Ok(confirm) => {
+                // Wait for publisher confirm
+                match confirm.await {
+                    Ok(confirmation) => {
+                        info!(
+                            "Published domain state changed: {} -> {} (confirmed: {:?})",
+                            message.domain_id, message.status, confirmation
+                        );
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Publisher confirm failed for domain {}: {}",
+                            message.domain_id, e
+                        );
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("Failed to publish domain state changed message: {}", e);
+            }
         }
     }
 }

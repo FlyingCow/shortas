@@ -276,7 +276,7 @@ pub async fn trigger_verification(req: &mut Request, depot: &mut Depot, res: &mu
                         domain_name: domain.name.clone(),
                         owner_id: domain.owner_id.clone(),
                         status: domain.status.clone(),
-                        verification_reason: domain.verification_reason.clone(),
+                        verification_reason: domain.verification_reason.to_string(),
                         last_check_at: domain.last_check_at.map(|dt| dt.timestamp_millis()),
                         next_check_at: domain.next_check_at.map(|dt| dt.timestamp_millis()),
                     })

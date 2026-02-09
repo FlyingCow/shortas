@@ -14,11 +14,13 @@ public class DomainsController : ControllerBase
 {
     private readonly IDomainService _domainService;
     private readonly ILogger<DomainsController> _logger;
+    private readonly IConfiguration _configuration;
 
-    public DomainsController(IDomainService domainService, ILogger<DomainsController> logger)
+    public DomainsController(IDomainService domainService, ILogger<DomainsController> logger, IConfiguration configuration)
     {
         _domainService = domainService;
         _logger = logger;
+        _configuration = configuration;
     }
 
     /// <summary>
@@ -56,6 +58,22 @@ public class DomainsController : ControllerBase
                 totalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
             }
         });
+    }
+
+    /// <summary>
+    /// Get DNS configuration for domain verification
+    /// </summary>
+    /// <returns>DNS configuration including TXT record name and allowed IPs</returns>
+    [HttpGet("dns-config")]
+    public ActionResult<DnsConfigDto> GetDnsConfig()
+    {
+        var config = new DnsConfigDto
+        {
+            TxtRecordName = _configuration["DomainVerification:TxtRecordName"] ?? "_shortas-domain-challenge",
+            AllowedIpv4 = _configuration.GetSection("DomainVerification:AllowedIpv4").Get<List<string>>() ?? new List<string> { "203.0.113.10" },
+            AllowedIpv6 = _configuration.GetSection("DomainVerification:AllowedIpv6").Get<List<string>>() ?? new List<string>()
+        };
+        return Ok(config);
     }
 
     /// <summary>
@@ -211,7 +229,11 @@ public class DomainsController : ControllerBase
         {
             Id = domain.Id,
             Name = domain.Name,
-            OwnerId = domain.OwnerId
+            OwnerId = domain.OwnerId,
+            VerificationStatus = domain.VerificationStatus.ToString(),
+            VerificationReason = domain.VerificationReason,
+            LastVerificationCheck = domain.LastVerificationCheck,
+            NextVerificationCheck = domain.NextVerificationCheck
         };
     }
 }

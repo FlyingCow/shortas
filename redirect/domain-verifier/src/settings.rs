@@ -72,7 +72,7 @@ mod tests {
         assert!(settings.is_ok(), "Failed to load settings: {:?}", settings.err());
 
         let s = settings.unwrap();
-        assert_eq!(s.server.port, 3001);
+        assert_eq!(s.server.port, 5830);
         assert_eq!(s.dns.txt_record_name, "_shortas-domain-challenge");
         assert!(!s.dns.allowed_ipv4.is_empty());
     }

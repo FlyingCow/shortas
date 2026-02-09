@@ -427,7 +427,12 @@ public class RoutesController : ControllerBase
             Domain = route.Domain != null ? new DomainDto
             {
                 Id = route.Domain.Id,
-                Name = route.Domain.Name
+                Name = route.Domain.Name,
+                OwnerId = route.Domain.OwnerId,
+                VerificationStatus = route.Domain.VerificationStatus.ToString(),
+                VerificationReason = route.Domain.VerificationReason,
+                LastVerificationCheck = route.Domain.LastVerificationCheck,
+                NextVerificationCheck = route.Domain.NextVerificationCheck
             } : null,
             Properties = route.Properties != null ? new RoutePropertiesDto
             {

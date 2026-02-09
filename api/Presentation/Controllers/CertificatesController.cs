@@ -182,7 +182,11 @@ public class CertificatesController : ControllerBase
             {
                 Id = certificate.Domain.Id,
                 Name = certificate.Domain.Name,
-                OwnerId = certificate.Domain.OwnerId
+                OwnerId = certificate.Domain.OwnerId,
+                VerificationStatus = certificate.Domain.VerificationStatus.ToString(),
+                VerificationReason = certificate.Domain.VerificationReason,
+                LastVerificationCheck = certificate.Domain.LastVerificationCheck,
+                NextVerificationCheck = certificate.Domain.NextVerificationCheck
             } : null
         };
     }

@@ -25,7 +25,7 @@ services:
       dockerfile: Dockerfile
     container_name: shortas-landing
     ports:
-      - "3001:80"
+      - "3002:80"
     networks:
       - shortas-net
     restart: unless-stopped

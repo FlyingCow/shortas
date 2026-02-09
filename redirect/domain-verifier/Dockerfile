@@ -59,11 +59,11 @@ RUN chown -R shortas:shortas /app
 USER shortas
 
 # Expose port
-EXPOSE 3001
+EXPOSE 5830
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3001/health || exit 1
+    CMD curl -f http://localhost:5830/health || exit 1
 
 # Run the application
 CMD ["./domain-verifier", "-r", "production"]

@@ -53,11 +53,13 @@ services:
       - ASPNETCORE_URLS=http://+:8090
       - ApiSettings__ClickRouterApi__BaseUrl=http://click-router-api:5810
       - ApiSettings__ClickAggregatorApi__BaseUrl=http://click-aggregator-api:5820
+      - ApiSettings__DomainVerifier__BaseUrl=http://domain-verifier:5830
       - Elasticsearch__Url=http://shortas-api-elasticsearch:9200
       - Keycloak__Authority=http://keycloak:8080/realms/shortas-dev
       - Keycloak__Audience=shortas-api
       - Keycloak__RequireHttpsMetadata=false
       - ConnectionStrings__DefaultConnection=Host=shortas-api-postgres;Database=shortas_dev_db;Username=shortas_user;Password=shortas_password;Port=5432
+      - RabbitMQ__Uri=amqp://guest:guest@shortas-rabbitmq:5672/%2f
     depends_on:
       shortas-api-postgres:
         condition: service_healthy
@@ -70,10 +72,9 @@ services:
 
 networks:
   shortas-net:
+    external: true
 
 volumes:
   postgres_data:
   elasticsearch_data:
-  shortas-net:
-    external: true
 

@@ -100,7 +100,7 @@ public static class ServiceCollectionExtensions
         // Register HTTP client for Domain Verifier
         services.AddHttpClient("DomainVerifier", client =>
         {
-            var baseUrl = configuration["ApiSettings:DomainVerifier:BaseUrl"] ?? "http://localhost:3001";
+            var baseUrl = configuration["ApiSettings:DomainVerifier:BaseUrl"] ?? "http://localhost:5830";
             var timeout = configuration.GetValue<int>("ApiSettings:DomainVerifier:Timeout", 30);
             client.BaseAddress = new Uri(baseUrl);
             client.Timeout = TimeSpan.FromSeconds(timeout);

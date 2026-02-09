@@ -150,7 +150,7 @@ const RoutesWithSidebar: React.FC = () => {
           ttl: 0,
           status: r.status,
           terminal: 'External',
-          domain: r.domainName ? { id: '', name: r.domainName, ownerId: '' } : undefined,
+          domain: r.domainName ? { id: '', name: r.domainName, ownerId: '', verificationStatus: 'Verified' as const, verificationReason: '' } : undefined,
         }));
         setSearchResults(mapped);
       } catch (err: any) {
