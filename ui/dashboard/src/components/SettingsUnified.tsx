@@ -1,260 +1,81 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
 import {
-  User,
-  Bell,
-  Shield,
-  Globe,
-  Save,
   Sun,
   Moon,
   Monitor,
-  Rocket,
+  Shield,
+  KeyRound,
+  Users,
+  ExternalLink,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
-interface UserSettings {
-  email: string;
-  name: string;
-  timezone: string;
-  language: string;
-  notifications: {
-    email: boolean;
-    push: boolean;
-    sms: boolean;
-  };
-  privacy: {
-    profilePublic: boolean;
-    analyticsSharing: boolean;
-    dataRetention: string;
-  };
-  security: {
-    twoFactor: boolean;
-    sessionTimeout: number;
-    loginAlerts: boolean;
-  };
+const KEYCLOAK_URL = process.env.REACT_APP_KEYCLOAK_URL || 'http://localhost:8080';
+const KEYCLOAK_REALM = 'shortas-dev';
+const ACCOUNT_URL = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/account`;
+
+const securityStyles = `
+.sec-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
+.sec-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.sec-link:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+.sec-link-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.sec-link-text {
+  flex: 1;
+  min-width: 0;
+}
+.sec-link-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.sec-link-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.125rem;
+}
+.sec-link-arrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+`;
 
 const Settings: React.FC = () => {
-  const navigate = useNavigate();
-  const { theme, toggleTheme, setTheme } = useTheme();
-  const [settings, setSettings] = useState<UserSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-
-  useEffect(() => {
-    fetchUserSettings();
-  }, []);
-
-  const fetchUserSettings = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Mock settings data
-      const mockSettings: UserSettings = {
-        email: 'user@example.com',
-        name: 'John Doe',
-        timezone: 'UTC',
-        language: 'en',
-        notifications: {
-          email: true,
-          push: true,
-          sms: false
-        },
-        privacy: {
-          profilePublic: false,
-          analyticsSharing: true,
-          dataRetention: '1year'
-        },
-        security: {
-          twoFactor: false,
-          sessionTimeout: 30,
-          loginAlerts: true
-        }
-      };
-      
-      setSettings(mockSettings);
-    } catch (err) {
-      console.error('Failed to fetch settings:', err);
-      setError('Failed to load settings. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    try {
-      setSaving(true);
-      setError(null);
-      setSuccess(null);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setSuccess('Settings saved successfully!');
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      console.error('Failed to save settings:', err);
-      setError('Failed to save settings. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const updateSettings = (path: string, value: any) => {
-    if (!settings) return;
-    
-    const keys = path.split('.');
-    const newSettings = { ...settings };
-    let current = newSettings as any;
-    
-    for (let i = 0; i < keys.length - 1; i++) {
-      current = current[keys[i]];
-    }
-    
-    current[keys[keys.length - 1]] = value;
-    setSettings(newSettings);
-  };
-
-  if (loading) {
-    return <LoadingSpinner message="Loading settings..." />;
-  }
-
-  if (error && !settings) {
-    return (
-      <div className="alert alert-error">
-        <h3>Error Loading Settings</h3>
-        <p>{error}</p>
-        <button className="btn btn-primary" onClick={fetchUserSettings}>
-          Retry
-        </button>
-      </div>
-    );
-  }
+  const { theme, setTheme } = useTheme();
 
   return (
-    <div className="container" style={{ paddingTop: '1.5rem' }}>
-      {/* Success/Error Messages */}
-      {success && (
-        <div className="alert alert-success">
-          <p>{success}</p>
-        </div>
-      )}
-
-      {error && (
-        <div className="alert alert-error">
-          <p>{error}</p>
-        </div>
-      )}
-
-      {/* Setup Wizard Card */}
-      <div className="card" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%)', border: '1px solid var(--primary)' }}>
-        <div className="card-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white'
-            }}>
-              <Rocket size={24} />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>Account Setup Wizard</h3>
-              <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                Configure your domain, workspace, and preferences in one place
-              </p>
-            </div>
-          </div>
-          <button
-            className="btn btn-primary"
-            onClick={() => navigate('/setup')}
-            style={{ flexShrink: 0 }}
-          >
-            <Rocket size={18} />
-            Run Setup Wizard
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg">
-        {/* Profile Settings */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">
-              <User size={20} />
-              Profile
-            </h3>
-            <p className="card-subtitle">Basic account information</p>
-          </div>
-          <div className="card-body">
-            <div className="form-group">
-              <label className="form-label">Full Name</label>
-              <input
-                type="text"
-                className="form-control"
-                value={settings?.name || ''}
-                onChange={(e) => updateSettings('name', e.target.value)}
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Email Address</label>
-              <input
-                type="email"
-                className="form-control"
-                value={settings?.email || ''}
-                onChange={(e) => updateSettings('email', e.target.value)}
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Timezone</label>
-              <select 
-                className="form-dropdown"
-                value={settings?.timezone || 'UTC'}
-                onChange={(e) => updateSettings('timezone', e.target.value)}
-              >
-                <option value="UTC">UTC</option>
-                <option value="America/New_York">Eastern Time</option>
-                <option value="America/Chicago">Central Time</option>
-                <option value="America/Denver">Mountain Time</option>
-                <option value="America/Los_Angeles">Pacific Time</option>
-                <option value="Europe/London">London</option>
-                <option value="Europe/Paris">Paris</option>
-                <option value="Asia/Tokyo">Tokyo</option>
-              </select>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Language</label>
-              <select 
-                className="form-dropdown"
-                value={settings?.language || 'en'}
-                onChange={(e) => updateSettings('language', e.target.value)}
-              >
-                <option value="en">English</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
-                <option value="ja">Japanese</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Theme Settings */}
-        <div className="card">
+    <>
+      <style>{securityStyles}</style>
+      <div className="container" style={{ paddingTop: '1.5rem', maxWidth: '560px' }}>
+        {/* Appearance */}
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
           <div className="card-header">
             <h3 className="card-title">
               <Monitor size={20} />
@@ -290,192 +111,53 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
-        {/* Notification Settings */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">
-              <Bell size={20} />
-              Notifications
-            </h3>
-            <p className="card-subtitle">Choose how you want to be notified</p>
-          </div>
-          <div className="card-body">
-            <div className="form-group">
-              <label className="form-label">
-                <input
-                  type="checkbox"
-                  checked={settings?.notifications.email || false}
-                  onChange={(e) => updateSettings('notifications.email', e.target.checked)}
-                  style={{ marginRight: '0.5rem' }}
-                />
-                Email Notifications
-              </label>
-              <p className="text-sm text-muted">Receive updates via email</p>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">
-                <input
-                  type="checkbox"
-                  checked={settings?.notifications.push || false}
-                  onChange={(e) => updateSettings('notifications.push', e.target.checked)}
-                  style={{ marginRight: '0.5rem' }}
-                />
-                Push Notifications
-              </label>
-              <p className="text-sm text-muted">Browser push notifications</p>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">
-                <input
-                  type="checkbox"
-                  checked={settings?.notifications.sms || false}
-                  onChange={(e) => updateSettings('notifications.sms', e.target.checked)}
-                  style={{ marginRight: '0.5rem' }}
-                />
-                SMS Notifications
-              </label>
-              <p className="text-sm text-muted">Text message alerts</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Security Settings */}
+        {/* Security */}
         <div className="card">
           <div className="card-header">
             <h3 className="card-title">
               <Shield size={20} />
               Security
             </h3>
-            <p className="card-subtitle">Account security and privacy</p>
+            <p className="card-subtitle">Manage your password and linked accounts</p>
           </div>
           <div className="card-body">
-            <div className="form-group">
-              <label className="form-label">
-                <input
-                  type="checkbox"
-                  checked={settings?.security.twoFactor || false}
-                  onChange={(e) => updateSettings('security.twoFactor', e.target.checked)}
-                  style={{ marginRight: '0.5rem' }}
-                />
-                Two-Factor Authentication
-              </label>
-              <p className="text-sm text-muted">Add an extra layer of security</p>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Session Timeout (minutes)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={settings?.security.sessionTimeout || 30}
-                onChange={(e) => updateSettings('security.sessionTimeout', parseInt(e.target.value))}
-                min="5"
-                max="480"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">
-                <input
-                  type="checkbox"
-                  checked={settings?.security.loginAlerts || false}
-                  onChange={(e) => updateSettings('security.loginAlerts', e.target.checked)}
-                  style={{ marginRight: '0.5rem' }}
-                />
-                Login Alerts
-              </label>
-              <p className="text-sm text-muted">Get notified of new logins</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Privacy Settings */}
-      <div className="card">
-        <div className="card-header">
-          <h3 className="card-title">
-            <Globe size={20} />
-            Privacy & Data
-          </h3>
-          <p className="card-subtitle">Control your data and privacy settings</p>
-        </div>
-        <div className="card-body">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
-            <div className="form-group">
-              <label className="form-label">
-                <input
-                  type="checkbox"
-                  checked={settings?.privacy.profilePublic || false}
-                  onChange={(e) => updateSettings('privacy.profilePublic', e.target.checked)}
-                  style={{ marginRight: '0.5rem' }}
-                />
-                Public Profile
-              </label>
-              <p className="text-sm text-muted">Make your profile visible to others</p>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">
-                <input
-                  type="checkbox"
-                  checked={settings?.privacy.analyticsSharing || false}
-                  onChange={(e) => updateSettings('privacy.analyticsSharing', e.target.checked)}
-                  style={{ marginRight: '0.5rem' }}
-                />
-                Share Analytics Data
-              </label>
-              <p className="text-sm text-muted">Help improve our service</p>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Data Retention</label>
-              <select 
-                className="form-dropdown"
-                value={settings?.privacy.dataRetention || '30days'}
-                onChange={(e) => updateSettings('privacy.dataRetention', e.target.value)}
+            <div className="sec-links">
+              <a
+                href={`${ACCOUNT_URL}/#/security/signingin`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="sec-link"
               >
-                <option value="30days">30 Days</option>
-                <option value="6months">6 Months</option>
-                <option value="1year">1 Year</option>
-                <option value="2years">2 Years</option>
-                <option value="indefinite">Indefinite</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
+                <div className="sec-link-icon">
+                  <KeyRound size={18} />
+                </div>
+                <div className="sec-link-text">
+                  <div className="sec-link-title">Change Password</div>
+                  <div className="sec-link-desc">Update your account password</div>
+                </div>
+                <ExternalLink size={14} className="sec-link-arrow" />
+              </a>
 
-      {/* Save Button */}
-      <div className="card">
-        <div className="card-body">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4>Save Changes</h4>
-              <p className="text-muted">Your settings will be saved to your account</p>
+              <a
+                href={`${ACCOUNT_URL}/#/security/linked-accounts`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="sec-link"
+              >
+                <div className="sec-link-icon">
+                  <Users size={18} />
+                </div>
+                <div className="sec-link-text">
+                  <div className="sec-link-title">Social Logins</div>
+                  <div className="sec-link-desc">Manage linked social accounts (Google, GitHub, etc.)</div>
+                </div>
+                <ExternalLink size={14} className="sec-link-arrow" />
+              </a>
             </div>
-            <button 
-              className="btn btn-primary"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <>
-                  <div className="loading-spinner" style={{ width: '16px', height: '16px' }}></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save size={16} />
-                  Save Settings
-                </>
-              )}
-            </button>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
