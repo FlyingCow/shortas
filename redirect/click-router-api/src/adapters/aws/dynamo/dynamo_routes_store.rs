@@ -153,4 +153,9 @@ impl RoutesStore for DynamoRoutesStore {
         // DynamoDB requires a GSI on link to query and then delete
         todo!("Implement with GSI on link")
     }
+
+    async fn store_route_family(&self, _routes: &[Route]) -> Result<()> {
+        // DynamoDB requires TransactWriteItems for atomic family operations
+        todo!("Implement with TransactWriteItems")
+    }
 }

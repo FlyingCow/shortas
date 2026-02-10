@@ -154,34 +154,17 @@ public class EfRouteService : IRouteService
             }
 
             // Propagate to click-router API synchronously
-            if (savedRoute.Policy is ConditionalPolicy conditionalPolicy)
-            {
-                // Build route family (master + children) for click-router
-                var routeFamily = BuildClickRouterFamily(savedRoute, conditionalPolicy);
-                var familyDtos = routeFamily.Select(r => r.ToDto()).ToList();
-                var apiResult = await _clickRouterApiClient.BulkCreateRoutesAsync(familyDtos);
+            // Click-router-api handles route family creation atomically for conditional routes
+            var apiDto = savedRoute.ToDto();
+            var domainName = savedRoute.Domain?.Name ?? "";
+            var apiResult = await _clickRouterApiClient.CreateRouteAsync(apiDto, domainName);
 
-                if (apiResult.IsFailure)
-                {
-                    await transaction.RollbackAsync();
-                    _logger.LogError("Failed to bulk create route family in click-router API: {Error}", apiResult.Error);
-                    return Result<RouteEntity>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
-                        $"Failed to create route family in click-router API: {apiResult.Error}");
-                }
-            }
-            else
+            if (apiResult.IsFailure)
             {
-                var apiDto = savedRoute.ToDto();
-                var domainName = savedRoute.Domain?.Name ?? "";
-                var apiResult = await _clickRouterApiClient.CreateRouteAsync(apiDto, domainName);
-
-                if (apiResult.IsFailure)
-                {
-                    await transaction.RollbackAsync();
-                    _logger.LogError("Failed to create route in click-router API: {Error}", apiResult.Error);
-                    return Result<RouteEntity>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
-                        $"Failed to create route in click-router API: {apiResult.Error}");
-                }
+                await transaction.RollbackAsync();
+                _logger.LogError("Failed to create route in click-router API: {Error}", apiResult.Error);
+                return Result<RouteEntity>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
+                    $"Failed to create route in click-router API: {apiResult.Error}");
             }
 
             // Enqueue search index update via outbox
@@ -231,9 +214,6 @@ public class EfRouteService : IRouteService
             if (existingRoute.Properties == null || existingRoute.Properties.OwnerId != userId)
                 return Result<RouteEntity>.Failure(Error.Forbidden());
 
-            // Capture old policy before updating (to know which children to clean up on click-router)
-            var oldPolicy = existingRoute.Policy;
-
             // Update route properties (Link, DomainId are immutable after creation)
             existingRoute.Switch = route.Switch;
             existingRoute.Dest = route.Dest;
@@ -271,60 +251,16 @@ public class EfRouteService : IRouteService
             await _context.SaveChangesAsync();
 
             // Propagate to click-router API synchronously
-            var oldIsConditional = oldPolicy is ConditionalPolicy;
-            var newIsConditional = existingRoute.Policy is ConditionalPolicy;
+            // Click-router-api handles route family creation/update atomically for conditional routes
+            var apiDto = existingRoute.ToDto();
+            var apiResult = await _clickRouterApiClient.UpdateRouteByIdAsync(id, userId, apiDto);
 
-            if (oldIsConditional || newIsConditional)
+            if (apiResult.IsFailure)
             {
-                // Delete old route family from click-router (master + old children)
-                await _clickRouterApiClient.DeleteRouteFamilyAsync(
-                    existingRoute.Link,
-                    oldPolicy as ConditionalPolicy);
-
-                // Create the new state on click-router
-                if (newIsConditional)
-                {
-                    var family = BuildClickRouterFamily(existingRoute, (ConditionalPolicy)existingRoute.Policy);
-                    var familyDtos = family.Select(r => r.ToDto()).ToList();
-                    var apiResult = await _clickRouterApiClient.BulkCreateRoutesAsync(familyDtos);
-
-                    if (apiResult.IsFailure)
-                    {
-                        await transaction.RollbackAsync();
-                        _logger.LogError("Failed to recreate route family in click-router API: {Error}", apiResult.Error);
-                        return Result<RouteEntity>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
-                            $"Failed to update route family in click-router API: {apiResult.Error}");
-                    }
-                }
-                else
-                {
-                    // Switched from conditional to basic - just create the single route
-                    var apiDto = existingRoute.ToDto();
-                    var domainName = existingRoute.Domain?.Name ?? "";
-                    var apiResult = await _clickRouterApiClient.CreateRouteAsync(apiDto, domainName);
-
-                    if (apiResult.IsFailure)
-                    {
-                        await transaction.RollbackAsync();
-                        _logger.LogError("Failed to create route in click-router API: {Error}", apiResult.Error);
-                        return Result<RouteEntity>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
-                            $"Failed to update route in click-router API: {apiResult.Error}");
-                    }
-                }
-            }
-            else
-            {
-                // Basic → Basic: simple update
-                var apiDto = existingRoute.ToDto();
-                var apiResult = await _clickRouterApiClient.UpdateRouteByIdAsync(id, userId, apiDto);
-
-                if (apiResult.IsFailure)
-                {
-                    await transaction.RollbackAsync();
-                    _logger.LogError("Failed to update route in click-router API: {Error}", apiResult.Error);
-                    return Result<RouteEntity>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
-                        $"Failed to update route in click-router API: {apiResult.Error}");
-                }
+                await transaction.RollbackAsync();
+                _logger.LogError("Failed to update route in click-router API: {Error}", apiResult.Error);
+                return Result<RouteEntity>.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
+                    $"Failed to update route in click-router API: {apiResult.Error}");
             }
 
             // Enqueue search index update via outbox
@@ -478,24 +414,15 @@ public class EfRouteService : IRouteService
             }
 
             // Propagate to click-router API synchronously
-            if (existingRoute.Policy is ConditionalPolicy conditionalPolicy)
-            {
-                // Delete the entire family from click-router (master + children)
-                await _clickRouterApiClient.DeleteRouteFamilyAsync(
-                    existingRoute.Link,
-                    conditionalPolicy);
-            }
-            else
-            {
-                var apiResult = await _clickRouterApiClient.DeleteRouteByIdAsync(id, userId);
+            // Click-router-api handles route family deletion atomically for conditional routes
+            var apiResult = await _clickRouterApiClient.DeleteRouteByIdAsync(id, userId);
 
-                if (apiResult.IsFailure)
-                {
-                    await transaction.RollbackAsync();
-                    _logger.LogError("Failed to delete route in click-router API: {Error}", apiResult.Error);
-                    return Result.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
-                        $"Failed to delete route in click-router API: {apiResult.Error}");
-                }
+            if (apiResult.IsFailure)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError("Failed to delete route in click-router API: {Error}", apiResult.Error);
+                return Result.Failure(apiResult.ErrorCode ?? "EXTERNAL_SERVICE_ERROR",
+                    $"Failed to delete route in click-router API: {apiResult.Error}");
             }
 
             // Enqueue search index delete via outbox
@@ -995,56 +922,6 @@ public class EfRouteService : IRouteService
 
     #endregion
 
-    #region Route Family Helpers
-
-    /// <summary>
-    /// Build the click-router route family from a single management DB route with ConditionalPolicy.
-    /// Returns the master route + child routes for click-router propagation.
-    /// The management DB only stores the master route; children are ephemeral click-router entries.
-    /// </summary>
-    private List<RouteEntity> BuildClickRouterFamily(RouteEntity masterRoute, ConditionalPolicy conditionalPolicy)
-    {
-        var family = new List<RouteEntity> { masterRoute };
-
-        foreach (var routing in conditionalPolicy.Conditions)
-        {
-            var childRoute = new RouteEntity
-            {
-                Id = Guid.NewGuid(),
-                Switch = routing.Key,
-                Link = masterRoute.Link,
-                Dest = routing.Dest,
-                DestFormat = masterRoute.DestFormat,
-                Code = masterRoute.Code,
-                Ttl = masterRoute.Ttl,
-                Status = masterRoute.Status,
-                Terminal = masterRoute.Terminal,
-                Policy = new BasicPolicy(),
-                DomainId = masterRoute.DomainId,
-                Domain = masterRoute.Domain,
-                Properties = masterRoute.Properties != null ? new RouteProperties
-                {
-                    RouteId = null,
-                    DomainId = masterRoute.Properties.DomainId,
-                    OwnerId = masterRoute.Properties.OwnerId,
-                    CreatorId = masterRoute.Properties.CreatorId,
-                    WorkspaceId = masterRoute.Properties.WorkspaceId,
-                    Scripts = masterRoute.Properties.Scripts,
-                    Tags = masterRoute.Properties.Tags,
-                    Custom = masterRoute.Properties.Custom,
-                    Native = masterRoute.Properties.Native,
-                    Bundling = masterRoute.Properties.Bundling,
-                    Opengraph = masterRoute.Properties.Opengraph,
-                    AllowDebug = masterRoute.Properties.AllowDebug
-                } : null
-            };
-            family.Add(childRoute);
-        }
-
-        return family;
-    }
-
-    #endregion
 
     #region Search Index Outbox Helpers
 

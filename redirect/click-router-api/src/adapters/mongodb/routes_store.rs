@@ -1,5 +1,6 @@
 use anyhow::Result;
 use mongodb::bson::oid::ObjectId;
+use mongodb::options::ReplaceOptions;
 use mongodb::{bson::doc, Collection, Database};
 use serde::{Deserialize, Serialize};
 
@@ -174,5 +175,44 @@ impl RoutesStore for MongodbRoutesStore {
         let filter = doc! { "link": link };
         let result = self.collection.delete_many(filter).await?;
         Ok(result.deleted_count)
+    }
+
+    async fn store_route_family(&self, routes: &[Route]) -> Result<()> {
+        if routes.is_empty() {
+            return Ok(());
+        }
+
+        // All routes in the family share the same link
+        let link = &routes[0].link;
+
+        // Delete all existing routes with this link first
+        self.collection
+            .delete_many(doc! { "link": link })
+            .await?;
+
+        // Insert all new routes using upsert to handle any race conditions
+        let options = ReplaceOptions::builder().upsert(true).build();
+        for route in routes {
+            let filter = doc! { "switch": &route.switch, "link": &route.link };
+            let doc = RouteDocument {
+                switch: route.switch.clone(),
+                link: route.link.clone(),
+                dest: route.dest.clone(),
+                dest_format: route.dest_format.clone(),
+                code: route.code,
+                ttl: route.ttl,
+                status: route.status.clone(),
+                terminal: route.terminal.clone(),
+                policy: route.policy.clone(),
+                properties: route.properties.clone(),
+                ..Default::default()
+            };
+            self.collection
+                .replace_one(filter, doc)
+                .with_options(options.clone())
+                .await?;
+        }
+
+        Ok(())
     }
 }

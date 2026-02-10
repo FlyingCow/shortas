@@ -197,17 +197,26 @@ pub async fn create_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
 
     // Convert DTO to internal model
     let route: Route = route_dto.into();
+    let is_conditional = route.is_conditional();
+    let link = route.link.clone();
 
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
-    // Store the route
-    match app_state.routes_store.store_route(&route).await {
+    // Store the route (or route family for conditional routes)
+    let store_result = if is_conditional {
+        let family = route.clone().build_family();
+        app_state.routes_store.store_route_family(&family).await
+    } else {
+        app_state.routes_store.store_route(&route).await
+    };
+
+    match store_result {
         Ok(_) => {
             if let Some(ref publisher) = app_state.rabbitmq_publisher {
                 publisher
                     .publish_route_changed(&RouteChangedMessage {
                         switch: route.switch.clone(),
-                        link: route.link.clone(),
+                        link: link.clone(),
                         action: ChangeAction::Created,
                     })
                     .await;
@@ -290,17 +299,26 @@ pub async fn update_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
 
     // Convert DTO to internal model
     let route: Route = route_dto.into();
+    let is_conditional = route.is_conditional();
+    let link = route.link.clone();
 
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
-    // Update the route
-    match app_state.routes_store.update_route(&route).await {
+    // Update the route (or route family for conditional routes)
+    let update_result = if is_conditional {
+        let family = route.clone().build_family();
+        app_state.routes_store.store_route_family(&family).await
+    } else {
+        app_state.routes_store.update_route(&route).await
+    };
+
+    match update_result {
         Ok(_) => {
             if let Some(ref publisher) = app_state.rabbitmq_publisher {
                 publisher
                     .publish_route_changed(&RouteChangedMessage {
                         switch: route.switch.clone(),
-                        link: route.link.clone(),
+                        link: link.clone(),
                         action: ChangeAction::Updated,
                     })
                     .await;
@@ -870,17 +888,28 @@ pub async fn update_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
     // Build the updated route, preserving switch/link from the existing record
     let mut route: Route = route_dto.into();
     route.switch = existing.switch;
-    route.link = existing.link;
+    route.link = existing.link.clone();
     // Ensure route_id is preserved
     route.properties.route_id = Some(route_id.clone());
 
-    match app_state.routes_store.update_route(&route).await {
+    let is_conditional = route.is_conditional();
+    let link = route.link.clone();
+
+    // Update the route (or route family for conditional routes)
+    let update_result = if is_conditional {
+        let family = route.clone().build_family();
+        app_state.routes_store.store_route_family(&family).await
+    } else {
+        app_state.routes_store.update_route(&route).await
+    };
+
+    match update_result {
         Ok(_) => {
             if let Some(ref publisher) = app_state.rabbitmq_publisher {
                 publisher
                     .publish_route_changed(&RouteChangedMessage {
                         switch: route.switch.clone(),
-                        link: route.link.clone(),
+                        link: link.clone(),
                         action: ChangeAction::Updated,
                     })
                     .await;
@@ -922,13 +951,27 @@ pub async fn delete_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
 
     match app_state.routes_store.get_route_by_route_id(&route_id).await {
         Ok(Some(route_to_delete)) => {
-            match app_state.routes_store.delete_route(&route_to_delete).await {
+            let is_conditional = route_to_delete.is_conditional();
+            let link = route_to_delete.link.clone();
+
+            // Delete entire route family for conditional routes, single route otherwise
+            let delete_result = if is_conditional {
+                app_state
+                    .routes_store
+                    .delete_routes_by_link(&link)
+                    .await
+                    .map(|_| ())
+            } else {
+                app_state.routes_store.delete_route(&route_to_delete).await
+            };
+
+            match delete_result {
                 Ok(_) => {
                     if let Some(ref publisher) = app_state.rabbitmq_publisher {
                         publisher
                             .publish_route_changed(&RouteChangedMessage {
                                 switch: route_to_delete.switch.clone(),
-                                link: route_to_delete.link.clone(),
+                                link: link.clone(),
                                 action: ChangeAction::Deleted,
                             })
                             .await;
