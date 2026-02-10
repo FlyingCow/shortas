@@ -8,6 +8,7 @@ import {
 } from '../services/api';
 import './DesignSystem.css';
 import './PolicyEditor.css';
+import './ConditionsEditor.css';
 
 interface ConditionsEditorProps {
   conditions: ConditionRouteDto[];
@@ -27,131 +28,116 @@ const LANGUAGES = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'zh', 'ko', '
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
+const CONDITION_TYPE_LABELS: Record<string, string> = {
+  ua: 'User Agent',
+  os: 'Operating System',
+  device: 'Device',
+  country: 'Country',
+  lang: 'Language',
+  day_of_week: 'Day of Week',
+  day_of_month: 'Day of Month',
+  month: 'Month',
+  date: 'Date',
+  rnd: 'Random %',
+};
+
 export const ConditionsEditor: React.FC<ConditionsEditorProps> = ({ conditions, onChange }) => {
   const [expandedConditions, setExpandedConditions] = useState<Set<number>>(new Set());
 
   const toggleExpanded = (index: number) => {
-    const newExpanded = new Set(expandedConditions);
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index);
-    } else {
-      newExpanded.add(index);
-    }
-    setExpandedConditions(newExpanded);
+    const next = new Set(expandedConditions);
+    if (next.has(index)) next.delete(index);
+    else next.add(index);
+    setExpandedConditions(next);
   };
 
   const addCondition = () => {
-    onChange([
-      ...conditions,
-      {
-        dest: '',
-        condition: {},
-      },
-    ]);
-    // Auto-expand the new condition
-    setExpandedConditions(new Set([...Array.from(expandedConditions), conditions.length]));
+    onChange([...conditions, { dest: '', condition: {} }]);
+    setExpandedConditions(new Set(Array.from(expandedConditions).concat(conditions.length)));
   };
 
   const updateCondition = (index: number, updated: ConditionRouteDto) => {
-    const newConditions = [...conditions];
-    newConditions[index] = updated;
-    onChange(newConditions);
+    const next = [...conditions];
+    next[index] = updated;
+    onChange(next);
   };
 
   const removeCondition = (index: number) => {
-    const newConditions = conditions.filter((_, i) => i !== index);
-    onChange(newConditions);
-    // Update expanded indices
-    const newExpanded = new Set<number>();
-    expandedConditions.forEach(i => {
-      if (i < index) newExpanded.add(i);
-      else if (i > index) newExpanded.add(i - 1);
-    });
-    setExpandedConditions(newExpanded);
+    onChange(conditions.filter((_, i) => i !== index));
+    setExpandedConditions(new Set(Array.from(expandedConditions).filter(i => i !== index).map(i => i > index ? i - 1 : i)));
   };
 
   return (
-    <div className="conditions-editor">
-      <div className="d-flex justify-content-between align-items-center mb-3">
+    <div className="ce-root conditions-editor">
+      <div className="ce-header">
         <div>
-          <h6 className="mb-0 fw-semibold">Conditional Routes</h6>
-          <small className="text-muted">Define conditions to redirect to different destinations</small>
+          <h6 className="ce-title">Conditional Routes</h6>
+          <p className="ce-subtitle">Redirect to different URLs when conditions match</p>
         </div>
-        <button type="button" className="btn btn-sm btn-primary" onClick={addCondition}>
-          <Plus size={14} className="me-1" />
-          Add Condition
+        <button type="button" className="ce-add-btn" onClick={addCondition}>
+          <Plus size={16} />
+          Add condition
         </button>
       </div>
 
       {conditions.length === 0 && (
-        <div className="alert alert-info">
-          <small>No conditional routes defined. The main destination will always be used.</small>
+        <div className="ce-empty">
+          No conditional routes. The main destination will always be used. Add a condition to redirect based on device, country, time, etc.
         </div>
       )}
 
       {conditions.map((cond, index) => (
-        <div key={index} className="card mb-3 shadow-sm">
-          <div className="card-header d-flex justify-content-between align-items-center py-2">
-            <div className="d-flex align-items-center gap-2">
-              <span className="badge bg-secondary">Condition {index + 1}</span>
-              {cond.dest && (
-                <small className="text-muted text-truncate" style={{ maxWidth: '200px' }}>
-                  → {cond.dest}
-                </small>
-              )}
+        <div key={index} className="ce-block">
+          <div className="ce-block-head">
+            <div className="ce-block-head-left">
+              <span className="ce-block-num">{index + 1}</span>
+              <div className="ce-block-dest-wrap">
+                <input
+                  type="text"
+                  className="ce-block-dest"
+                  placeholder="Destination URL"
+                  value={cond.dest}
+                  onChange={e => updateCondition(index, { ...cond, dest: e.target.value })}
+                />
+              </div>
             </div>
-            <div className="d-flex gap-2">
+            <div className="ce-block-actions">
               <button
                 type="button"
-                className="btn btn-sm btn-outline-secondary"
+                className="ce-block-btn"
                 onClick={() => toggleExpanded(index)}
+                aria-label={expandedConditions.has(index) ? 'Collapse' : 'Expand'}
               >
-                {expandedConditions.has(index) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {expandedConditions.has(index) ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </button>
               <button
                 type="button"
-                className="btn btn-sm btn-outline-danger"
+                className="ce-block-btn ce-block-btn--danger"
                 onClick={() => removeCondition(index)}
+                aria-label="Remove condition"
               >
-                <Trash2 size={14} />
+                <Trash2 size={16} />
               </button>
             </div>
           </div>
 
-          <div className="card-body">
-            {/* Destination URL - Always visible */}
-            <div className="mb-3">
-              <label className="form-label fw-semibold">Destination URL *</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="https://example.com/conditional-destination"
-                value={cond.dest}
-                onChange={(e) =>
-                  updateCondition(index, { ...cond, dest: e.target.value })
-                }
-              />
-              <div className="form-text">
-                Where to redirect when this condition matches
-              </div>
-            </div>
-
-            {/* Condition rules - Collapsible */}
-            {expandedConditions.has(index) && (
+          {expandedConditions.has(index) && (
+            <div className="ce-block-body">
+              <div className="ce-when-label">When (all must match)</div>
               <ConditionRulesEditor
                 condition={cond.condition}
-                onChange={(condition) =>
-                  updateCondition(index, { ...cond, condition })
-                }
+                onChange={c => updateCondition(index, { ...cond, condition: c })}
               />
-            )}
+            </div>
+          )}
 
-            {!expandedConditions.has(index) && Object.keys(cond.condition).length > 0 && (
-              <div className="text-muted small">
-                <em>Click expand to view/edit {Object.keys(cond.condition).length} condition rule(s)</em>
-              </div>
-            )}
-          </div>
+          {!expandedConditions.has(index) && Object.keys(cond.condition).length > 0 && (
+            <div className="ce-block-body">
+              <p className="ce-collapsed-hint">
+                {Object.keys(cond.condition).length} rule(s) · Expand to edit
+              </p>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -165,63 +151,44 @@ interface ConditionRulesEditorProps {
 
 const ConditionRulesEditor: React.FC<ConditionRulesEditorProps> = ({ condition, onChange }) => {
   const addConditionType = (type: string) => {
-    const newCondition = { ...condition };
-
+    const next = { ...condition };
     switch (type) {
       case 'ua':
       case 'os':
       case 'device':
       case 'country':
       case 'lang':
-        newCondition[type] = { eq: '' };
+        next[type] = { eq: '' };
         break;
       case 'day_of_week':
       case 'day_of_month':
       case 'month':
       case 'rnd':
-        newCondition[type] = { eq: 0 };
+        next[type] = { eq: 0 };
         break;
       case 'date':
-        newCondition[type] = { eq: '' };
+        next.date = { eq: '' };
         break;
     }
-
-    onChange(newCondition);
+    onChange(next);
   };
 
-  const updateStringCondition = (
-    field: keyof Expression,
-    operator: keyof StringCondition,
-    value: string | string[]
-  ) => {
-    const newCondition = { ...condition };
-    newCondition[field] = { [operator]: value } as any;
-    onChange(newCondition);
+  const updateStringCondition = (field: keyof Expression, operator: keyof StringCondition, value: string | string[]) => {
+    onChange({ ...condition, [field]: { [operator]: value } } as Expression);
   };
 
-  const updateNumericCondition = (
-    field: keyof Expression,
-    operator: keyof NumericCondition,
-    value: number | number[]
-  ) => {
-    const newCondition = { ...condition };
-    newCondition[field] = { [operator]: value } as any;
-    onChange(newCondition);
+  const updateNumericCondition = (field: keyof Expression, operator: keyof NumericCondition, value: number | number[]) => {
+    onChange({ ...condition, [field]: { [operator]: value } } as Expression);
   };
 
-  const updateDateCondition = (
-    operator: 'eq' | 'gt' | 'lt' | 'in',
-    value: string | string[]
-  ) => {
-    const newCondition = { ...condition };
-    newCondition.date = { [operator]: value } as any;
-    onChange(newCondition);
+  const updateDateCondition = (op: 'eq' | 'gt' | 'lt' | 'in', value: string | string[]) => {
+    onChange({ ...condition, date: { [op]: value } } as Expression);
   };
 
   const removeConditionType = (type: keyof Expression) => {
-    const newCondition = { ...condition };
-    delete newCondition[type];
-    onChange(newCondition);
+    const next = { ...condition };
+    delete next[type];
+    onChange(next);
   };
 
   const getOptionsForField = (field: keyof Expression): string[] => {
@@ -235,570 +202,287 @@ const ConditionRulesEditor: React.FC<ConditionRulesEditorProps> = ({ condition, 
     }
   };
 
-  const renderStringCondition = (field: keyof Expression, label: string) => {
+  const stringOperators = [
+    { key: 'eq', label: 'equals' },
+    { key: 'in', label: 'is one of' },
+    { key: 'starts', label: 'starts with' },
+    { key: 'ends', label: 'ends with' },
+  ] as const;
+
+  const numericOperators = [
+    { key: 'eq', label: 'equals' },
+    { key: 'gt', label: 'greater than' },
+    { key: 'lt', label: 'less than' },
+    { key: 'in', label: 'is one of' },
+  ] as const;
+
+  const dateOperators = [
+    { key: 'eq', label: 'equals' },
+    { key: 'gt', label: 'after' },
+    { key: 'lt', label: 'before' },
+    { key: 'in', label: 'in dates' },
+  ] as const;
+
+  const renderStringRule = (field: keyof Expression, label: string) => {
     const cond = condition[field] as StringCondition | undefined;
     if (!cond) return null;
-
     const options = getOptionsForField(field);
     const hasOptions = options.length > 0;
+    const op = cond.eq !== undefined ? 'eq' : cond.in !== undefined ? 'in' : cond.starts !== undefined ? 'starts' : 'ends';
 
     return (
-      <div className="card condition-card condition-card-primary mb-2">
-        <div className="card-body p-3">
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <span className="badge condition-badge-primary">{label}</span>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-danger"
-              onClick={() => removeConditionType(field)}
+      <div key={String(field)} className="ce-rule-row">
+        <span className="ce-rule-type">{label}</span>
+        <select
+          className="ce-rule-op"
+          value={op}
+          onChange={e => {
+            const k = e.target.value as keyof StringCondition;
+            if (k === 'eq') updateStringCondition(field, 'eq', '');
+            if (k === 'in') updateStringCondition(field, 'in', []);
+            if (k === 'starts') updateStringCondition(field, 'starts', '');
+            if (k === 'ends') updateStringCondition(field, 'ends', '');
+          }}
+        >
+          {stringOperators.map(o => (
+            <option key={o.key} value={o.key}>{o.label}</option>
+          ))}
+        </select>
+        {op === 'eq' && (
+          hasOptions ? (
+            <select
+              className="ce-rule-value"
+              value={cond.eq}
+              onChange={e => updateStringCondition(field, 'eq', e.target.value)}
             >
-              <Trash2 size={12} />
-            </button>
+              <option value="">Select…</option>
+              {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+          ) : (
+            <input
+              type="text"
+              className="ce-rule-value"
+              value={cond.eq}
+              onChange={e => updateStringCondition(field, 'eq', e.target.value)}
+              placeholder={`${label} value`}
+            />
+          )
+        )}
+        {op === 'in' && (
+          <div className="ce-tags">
+            {(cond.in || []).map((val, idx) => (
+              <span key={idx} className="ce-tag">
+                {val}
+                <button type="button" className="ce-tag-remove" onClick={() => updateStringCondition(field, 'in', (cond.in || []).filter((_, i) => i !== idx))} aria-label="Remove">×</button>
+              </span>
+            ))}
+            {hasOptions ? (
+              <select
+                className="ce-rule-value"
+                style={{ maxWidth: 140 }}
+                value=""
+                onChange={e => e.target.value && updateStringCondition(field, 'in', [...(cond.in || []), e.target.value])}
+              >
+                <option value="">+ Add</option>
+                {options.filter(o => !cond.in?.includes(o)).map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ) : (
+              <input
+                type="text"
+                className="ce-rule-value"
+                style={{ minWidth: 100 }}
+                placeholder="a, b, c"
+                value={(cond.in || []).join(', ')}
+                onChange={e => updateStringCondition(field, 'in', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+              />
+            )}
           </div>
-
-          <div className="vstack gap-2">
-            {cond.eq !== undefined && (
-              <div>
-                <label className="form-label small mb-1">Equals</label>
-                {hasOptions ? (
-                  <select
-                    className="form-select form-select-sm"
-                    value={cond.eq}
-                    onChange={(e) => updateStringCondition(field, 'eq', e.target.value)}
-                  >
-                    <option value="">Select {label.toLowerCase()}</option>
-                    {options.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    value={cond.eq}
-                    onChange={(e) => updateStringCondition(field, 'eq', e.target.value)}
-                    placeholder={`Enter ${label.toLowerCase()}`}
-                  />
-                )}
-              </div>
-            )}
-
-            {cond.in !== undefined && (
-              <div>
-                <label className="form-label small mb-1">In list</label>
-                {hasOptions ? (
-                  <>
-                    <div className="d-flex flex-wrap gap-1 mb-2">
-                      {(cond.in || []).map((val, idx) => (
-                        <span key={idx} className="badge value-badge-info d-inline-flex align-items-center">
-                          {val}
-                          <button
-                            type="button"
-                            className="btn-close btn-close-white ms-1"
-                            style={{ fontSize: '0.6rem', padding: '0.25rem' }}
-                            onClick={() => {
-                              const newList = cond.in?.filter((_, i) => i !== idx) || [];
-                              updateStringCondition(field, 'in', newList);
-                            }}
-                            aria-label="Remove"
-                          />
-                        </span>
-                      ))}
-                    </div>
-                    <select
-                      className="form-select form-select-sm"
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value && cond.in && !cond.in.includes(e.target.value)) {
-                          updateStringCondition(field, 'in', [...cond.in, e.target.value]);
-                        }
-                      }}
-                    >
-                      <option value="">+ Add {label.toLowerCase()}</option>
-                      {options.filter(opt => !cond.in?.includes(opt)).map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
-                  </>
-                ) : (
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    value={(cond.in || []).join(', ')}
-                    onChange={(e) =>
-                      updateStringCondition(
-                        field,
-                        'in',
-                        e.target.value.split(',').map((s) => s.trim()).filter(Boolean)
-                      )
-                    }
-                    placeholder="e.g., value1, value2, value3"
-                  />
-                )}
-              </div>
-            )}
-
-            {cond.starts !== undefined && (
-              <div>
-                <label className="form-label small mb-1">Starts with</label>
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  value={cond.starts}
-                  onChange={(e) => updateStringCondition(field, 'starts', e.target.value)}
-                  placeholder="Starts with..."
-                />
-              </div>
-            )}
-
-            {cond.ends !== undefined && (
-              <div>
-                <label className="form-label small mb-1">Ends with</label>
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  value={cond.ends}
-                  onChange={(e) => updateStringCondition(field, 'ends', e.target.value)}
-                  placeholder="Ends with..."
-                />
-              </div>
-            )}
-
-            <div className="operator-radio-group">
-              <label className="form-label small mb-2">Operators:</label>
-              <div className="d-flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={`btn btn-sm ${cond.eq !== undefined ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => updateStringCondition(field, 'eq', '')}
-                  disabled={cond.eq !== undefined}
-                >
-                  Equals
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${cond.in !== undefined ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => updateStringCondition(field, 'in', [])}
-                  disabled={cond.in !== undefined}
-                >
-                  In list
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${cond.starts !== undefined ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => updateStringCondition(field, 'starts', '')}
-                  disabled={cond.starts !== undefined}
-                >
-                  Starts with
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${cond.ends !== undefined ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => updateStringCondition(field, 'ends', '')}
-                  disabled={cond.ends !== undefined}
-                >
-                  Ends with
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
+        {(op === 'starts' || op === 'ends') && (
+          <input
+            type="text"
+            className="ce-rule-value"
+            value={op === 'starts' ? cond.starts : cond.ends}
+            onChange={e => op === 'starts' ? updateStringCondition(field, 'starts', e.target.value) : updateStringCondition(field, 'ends', e.target.value)}
+            placeholder={op === 'starts' ? 'Prefix…' : 'Suffix…'}
+          />
+        )}
+        <button type="button" className="ce-rule-remove" onClick={() => removeConditionType(field)} aria-label="Remove rule">
+          <Trash2 size={14} />
+        </button>
       </div>
     );
   };
 
-  const renderNumericCondition = (field: 'day_of_week' | 'day_of_month' | 'month' | 'rnd', label: string) => {
+  const renderNumericRule = (field: 'day_of_week' | 'day_of_month' | 'month' | 'rnd', label: string) => {
     const cond = condition[field] as NumericCondition | undefined;
     if (!cond) return null;
-
+    const op = cond.eq !== undefined ? 'eq' : cond.gt !== undefined ? 'gt' : cond.lt !== undefined ? 'lt' : 'in';
     const isMonth = field === 'month';
     const isDayOfWeek = field === 'day_of_week';
     const isRnd = field === 'rnd';
 
     return (
-      <div className="card condition-card condition-card-success mb-2">
-        <div className="card-body p-3">
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <span className="badge condition-badge-success">{label}</span>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-danger"
-              onClick={() => removeConditionType(field)}
-            >
-              <Trash2 size={12} />
-            </button>
-          </div>
-
-          <div className="vstack gap-2">
-            {cond.eq !== undefined && (
-              <div>
-                <label className="form-label small mb-1">Equals</label>
-                {isMonth ? (
-                  <select
-                    className="form-select form-select-sm"
-                    value={cond.eq}
-                    onChange={(e) => updateNumericCondition(field, 'eq', parseInt(e.target.value))}
-                  >
-                    <option value="">Select month</option>
-                    {MONTHS.map((month, idx) => (
-                      <option key={idx} value={idx + 1}>{month}</option>
-                    ))}
-                  </select>
-                ) : isDayOfWeek ? (
-                  <select
-                    className="form-select form-select-sm"
-                    value={cond.eq}
-                    onChange={(e) => updateNumericCondition(field, 'eq', parseInt(e.target.value))}
-                  >
-                    <option value="">Select day</option>
-                    {DAYS_OF_WEEK.map((day, idx) => (
-                      <option key={idx} value={idx}>{day}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="number"
-                    className="form-control form-control-sm"
-                    value={cond.eq}
-                    onChange={(e) => updateNumericCondition(field, 'eq', parseInt(e.target.value))}
-                    placeholder={isRnd ? "0-100" : "Enter value"}
-                    min={isRnd ? 0 : undefined}
-                    max={isRnd ? 100 : field === 'day_of_month' ? 31 : undefined}
-                  />
-                )}
-              </div>
-            )}
-
-            {cond.gt !== undefined && (
-              <div>
-                <label className="form-label small mb-1">Greater than</label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  value={cond.gt}
-                  onChange={(e) => updateNumericCondition(field, 'gt', parseInt(e.target.value))}
-                />
-              </div>
-            )}
-
-            {cond.lt !== undefined && (
-              <div>
-                <label className="form-label small mb-1">Less than</label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  value={cond.lt}
-                  onChange={(e) => updateNumericCondition(field, 'lt', parseInt(e.target.value))}
-                />
-              </div>
-            )}
-
-            {cond.in !== undefined && (
-              <div>
-                <label className="form-label small mb-1">In list</label>
-                {isMonth ? (
-                  <>
-                    <div className="d-flex flex-wrap gap-1 mb-2">
-                      {(cond.in || []).map((val, idx) => (
-                        <span key={idx} className="badge value-badge-success d-inline-flex align-items-center">
-                          {MONTHS[val - 1]}
-                          <button
-                            type="button"
-                            className="btn-close btn-close-white ms-1"
-                            style={{ fontSize: '0.6rem', padding: '0.25rem' }}
-                            onClick={() => {
-                              const newList = cond.in?.filter((_, i) => i !== idx) || [];
-                              updateNumericCondition(field, 'in', newList);
-                            }}
-                            aria-label="Remove"
-                          />
-                        </span>
-                      ))}
-                    </div>
-                    <select
-                      className="form-select form-select-sm"
-                      value=""
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (val && cond.in && !cond.in.includes(val)) {
-                          updateNumericCondition(field, 'in', [...cond.in, val]);
-                        }
-                      }}
-                    >
-                      <option value="">+ Add month</option>
-                      {MONTHS.map((month, idx) => (
-                        <option key={idx} value={idx + 1}>{month}</option>
-                      ))}
-                    </select>
-                  </>
-                ) : isDayOfWeek ? (
-                  <>
-                    <div className="d-flex flex-wrap gap-1 mb-2">
-                      {(cond.in || []).map((val, idx) => (
-                        <span key={idx} className="badge value-badge-success d-inline-flex align-items-center">
-                          {DAYS_OF_WEEK[val]}
-                          <button
-                            type="button"
-                            className="btn-close btn-close-white ms-1"
-                            style={{ fontSize: '0.6rem', padding: '0.25rem' }}
-                            onClick={() => {
-                              const newList = cond.in?.filter((_, i) => i !== idx) || [];
-                              updateNumericCondition(field, 'in', newList);
-                            }}
-                            aria-label="Remove"
-                          />
-                        </span>
-                      ))}
-                    </div>
-                    <select
-                      className="form-select form-select-sm"
-                      value=""
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (!isNaN(val) && cond.in && !cond.in.includes(val)) {
-                          updateNumericCondition(field, 'in', [...cond.in, val]);
-                        }
-                      }}
-                    >
-                      <option value="">+ Add day</option>
-                      {DAYS_OF_WEEK.map((day, idx) => (
-                        <option key={idx} value={idx}>{day}</option>
-                      ))}
-                    </select>
-                  </>
-                ) : (
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    value={(cond.in || []).join(', ')}
-                    onChange={(e) =>
-                      updateNumericCondition(
-                        field,
-                        'in',
-                        e.target.value.split(',').map((s) => parseInt(s.trim())).filter(n => !isNaN(n))
-                      )
-                    }
-                    placeholder="e.g., 1, 15, 30"
-                  />
-                )}
-              </div>
-            )}
-
-            <div className="operator-radio-group">
-              <label className="form-label small mb-2">Operators:</label>
-              <div className="d-flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={`btn btn-sm ${cond.eq !== undefined ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => updateNumericCondition(field, 'eq', 0)}
-                  disabled={cond.eq !== undefined}
-                >
-                  Equals
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${cond.gt !== undefined ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => updateNumericCondition(field, 'gt', 0)}
-                  disabled={cond.gt !== undefined}
-                >
-                  Greater than
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${cond.lt !== undefined ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => updateNumericCondition(field, 'lt', 0)}
-                  disabled={cond.lt !== undefined}
-                >
-                  Less than
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${cond.in !== undefined ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => updateNumericCondition(field, 'in', [])}
-                  disabled={cond.in !== undefined}
-                >
-                  In list
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div key={field} className="ce-rule-row">
+        <span className="ce-rule-type">{label}</span>
+        <select
+          className="ce-rule-op"
+          value={op}
+          onChange={e => {
+            const k = e.target.value as keyof NumericCondition;
+            if (k === 'eq') updateNumericCondition(field, 'eq', isRnd ? 0 : isMonth ? 1 : isDayOfWeek ? 0 : 1);
+            if (k === 'gt') updateNumericCondition(field, 'gt', 0);
+            if (k === 'lt') updateNumericCondition(field, 'lt', 0);
+            if (k === 'in') updateNumericCondition(field, 'in', []);
+          }}
+        >
+          {numericOperators.map(o => (
+            <option key={o.key} value={o.key}>{o.label}</option>
+          ))}
+        </select>
+        {op === 'eq' && (
+          isMonth ? (
+            <select className="ce-rule-value" value={cond.eq} onChange={e => updateNumericCondition(field, 'eq', parseInt(e.target.value))}>
+              <option value="">Month…</option>
+              {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+            </select>
+          ) : isDayOfWeek ? (
+            <select className="ce-rule-value" value={cond.eq} onChange={e => updateNumericCondition(field, 'eq', parseInt(e.target.value))}>
+              <option value="">Day…</option>
+              {DAYS_OF_WEEK.map((d, i) => <option key={i} value={i}>{d}</option>)}
+            </select>
+          ) : (
+            <input
+              type="number"
+              className="ce-rule-value"
+              value={cond.eq}
+              onChange={e => updateNumericCondition(field, 'eq', parseInt(e.target.value) || 0)}
+              min={isRnd ? 0 : undefined}
+              max={isRnd ? 100 : field === 'day_of_month' ? 31 : undefined}
+              placeholder={isRnd ? '0–100' : 'Value'}
+            />
+          )
+        )}
+        {(op === 'gt' || op === 'lt') && (
+          <input
+            type="number"
+            className="ce-rule-value"
+            value={op === 'gt' ? cond.gt : cond.lt}
+            onChange={e => updateNumericCondition(field, op, parseInt(e.target.value) || 0)}
+            min={isRnd ? 0 : undefined}
+            max={isRnd ? 100 : undefined}
+          />
+        )}
+        {op === 'in' && (
+          <input
+            type="text"
+            className="ce-rule-value"
+            value={(cond.in || []).join(', ')}
+            onChange={e => updateNumericCondition(field, 'in', e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)))}
+            placeholder="e.g. 1, 2, 3"
+          />
+        )}
+        <button type="button" className="ce-rule-remove" onClick={() => removeConditionType(field)} aria-label="Remove rule">
+          <Trash2 size={14} />
+        </button>
       </div>
     );
   };
 
-  const renderDateCondition = () => {
+  const renderDateRule = () => {
     const cond = condition.date;
     if (!cond) return null;
+    const op = cond.eq !== undefined ? 'eq' : cond.gt !== undefined ? 'gt' : cond.lt !== undefined ? 'lt' : 'in';
 
     return (
-      <div className="card condition-card condition-card-warning mb-2">
-        <div className="card-body p-3">
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <span className="badge condition-badge-warning">Date</span>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-danger"
-              onClick={() => removeConditionType('date')}
-            >
-              <Trash2 size={12} />
-            </button>
+      <div key="date" className="ce-rule-row">
+        <span className="ce-rule-type">Date</span>
+        <select
+          className="ce-rule-op"
+          value={op}
+          onChange={e => {
+            const k = e.target.value as 'eq' | 'gt' | 'lt' | 'in';
+            if (k === 'eq') updateDateCondition('eq', '');
+            if (k === 'gt') updateDateCondition('gt', '');
+            if (k === 'lt') updateDateCondition('lt', '');
+            if (k === 'in') updateDateCondition('in', []);
+          }}
+        >
+          {dateOperators.map(o => (
+            <option key={o.key} value={o.key}>{o.label}</option>
+          ))}
+        </select>
+        {(op === 'eq' || op === 'gt' || op === 'lt') && (
+          <input
+            type="date"
+            className="ce-rule-value"
+            value={op === 'eq' ? cond.eq : op === 'gt' ? cond.gt : cond.lt}
+            onChange={e => updateDateCondition(op, e.target.value)}
+          />
+        )}
+        {op === 'in' && (
+          <div className="ce-tags">
+            {(cond.in || []).map((d, idx) => (
+              <span key={idx} className="ce-tag">
+                {d}
+                <button type="button" className="ce-tag-remove" onClick={() => updateDateCondition('in', (cond.in || []).filter((_, i) => i !== idx))} aria-label="Remove">×</button>
+              </span>
+            ))}
+            <input
+              type="date"
+              className="ce-rule-value"
+              style={{ maxWidth: 140 }}
+              onChange={e => e.target.value && updateDateCondition('in', [...(cond.in || []), e.target.value])}
+            />
           </div>
-
-          <div className="vstack gap-2">
-            {cond.eq !== undefined && (
-              <div>
-                <label className="form-label small mb-1">Equals (YYYY-MM-DD)</label>
-                <input
-                  type="date"
-                  className="form-control form-control-sm"
-                  value={cond.eq}
-                  onChange={(e) => updateDateCondition('eq', e.target.value)}
-                />
-              </div>
-            )}
-
-            {cond.gt !== undefined && (
-              <div>
-                <label className="form-label small mb-1">After date (YYYY-MM-DD)</label>
-                <input
-                  type="date"
-                  className="form-control form-control-sm"
-                  value={cond.gt}
-                  onChange={(e) => updateDateCondition('gt', e.target.value)}
-                />
-              </div>
-            )}
-
-            {cond.lt !== undefined && (
-              <div>
-                <label className="form-label small mb-1">Before date (YYYY-MM-DD)</label>
-                <input
-                  type="date"
-                  className="form-control form-control-sm"
-                  value={cond.lt}
-                  onChange={(e) => updateDateCondition('lt', e.target.value)}
-                />
-              </div>
-            )}
-
-            {cond.in !== undefined && (
-              <div>
-                <label className="form-label small mb-1">In dates</label>
-                <div className="d-flex flex-wrap gap-1 mb-2">
-                  {(cond.in || []).map((date, idx) => (
-                    <span key={idx} className="badge value-badge-warning d-inline-flex align-items-center">
-                      {date}
-                      <button
-                        type="button"
-                        className="btn-close ms-1"
-                        style={{ fontSize: '0.6rem', padding: '0.25rem' }}
-                        onClick={() => {
-                          const newList = cond.in?.filter((_, i) => i !== idx) || [];
-                          updateDateCondition('in', newList);
-                        }}
-                        aria-label="Remove"
-                      />
-                    </span>
-                  ))}
-                </div>
-                <input
-                  type="date"
-                  className="form-control form-control-sm"
-                  onChange={(e) => {
-                    if (e.target.value && cond.in && !cond.in.includes(e.target.value)) {
-                      updateDateCondition('in', [...cond.in, e.target.value]);
-                    }
-                  }}
-                />
-              </div>
-            )}
-
-            <div className="operator-radio-group">
-              <label className="form-label small mb-2">Operators:</label>
-              <div className="d-flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={`btn btn-sm ${cond.eq !== undefined ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => updateDateCondition('eq', '')}
-                  disabled={cond.eq !== undefined}
-                >
-                  Equals
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${cond.gt !== undefined ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => updateDateCondition('gt', '')}
-                  disabled={cond.gt !== undefined}
-                >
-                  After date
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${cond.lt !== undefined ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => updateDateCondition('lt', '')}
-                  disabled={cond.lt !== undefined}
-                >
-                  Before date
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${cond.in !== undefined ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => updateDateCondition('in', [])}
-                  disabled={cond.in !== undefined}
-                >
-                  In dates
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
+        <button type="button" className="ce-rule-remove" onClick={() => removeConditionType('date')} aria-label="Remove rule">
+          <Trash2 size={14} />
+        </button>
       </div>
     );
   };
 
+  const ruleTypes: { key: string; label: string }[] = [
+    { key: 'ua', label: 'User Agent (Browser)' },
+    { key: 'os', label: 'Operating System' },
+    { key: 'device', label: 'Device Type' },
+    { key: 'country', label: 'Country' },
+    { key: 'lang', label: 'Language' },
+    { key: 'day_of_week', label: 'Day of Week' },
+    { key: 'day_of_month', label: 'Day of Month' },
+    { key: 'month', label: 'Month' },
+    { key: 'date', label: 'Date' },
+    { key: 'rnd', label: 'Random (A/B)' },
+  ];
+
   return (
-    <div className="mb-3">
-      <label className="form-label fw-semibold">Condition Rules</label>
-
-      {condition.ua && renderStringCondition('ua', 'User Agent (Browser)')}
-      {condition.os && renderStringCondition('os', 'Operating System')}
-      {condition.device && renderStringCondition('device', 'Device Type')}
-      {condition.country && renderStringCondition('country', 'Country')}
-      {condition.lang && renderStringCondition('lang', 'Language')}
-      {condition.day_of_week && renderNumericCondition('day_of_week', 'Day of Week')}
-      {condition.day_of_month && renderNumericCondition('day_of_month', 'Day of Month')}
-      {condition.month && renderNumericCondition('month', 'Month')}
-      {condition.rnd && renderNumericCondition('rnd', 'Random (A/B Testing)')}
-      {condition.date && renderDateCondition()}
-
-      <select
-        className="form-select form-select-sm mt-2"
-        value=""
-        onChange={(e) => {
-          if (e.target.value) {
-            addConditionType(e.target.value);
-          }
-        }}
-      >
-        <option value="">+ Add condition type</option>
-        {!condition.ua && <option value="ua">User Agent (Browser)</option>}
-        {!condition.os && <option value="os">Operating System</option>}
-        {!condition.device && <option value="device">Device Type</option>}
-        {!condition.country && <option value="country">Country</option>}
-        {!condition.lang && <option value="lang">Language</option>}
-        {!condition.day_of_week && <option value="day_of_week">Day of Week</option>}
-        {!condition.day_of_month && <option value="day_of_month">Day of Month</option>}
-        {!condition.month && <option value="month">Month</option>}
-        {!condition.date && <option value="date">Date</option>}
-        {!condition.rnd && <option value="rnd">Random (A/B Testing)</option>}
-      </select>
-
-      {Object.keys(condition).length === 0 && (
-        <div className="alert alert-warning mt-2">
-          <small>No rules defined. Add a condition type above.</small>
-        </div>
-      )}
+    <div className="ce-rules-wrap">
+      <div className="ce-rules">
+        {condition.ua && renderStringRule('ua', CONDITION_TYPE_LABELS.ua)}
+        {condition.os && renderStringRule('os', CONDITION_TYPE_LABELS.os)}
+        {condition.device && renderStringRule('device', CONDITION_TYPE_LABELS.device)}
+        {condition.country && renderStringRule('country', CONDITION_TYPE_LABELS.country)}
+        {condition.lang && renderStringRule('lang', CONDITION_TYPE_LABELS.lang)}
+        {condition.day_of_week && renderNumericRule('day_of_week', CONDITION_TYPE_LABELS.day_of_week)}
+        {condition.day_of_month && renderNumericRule('day_of_month', CONDITION_TYPE_LABELS.day_of_month)}
+        {condition.month && renderNumericRule('month', CONDITION_TYPE_LABELS.month)}
+        {condition.rnd && renderNumericRule('rnd', CONDITION_TYPE_LABELS.rnd)}
+        {condition.date && renderDateRule()}
+      </div>
+      {Object.keys(condition).length === 0 && <p className="ce-no-rules">No rules. Add one below.</p>}
+      <div className="ce-add-rule-wrap">
+        <select
+          className="ce-add-rule"
+          value=""
+          onChange={e => e.target.value && addConditionType(e.target.value)}
+        >
+          <option value="">+ Add rule</option>
+          {ruleTypes.filter(({ key }) => !(key in condition)).map(({ key, label }) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 };
