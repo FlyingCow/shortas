@@ -198,13 +198,17 @@ pub async fn create_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
     // Convert DTO to internal model
     let route: Route = route_dto.into();
     let is_conditional = route.is_conditional();
-    let link = route.link.clone();
 
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // Store the route (or route family for conditional routes)
+    let family = if is_conditional {
+        route.clone().build_family()
+    } else {
+        vec![route.clone()]
+    };
+
     let store_result = if is_conditional {
-        let family = route.clone().build_family();
         app_state.routes_store.store_route_family(&family).await
     } else {
         app_state.routes_store.store_route(&route).await
@@ -212,13 +216,10 @@ pub async fn create_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
 
     match store_result {
         Ok(_) => {
+            // Invalidate cache for all routes in the family
             if let Some(ref publisher) = app_state.rabbitmq_publisher {
                 publisher
-                    .publish_route_changed(&RouteChangedMessage {
-                        switch: route.switch.clone(),
-                        link: link.clone(),
-                        action: ChangeAction::Created,
-                    })
+                    .publish_route_family_changed(&family, ChangeAction::Created)
                     .await;
             }
             res.status_code(StatusCode::CREATED);
@@ -300,13 +301,18 @@ pub async fn update_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
     // Convert DTO to internal model
     let route: Route = route_dto.into();
     let is_conditional = route.is_conditional();
-    let link = route.link.clone();
 
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
+    // Build family for conditional routes
+    let family = if is_conditional {
+        route.clone().build_family()
+    } else {
+        vec![route.clone()]
+    };
+
     // Update the route (or route family for conditional routes)
     let update_result = if is_conditional {
-        let family = route.clone().build_family();
         app_state.routes_store.store_route_family(&family).await
     } else {
         app_state.routes_store.update_route(&route).await
@@ -314,13 +320,10 @@ pub async fn update_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
 
     match update_result {
         Ok(_) => {
+            // Invalidate cache for all routes in the family
             if let Some(ref publisher) = app_state.rabbitmq_publisher {
                 publisher
-                    .publish_route_changed(&RouteChangedMessage {
-                        switch: route.switch.clone(),
-                        link: link.clone(),
-                        action: ChangeAction::Updated,
-                    })
+                    .publish_route_family_changed(&family, ChangeAction::Updated)
                     .await;
             }
             res.status_code(StatusCode::OK);
@@ -893,11 +896,16 @@ pub async fn update_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
     route.properties.route_id = Some(route_id.clone());
 
     let is_conditional = route.is_conditional();
-    let link = route.link.clone();
+
+    // Build family for conditional routes
+    let family = if is_conditional {
+        route.clone().build_family()
+    } else {
+        vec![route.clone()]
+    };
 
     // Update the route (or route family for conditional routes)
     let update_result = if is_conditional {
-        let family = route.clone().build_family();
         app_state.routes_store.store_route_family(&family).await
     } else {
         app_state.routes_store.update_route(&route).await
@@ -905,13 +913,10 @@ pub async fn update_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
 
     match update_result {
         Ok(_) => {
+            // Invalidate cache for all routes in the family
             if let Some(ref publisher) = app_state.rabbitmq_publisher {
                 publisher
-                    .publish_route_changed(&RouteChangedMessage {
-                        switch: route.switch.clone(),
-                        link: link.clone(),
-                        action: ChangeAction::Updated,
-                    })
+                    .publish_route_family_changed(&family, ChangeAction::Updated)
                     .await;
             }
             res.status_code(StatusCode::OK);
@@ -954,6 +959,17 @@ pub async fn delete_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
             let is_conditional = route_to_delete.is_conditional();
             let link = route_to_delete.link.clone();
 
+            // Get all routes in family for cache invalidation (before deleting)
+            let routes_to_invalidate = if is_conditional {
+                app_state
+                    .routes_store
+                    .get_routes_by_link(&link)
+                    .await
+                    .unwrap_or_else(|_| vec![route_to_delete.clone()])
+            } else {
+                vec![route_to_delete.clone()]
+            };
+
             // Delete entire route family for conditional routes, single route otherwise
             let delete_result = if is_conditional {
                 app_state
@@ -967,13 +983,10 @@ pub async fn delete_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
 
             match delete_result {
                 Ok(_) => {
+                    // Invalidate cache for all routes in the family
                     if let Some(ref publisher) = app_state.rabbitmq_publisher {
                         publisher
-                            .publish_route_changed(&RouteChangedMessage {
-                                switch: route_to_delete.switch.clone(),
-                                link: link.clone(),
-                                action: ChangeAction::Deleted,
-                            })
+                            .publish_route_family_changed(&routes_to_invalidate, ChangeAction::Deleted)
                             .await;
                     }
                     res.status_code(StatusCode::OK);

@@ -86,6 +86,23 @@ impl RabbitMqPublisher {
         }
     }
 
+    /// Publish route changed messages for all routes in a family.
+    /// This invalidates cache for master + all child routes.
+    pub async fn publish_route_family_changed(
+        &self,
+        routes: &[crate::model::Route],
+        action: super::messages::ChangeAction,
+    ) {
+        for route in routes {
+            self.publish_route_changed(&RouteChangedMessage {
+                switch: route.switch.clone(),
+                link: route.link.clone(),
+                action: action.clone(),
+            })
+            .await;
+        }
+    }
+
     pub async fn publish_user_settings_changed(&self, message: &UserSettingsChangedMessage) {
         let payload = match serde_json::to_vec(message) {
             Ok(p) => p,
