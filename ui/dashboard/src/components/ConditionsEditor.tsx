@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
 import {
   Expression,
   StringCondition,
@@ -43,6 +43,7 @@ const CONDITION_TYPE_LABELS: Record<string, string> = {
 
 export const ConditionsEditor: React.FC<ConditionsEditorProps> = ({ conditions, onChange }) => {
   const [expandedConditions, setExpandedConditions] = useState<Set<number>>(new Set());
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const toggleExpanded = (index: number) => {
     const next = new Set(expandedConditions);
@@ -67,13 +68,62 @@ export const ConditionsEditor: React.FC<ConditionsEditorProps> = ({ conditions, 
     setExpandedConditions(new Set(Array.from(expandedConditions).filter(i => i !== index).map(i => i > index ? i - 1 : i)));
   };
 
+  const moveCondition = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    const next = conditions.slice();
+    const [item] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, item);
+    onChange(next);
+    const oldToNew = (o: number): number => {
+      if (o === fromIndex) return toIndex;
+      if (fromIndex < toIndex) {
+        if (o < fromIndex) return o;
+        if (o > fromIndex && o <= toIndex) return o - 1;
+        return o;
+      } else {
+        if (o < toIndex) return o;
+        if (o >= toIndex && o < fromIndex) return o + 1;
+        return o;
+      }
+    };
+    setExpandedConditions(new Set(Array.from(expandedConditions).map(oldToNew)));
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+    e.dataTransfer.setData('application/json', JSON.stringify({ index }));
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    const related = e.relatedTarget as Node | null;
+    if (!related || !e.currentTarget.contains(related)) {
+      setDragOverIndex(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    setDragOverIndex(null);
+    const raw = e.dataTransfer.getData('text/plain');
+    const dragIndex = raw !== '' ? parseInt(raw, 10) : null;
+    if (dragIndex == null || isNaN(dragIndex) || dragIndex === dropIndex) return;
+    moveCondition(dragIndex, dropIndex);
+  };
+
+  const handleDragEnd = () => {
+    setDragOverIndex(null);
+  };
+
   return (
     <div className="ce-root conditions-editor">
       <div className="ce-header">
-        <div>
-          <h6 className="ce-title">Conditional Routes</h6>
-          <p className="ce-subtitle">Redirect to different URLs when conditions match</p>
-        </div>
         <button type="button" className="ce-add-btn" onClick={addCondition}>
           <Plus size={16} />
           Add condition
@@ -87,7 +137,14 @@ export const ConditionsEditor: React.FC<ConditionsEditorProps> = ({ conditions, 
       )}
 
       {conditions.map((cond, index) => (
-        <div key={index} className="ce-block">
+        <div
+          key={index}
+          className={`ce-block ${dragOverIndex === index ? 'ce-block--drag-over' : ''}`}
+          onDragOver={(e) => handleDragOver(e, index)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, index)}
+          onDragEnd={handleDragEnd}
+        >
           <div className="ce-block-head">
             <div className="ce-block-head-left">
               <span className="ce-block-num">{index + 1}</span>
@@ -100,6 +157,15 @@ export const ConditionsEditor: React.FC<ConditionsEditorProps> = ({ conditions, 
                   onChange={e => updateCondition(index, { ...cond, dest: e.target.value })}
                 />
               </div>
+            </div>
+            <div
+              className="ce-block-drag-handle"
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              title="Drag to reorder"
+              aria-label="Drag to reorder"
+            >
+              <GripVertical size={18} />
             </div>
             <div className="ce-block-actions">
               <button

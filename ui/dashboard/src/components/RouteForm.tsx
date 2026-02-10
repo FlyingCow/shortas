@@ -537,6 +537,30 @@ const RouteForm: React.FC<RouteFormProps> = ({
         <div className="rf-section-always">
           <div className="rf-section-header">Link Setup</div>
           <div className="rf-section-body">
+            {showWorkspace && (
+              <div className="rf-field">
+                <label className="rf-label">Workspace</label>
+                <select
+                  className="rf-select"
+                  value={formData.properties?.workspaceId || ''}
+                  onChange={(e) => handlePropertyChange('workspaceId', e.target.value)}
+                  disabled={saving || isEdit || singleWorkspace}
+                >
+                  <option value="">Select a workspace...</option>
+                  {(workspaces || []).map((ws: any) => (
+                    <option key={ws.id} value={ws.id}>
+                      {ws.name}
+                    </option>
+                  ))}
+                </select>
+                <span className="rf-helper">
+                  {isEdit
+                    ? 'Workspace cannot be changed after creation'
+                    : 'Workspace cannot be changed later'}
+                </span>
+              </div>
+            )}
+
             <div className="rf-field">
               <label className="rf-label">
                 Domain<span className="rf-required">*</span>
@@ -620,30 +644,6 @@ const RouteForm: React.FC<RouteFormProps> = ({
               />
               {fieldError('dest')}
             </div>
-
-            {showWorkspace && (
-              <div className="rf-field">
-                <label className="rf-label">Workspace</label>
-                <select
-                  className="rf-select"
-                  value={formData.properties?.workspaceId || ''}
-                  onChange={(e) => handlePropertyChange('workspaceId', e.target.value)}
-                  disabled={saving || isEdit || singleWorkspace}
-                >
-                  <option value="">Select a workspace...</option>
-                  {(workspaces || []).map((ws: any) => (
-                    <option key={ws.id} value={ws.id}>
-                      {ws.name}
-                    </option>
-                  ))}
-                </select>
-                <span className="rf-helper">
-                  {isEdit
-                    ? 'Workspace cannot be changed after creation'
-                    : 'Workspace cannot be changed later'}
-                </span>
-              </div>
-            )}
           </div>
         </div>
 

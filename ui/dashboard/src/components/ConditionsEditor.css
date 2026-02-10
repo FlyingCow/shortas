@@ -82,6 +82,12 @@
   overflow: hidden;
   margin-bottom: var(--ce-space);
   box-shadow: var(--theme-shadow-sm, 0 1px 2px rgba(0,0,0,0.04));
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ce-block--drag-over {
+  border-color: var(--ce-accent);
+  box-shadow: 0 0 0 2px var(--ce-accent-muted);
 }
 
 .ce-block-head {
@@ -95,21 +101,44 @@
   flex-wrap: wrap;
 }
 
+.ce-block-drag-handle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--ce-text-muted);
+  cursor: grab;
+  border-radius: var(--ce-radius-sm);
+  transition: background 0.15s, color 0.15s;
+}
+
+.ce-block-drag-handle:hover {
+  color: var(--ce-text-secondary);
+  background: var(--ce-rule-bg);
+}
+
+.ce-block-drag-handle:active {
+  cursor: grabbing;
+}
+
 .ce-block-head-left {
   display: flex;
   align-items: center;
-  gap: var(--ce-space-sm);
+  gap: var(--ce-space);
   min-width: 0;
+  flex: 1;
 }
 
 .ce-block-num {
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--ce-text-inverse, #fff);
   background: var(--ce-accent);
@@ -119,13 +148,12 @@
 .ce-block-dest-wrap {
   min-width: 0;
   flex: 1;
-  max-width: 360px;
 }
 
 .ce-block-dest {
   width: 100%;
-  padding: 6px 10px;
-  font-size: 0.8125rem;
+  padding: 10px 14px;
+  font-size: 0.9375rem;
   color: var(--ce-text);
   background: var(--theme-bg-primary, #fff);
   border: 1px solid var(--ce-rule-border);
