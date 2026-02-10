@@ -11,47 +11,209 @@ import {
   RotateCcw,
   Search,
   Bot,
-  Filter,
+  Users,
+  MousePointerClick,
+  X,
+  ChevronDown,
 } from 'lucide-react';
 import { apiService, ClickStreamEvent } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
 const clickstreamStyles = `
+/* ===== CLICKSTREAM PAGE STYLES ===== */
+
+/* Page Header */
+.cs-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.cs-page-title-section {
+  flex: 1;
+  min-width: 200px;
+}
+
+.cs-page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+  letter-spacing: -0.025em;
+}
+
+.cs-page-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.cs-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Live Indicator */
+.cs-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-2xl);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.cs-live-badge.live {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+  color: var(--color-success);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.cs-live-badge.paused {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  border: 1px solid var(--border-primary);
+}
+
+.cs-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.cs-live-badge.live .cs-live-dot {
+  animation: cs-pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 8px currentColor;
+}
+
+@keyframes cs-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* Stats Grid - Enhanced */
+.cs-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 1200px) {
+  .cs-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .cs-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cs-stat-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all var(--transition-normal);
+}
+
+.cs-stat-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-secondary);
+}
+
+.cs-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cs-stat-icon svg {
+  width: 24px;
+  height: 24px;
+  color: #fff;
+}
+
+.cs-stat-icon.primary { background: var(--color-primary); }
+.cs-stat-icon.success { background: var(--color-success); }
+.cs-stat-icon.warning { background: var(--color-warning); }
+.cs-stat-icon.info { background: #8b5cf6; }
+
+.cs-stat-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.cs-stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-bottom: 0.125rem;
+}
+
+.cs-stat-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Toolbar */
 .cs-toolbar {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1.5rem;
   flex-wrap: wrap;
 }
 
-.cs-toolbar-left {
+.cs-toolbar-section {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.cs-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
+/* Date Range Buttons */
 .cs-range-group {
-  display: flex;
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
+  display: inline-flex;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  background: var(--bg-primary);
 }
 
 .cs-range-btn {
-  padding: 0.375rem 0.75rem;
+  padding: 0.5rem 0.875rem;
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 600;
   border: none;
-  background: var(--bg-primary);
+  background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -59,7 +221,7 @@ const clickstreamStyles = `
 }
 
 .cs-range-btn:not(:last-child) {
-  border-right: 1px solid var(--border-primary);
+  border-right: 1px solid var(--border-secondary);
 }
 
 .cs-range-btn:hover:not(.active) {
@@ -72,79 +234,29 @@ const clickstreamStyles = `
   color: #ffffff;
 }
 
-.cs-live-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.625rem;
-  border-radius: var(--radius-2xl);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.025em;
-  text-transform: uppercase;
-}
-
-.cs-live-indicator.live {
-  background: rgba(34, 197, 94, 0.1);
-  color: var(--color-success);
-}
-
-.cs-live-indicator.paused {
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
-}
-
-.cs-live-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.cs-live-indicator.live .cs-live-dot {
-  animation: cs-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes cs-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-.cs-filter-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.cs-filter-row .search-box {
-  margin-bottom: 0;
-  flex: 1;
-  max-width: 320px;
-}
-
+/* Filter Controls */
 .cs-filter-select {
-  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  padding: 0.5rem 2.25rem 0.5rem 0.75rem;
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-md);
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-primary);
-  background: var(--bg-primary);
+  background-color: var(--bg-primary);
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 0.375rem center;
+  background-position: right 0.5rem center;
   background-repeat: no-repeat;
-  background-size: 1.25em 1.25em;
+  background-size: 1rem;
   cursor: pointer;
   transition: all var(--transition-fast);
   appearance: none;
   -webkit-appearance: none;
-  font-family: inherit;
+  min-width: 130px;
 }
 
 .cs-filter-select:hover {
-  border-color: var(--border-primary);
+  border-color: var(--color-primary);
+  background-color: var(--bg-elevated);
 }
 
 .cs-filter-select:focus {
@@ -153,33 +265,234 @@ const clickstreamStyles = `
   box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
-.cs-filter-input {
-  padding: 0.5rem 0.75rem;
+.cs-search-box {
+  position: relative;
+  min-width: 240px;
+}
+
+.cs-search-box input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-md);
   font-size: 0.8125rem;
   color: var(--text-primary);
   background: var(--bg-primary);
   transition: all var(--transition-fast);
-  font-family: inherit;
-  width: 160px;
 }
 
-.cs-filter-input::placeholder {
+.cs-search-box input::placeholder {
   color: var(--text-muted);
 }
 
-.cs-filter-input:focus {
+.cs-search-box input:hover {
+  border-color: var(--color-primary);
+  background-color: var(--bg-elevated);
+}
+
+.cs-search-box input:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
-.cs-event-row.is-bot {
+.cs-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.cs-clear-btn {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.25rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cs-clear-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+/* Events Table Card */
+.cs-events-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.cs-events-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.cs-events-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cs-events-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: var(--radius-2xl);
+}
+
+.cs-events-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/* Table Styles */
+.cs-table-container {
+  overflow-x: auto;
+}
+
+.cs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.cs-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  white-space: nowrap;
+}
+
+.cs-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-primary);
+  vertical-align: middle;
+}
+
+.cs-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.cs-table tbody tr:hover {
+  background: var(--bg-secondary);
+}
+
+.cs-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cs-table tbody tr.is-bot {
   opacity: 0.6;
 }
 
-.cs-type-badges {
+/* Cell Styles */
+.cs-cell-time {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.cs-cell-time svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.cs-cell-route {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.cs-cell-domain {
+  color: var(--text-secondary);
+}
+
+.cs-cell-url {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.cs-cell-location {
+  line-height: 1.4;
+}
+
+.cs-location-city {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.cs-location-country {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.cs-cell-device {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.cs-cell-device svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.cs-cell-browser {
+  line-height: 1.4;
+}
+
+.cs-browser-name {
+  color: var(--text-primary);
+}
+
+.cs-browser-os {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.cs-cell-ip {
+  font-family: var(--font-family-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Badges */
+.cs-badges {
   display: flex;
   gap: 0.25rem;
   flex-wrap: wrap;
@@ -192,7 +505,7 @@ const clickstreamStyles = `
   border-radius: var(--radius-2xl);
   font-size: 0.6875rem;
   font-weight: 600;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
@@ -211,87 +524,7 @@ const clickstreamStyles = `
   color: var(--color-warning);
 }
 
-.cs-device {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.8125rem;
-}
-
-.cs-device svg {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.cs-location {
-  font-size: 0.8125rem;
-  line-height: 1.4;
-}
-
-.cs-location-city {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.cs-location-country {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-}
-
-.cs-timestamp {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.cs-timestamp svg {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.cs-url {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  max-width: 280px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cs-route-name {
-  font-size: 0.8125rem;
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.cs-route-domain {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-
-.cs-ip {
-  font-size: 0.8125rem;
-  font-family: monospace;
-  color: var(--text-secondary);
-}
-
-.cs-browser {
-  font-size: 0.8125rem;
-  line-height: 1.4;
-}
-
-.cs-browser-name {
-  color: var(--text-primary);
-}
-
-.cs-browser-os {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-}
-
+/* Empty State */
 .cs-empty {
   display: flex;
   flex-direction: column;
@@ -299,42 +532,90 @@ const clickstreamStyles = `
   justify-content: center;
   padding: 4rem 2rem;
   text-align: center;
-  color: var(--text-secondary);
 }
 
-.cs-empty svg {
-  color: var(--text-tertiary);
-  margin-bottom: 1rem;
+.cs-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
 }
 
-.cs-empty h3 {
-  margin: 0 0 0.5rem 0;
-  color: var(--text-primary);
+.cs-empty-icon svg {
+  width: 32px;
+  height: 32px;
+  color: var(--text-muted);
+}
+
+.cs-empty-title {
   font-size: 1rem;
   font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
 }
 
-.cs-empty p {
-  margin: 0;
+.cs-empty-description {
   font-size: 0.875rem;
-  max-width: 360px;
+  color: var(--text-muted);
+  max-width: 320px;
+  margin: 0;
 }
 
+/* Error State */
+.cs-error {
+  background: var(--bg-elevated);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-xl);
+  padding: 2rem;
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.cs-error-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-error);
+  margin: 0 0 0.5rem 0;
+}
+
+.cs-error-message {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0 0 1rem 0;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
+  .cs-page-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .cs-page-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .cs-toolbar {
     flex-direction: column;
     align-items: stretch;
   }
-  .cs-toolbar-left,
-  .cs-toolbar-right {
+
+  .cs-toolbar-section {
+    width: 100%;
     justify-content: space-between;
   }
-  .cs-filter-row {
-    flex-direction: column;
-    align-items: stretch;
+
+  .cs-search-box {
+    min-width: 100%;
   }
-  .cs-filter-row .search-box {
-    max-width: none;
+
+  .cs-filter-select {
+    flex: 1;
   }
 }
 `;
@@ -407,9 +688,6 @@ const Clickstream: React.FC = () => {
 
   const updateStats = (raw: any) => {
     if (!raw) return;
-    // Log the raw response so we can see the actual shape
-    console.debug('[clickstream] raw stats response:', JSON.stringify(raw));
-    // Handle both camelCase and snake_case field names
     setStats({
       totalClicks: raw.totalClicks ?? raw.total_clicks ?? raw.TotalClicks ?? 0,
       uniqueClicks: raw.uniqueClicks ?? raw.unique_clicks ?? raw.UniqueClicks ?? 0,
@@ -458,7 +736,6 @@ const Clickstream: React.FC = () => {
         apiService.clickstream.getStats(params).catch(() => null)
       ]);
 
-      // Handle both array and paginated { data: [...] } response shapes
       const eventList = Array.isArray(rawEvents)
         ? rawEvents
         : Array.isArray((rawEvents as any)?.data)
@@ -579,6 +856,17 @@ const Clickstream: React.FC = () => {
     return date.toLocaleString();
   };
 
+  const clearFilters = () => {
+    setFilters({
+      device: 'all',
+      country: 'all',
+      route: 'all',
+      search: ''
+    });
+  };
+
+  const hasActiveFilters = filters.device !== 'all' || filters.route !== 'all' || filters.search !== '';
+
   useEffect(() => {
     fetchInitialData();
     return () => { stopLiveUpdates(); };
@@ -603,12 +891,15 @@ const Clickstream: React.FC = () => {
 
   if (error) {
     return (
-      <div className="alert alert-error">
-        <h3>Error Loading Clickstream</h3>
-        <p>{error}</p>
-        <button className="btn btn-primary" onClick={fetchInitialData}>
-          Retry
-        </button>
+      <div className="container" style={{ paddingTop: '2rem' }}>
+        <div className="cs-error">
+          <h3 className="cs-error-title">Error Loading Clickstream</h3>
+          <p className="cs-error-message">{error}</p>
+          <button className="btn btn-primary" onClick={fetchInitialData}>
+            <RotateCcw size={16} />
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -623,11 +914,15 @@ const Clickstream: React.FC = () => {
   return (
     <>
       <style>{clickstreamStyles}</style>
-      <div className="container">
+      <div className="container" style={{ paddingTop: '1.5rem', paddingBottom: '2rem' }}>
         {/* Page Header */}
-        <div className="page-header" style={{ marginTop: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div className={`cs-live-indicator ${isLive ? 'live' : 'paused'}`}>
+        <div className="cs-page-header">
+          <div className="cs-page-title-section">
+            <h1 className="cs-page-title">Clickstream</h1>
+            <p className="cs-page-subtitle">Real-time monitoring of link clicks and visitor activity</p>
+          </div>
+          <div className="cs-page-actions">
+            <div className={`cs-live-badge ${isLive ? 'live' : 'paused'}`}>
               <span className="cs-live-dot" />
               {isLive ? 'Live' : 'Paused'}
             </div>
@@ -645,52 +940,52 @@ const Clickstream: React.FC = () => {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="stats-grid">
-          <div className="stats-card">
-            <div className="stats-icon">
-              <Activity size={24} />
+        {/* Stats Grid */}
+        <div className="cs-stats-grid">
+          <div className="cs-stat-card">
+            <div className="cs-stat-icon primary">
+              <MousePointerClick />
             </div>
-            <div className="stats-content">
-              <div className="stats-value">{stats.totalClicks.toLocaleString()}</div>
-              <div className="stats-label">Total Clicks</div>
-            </div>
-          </div>
-
-          <div className="stats-card">
-            <div className="stats-icon">
-              <Globe size={24} />
-            </div>
-            <div className="stats-content">
-              <div className="stats-value">{stats.uniqueClicks.toLocaleString()}</div>
-              <div className="stats-label">Unique Clicks</div>
+            <div className="cs-stat-content">
+              <div className="cs-stat-value">{stats.totalClicks.toLocaleString()}</div>
+              <div className="cs-stat-label">Total Clicks</div>
             </div>
           </div>
 
-          <div className="stats-card">
-            <div className="stats-icon">
-              <Bot size={24} />
+          <div className="cs-stat-card">
+            <div className="cs-stat-icon success">
+              <Users />
             </div>
-            <div className="stats-content">
-              <div className="stats-value">{stats.botClicks.toLocaleString()}</div>
-              <div className="stats-label">Bot Clicks</div>
+            <div className="cs-stat-content">
+              <div className="cs-stat-value">{stats.uniqueClicks.toLocaleString()}</div>
+              <div className="cs-stat-label">Unique Visitors</div>
             </div>
           </div>
 
-          <div className="stats-card">
-            <div className="stats-icon">
-              <Filter size={24} />
+          <div className="cs-stat-card">
+            <div className="cs-stat-icon warning">
+              <Bot />
             </div>
-            <div className="stats-content">
-              <div className="stats-value">{filteredEvents.length.toLocaleString()}</div>
-              <div className="stats-label">Filtered Events</div>
+            <div className="cs-stat-content">
+              <div className="cs-stat-value">{stats.botClicks.toLocaleString()}</div>
+              <div className="cs-stat-label">Bot Clicks</div>
+            </div>
+          </div>
+
+          <div className="cs-stat-card">
+            <div className="cs-stat-icon info">
+              <Activity />
+            </div>
+            <div className="cs-stat-content">
+              <div className="cs-stat-value">{filteredEvents.length.toLocaleString()}</div>
+              <div className="cs-stat-label">Showing</div>
             </div>
           </div>
         </div>
 
-        {/* Toolbar: date range + filters */}
+        {/* Toolbar */}
         <div className="cs-toolbar">
-          <div className="cs-toolbar-left">
+          <div className="cs-toolbar-section">
             <div className="cs-range-group">
               {dateRanges.map((r) => (
                 <button
@@ -702,9 +997,7 @@ const Clickstream: React.FC = () => {
                 </button>
               ))}
             </div>
-          </div>
 
-          <div className="cs-toolbar-right">
             <select
               className="cs-filter-select"
               value={filters.device}
@@ -715,120 +1008,141 @@ const Clickstream: React.FC = () => {
               <option value="mobile">Mobile</option>
               <option value="tablet">Tablet</option>
             </select>
+          </div>
 
-            <input
-              type="text"
-              className="cs-filter-input"
-              placeholder="Route name..."
-              value={filters.route === 'all' ? '' : filters.route}
-              onChange={(e) => setFilters(prev => ({ ...prev, route: e.target.value || 'all' }))}
-            />
-
-            <div className="search-box" style={{ marginBottom: 0 }}>
-              <Search size={16} />
+          <div className="cs-toolbar-section">
+            <div className="cs-search-box">
+              <Search size={16} className="cs-search-icon" />
               <input
                 type="text"
-                placeholder="Search URLs, cities..."
+                placeholder="Search routes, URLs, locations..."
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
               />
+              {filters.search && (
+                <button
+                  className="cs-clear-btn"
+                  onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
+
+            {hasActiveFilters && (
+              <button className="btn btn-outline btn-sm" onClick={clearFilters}>
+                Clear Filters
+              </button>
+            )}
           </div>
         </div>
 
         {/* Events Table */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">
-              Events ({filteredEvents.length})
+        <div className="cs-events-card">
+          <div className="cs-events-header">
+            <h3 className="cs-events-title">
+              Click Events
+              <span className="cs-events-count">{filteredEvents.length}</span>
             </h3>
+            <div className="cs-events-meta">
+              <Clock size={12} />
+              {isLive ? 'Auto-refreshing every 5s' : 'Updates paused'}
+            </div>
           </div>
-          <div className="card-body p-0">
-            <div className="table-container">
-              <div className="table-wrapper">
-                <table className="unified-table">
-                  <thead>
-                    <tr>
-                      <th>Time</th>
-                      <th>Route</th>
-                      <th>Domain</th>
-                      <th>Destination</th>
-                      <th>Location</th>
-                      <th>Device</th>
-                      <th>Browser / OS</th>
-                      <th>IP</th>
-                      <th>Type</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredEvents.map((event) => (
-                      <tr key={event.id} className={`cs-event-row ${event.isBot ? 'is-bot' : ''}`}>
-                        <td>
-                          <div className="cs-timestamp">
-                            <Clock size={14} />
-                            {formatTimestamp(event.timestamp)}
-                          </div>
-                        </td>
-                        <td>
-                          <span className="cs-route-name">{event.routeName || '—'}</span>
-                        </td>
-                        <td>
-                          <span className="cs-route-domain">{event.routeDomainName || '—'}</span>
-                        </td>
-                        <td>
-                          <div className="cs-url" title={event.url}>
-                            {event.url}
-                          </div>
-                        </td>
-                        <td>
-                          <div className="cs-location">
-                            <div className="cs-location-city">{event.city}</div>
-                            <div className="cs-location-country">{event.country}</div>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="cs-device">
-                            {getDeviceIcon(event.device)}
-                            <span>{event.device}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="cs-browser">
-                            <div className="cs-browser-name">{event.browser}</div>
-                            <div className="cs-browser-os">{event.os}</div>
-                          </div>
-                        </td>
-                        <td>
-                          <span className="cs-ip">{event.ip}</span>
-                        </td>
-                        <td>
-                          <div className="cs-type-badges">
-                            <span className={`cs-badge ${event.userType === 'new' ? 'cs-badge-new' : 'cs-badge-returning'}`}>
-                              {event.userType}
-                            </span>
-                            {event.isBot && (
-                              <span className="cs-badge cs-badge-bot">bot</span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
 
-                {filteredEvents.length === 0 && (
-                  <div className="cs-empty">
-                    <Activity size={48} />
-                    <h3>No events found</h3>
-                    <p>
-                      {filters.search || filters.device !== 'all' || filters.route !== 'all' || filters.country !== 'all'
-                        ? 'No events match your current filters.'
-                        : 'No click events have been recorded yet.'}
-                    </p>
-                  </div>
+          <div className="cs-table-container">
+            {filteredEvents.length > 0 ? (
+              <table className="cs-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Route</th>
+                    <th>Domain</th>
+                    <th>Destination</th>
+                    <th>Location</th>
+                    <th>Device</th>
+                    <th>Browser / OS</th>
+                    <th>IP Address</th>
+                    <th>Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEvents.map((event) => (
+                    <tr key={event.id} className={event.isBot ? 'is-bot' : ''}>
+                      <td>
+                        <div className="cs-cell-time">
+                          <Clock size={14} />
+                          {formatTimestamp(event.timestamp)}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="cs-cell-route">{event.routeName || '—'}</span>
+                      </td>
+                      <td>
+                        <span className="cs-cell-domain">{event.routeDomainName || '—'}</span>
+                      </td>
+                      <td>
+                        <div className="cs-cell-url" title={event.url}>
+                          {event.url || '—'}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="cs-cell-location">
+                          <div className="cs-location-city">{event.city}</div>
+                          <div className="cs-location-country">{event.country}</div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="cs-cell-device">
+                          {getDeviceIcon(event.device)}
+                          <span>{event.device}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="cs-cell-browser">
+                          <div className="cs-browser-name">{event.browser}</div>
+                          <div className="cs-browser-os">{event.os}</div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="cs-cell-ip">{event.ip}</span>
+                      </td>
+                      <td>
+                        <div className="cs-badges">
+                          <span className={`cs-badge ${event.userType === 'new' ? 'cs-badge-new' : 'cs-badge-returning'}`}>
+                            {event.userType}
+                          </span>
+                          {event.isBot && (
+                            <span className="cs-badge cs-badge-bot">bot</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="cs-empty">
+                <div className="cs-empty-icon">
+                  <Activity />
+                </div>
+                <h3 className="cs-empty-title">No events found</h3>
+                <p className="cs-empty-description">
+                  {hasActiveFilters
+                    ? 'No events match your current filters. Try adjusting your search criteria.'
+                    : 'No click events have been recorded in this time period.'}
+                </p>
+                {hasActiveFilters && (
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={clearFilters}
+                    style={{ marginTop: '1rem' }}
+                  >
+                    Clear Filters
+                  </button>
                 )}
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
