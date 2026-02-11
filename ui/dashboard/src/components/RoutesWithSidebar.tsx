@@ -423,6 +423,453 @@ const routeStatsStyles = `
 .rs-icon-spin {
   animation: rs-spin 1s linear infinite;
 }
+
+/* ===== REDESIGNED SIDEBAR STYLES ===== */
+
+/* Sidebar Container */
+.rs-sidebar {
+  width: 380px;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Sidebar Header */
+.rs-sidebar-header {
+  padding: 1.25rem 1.25rem 1rem;
+  border-bottom: 1px solid var(--border-primary);
+  background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-secondary) 100%);
+}
+
+.rs-sidebar-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+  letter-spacing: -0.01em;
+}
+
+.rs-sidebar-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Search Section */
+.rs-search-section {
+  padding: 1rem 1.25rem;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.rs-search-box {
+  position: relative;
+  margin-bottom: 0.875rem;
+}
+
+.rs-search-box svg {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  width: 16px;
+  height: 16px;
+  transition: color var(--transition-fast);
+}
+
+.rs-search-box input {
+  width: 100%;
+  padding: 0.625rem 0.875rem 0.625rem 2.5rem;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  transition: all var(--transition-fast);
+}
+
+.rs-search-box input::placeholder {
+  color: var(--text-muted);
+}
+
+.rs-search-box input:hover {
+  border-color: var(--border-primary);
+}
+
+.rs-search-box input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  background: var(--bg-primary);
+}
+
+.rs-search-box input:focus + svg,
+.rs-search-box:focus-within svg {
+  color: var(--color-primary);
+}
+
+/* Filter Row */
+.rs-filter-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.rs-filter-select {
+  flex: 1;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+}
+
+.rs-filter-select:hover {
+  border-color: var(--border-primary);
+  background-color: var(--bg-primary);
+}
+
+.rs-filter-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+/* Routes List */
+.rs-routes-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.rs-routes-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rs-routes-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rs-routes-list::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: 3px;
+}
+
+.rs-routes-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Route Card */
+.rs-route-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: 0.875rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.rs-route-card:hover {
+  border-color: var(--color-primary);
+  background: var(--bg-elevated);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.rs-route-card.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.15);
+}
+
+.rs-route-card.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--color-primary);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+
+/* Route Card Header */
+.rs-route-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.rs-route-link {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-all;
+  line-height: 1.3;
+}
+
+.rs-route-card:hover .rs-route-link {
+  color: var(--color-primary);
+}
+
+.rs-route-domain {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  margin-top: 0.125rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.rs-route-domain::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+/* Route Destination */
+.rs-route-dest {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-bottom: 0.625rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.375rem 0.5rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family-mono);
+}
+
+/* Route Footer */
+.rs-route-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+/* Route Tags */
+.rs-route-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.rs-route-tag {
+  padding: 0.1875rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.rs-route-tag.active {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--color-success);
+}
+
+.rs-route-tag.inactive {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-error);
+}
+
+.rs-route-tag.policy {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--color-primary);
+}
+
+.rs-route-tag.code {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-family: var(--font-family-mono);
+}
+
+/* Route Actions */
+.rs-route-actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.rs-route-card:hover .rs-route-actions {
+  opacity: 1;
+}
+
+.rs-action-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rs-action-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.rs-action-btn.edit:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.rs-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-error);
+}
+
+/* Empty State */
+.rs-empty-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.rs-empty-list-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.rs-empty-list-icon svg {
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+}
+
+.rs-empty-list-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.375rem 0;
+}
+
+.rs-empty-list-desc {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Sidebar Footer */
+.rs-sidebar-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.rs-footer-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.rs-footer-stat {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem;
+  text-align: center;
+  transition: all var(--transition-fast);
+}
+
+.rs-footer-stat:hover {
+  border-color: var(--border-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.rs-footer-stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.rs-footer-stat-label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 500;
+}
+
+.rs-create-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-lg);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.rs-create-btn:hover {
+  background: var(--color-primary-dark);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+.rs-create-btn:active {
+  transform: translateY(0);
+}
+
+.rs-create-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Override parent styles */
+.routes-with-sidebar .rs-sidebar {
+  width: 380px;
+}
+
+.routes-with-sidebar.editing .rs-sidebar {
+  opacity: 0.3;
+  pointer-events: none;
+}
 `;
 
 const CHART_COLORS = [
@@ -733,16 +1180,6 @@ const RoutesWithSidebar: React.FC = () => {
     return 'Basic';
   };
 
-  const getPolicyBadgeClass = (policyType: string): string => {
-    switch (policyType) {
-      case 'Conditional': return 'table-status-info';
-      case 'Challenge': return 'table-status-warning';
-      case 'File': return 'table-status-secondary';
-      case 'Mirroring': return 'table-status-info';
-      default: return 'table-status-secondary';
-    }
-  };
-
   // Use ES search results when search is active, otherwise use local routes with status filter
   const baseRoutes = searchResults !== null ? searchResults : routes;
   const filteredRoutes = baseRoutes.filter(route => {
@@ -777,24 +1214,29 @@ const RoutesWithSidebar: React.FC = () => {
     <>
       <style>{routeStatsStyles}</style>
       <div className={`routes-with-sidebar ${isEditing ? 'editing' : ''}`}>
-        {/* Sidebar */}
-      <div className="routes-sidebar">
-        <div className="sidebar-content">
-          {/* Search and Filters */}
-          <div className="sidebar-controls">
-            <div className="search-box">
-              {searchLoading ? <RefreshCw size={16} className="icon-spin" /> : <Search size={16} />}
+        {/* Redesigned Sidebar */}
+        <div className="rs-sidebar">
+          {/* Header */}
+          <div className="rs-sidebar-header">
+            <h2 className="rs-sidebar-title">Routes</h2>
+            <p className="rs-sidebar-subtitle">Manage your shortened URLs</p>
+          </div>
+
+          {/* Search Section */}
+          <div className="rs-search-section">
+            <div className="rs-search-box">
               <input
                 type="text"
-                placeholder="Search by link, domain, destination..."
+                placeholder="Search routes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+              {searchLoading ? <RefreshCw size={16} className="rs-icon-spin" /> : <Search size={16} />}
             </div>
 
-            <div className="control-group">
+            <div className="rs-filter-row">
               <select
-                className="control-dropdown"
+                className="rs-filter-select"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -802,11 +1244,9 @@ const RoutesWithSidebar: React.FC = () => {
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
-            </div>
 
-            <div className="control-group">
               <select
-                className="control-dropdown"
+                className="rs-filter-select"
                 value={workspaceFilter}
                 onChange={(e) => setWorkspaceFilter(e.target.value)}
               >
@@ -821,89 +1261,98 @@ const RoutesWithSidebar: React.FC = () => {
           </div>
 
           {/* Routes List */}
-          <div className="routes-list">
+          <div className="rs-routes-list">
             {filteredRoutes.map((route) => (
               <div
                 key={route.id || route.link}
-                className={`route-item ${selectedRoute?.id === route.id ? 'selected' : ''}`}
+                className={`rs-route-card ${selectedRoute?.id === route.id ? 'selected' : ''}`}
                 onClick={() => handleSelectRoute(route)}
               >
-                <div className="route-info">
-                  <div className="route-link">{route.link}</div>
-                  {route.domain?.name && (
-                    <div className="route-domain-name" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      {route.domain.name}
-                    </div>
-                  )}
-                  <div className="route-destination">
-                    {route.dest.length > 30 ? `${route.dest.substring(0, 30)}...` : route.dest}
+                <div className="rs-route-header">
+                  <div>
+                    <div className="rs-route-link">{route.link}</div>
+                    {route.domain?.name && (
+                      <div className="rs-route-domain">{route.domain.name}</div>
+                    )}
                   </div>
-                  <div className="route-meta">
-                    <span className={`route-status ${route.status.toLowerCase()}`}>
+                </div>
+
+                <div className="rs-route-dest">
+                  {route.dest.length > 40 ? `${route.dest.substring(0, 40)}...` : route.dest}
+                </div>
+
+                <div className="rs-route-footer">
+                  <div className="rs-route-tags">
+                    <span className={`rs-route-tag ${route.status.toLowerCase()}`}>
                       {route.status}
                     </span>
-                    {route.policy && (
-                      <span className={`table-status-badge ${getPolicyBadgeClass(getPolicyType(route.policy))}`}>
+                    {route.policy && getPolicyType(route.policy) !== 'Basic' && (
+                      <span className="rs-route-tag policy">
                         {getPolicyType(route.policy)}
                       </span>
                     )}
-                    {route.code > 0 && <span className="route-code">{route.code}</span>}
+                    {route.code > 0 && (
+                      <span className="rs-route-tag code">{route.code}</span>
+                    )}
                   </div>
-                </div>
-                <div className="route-actions">
-                  <button
-                    className="action-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditRoute(route);
-                    }}
-                    title="Edit route"
-                  >
-                    <Edit size={14} />
-                  </button>
-                  <button
-                    className="action-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteRoute(route);
-                    }}
-                    title="Delete route"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+
+                  <div className="rs-route-actions">
+                    <button
+                      className="rs-action-btn edit"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditRoute(route);
+                      }}
+                      title="Edit route"
+                    >
+                      <Edit size={14} />
+                    </button>
+                    <button
+                      className="rs-action-btn delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteRoute(route);
+                      }}
+                      title="Delete route"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
 
             {filteredRoutes.length === 0 && (
-              <div className="empty-state">
-                <BarChart3 size={32} />
-                <p>No routes found</p>
-                <small>
-                  {searchTerm ? 'No routes match your search criteria.' : 'Create your first route to get started.'}
-                </small>
+              <div className="rs-empty-list">
+                <div className="rs-empty-list-icon">
+                  <BarChart3 />
+                </div>
+                <h3 className="rs-empty-list-title">No routes found</h3>
+                <p className="rs-empty-list-desc">
+                  {searchTerm ? 'Try adjusting your search or filters.' : 'Create your first route to get started.'}
+                </p>
               </div>
             )}
           </div>
-        </div>
 
-        <div className="sidebar-footer">
-          <div className="footer-stats">
-            <div className="stat-item">
-              <span className="stat-label">{searchResults !== null ? 'Results' : 'Total Routes'}</span>
-              <span className="stat-value">{filteredRoutes.length}</span>
+          {/* Footer */}
+          <div className="rs-sidebar-footer">
+            <div className="rs-footer-stats">
+              <div className="rs-footer-stat">
+                <div className="rs-footer-stat-value">{filteredRoutes.length}</div>
+                <div className="rs-footer-stat-label">{searchResults !== null ? 'Results' : 'Total'}</div>
+              </div>
+              <div className="rs-footer-stat">
+                <div className="rs-footer-stat-value">{filteredRoutes.filter(r => r.status.toLowerCase() === 'active').length}</div>
+                <div className="rs-footer-stat-label">Active</div>
+              </div>
             </div>
-            <div className="stat-item">
-              <span className="stat-label">Active</span>
-              <span className="stat-value">{filteredRoutes.filter(r => r.status.toLowerCase() === 'active').length}</span>
-            </div>
+            <button className="rs-create-btn" onClick={handleCreateRoute}>
+              <Plus />
+              Create Route
+            </button>
           </div>
-          <button className="btn btn-primary w-100" onClick={handleCreateRoute}>
-            <Plus size={16} />
-            Create Route
-          </button>
         </div>
-      </div>
 
       {/* Main Content */}
       <div className="main-content">
