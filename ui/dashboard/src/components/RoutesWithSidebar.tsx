@@ -32,7 +32,398 @@ import WorldMap from './WorldMap';
 import RouteForm from './RouteForm';
 import './DesignSystem.css';
 
-// Shared chart constants and helpers (matching DashboardUnified)
+// Route Stats Styles - matching DashboardUnified
+const routeStatsStyles = `
+/* ===== ROUTE STATS STYLES (matching Dashboard) ===== */
+
+/* Stats Grid - 4 columns for route stats */
+.rs-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 1200px) {
+  .rs-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .rs-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rs-stat-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all var(--transition-normal);
+}
+
+.rs-stat-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-secondary);
+}
+
+.rs-stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rs-stat-icon svg {
+  width: 22px;
+  height: 22px;
+  color: #fff;
+}
+
+.rs-stat-icon.primary { background: var(--color-primary); }
+.rs-stat-icon.success { background: var(--color-success); }
+.rs-stat-icon.warning { background: var(--color-warning); }
+.rs-stat-icon.error { background: var(--color-error); }
+.rs-stat-icon.info { background: #8b5cf6; }
+
+.rs-stat-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.rs-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-bottom: 0.125rem;
+}
+
+.rs-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Date Range Buttons */
+.rs-range-group {
+  display: inline-flex;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.rs-range-btn {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+
+.rs-range-btn:not(:last-child) {
+  border-right: 1px solid var(--border-secondary);
+}
+
+.rs-range-btn:hover:not(.active) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.rs-range-btn.active {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+/* Chart Card */
+.rs-chart-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.rs-chart-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.rs-chart-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rs-chart-title svg {
+  color: var(--color-primary);
+}
+
+.rs-chart-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.rs-chart-body {
+  padding: 1.25rem;
+}
+
+/* Tooltip */
+.rs-tooltip {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  box-shadow: var(--shadow-lg);
+}
+
+.rs-tooltip-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.rs-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  font-size: 0.8125rem;
+}
+
+.rs-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rs-tooltip-name {
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.rs-tooltip-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Pie Legend */
+.rs-pie-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.rs-pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+}
+
+.rs-pie-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rs-pie-legend-label {
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+/* Country List */
+.rs-country-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rs-country-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.rs-country-rank {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.rs-country-name {
+  flex: 1;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rs-country-bar-wrap {
+  flex: 1;
+  max-width: 120px;
+}
+
+.rs-country-bar {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.rs-country-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 3px;
+  transition: width var(--transition-normal);
+}
+
+.rs-country-value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 50px;
+  text-align: right;
+}
+
+.rs-country-pct {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  min-width: 40px;
+  text-align: right;
+}
+
+/* Section Grid */
+.rs-section {
+  margin-bottom: 1.5rem;
+}
+
+.rs-section-row {
+  display: grid;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.rs-section-row.two-cols {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.rs-section-row.three-cols {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 1024px) {
+  .rs-section-row.two-cols,
+  .rs-section-row.three-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Refreshing indicator */
+.rs-refreshing {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-lg);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Empty State */
+.rs-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.rs-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.rs-empty-icon svg {
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+}
+
+.rs-empty p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Spin animation */
+@keyframes rs-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.rs-icon-spin {
+  animation: rs-spin 1s linear infinite;
+}
+`;
 
 const CHART_COLORS = [
   'var(--primary-500)',
@@ -56,17 +447,17 @@ const formatAxisNumber = (value: number): string => {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="dashboard-tooltip">
+    <div className="rs-tooltip">
       {label != null && label !== '' && (
-        <div className="dashboard-tooltip-label">{label}</div>
+        <div className="rs-tooltip-label">{label}</div>
       )}
       {payload.map((entry: any, i: number) => {
         const percent = entry.payload?.percent;
         return (
-          <div key={i} className="dashboard-tooltip-row">
-            <span className="dashboard-tooltip-dot" style={{ backgroundColor: entry.color || entry.fill }} />
-            <span className="dashboard-tooltip-name">{entry.name}</span>
-            <span className="dashboard-tooltip-value">
+          <div key={i} className="rs-tooltip-row">
+            <span className="rs-tooltip-dot" style={{ backgroundColor: entry.color || entry.fill }} />
+            <span className="rs-tooltip-name">{entry.name}</span>
+            <span className="rs-tooltip-value">
               {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
               {percent != null && ` (${(percent * 100).toFixed(1)}%)`}
             </span>
@@ -78,11 +469,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const PieLegend: React.FC<{ items: { name: string; color: string }[] }> = ({ items }) => (
-  <div className="dashboard-pie-legend">
+  <div className="rs-pie-legend">
     {items.slice(0, 6).map((item, i) => (
-      <div key={i} className="dashboard-pie-legend-item">
-        <span className="dashboard-pie-legend-dot" style={{ backgroundColor: item.color }} />
-        <span className="dashboard-pie-legend-label">{item.name}</span>
+      <div key={i} className="rs-pie-legend-item">
+        <span className="rs-pie-legend-dot" style={{ backgroundColor: item.color }} />
+        <span className="rs-pie-legend-label">{item.name}</span>
       </div>
     ))}
   </div>
@@ -383,8 +774,10 @@ const RoutesWithSidebar: React.FC = () => {
     : null;
 
   return (
-    <div className={`routes-with-sidebar ${isEditing ? 'editing' : ''}`}>
-      {/* Sidebar */}
+    <>
+      <style>{routeStatsStyles}</style>
+      <div className={`routes-with-sidebar ${isEditing ? 'editing' : ''}`}>
+        {/* Sidebar */}
       <div className="routes-sidebar">
         <div className="sidebar-content">
           {/* Search and Filters */}
@@ -553,16 +946,16 @@ const RoutesWithSidebar: React.FC = () => {
                     Edit Route
                   </button>
 
-                  <div className="dashboard-date-range">
+                  <div className="rs-range-group">
                     {[
-                      { value: '24h', label: '24h' },
-                      { value: '7d', label: '7d' },
-                      { value: '30d', label: '30d' },
-                      { value: '90d', label: '90d' },
+                      { value: '24h', label: '24H' },
+                      { value: '7d', label: '7D' },
+                      { value: '30d', label: '30D' },
+                      { value: '90d', label: '90D' },
                     ].map((option) => (
                       <button
                         key={option.value}
-                        className={`dashboard-date-btn ${timeRange === option.value ? 'active' : ''}`}
+                        className={`rs-range-btn ${timeRange === option.value ? 'active' : ''}`}
                         onClick={() => setTimeRange(option.value)}
                       >
                         {option.label}
@@ -576,7 +969,7 @@ const RoutesWithSidebar: React.FC = () => {
                     disabled={analyticsLoading}
                     title="Refresh analytics"
                   >
-                    <RefreshCw size={14} className={analyticsLoading ? 'icon-spin' : ''} />
+                    <RefreshCw size={14} className={analyticsLoading ? 'rs-icon-spin' : ''} />
                   </button>
                 </div>
               </div>
@@ -592,37 +985,71 @@ const RoutesWithSidebar: React.FC = () => {
               <div className="route-analytics-body">
                 {/* Refreshing indicator */}
                 {analyticsLoading && (
-                  <div className="dashboard-refreshing">Updating...</div>
+                  <div className="rs-refreshing">
+                    <RefreshCw size={14} className="rs-icon-spin" />
+                    Updating...
+                  </div>
                 )}
 
-                {/* Stats Cards */}
-                <div className="route-analytics-stats">
-                  {[
-                    { icon: MousePointer, value: analytics.totalClicks, label: 'Total Clicks', color: 'var(--primary-500)' },
-                    { icon: Users, value: analytics.uniqueVisitors, label: 'Unique Visitors', color: 'var(--success-500)' },
-                    { icon: Activity, value: analytics.humanClicks, label: humanRate ? `Human (${humanRate})` : 'Human', color: 'var(--success-600)' },
-                    { icon: Bot, value: analytics.botClicks, label: botRate ? `Bot (${botRate})` : 'Bot', color: 'var(--error-500)' },
-                  ].map((stat, idx) => (
-                    <div key={idx} className="card dashboard-stat-card">
-                      <div className="dashboard-stat-icon" style={{ color: stat.color }}>
-                        <stat.icon size={20} />
-                      </div>
-                      <div>
-                        <div className="dashboard-stat-value">
-                          {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value || '0'}
-                        </div>
-                        <div className="dashboard-stat-label">{stat.label}</div>
-                      </div>
+                {/* Stats Cards - same style as dashboard */}
+                <div className="rs-stats-grid">
+                  <div className="rs-stat-card">
+                    <div className="rs-stat-icon primary">
+                      <MousePointer size={22} />
                     </div>
-                  ))}
+                    <div className="rs-stat-content">
+                      <div className="rs-stat-value">
+                        {typeof analytics.totalClicks === 'number' ? analytics.totalClicks.toLocaleString() : analytics.totalClicks || '0'}
+                      </div>
+                      <div className="rs-stat-label">Total Clicks</div>
+                    </div>
+                  </div>
+                  <div className="rs-stat-card">
+                    <div className="rs-stat-icon success">
+                      <Users size={22} />
+                    </div>
+                    <div className="rs-stat-content">
+                      <div className="rs-stat-value">
+                        {typeof analytics.uniqueVisitors === 'number' ? analytics.uniqueVisitors.toLocaleString() : analytics.uniqueVisitors || '0'}
+                      </div>
+                      <div className="rs-stat-label">Unique Visitors</div>
+                    </div>
+                  </div>
+                  <div className="rs-stat-card">
+                    <div className="rs-stat-icon info">
+                      <Activity size={22} />
+                    </div>
+                    <div className="rs-stat-content">
+                      <div className="rs-stat-value">
+                        {typeof analytics.humanClicks === 'number' ? analytics.humanClicks.toLocaleString() : analytics.humanClicks || '0'}
+                      </div>
+                      <div className="rs-stat-label">{humanRate ? `Human (${humanRate})` : 'Human'}</div>
+                    </div>
+                  </div>
+                  <div className="rs-stat-card">
+                    <div className="rs-stat-icon error">
+                      <Bot size={22} />
+                    </div>
+                    <div className="rs-stat-content">
+                      <div className="rs-stat-value">
+                        {typeof analytics.botClicks === 'number' ? analytics.botClicks.toLocaleString() : analytics.botClicks || '0'}
+                      </div>
+                      <div className="rs-stat-label">{botRate ? `Bot (${botRate})` : 'Bot'}</div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Daily Clicks - Full Width Area Chart */}
-                <div className="dashboard-section">
-                  <div className="card dashboard-chart-card">
-                    <h3 className="dashboard-chart-title">Clicks Over Time</h3>
-                    <p className="dashboard-chart-desc">Daily click trends for this route</p>
-                    <div style={{ height: '280px' }}>
+                <div className="rs-section">
+                  <div className="rs-chart-card">
+                    <div className="rs-chart-header">
+                      <h3 className="rs-chart-title">
+                        <BarChart3 size={16} />
+                        Clicks Over Time
+                      </h3>
+                      <p className="rs-chart-desc">Daily click trends for this route</p>
+                    </div>
+                    <div className="rs-chart-body" style={{ height: '280px' }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={analytics.dailyClicks}>
                           <defs>
@@ -665,41 +1092,52 @@ const RoutesWithSidebar: React.FC = () => {
                 </div>
 
                 {/* Geographic Section */}
-                <div className="dashboard-section route-analytics-geo">
-                  <div className="card dashboard-chart-card">
-                    <h3 className="dashboard-chart-title">
-                      <Globe size={16} style={{ color: 'var(--primary-500)' }} />
-                      Geographic Distribution
-                    </h3>
-                    <p className="dashboard-chart-desc">Hover to see details</p>
-                    <div style={{ height: '300px' }}>
+                <div className="rs-section-row two-cols">
+                  <div className="rs-chart-card">
+                    <div className="rs-chart-header">
+                      <h3 className="rs-chart-title">
+                        <Globe size={16} />
+                        Geographic Distribution
+                      </h3>
+                      <p className="rs-chart-desc">Hover to see details</p>
+                    </div>
+                    <div className="rs-chart-body" style={{ height: '300px' }}>
                       <WorldMap data={analytics.topCountries} height={300} />
                     </div>
                   </div>
-                  <div className="card dashboard-chart-card">
-                    <h3 className="dashboard-chart-title">Top Countries</h3>
-                    <p className="dashboard-chart-desc">By click volume</p>
-                    <div className="route-analytics-countries">
+                  <div className="rs-chart-card">
+                    <div className="rs-chart-header">
+                      <h3 className="rs-chart-title">
+                        <Globe size={16} />
+                        Top Countries
+                      </h3>
+                      <p className="rs-chart-desc">By click volume</p>
+                    </div>
+                    <div className="rs-chart-body">
                       {analytics.topCountries.length > 0 ? (
-                        analytics.topCountries.map((country: any, index: number) => (
-                          <div key={country.name} className="ra-country-row">
-                            <span className="ra-country-rank">{index + 1}</span>
-                            <span className="ra-country-name">{country.name}</span>
-                            <div className="ra-country-bar-wrap">
-                              <div className="ra-country-bar">
-                                <div
-                                  className="ra-country-bar-fill"
-                                  style={{ width: `${country.percentage || 0}%` }}
-                                />
+                        <div className="rs-country-list">
+                          {analytics.topCountries.map((country: any, index: number) => (
+                            <div key={country.name} className="rs-country-row">
+                              <span className="rs-country-rank">{index + 1}</span>
+                              <span className="rs-country-name">{country.name}</span>
+                              <div className="rs-country-bar-wrap">
+                                <div className="rs-country-bar">
+                                  <div
+                                    className="rs-country-bar-fill"
+                                    style={{ width: `${country.percentage || 0}%` }}
+                                  />
+                                </div>
                               </div>
+                              <span className="rs-country-value">{(country.clicks || 0).toLocaleString()}</span>
+                              <span className="rs-country-pct">{country.percentage || 0}%</span>
                             </div>
-                            <span className="ra-country-value">{(country.clicks || 0).toLocaleString()}</span>
-                            <span className="ra-country-pct">{country.percentage || 0}%</span>
-                          </div>
-                        ))
+                          ))}
+                        </div>
                       ) : (
-                        <div className="dashboard-empty-state" style={{ padding: '2rem 0' }}>
-                          <Globe size={28} style={{ opacity: 0.4 }} />
+                        <div className="rs-empty">
+                          <div className="rs-empty-icon">
+                            <Globe />
+                          </div>
                           <p>No geographic data</p>
                         </div>
                       )}
@@ -708,12 +1146,17 @@ const RoutesWithSidebar: React.FC = () => {
                 </div>
 
                 {/* Distribution Section */}
-                <div className="dashboard-section route-analytics-distribution">
+                <div className="rs-section-row three-cols">
                   {/* Browser Distribution - Pie Chart */}
-                  <div className="card dashboard-chart-card">
-                    <h3 className="dashboard-chart-title">Browsers</h3>
-                    <p className="dashboard-chart-desc">By browser</p>
-                    <div style={{ height: '200px' }}>
+                  <div className="rs-chart-card">
+                    <div className="rs-chart-header">
+                      <h3 className="rs-chart-title">
+                        <Globe size={16} />
+                        Browsers
+                      </h3>
+                      <p className="rs-chart-desc">By browser</p>
+                    </div>
+                    <div className="rs-chart-body" style={{ height: '200px' }}>
                       {analytics.topBrowsers.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
@@ -737,8 +1180,10 @@ const RoutesWithSidebar: React.FC = () => {
                           </PieChart>
                         </ResponsiveContainer>
                       ) : (
-                        <div className="dashboard-empty-state">
-                          <Activity size={28} style={{ opacity: 0.4 }} />
+                        <div className="rs-empty">
+                          <div className="rs-empty-icon">
+                            <Activity />
+                          </div>
                           <p>No browser data</p>
                         </div>
                       )}
@@ -754,10 +1199,15 @@ const RoutesWithSidebar: React.FC = () => {
                   </div>
 
                   {/* Device Distribution - Pie Chart */}
-                  <div className="card dashboard-chart-card">
-                    <h3 className="dashboard-chart-title">Devices</h3>
-                    <p className="dashboard-chart-desc">By device type</p>
-                    <div style={{ height: '200px' }}>
+                  <div className="rs-chart-card">
+                    <div className="rs-chart-header">
+                      <h3 className="rs-chart-title">
+                        <Activity size={16} />
+                        Devices
+                      </h3>
+                      <p className="rs-chart-desc">By device type</p>
+                    </div>
+                    <div className="rs-chart-body" style={{ height: '200px' }}>
                       {analytics.topDevices.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
@@ -781,8 +1231,10 @@ const RoutesWithSidebar: React.FC = () => {
                           </PieChart>
                         </ResponsiveContainer>
                       ) : (
-                        <div className="dashboard-empty-state">
-                          <Activity size={28} style={{ opacity: 0.4 }} />
+                        <div className="rs-empty">
+                          <div className="rs-empty-icon">
+                            <Activity />
+                          </div>
                           <p>No device data</p>
                         </div>
                       )}
@@ -798,10 +1250,15 @@ const RoutesWithSidebar: React.FC = () => {
                   </div>
 
                   {/* Traffic Type - Pie Chart */}
-                  <div className="card dashboard-chart-card">
-                    <h3 className="dashboard-chart-title">Traffic Type</h3>
-                    <p className="dashboard-chart-desc">Bot vs Human</p>
-                    <div style={{ height: '200px' }}>
+                  <div className="rs-chart-card">
+                    <div className="rs-chart-header">
+                      <h3 className="rs-chart-title">
+                        <Activity size={16} />
+                        Traffic Type
+                      </h3>
+                      <p className="rs-chart-desc">Bot vs Human</p>
+                    </div>
+                    <div className="rs-chart-body" style={{ height: '200px' }}>
                       {analytics.trafficType.some((t: any) => t.value > 0) ? (
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
@@ -825,8 +1282,10 @@ const RoutesWithSidebar: React.FC = () => {
                           </PieChart>
                         </ResponsiveContainer>
                       ) : (
-                        <div className="dashboard-empty-state">
-                          <Activity size={28} style={{ opacity: 0.4 }} />
+                        <div className="rs-empty">
+                          <div className="rs-empty-icon">
+                            <Activity />
+                          </div>
                           <p>No traffic data</p>
                         </div>
                       )}
@@ -891,7 +1350,8 @@ const RoutesWithSidebar: React.FC = () => {
         )}
       </div>
 
-    </div>
+      </div>
+    </>
   );
 };
 

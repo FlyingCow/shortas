@@ -4708,6 +4708,85 @@ body {
   margin-top: 2px;
 }
 
+/* Dashboard-style stats grid (shared by Dashboard and Route Analytics) */
+.db-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 1200px) {
+  .db-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .db-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.db-stat-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all var(--transition-normal);
+}
+
+.db-stat-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-secondary);
+}
+
+.db-stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.db-stat-icon svg {
+  width: 22px;
+  height: 22px;
+  color: #fff;
+}
+
+.db-stat-icon.primary { background: var(--color-primary); }
+.db-stat-icon.success { background: var(--color-success); }
+.db-stat-icon.warning { background: var(--color-warning); }
+.db-stat-icon.error { background: var(--color-error); }
+.db-stat-icon.info { background: #8b5cf6; }
+
+.db-stat-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.db-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-bottom: 0.125rem;
+}
+
+.db-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 /* Chart Cards */
 
 .dashboard-section {
