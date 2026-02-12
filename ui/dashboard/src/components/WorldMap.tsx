@@ -77,9 +77,51 @@ const API_TO_TOPO: Record<string, string> = {
   'viet nam': 'vietnam',
 };
 
+// ISO 3166-1 alpha-2 (2-letter) codes to topology names (lowercase).
+// Pipeline stores country as ISO code; topology uses full names — map so the map can match.
+// ISO 3166-1 alpha-2 to topology name (lowercase). Topology uses Natural Earth world-110m names.
+const ISO_TO_TOPOLOGY: Record<string, string> = {
+  ad: 'andorra', ae: 'united arab emirates', af: 'afghanistan', al: 'albania', am: 'armenia', ao: 'angola',
+  aq: 'antarctica', ar: 'argentina', at: 'austria', au: 'australia', az: 'azerbaijan', ba: 'bosnia and herz.',
+  bd: 'bangladesh', be: 'belgium', bf: 'burkina faso', bg: 'bulgaria', bh: 'bhutan', bi: 'burundi', bj: 'benin',
+  bn: 'brunei', bo: 'bolivia', br: 'brazil', bs: 'bahamas', bt: 'bhutan', bw: 'botswana', by: 'belarus',
+  bz: 'belize', ca: 'canada', cd: 'dem. rep. congo', cf: 'central african rep.', cg: 'congo', ch: 'switzerland',
+  ci: "côte d'ivoire", cl: 'chile', cm: 'cameroon', cn: 'china', co: 'colombia', cr: 'costa rica', cu: 'cuba',
+  cz: 'czechia', de: 'germany', dj: 'djibouti', dk: 'denmark', do: 'dominican rep.', dz: 'algeria',
+  ec: 'ecuador', ee: 'estonia', eg: 'egypt', eh: 'w. sahara', er: 'eritrea', es: 'spain', et: 'ethiopia',
+  fi: 'finland', fj: 'fiji', fr: 'france', ga: 'gabon', gb: 'united kingdom', ge: 'georgia', gh: 'ghana',
+  gm: 'gambia', gn: 'guinea', gq: 'eq. guinea', gr: 'greece', gt: 'guatemala', gw: 'guinea-bissau',
+  gy: 'guyana', hn: 'honduras', hr: 'croatia', ht: 'haiti', hu: 'hungary', id: 'indonesia', ie: 'ireland',
+  il: 'israel', in: 'india', iq: 'iraq', ir: 'iran', is: 'iceland', it: 'italy', jm: 'jamaica', jo: 'jordan',
+  jp: 'japan', ke: 'kenya', kg: 'kyrgyzstan', kh: 'cambodia', kp: 'north korea', kr: 'south korea',
+  kw: 'kuwait', kz: 'kazakhstan', la: 'laos', lb: 'lebanon', lk: 'sri lanka', lr: 'liberia', ls: 'lesotho',
+  lt: 'lithuania', lu: 'luxembourg', lv: 'latvia', ly: 'libya', ma: 'morocco', md: 'moldova', me: 'montenegro',
+  mg: 'madagascar', mk: 'macedonia', ml: 'mali', mm: 'myanmar', mn: 'mongolia', mr: 'mauritania', mt: 'malta',
+  mw: 'malawi', mx: 'mexico', my: 'malaysia', mz: 'mozambique', na: 'namibia', ne: 'niger', ng: 'nigeria',
+  ni: 'nicaragua', nl: 'netherlands', no: 'norway', np: 'nepal', nz: 'new zealand', om: 'oman', pa: 'panama',
+  pe: 'peru', pg: 'papua new guinea', ph: 'philippines', pk: 'pakistan', pl: 'poland', pt: 'portugal',
+  pr: 'puerto rico', ps: 'palestine', py: 'paraguay', qa: 'qatar', ro: 'romania', rs: 'serbia', ru: 'russia',
+  rw: 'rwanda', sa: 'saudi arabia', sb: 'solomon is.', sd: 'sudan', se: 'sweden', si: 'slovenia', sk: 'slovakia',
+  sl: 'sierra leone', sn: 'senegal', so: 'somalia', sr: 'suriname', ss: 's. sudan', sv: 'el salvador',
+  sy: 'syria', sz: 'eswatini', td: 'chad', tg: 'togo', th: 'thailand', tj: 'tajikistan', tl: 'timor-leste',
+  tm: 'turkmenistan', tn: 'tunisia', tr: 'turkey', tt: 'trinidad and tobago', tz: 'tanzania', ua: 'ukraine',
+  ug: 'uganda', us: 'united states of america', uy: 'uruguay', uz: 'uzbekistan', ve: 'venezuela',
+  vn: 'vietnam', vu: 'vanuatu', ye: 'yemen', za: 'south africa', zm: 'zambia', zw: 'zimbabwe',
+};
+
 function normalizeCountry(name: string): string {
   const lower = name.toLowerCase().trim();
   return API_TO_TOPO[lower] || lower;
+}
+
+/** Key for map lookup: topology name (lowercase). Resolves ISO codes so map and chart data match. */
+function dataKeyForTopology(item: CountryData): string {
+  const name = item.name.trim();
+  if (name.length === 2) {
+    const topo = ISO_TO_TOPOLOGY[name.toLowerCase()];
+    if (topo) return topo;
+  }
+  return normalizeCountry(item.name);
 }
 
 const WorldMap: React.FC<WorldMapProps> = ({ data, height = 400 }) => {
@@ -87,9 +129,9 @@ const WorldMap: React.FC<WorldMapProps> = ({ data, height = 400 }) => {
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Normalize API country names to match topology file names
+  // Key by topology name (lowercase) so geography lookups match. Resolves ISO codes from API.
   const countryDataMap = useMemo(
-    () => new Map(data.map(item => [normalizeCountry(item.name), item])),
+    () => new Map(data.map(item => [dataKeyForTopology(item), item])),
     [data]
   );
 

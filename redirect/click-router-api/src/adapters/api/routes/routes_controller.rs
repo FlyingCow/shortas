@@ -884,12 +884,24 @@ pub async fn update_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
         }
     };
 
-    // Build the updated route, preserving switch/link from the existing record
+    // Build the updated route, preserving switch/link and identity from the existing record
     let mut route: Route = route_dto.into();
     route.switch = existing.switch;
     route.link = existing.link.clone();
-    // Ensure route_id is preserved
+    // Preserve route_id and ownership so cache invalidation and redirect stats keep working
     route.properties.route_id = Some(route_id.clone());
+    if route.properties.owner_id.is_none() {
+        route.properties.owner_id = existing.properties.owner_id.clone();
+    }
+    if route.properties.creator_id.is_none() {
+        route.properties.creator_id = existing.properties.creator_id.clone();
+    }
+    if route.properties.workspace_id.is_none() {
+        route.properties.workspace_id = existing.properties.workspace_id.clone();
+    }
+    if route.properties.domain_id.is_none() {
+        route.properties.domain_id = existing.properties.domain_id.clone();
+    }
 
     let is_conditional = route.is_conditional();
 
