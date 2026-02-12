@@ -155,12 +155,16 @@ async fn run_consumer(
                 match delivery {
                     Ok(delivery) => {
                         if let Ok(msg) = serde_json::from_slice::<RouteChangedMessage>(&delivery.data) {
-                            info!(
-                                "Cache invalidation: route {:?} switch={} link={}",
-                                msg.action, msg.switch, msg.link
-                            );
-                            if let Err(e) = routes_cache.invalidate(&msg.switch, &msg.link).await {
-                                warn!("Failed to invalidate route cache: {}", e);
+                            if let Some((switch, link)) = msg.switch_link() {
+                                info!(
+                                    "Cache invalidation: route {:?} route_id={} switch={} link={}",
+                                    msg.action, msg.route_id, switch, link
+                                );
+                                if let Err(e) = routes_cache.invalidate(&switch, &link).await {
+                                    warn!("Failed to invalidate route cache: {}", e);
+                                }
+                            } else {
+                                warn!("Route changed message missing switch/link in public payload");
                             }
                         } else {
                             warn!("Failed to deserialize route changed message");

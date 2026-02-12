@@ -382,11 +382,10 @@ pub async fn delete_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
                 Ok(_) => {
                     if let Some(ref publisher) = app_state.rabbitmq_publisher {
                         publisher
-                            .publish_route_changed(&RouteChangedMessage {
-                                switch: route_to_delete.switch.clone(),
-                                link: route_to_delete.link.clone(),
-                                action: ChangeAction::Deleted,
-                            })
+                            .publish_route_changed(&RouteChangedMessage::from_route(
+                                &route_to_delete,
+                                ChangeAction::Deleted,
+                            ))
                             .await;
                     }
                     res.status_code(StatusCode::OK);
@@ -497,11 +496,10 @@ pub async fn bulk_create_routes(req: &mut Request, depot: &mut Depot, res: &mut 
             Ok(_) => {
                 if let Some(ref publisher) = app_state.rabbitmq_publisher {
                     publisher
-                        .publish_route_changed(&RouteChangedMessage {
-                            switch: route.switch.clone(),
-                            link: route.link.clone(),
-                            action: ChangeAction::Created,
-                        })
+                        .publish_route_changed(&RouteChangedMessage::from_route(
+                            &route,
+                            ChangeAction::Created,
+                        ))
                         .await;
                 }
                 created_routes.push(RouteDto::from(route));
@@ -607,11 +605,10 @@ pub async fn bulk_update_routes(req: &mut Request, depot: &mut Depot, res: &mut 
             Ok(_) => {
                 if let Some(ref publisher) = app_state.rabbitmq_publisher {
                     publisher
-                        .publish_route_changed(&RouteChangedMessage {
-                            switch: route.switch.clone(),
-                            link: route.link.clone(),
-                            action: ChangeAction::Updated,
-                        })
+                        .publish_route_changed(&RouteChangedMessage::from_route(
+                            &route,
+                            ChangeAction::Updated,
+                        ))
                         .await;
                 }
                 updated_routes.push(RouteDto::from(route));
@@ -731,11 +728,10 @@ pub async fn bulk_delete_routes(req: &mut Request, depot: &mut Depot, res: &mut 
                     Ok(_) => {
                         if let Some(ref publisher) = app_state.rabbitmq_publisher {
                             publisher
-                                .publish_route_changed(&RouteChangedMessage {
-                                    switch: route_to_delete.switch.clone(),
-                                    link: route_to_delete.link.clone(),
-                                    action: ChangeAction::Deleted,
-                                })
+                                .publish_route_changed(&RouteChangedMessage::from_route(
+                                    &route_to_delete,
+                                    ChangeAction::Deleted,
+                                ))
                                 .await;
                         }
                         deleted_routes.push(serde_json::json!({

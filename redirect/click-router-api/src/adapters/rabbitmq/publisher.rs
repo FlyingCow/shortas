@@ -94,12 +94,8 @@ impl RabbitMqPublisher {
         action: super::messages::ChangeAction,
     ) {
         for route in routes {
-            self.publish_route_changed(&RouteChangedMessage {
-                switch: route.switch.clone(),
-                link: route.link.clone(),
-                action: action.clone(),
-            })
-            .await;
+            self.publish_route_changed(&RouteChangedMessage::from_route(route, action.clone()))
+                .await;
         }
     }
 
