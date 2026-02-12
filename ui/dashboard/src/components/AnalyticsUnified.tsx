@@ -26,6 +26,7 @@ import {
   Target
 } from 'lucide-react';
 import { apiService, ClickAnalytics, RoutePerformanceDto } from '../services/api';
+import { getCountryDisplayName } from '../utils/countries';
 import LoadingSpinner from './LoadingSpinner';
 import WorldMap from './WorldMap';
 import './DesignSystem.css';
@@ -688,7 +689,7 @@ const Analytics: React.FC = () => {
           clicks: stat.total_clicks,
         })),
         clicks_by_country: geographicStats.slice(0, 10).map(stat => ({
-          country: stat.country,
+          country: getCountryDisplayName(stat.country) || stat.country,
           clicks: stat.total_clicks,
         })),
         clicks_by_browser: browserStats.slice(0, 8).map(stat => ({

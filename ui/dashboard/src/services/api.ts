@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { getToken, updateToken, isAuthenticated, isInitialized } from '../config/keycloak';
 import { useMockData, mockAnalytics, mockRoutes, mockUserSettings } from '../config/development';
+import { getCountryDisplayName } from '../utils/countries';
 
 // API base URLs
 const PROXY_API_URL = process.env.REACT_APP_PROXY_API_URL || 'http://localhost:8090';
@@ -511,7 +512,14 @@ export const apiService = {
       const response = await aggregatorApi.get('/analytics/overview', {
         params: dateRange,
       });
-      return response.data;
+      const data = response.data as ClickAnalytics;
+      if (data.clicks_by_country?.length) {
+        data.clicks_by_country = data.clicks_by_country.map((c: { country: string; clicks: number }) => ({
+          ...c,
+          country: getCountryDisplayName(c.country) || c.country,
+        }));
+      }
+      return data;
     },
     
     getRouteAnalytics: async (routeId: string, dateRange?: { start: string; end: string }) => {

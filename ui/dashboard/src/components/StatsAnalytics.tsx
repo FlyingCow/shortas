@@ -36,6 +36,7 @@ import {
   RoutePerformanceDto,
   TrafficTypeStatsDto
 } from '../services/api';
+import { getCountryDisplayName } from '../utils/countries';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
@@ -641,7 +642,7 @@ const StatsAnalytics: React.FC = () => {
   }));
 
   const geographicChartData = geographicStats.map(stat => ({
-    name: stat.country,
+    name: getCountryDisplayName(stat.country) || stat.country,
     clicks: stat.total_clicks,
     unique: stat.unique_clicks,
   }));

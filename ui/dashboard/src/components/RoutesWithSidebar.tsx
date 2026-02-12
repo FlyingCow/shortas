@@ -27,6 +27,7 @@ import {
   CartesianGrid
 } from 'recharts';
 import { apiService, RouteDto, RoutingPolicy, DomainDto, RouteSearchResult } from '../services/api';
+import { getCountryDisplayName } from '../utils/countries';
 import LoadingSpinner from './LoadingSpinner';
 import WorldMap from './WorldMap';
 import RouteForm from './RouteForm';
@@ -1127,7 +1128,7 @@ const RoutesWithSidebar: React.FC = () => {
             ? (stat.total_clicks / totals.totalClicks) * 100
             : 0;
           return {
-            name: stat.country,
+            name: getCountryDisplayName(stat.country) || stat.country,
             clicks: stat.total_clicks,
             percentage: Math.round(percentage)
           };
