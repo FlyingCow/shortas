@@ -1177,6 +1177,7 @@ const Dashboard: React.FC = () => {
                 <table className="db-table">
                   <thead>
                     <tr>
+                      <th>Domain</th>
                       <th>Route</th>
                       <th>Clicks</th>
                       <th>Unique</th>
@@ -1189,8 +1190,11 @@ const Dashboard: React.FC = () => {
                   <tbody>
                     {routePerformance.slice(0, 5).map((route, index) => (
                       <tr key={index}>
-                        <td className="db-table-route">
-                          {route.route_id.substring(0, 8)}...
+                        <td>
+                          <span className="db-table-route">{route.route_domain_name ?? '—'}</span>
+                        </td>
+                        <td>
+                          <span className="db-table-route">{route.route_name ?? '—'}</span>
                         </td>
                         <td className="db-table-value">{route.total_clicks.toLocaleString()}</td>
                         <td>{route.unique_visitors.toLocaleString()}</td>

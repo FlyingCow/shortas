@@ -1056,8 +1056,8 @@ const Clickstream: React.FC = () => {
                 <thead>
                   <tr>
                     <th>Time</th>
-                    <th>Route</th>
                     <th>Domain</th>
+                    <th>Route</th>
                     <th>Destination</th>
                     <th>Location</th>
                     <th>Device</th>
@@ -1076,10 +1076,10 @@ const Clickstream: React.FC = () => {
                         </div>
                       </td>
                       <td>
-                        <span className="cs-cell-route">{event.routeName || '—'}</span>
+                        <span className="sa-table-route">{event.routeDomainName || '—'}</span>
                       </td>
                       <td>
-                        <span className="cs-cell-domain">{event.routeDomainName || '—'}</span>
+                        <span className="sa-table-route">{event.routeName || '—'}</span>
                       </td>
                       <td>
                         <div className="cs-cell-url" title={event.url}>

@@ -984,7 +984,8 @@ const StatsAnalytics: React.FC = () => {
                 <table className="sa-table">
                   <thead>
                     <tr>
-                      <th>Route ID</th>
+                      <th>Domain</th>
+                      <th>Route</th>
                       <th>Total Clicks</th>
                       <th>Unique Visitors</th>
                       <th>Human Clicks</th>
@@ -996,7 +997,8 @@ const StatsAnalytics: React.FC = () => {
                   <tbody>
                     {routePerformance.map((route, index) => (
                       <tr key={index}>
-                        <td className="sa-table-route">{route.route_id.substring(0, 8)}...</td>
+                        <td className="sa-table-route">{route.route_domain_name ?? '—'}</td>
+                        <td className="sa-table-route">{route.route_name ?? '—'}</td>
                         <td className="sa-table-value">{route.total_clicks.toLocaleString()}</td>
                         <td>{route.unique_visitors.toLocaleString()}</td>
                         <td className="sa-table-success">{route.human_clicks.toLocaleString()}</td>

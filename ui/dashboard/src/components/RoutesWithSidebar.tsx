@@ -10,7 +10,8 @@ import {
   Activity,
   Bot,
   Globe,
-  RefreshCw
+  RefreshCw,
+  Copy
 } from 'lucide-react';
 import {
   BarChart,
@@ -746,6 +747,16 @@ const routeStatsStyles = `
   color: var(--color-error);
 }
 
+.rs-action-btn.copy:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.rs-action-btn.copy.copied {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--color-success);
+}
+
 /* Empty State */
 .rs-empty-list {
   display: flex;
@@ -945,6 +956,7 @@ const RoutesWithSidebar: React.FC = () => {
   const [searchResults, setSearchResults] = useState<RouteDto[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const searchDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [copiedRouteId, setCopiedRouteId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRoutes();
@@ -1069,6 +1081,19 @@ const RoutesWithSidebar: React.FC = () => {
   const handleEditRoute = (route: RouteDto) => {
     setEditingRoute(route);
     setIsEditing(true);
+  };
+
+  const handleCopyRouteUrl = async (route: RouteDto, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const domain = route.domain?.name || 'example.com';
+    const url = `https://${domain}/${route.link}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedRouteId(route.id || null);
+      setTimeout(() => setCopiedRouteId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy URL:', err);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -1298,6 +1323,13 @@ const RoutesWithSidebar: React.FC = () => {
                   </div>
 
                   <div className="rs-route-actions">
+                    <button
+                      className={`rs-action-btn copy ${copiedRouteId === route.id ? 'copied' : ''}`}
+                      onClick={(e) => handleCopyRouteUrl(route, e)}
+                      title={copiedRouteId === route.id ? 'Copied!' : 'Copy URL'}
+                    >
+                      <Copy size={14} />
+                    </button>
                     <button
                       className="rs-action-btn edit"
                       onClick={(e) => {
