@@ -94,3 +94,44 @@ services:
       start_period: 15s
     networks:
       - shortas-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: shortas-minio
+    restart: unless-stopped
+    ports:
+      - "9002:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - shortas-net
+
+  minio-setup:
+    image: minio/mc:latest
+    container_name: shortas-minio-setup
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+        echo 'Waiting for MinIO to be ready...'
+        until mc alias set myminio http://minio:9000 minioadmin minioadmin; do
+          echo 'MinIO not ready, retrying in 2s...'
+          sleep 2
+        done
+        echo 'Creating clickhouse bucket...'
+        mc mb myminio/clickhouse --ignore-existing
+        echo 'Creating route-images bucket...'
+        mc mb myminio/route-images --ignore-existing
+        echo 'MinIO setup complete'
+      "
+    networks:
+      - shortas-net
+
+volumes:
+  minio_data:
+    driver: local

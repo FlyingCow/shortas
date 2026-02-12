@@ -73,41 +73,6 @@ services:
     networks:
       - shortas-net
 
-  minio:
-    image: minio/minio:latest
-    container_name: shortas-minio
-    restart: unless-stopped
-    ports:
-      - "9002:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio_data:/data
-    networks:
-      - shortas-net
-
-  minio-setup:
-    image: minio/mc:latest
-    container_name: shortas-minio-setup
-    depends_on:
-      - minio
-    entrypoint: >
-      /bin/sh -c "
-        echo 'Waiting for MinIO to be ready...'
-        until mc alias set myminio http://minio:9000 minioadmin minioadmin; do
-          echo 'MinIO not ready, retrying in 2s...'
-          sleep 2
-        done
-        echo 'Creating clickhouse bucket...'
-        mc mb myminio/clickhouse --ignore-existing
-        echo 'MinIO setup complete'
-      "
-    networks:
-      - shortas-net
-
   # Fluvio streaming
   sc:
     image: infinyon/fluvio:stable
@@ -204,7 +169,7 @@ services:
     ports:
       - "5800:5800"
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=warn
       - APP_RUN_MODE=production
     depends_on:
       mongo:
@@ -250,7 +215,7 @@ services:
     container_name: shortas-click-tracker
     restart: unless-stopped
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=warn
       - APP_RUN_MODE=production
     depends_on:
       redis:
@@ -267,7 +232,7 @@ services:
     container_name: shortas-click-aggregator
     restart: unless-stopped
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=warn
       - APP_RUN_MODE=production
     depends_on:
       clickhouse:
@@ -376,8 +341,6 @@ volumes:
   clickhouse_data:
     driver: local
   redis_data:
-    driver: local
-  minio_data:
     driver: local
   rabbitmq_data:
     driver: local
