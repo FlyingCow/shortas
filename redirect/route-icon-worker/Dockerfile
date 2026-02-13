@@ -1,4 +1,4 @@
-# Multi-stage build for click-aggregator
+# Multi-stage build for route-icon-worker
 FROM rust:1.88-slim as builder
 
 # Install system dependencies
@@ -32,7 +32,7 @@ COPY salvo/ ./salvo/
 
 # Build the application from the redirect workspace
 WORKDIR /app/redirect
-RUN cargo build --release -p click-aggregator
+RUN cargo build --release -p route-icon-worker
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -50,8 +50,8 @@ RUN useradd -r -s /bin/false shortas
 WORKDIR /app
 
 # Copy binary and config from builder
-COPY --from=builder /app/redirect/target/release/click-aggregator /app/
-COPY --from=builder /app/redirect/click-aggregator/config/ ./config/
+COPY --from=builder /app/redirect/target/release/route-icon-worker /app/
+COPY --from=builder /app/redirect/route-icon-worker/config/ ./config/
 
 # Change ownership
 RUN chown -R shortas:shortas /app
@@ -59,9 +59,5 @@ RUN chown -R shortas:shortas /app
 # Switch to non-root user
 USER shortas
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
-
 # Run the application
-CMD ["./click-aggregator", "-r", "production"]
+CMD ["./route-icon-worker", "-r", "production"]

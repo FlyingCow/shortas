@@ -1,0 +1,36 @@
+[package]
+name = "route-icon-worker"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+
+[dependencies]
+# Workspace dependencies
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+clap.workspace = true
+config.workspace = true
+dotenv.workspace = true
+env_logger.workspace = true
+serde.workspace = true
+serde_derive.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+lapin.workspace = true
+futures.workspace = true
+reqwest.workspace = true
+url.workspace = true
+
+# AWS S3
+aws-config.workspace = true
+aws-sdk-s3.workspace = true
+
+# HTML parsing
+scraper.workspace = true

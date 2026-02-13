@@ -1,0 +1,5 @@
+[rabbitmq]
+uri = "amqp://guest:guest@localhost:5672/%2f"
+
+[s3]
+endpoint = "http://localhost:9002"

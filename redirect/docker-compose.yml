@@ -321,6 +321,23 @@ services:
     networks:
       - shortas-net
 
+  route-icon-worker:
+    build:
+      context: ..
+      dockerfile: redirect/route-icon-worker/Dockerfile
+    container_name: shortas-route-icon-worker
+    restart: unless-stopped
+    environment:
+      - RUST_LOG=info
+      - APP_RUN_MODE=production
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    networks:
+      - shortas-net
+
   domains:
     build:
       context: ..

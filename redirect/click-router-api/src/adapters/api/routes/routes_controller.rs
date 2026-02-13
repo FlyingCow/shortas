@@ -266,6 +266,18 @@ pub async fn update_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
     let domain = req.param::<String>("domain").unwrap_or_default();
     let path = req.param::<String>("path").unwrap_or_default();
 
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
+
+    // Get existing route to capture previous dest
+    let link = format!("{}%2F{}", domain, path);
+    let previous_dest = app_state
+        .routes_store
+        .get_route(&switch, &link)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|r| r.dest.clone());
+
     // Parse the route DTO from the request body
     let mut route_dto: RouteDto = match req.parse_json().await {
         Ok(route_dto) => route_dto,
@@ -284,7 +296,7 @@ pub async fn update_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
 
     // Set path parameters in the route DTO
     route_dto.switch = switch;
-    route_dto.link = format!("{}%2F{}", domain, path);
+    route_dto.link = link;
 
     // Validate required fields
     if !route_dto.is_valid() {
@@ -302,8 +314,6 @@ pub async fn update_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
     let route: Route = route_dto.into();
     let is_conditional = route.is_conditional();
 
-    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
-
     // Build family for conditional routes
     let family = if is_conditional {
         route.clone().build_family()
@@ -320,10 +330,11 @@ pub async fn update_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
 
     match update_result {
         Ok(_) => {
-            // Invalidate cache for all routes in the family
+            // Publish route changed with previous dest info
             if let Some(ref publisher) = app_state.rabbitmq_publisher {
+                let previous_dests: Vec<Option<String>> = family.iter().map(|_| previous_dest.clone()).collect();
                 publisher
-                    .publish_route_family_changed(&family, ChangeAction::Updated)
+                    .publish_route_family_updated(&family, &previous_dests)
                     .await;
             }
             res.status_code(StatusCode::OK);
@@ -599,15 +610,25 @@ pub async fn bulk_update_routes(req: &mut Request, depot: &mut Depot, res: &mut 
 
     // Process each route
     for (index, route_dto) in routes_dto.into_iter().enumerate() {
+        // Get previous dest before update
+        let previous_dest = app_state
+            .routes_store
+            .get_route(&route_dto.switch, &route_dto.link)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|r| r.dest.clone());
+
         let route: Route = route_dto.into();
 
         match app_state.routes_store.update_route(&route).await {
             Ok(_) => {
                 if let Some(ref publisher) = app_state.rabbitmq_publisher {
                     publisher
-                        .publish_route_changed(&RouteChangedMessage::from_route(
+                        .publish_route_changed(&RouteChangedMessage::from_route_with_previous(
                             &route,
                             ChangeAction::Updated,
+                            previous_dest,
                         ))
                         .await;
                 }
@@ -847,8 +868,11 @@ pub async fn update_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // Look up the existing route by route_id
-    let existing = match app_state.routes_store.get_route_by_route_id(&route_id).await {
-        Ok(Some(route)) => route,
+    let (existing, previous_dest) = match app_state.routes_store.get_route_by_route_id(&route_id).await {
+        Ok(Some(route)) => {
+            let prev_dest = route.dest.clone();
+            (route, prev_dest)
+        }
         Ok(None) => {
             let error_response =
                 ErrorPresenter::from_api_error(&ApiError::Route(RouteError::NotFound {
@@ -921,10 +945,11 @@ pub async fn update_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
 
     match update_result {
         Ok(_) => {
-            // Invalidate cache for all routes in the family
+            // Publish route changed with previous dest info
             if let Some(ref publisher) = app_state.rabbitmq_publisher {
+                let previous_dests: Vec<Option<String>> = family.iter().map(|_| previous_dest.clone()).collect();
                 publisher
-                    .publish_route_family_changed(&family, ChangeAction::Updated)
+                    .publish_route_family_updated(&family, &previous_dests)
                     .await;
             }
             res.status_code(StatusCode::OK);

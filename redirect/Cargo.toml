@@ -7,6 +7,7 @@ members = [
     "click-router-api",
     "click-tracker",
     "domain-verifier",
+    "route-icon-worker",
     "infra/domains",
 ]
 
@@ -50,6 +51,7 @@ dotenv = "0.15.0"
 aws-config = "1.3.0"
 aws-sdk-dynamodb = "1.25.0"
 aws-sdk-kinesis = "1.25.0"
+aws-sdk-s3 = "1.25.0"
 
 # HTTP and web framework
 salvo = { version = "0.84.0", features = ["oapi"] }
@@ -113,6 +115,9 @@ signal-hook = "0.3.17"
 # QR code generation
 qrcode = "0.14.1"
 image = "0.25.5"
+
+# HTML parsing
+scraper = "0.22.0"
 
 # Tower ecosystem
 tower = { version = "0.5.2", features = ["full"] }

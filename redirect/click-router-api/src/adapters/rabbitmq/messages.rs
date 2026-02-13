@@ -22,9 +22,14 @@ pub struct RouteChangedMessage {
     pub private: RouteChangedPrivate,
 }
 
-/// Private payload for route events; empty for now, to be extended later.
+/// Private payload for route events.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct RouteChangedPrivate {}
+#[serde(rename_all = "camelCase")]
+pub struct RouteChangedPrivate {
+    /// Previous destination URL (only set on updates when dest changed)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_dest: Option<String>,
+}
 
 impl RouteChangedMessage {
     pub fn from_route(route: &crate::model::route::Route, action: ChangeAction) -> Self {
@@ -38,6 +43,24 @@ impl RouteChangedMessage {
             action,
             public: RouteDto::from(route),
             private: RouteChangedPrivate::default(),
+        }
+    }
+
+    pub fn from_route_with_previous(
+        route: &crate::model::route::Route,
+        action: ChangeAction,
+        previous_dest: Option<String>,
+    ) -> Self {
+        Self {
+            route_id: route
+                .properties
+                .route_id
+                .as_deref()
+                .unwrap_or("")
+                .to_string(),
+            action,
+            public: RouteDto::from(route),
+            private: RouteChangedPrivate { previous_dest },
         }
     }
 }

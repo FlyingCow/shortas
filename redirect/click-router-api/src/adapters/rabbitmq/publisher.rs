@@ -99,6 +99,23 @@ impl RabbitMqPublisher {
         }
     }
 
+    /// Publish route changed messages for all routes in a family with previous destination info.
+    /// Used for updates to track destination URL changes.
+    pub async fn publish_route_family_updated(
+        &self,
+        routes: &[crate::model::Route],
+        previous_dests: &[Option<String>],
+    ) {
+        for (route, previous_dest) in routes.iter().zip(previous_dests.iter()) {
+            self.publish_route_changed(&RouteChangedMessage::from_route_with_previous(
+                route,
+                super::messages::ChangeAction::Updated,
+                previous_dest.clone(),
+            ))
+            .await;
+        }
+    }
+
     pub async fn publish_user_settings_changed(&self, message: &UserSettingsChangedMessage) {
         let payload = match serde_json::to_vec(message) {
             Ok(p) => p,
