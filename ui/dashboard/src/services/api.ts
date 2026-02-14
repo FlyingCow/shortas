@@ -1,10 +1,11 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { getToken, updateToken, isAuthenticated, isInitialized } from '../config/keycloak';
+import { getProxyApiUrl } from '../config/runtimeEnv';
 import { useMockData, mockAnalytics, mockRoutes, mockUserSettings } from '../config/development';
 import { getCountryDisplayName } from '../utils/countries';
 
-// API base URLs
-const PROXY_API_URL = process.env.REACT_APP_PROXY_API_URL || 'http://localhost:8090';
+// API base URLs (runtime from env.js when in Docker)
+const PROXY_API_URL = getProxyApiUrl();
 const ROUTER_API_URL = `${PROXY_API_URL}/api/v1`;
 const AGGREGATOR_API_URL = `${PROXY_API_URL}/api/aggregator/v1`;
 

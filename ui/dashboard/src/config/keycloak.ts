@@ -1,18 +1,17 @@
 import Keycloak from 'keycloak-js';
+import { getKeycloakUrl, getKeycloakClientId } from './runtimeEnv';
 import { debugLog, debugError } from '../utils/debug';
 
-// Keycloak configuration for shortas-dev realm
-const keycloakConfig = {
-  url: process.env.REACT_APP_KEYCLOAK_URL || 'http://localhost:8080',
-  realm: 'shortas-dev',
-  clientId: process.env.REACT_APP_KEYCLOAK_CLIENT_ID || 'shortas-dashboard',
-};
-
-// Initialize Keycloak instance with singleton pattern
+// Initialize Keycloak instance with singleton pattern (config read at init so Docker env works)
 let keycloakInstance: Keycloak | null = null;
 
 const getKeycloakInstance = (): Keycloak => {
   if (!keycloakInstance) {
+    const keycloakConfig = {
+      url: getKeycloakUrl(),
+      realm: 'shortas-dev',
+      clientId: getKeycloakClientId(),
+    };
     debugLog('Creating new Keycloak instance', keycloakConfig);
     keycloakInstance = new Keycloak(keycloakConfig);
   }
@@ -107,11 +106,11 @@ export const initializeKeycloak = async (options: any): Promise<boolean> => {
     let helpfulMessage = 'Failed to initialize authentication.';
     
     if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-      helpfulMessage = `Keycloak server is not reachable at ${keycloakConfig.url}. Please start Keycloak server or enable mock data mode (REACT_APP_USE_MOCK_DATA=true).`;
+      helpfulMessage = `Keycloak server is not reachable at ${getKeycloakUrl()}. Please start Keycloak server or enable mock data mode (REACT_APP_USE_MOCK_DATA=true).`;
     } else if (error.message?.includes('404') || error.message?.includes('Not Found')) {
-      helpfulMessage = `Keycloak realm '${keycloakConfig.realm}' not found. Please create the realm or enable mock data mode.`;
+      helpfulMessage = `Keycloak realm 'shortas-dev' not found. Please create the realm or enable mock data mode.`;
     } else if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
-      helpfulMessage = `Keycloak client '${keycloakConfig.clientId}' is not properly configured. Please check client settings or enable mock data mode.`;
+      helpfulMessage = `Keycloak client '${getKeycloakClientId()}' is not properly configured. Please check client settings or enable mock data mode.`;
     }
     
     // Create enhanced error with helpful message

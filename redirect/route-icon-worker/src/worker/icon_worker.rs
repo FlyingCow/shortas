@@ -70,6 +70,7 @@ impl IconWorker {
                         route_id, old_dest, new_dest
                     );
                     if let Some(dest) = new_dest {
+                        self.delete_icon(owner_id, route_id).await;
                         self.scrape_and_store(owner_id, route_id, dest).await;
                     } else {
                         // Destination was removed, delete the icon

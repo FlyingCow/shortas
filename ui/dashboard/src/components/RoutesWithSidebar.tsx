@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Plus,
   Edit,
@@ -28,6 +28,7 @@ import {
   CartesianGrid
 } from 'recharts';
 import { apiService, RouteDto, RoutingPolicy, DomainDto, RouteSearchResult } from '../services/api';
+import { getRouteImagesBaseUrl } from '../config/runtimeEnv';
 import { getCountryDisplayName } from '../utils/countries';
 import LoadingSpinner from './LoadingSpinner';
 import WorldMap from './WorldMap';
@@ -616,6 +617,22 @@ const routeStatsStyles = `
   margin-bottom: 0.5rem;
 }
 
+.rs-route-header-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.rs-route-favicon {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  object-fit: contain;
+  background: var(--bg-tertiary);
+}
+
 .rs-route-link {
   font-size: 0.875rem;
   font-weight: 600;
@@ -957,11 +974,29 @@ const RoutesWithSidebar: React.FC = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const searchDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [copiedRouteId, setCopiedRouteId] = useState<string | null>(null);
+  const [iconRefreshKey, setIconRefreshKey] = useState(0);
+  const iconRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchRoutes();
     fetchDomains();
     fetchWorkspaces();
+  }, []);
+
+  const scheduleIconRefresh = useCallback(() => {
+    if (iconRefreshTimeoutRef.current) clearTimeout(iconRefreshTimeoutRef.current);
+    iconRefreshTimeoutRef.current = setTimeout(() => {
+      fetchRoutes().then(() => {
+        setIconRefreshKey((k) => k + 1);
+      });
+      iconRefreshTimeoutRef.current = null;
+    }, 2000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (iconRefreshTimeoutRef.current) clearTimeout(iconRefreshTimeoutRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -1001,7 +1036,8 @@ const RoutesWithSidebar: React.FC = () => {
           ttl: 0,
           status: r.status,
           terminal: 'External',
-          domain: r.domainName ? { id: '', name: r.domainName, ownerId: '', verificationStatus: 'Verified' as const, verificationReason: '' } : undefined,
+          domain: r.domainName ? { id: '', name: r.domainName, ownerId: r.ownerId ?? '', verificationStatus: 'Verified' as const, verificationReason: '' } : undefined,
+          properties: r.ownerId ? { routeId: r.id, ownerId: r.ownerId, domainId: '', scripts: [], tags: [], custom: {}, opengraph: false, allowDebug: false } : undefined,
         }));
         setSearchResults(mapped);
       } catch (err: any) {
@@ -1295,11 +1331,22 @@ const RoutesWithSidebar: React.FC = () => {
                 onClick={() => handleSelectRoute(route)}
               >
                 <div className="rs-route-header">
-                  <div>
-                    <div className="rs-route-link">{route.link}</div>
-                    {route.domain?.name && (
-                      <div className="rs-route-domain">{route.domain.name}</div>
+                  <div className="rs-route-header-content">
+                    {route.properties?.ownerId && route.id && (
+                      <img
+                        key={`favicon-${route.id}-${iconRefreshKey}`}
+                        src={`${getRouteImagesBaseUrl()}/route-images/${route.properties.ownerId}/${route.id}/fav.ico${iconRefreshKey ? `?t=${iconRefreshKey}` : ''}`}
+                        alt=""
+                        className="rs-route-favicon"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
                     )}
+                    <div>
+                      <div className="rs-route-link">{route.link}</div>
+                      {route.domain?.name && (
+                        <div className="rs-route-domain">{route.domain.name}/{route.link}</div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1408,6 +1455,7 @@ const RoutesWithSidebar: React.FC = () => {
                 await fetchRoutes();
                 setEditingRoute(null);
                 setIsEditing(false);
+                scheduleIconRefresh();
               }}
               onCancel={handleCancelEdit}
             />

@@ -19,7 +19,9 @@ impl FaviconScraper {
     pub fn new(timeout_seconds: u64, max_image_size: usize) -> Result<Self> {
         let client = Client::builder()
             .timeout(Duration::from_secs(timeout_seconds))
-            .user_agent("Mozilla/5.0 (compatible; RouteIconWorker/1.0)")
+            .user_agent(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            )
             .build()?;
 
         Ok(Self {
@@ -29,53 +31,71 @@ impl FaviconScraper {
     }
 
     pub async fn scrape_favicon(&self, dest_url: &str) -> Result<FaviconResult> {
-        let base_url = Url::parse(dest_url)?;
+        let initial_url = Url::parse(dest_url)?;
 
-        // Try to find favicon link in HTML first
-        if let Ok(favicon_url) = self.find_favicon_in_html(&base_url).await {
+        // Single GET: fetch page and get final URL after redirects + optional favicon link from HTML
+        let (favicon_link, base_url) = self.fetch_page_and_find_favicon_link(&initial_url).await?;
+
+        if let Some(favicon_url) = favicon_link {
             if let Ok(result) = self.fetch_image(&favicon_url).await {
                 info!("Found favicon via HTML link: {}", favicon_url);
                 return Ok(result);
             }
         }
 
-        // Fallback to /favicon.ico
+        // Fallback: /favicon.ico on the origin we actually reached (after redirects)
         let favicon_url = base_url.join("/favicon.ico")?;
         info!("Trying fallback favicon.ico: {}", favicon_url);
-        self.fetch_image(favicon_url.as_str()).await
+        if let Ok(result) = self.fetch_image(favicon_url.as_str()).await {
+            return Ok(result);
+        }
+
+        // Last resort: Google's favicon service (works for gmail.com and many sites that block or don't expose favicons)
+        let host = base_url.host_str().unwrap_or("unknown");
+        let google_favicon_url = format!(
+            "https://www.google.com/s2/favicons?domain={}&sz=64",
+            host
+        );
+        info!("Trying Google favicon service: {}", google_favicon_url);
+        self.fetch_image(&google_favicon_url).await
     }
 
-    async fn find_favicon_in_html(&self, base_url: &Url) -> Result<String> {
-        let response = self.client.get(base_url.as_str()).send().await?;
+    /// Fetch the page (following redirects) and return (favicon href if found, final base URL).
+    async fn fetch_page_and_find_favicon_link(&self, initial_url: &Url) -> Result<(Option<String>, Url)> {
+        let response = self.client.get(initial_url.as_str()).send().await?;
 
         if !response.status().is_success() {
             return Err(anyhow!("Failed to fetch page: {}", response.status()));
         }
 
+        // Use final URL after redirects (e.g. gmail.com -> accounts.google.com or mail.google.com)
+        let base_url = Url::parse(response.url().as_str())?;
         let html = response.text().await?;
         let document = Html::parse_document(&html);
 
-        // Try different favicon selectors in order of preference
+        // Match any link whose rel contains "icon" (covers rel="icon", rel="shortcut icon", rel="apple-touch-icon", etc.)
         let selectors = [
-            r#"link[rel="icon"]"#,
-            r#"link[rel="shortcut icon"]"#,
-            r#"link[rel="apple-touch-icon"]"#,
-            r#"link[rel="apple-touch-icon-precomposed"]"#,
+            r#"link[rel~="icon"]"#,
+            r#"link[rel~="apple-touch-icon"]"#,
         ];
 
         for selector_str in selectors {
             if let Ok(selector) = Selector::parse(selector_str) {
-                if let Some(element) = document.select(&selector).next() {
+                for element in document.select(&selector) {
                     if let Some(href) = element.value().attr("href") {
-                        let favicon_url = self.resolve_url(base_url, href)?;
-                        debug!("Found favicon link: {} -> {}", selector_str, favicon_url);
-                        return Ok(favicon_url);
+                        if href.is_empty() || href.starts_with("data:") {
+                            continue;
+                        }
+                        if let Ok(favicon_url) = self.resolve_url(&base_url, href) {
+                            debug!("Found favicon link: {} -> {}", selector_str, favicon_url);
+                            return Ok((Some(favicon_url), base_url));
+                        }
                     }
                 }
             }
         }
 
-        Err(anyhow!("No favicon link found in HTML"))
+        Ok((None, base_url))
     }
 
     fn resolve_url(&self, base_url: &Url, href: &str) -> Result<String> {
