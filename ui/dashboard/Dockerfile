@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (npm install so lock file need not match Node 20 resolution exactly; use npm ci in CI if lock file is generated with Node 20)
+RUN npm install
 
 # Copy source code
 COPY . .

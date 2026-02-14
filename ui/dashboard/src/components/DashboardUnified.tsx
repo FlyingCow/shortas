@@ -1162,18 +1162,18 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Route Performance Table */}
-        {routePerformance.length > 0 && (
-          <div className="db-section">
-            <div className="db-chart-card">
-              <div className="db-chart-header">
-                <h3 className="db-chart-title">
-                  <Target size={16} />
-                  Top Performing Routes
-                </h3>
-                <p className="db-chart-desc">Routes ranked by total clicks</p>
-              </div>
-              <div className="db-table-container">
+        {/* Top Performing Routes */}
+        <div className="db-section">
+          <div className="db-chart-card">
+            <div className="db-chart-header">
+              <h3 className="db-chart-title">
+                <Target size={16} />
+                Top Performing Routes
+              </h3>
+              <p className="db-chart-desc">Routes ranked by total clicks</p>
+            </div>
+            <div className="db-table-container">
+              {routePerformance.length > 0 ? (
                 <table className="db-table">
                   <thead>
                     <tr>
@@ -1206,10 +1206,17 @@ const Dashboard: React.FC = () => {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              ) : (
+                <div className="db-empty">
+                  <div className="db-empty-icon">
+                    <Target />
+                  </div>
+                  <p>No route performance data for the selected period</p>
+                </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
       </div>
     </>
   );

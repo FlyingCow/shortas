@@ -11,7 +11,9 @@ import {
   Bot,
   Globe,
   RefreshCw,
-  Copy
+  Copy,
+  QrCode,
+  X
 } from 'lucide-react';
 import {
   BarChart,
@@ -33,6 +35,7 @@ import { getCountryDisplayName } from '../utils/countries';
 import LoadingSpinner from './LoadingSpinner';
 import WorldMap from './WorldMap';
 import RouteForm from './RouteForm';
+import QRCodeDesigner from './QRCodeDesigner';
 import './DesignSystem.css';
 
 // Route Stats Styles - matching DashboardUnified
@@ -774,6 +777,11 @@ const routeStatsStyles = `
   color: var(--color-success);
 }
 
+.rs-action-btn.qr:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
 /* Empty State */
 .rs-empty-list {
   display: flex;
@@ -976,6 +984,7 @@ const RoutesWithSidebar: React.FC = () => {
   const [copiedRouteId, setCopiedRouteId] = useState<string | null>(null);
   const [iconRefreshKey, setIconRefreshKey] = useState(0);
   const iconRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [qrDesignerRoute, setQrDesignerRoute] = useState<RouteDto | null>(null);
 
   useEffect(() => {
     fetchRoutes();
@@ -1275,7 +1284,7 @@ const RoutesWithSidebar: React.FC = () => {
   return (
     <>
       <style>{routeStatsStyles}</style>
-      <div className={`routes-with-sidebar ${isEditing ? 'editing' : ''}`}>
+      <div className={`routes-with-sidebar ${isEditing || qrDesignerRoute ? 'editing' : ''}`}>
         {/* Redesigned Sidebar */}
         <div className="rs-sidebar">
           {/* Header */}
@@ -1371,6 +1380,16 @@ const RoutesWithSidebar: React.FC = () => {
 
                   <div className="rs-route-actions">
                     <button
+                      className="rs-action-btn qr"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setQrDesignerRoute(route);
+                      }}
+                      title="QR Code"
+                    >
+                      <QrCode size={14} />
+                    </button>
+                    <button
                       className={`rs-action-btn copy ${copiedRouteId === route.id ? 'copied' : ''}`}
                       onClick={(e) => handleCopyRouteUrl(route, e)}
                       title={copiedRouteId === route.id ? 'Copied!' : 'Copy URL'}
@@ -1436,7 +1455,37 @@ const RoutesWithSidebar: React.FC = () => {
 
       {/* Main Content */}
       <div className="main-content">
-        {isEditing ? (
+        {qrDesignerRoute ? (() => {
+          const domain = qrDesignerRoute.domain?.name ?? '';
+          const link = (qrDesignerRoute.link ?? '').replace(/^\//, '');
+          const qrUrl = domain ? `http://${domain}/${link}` : '';
+          return (
+            <div className="route-qr-content" style={{ padding: '1.5rem' }}>
+              <div className="route-qr-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div>
+                  <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem' }}>QR Code — {qrDesignerRoute.domain?.name}/{qrDesignerRoute.link}</h2>
+                  {qrUrl && <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>{qrUrl}</p>}
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setQrDesignerRoute(null)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <X size={16} />
+                  Close
+                </button>
+              </div>
+              {qrUrl ? (
+                <QRCodeDesigner url={qrUrl} />
+              ) : (
+                <div className="db-empty" style={{ padding: '3rem 2rem' }}>
+                  <p>This route has no domain. Assign a domain to generate a QR code URL.</p>
+                </div>
+              )}
+            </div>
+          );
+        })() : isEditing ? (
           <div className="route-edit-content" style={{ padding: '1.5rem' }}>
             <div className="edit-header">
               <h2>{editingRoute ? 'Edit Route' : 'Create New Route'}</h2>
