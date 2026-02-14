@@ -11,7 +11,8 @@ import {
   Moon,
   Globe,
   Briefcase,
-  ChevronDown
+  ChevronDown,
+  Keyboard
 } from 'lucide-react';
 import { logout, getUserInfo } from '../config/keycloak';
 import { useTheme } from '../contexts/ThemeContext';
@@ -30,6 +31,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const userInfo = getUserInfo();
   const { theme, toggleTheme } = useTheme();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const navigation = [
@@ -62,6 +64,53 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const isInputFocused = () => {
+      const el = document.activeElement;
+      if (!el || el === document.body) return false;
+      const tag = (el as HTMLElement).tagName;
+      const role = (el as HTMLElement).getAttribute?.('role');
+      const editable = (el as HTMLElement).isContentEditable;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || role === 'textbox' || editable;
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showShortcutHelp) {
+          setShowShortcutHelp(false);
+          e.preventDefault();
+        } else if (isUserMenuOpen) {
+          setIsUserMenuOpen(false);
+        }
+        return;
+      }
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (!isInputFocused()) {
+          setShowShortcutHelp((v) => !v);
+          e.preventDefault();
+        }
+        return;
+      }
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !isInputFocused()) {
+        const n = parseInt(e.key, 10);
+        if (e.key === '6' || n === 6) {
+          navigate('/settings');
+          e.preventDefault();
+        } else if (n >= 1 && n <= 5) {
+          const item = navigation[n - 1];
+          if (item) {
+            navigate(item.href);
+            e.preventDefault();
+          }
+        }
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [navigate, isUserMenuOpen, showShortcutHelp, navigation]);
 
   return (
     <>
@@ -98,6 +147,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Settings size={18} />
               <span className="sidebar-nav-label">Settings</span>
             </Link>
+            <button
+              className="sidebar-nav-item"
+              onClick={() => setShowShortcutHelp(true)}
+              title="Keyboard shortcuts (?)"
+              style={{ border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}
+            >
+              <Keyboard size={18} />
+              <span className="sidebar-nav-label">Shortcuts</span>
+            </button>
             <button
               className="sidebar-nav-item"
               onClick={toggleTheme}
@@ -226,6 +284,50 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Footer />
         </div>
       </div>
+
+      {/* Keyboard shortcuts help */}
+      {showShortcutHelp && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'var(--theme-bg-overlay, rgba(0,0,0,0.5))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1060, padding: 16
+          }}
+          onClick={() => setShowShortcutHelp(false)}
+          role="dialog"
+          aria-label="Keyboard shortcuts"
+        >
+          <div
+            style={{
+              background: 'var(--theme-bg-elevated)', borderRadius: 8, boxShadow: 'var(--theme-shadow-xl)',
+              maxWidth: 360, width: '100%', overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--theme-border-primary)', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9375rem', fontWeight: 600 }}>
+              <Keyboard size={18} />
+              Keyboard shortcuts
+            </div>
+            <div style={{ padding: 16, fontSize: '0.8125rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>Alt</kbd> + <kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>1</kbd></td><td style={{ padding: '0.35rem 0' }}>Dashboard</td></tr>
+                  <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>Alt</kbd> + <kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>2</kbd></td><td style={{ padding: '0.35rem 0' }}>Routes</td></tr>
+                  <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>Alt</kbd> + <kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>3</kbd></td><td style={{ padding: '0.35rem 0' }}>Domains</td></tr>
+                  <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>Alt</kbd> + <kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>4</kbd></td><td style={{ padding: '0.35rem 0' }}>Workspaces</td></tr>
+                  <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>Alt</kbd> + <kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>5</kbd></td><td style={{ padding: '0.35rem 0' }}>Clickstream</td></tr>
+                  <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>Alt</kbd> + <kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>6</kbd></td><td style={{ padding: '0.35rem 0' }}>Settings</td></tr>
+                  <tr><td colSpan={2} style={{ padding: '0.5rem 0 0.25rem 0', borderTop: '1px solid var(--border-primary)' }}></td></tr>
+                  <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>?</kbd></td><td style={{ padding: '0.35rem 0' }}>This help</td></tr>
+                  <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd style={{ padding: '0.15rem 0.4rem', background: 'var(--bg-tertiary)', borderRadius: 4 }}>Esc</kbd></td><td style={{ padding: '0.35rem 0' }}>Close modal / cancel</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div style={{ padding: '0.5rem 1rem 0.75rem', borderTop: '1px solid var(--theme-border-primary)', display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-outline" onClick={() => setShowShortcutHelp(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

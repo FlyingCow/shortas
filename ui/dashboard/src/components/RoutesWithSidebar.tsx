@@ -1150,6 +1150,20 @@ const RoutesWithSidebar: React.FC = () => {
     setIsEditing(false);
   };
 
+  useEffect(() => {
+    if (!qrDesignerRoute && !isEditing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (qrDesignerRoute) setQrDesignerRoute(null);
+        else handleCancelEdit();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [qrDesignerRoute, isEditing]);
+
   const handleCreateRoute = () => {
     setEditingRoute(null);
     setIsEditing(true);

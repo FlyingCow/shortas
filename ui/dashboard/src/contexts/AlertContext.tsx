@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 export interface ConfirmOptions {
   confirmLabel?: string;
@@ -86,6 +86,19 @@ export function AlertProvider({ children }: AlertProviderProps) {
   }, [state?.type]);
 
   const value: AlertContextValue = { showAlert, showConfirm };
+
+  useEffect(() => {
+    if (!state) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [state, handleClose]);
 
   return (
     <AlertContext.Provider value={value}>

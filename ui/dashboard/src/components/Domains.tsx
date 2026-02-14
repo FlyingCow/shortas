@@ -585,6 +585,19 @@ const Domains: React.FC = () => {
     setShowModal(true);
   };
 
+  useEffect(() => {
+    if (!showModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving) {
+        setShowModal(false);
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showModal, saving]);
+
   const handleSave = async () => {
     const name = formName.trim().toLowerCase();
     if (!name) return;
