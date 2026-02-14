@@ -12,8 +12,7 @@ import {
   Globe,
   RefreshCw,
   Copy,
-  QrCode,
-  X
+  QrCode
 } from 'lucide-react';
 import {
   BarChart,
@@ -1461,20 +1460,9 @@ const RoutesWithSidebar: React.FC = () => {
           const qrUrl = domain ? `http://${domain}/${link}` : '';
           return (
             <div className="route-qr-content" style={{ padding: '1.5rem' }}>
-              <div className="route-qr-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <div>
-                  <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem' }}>QR Code — {qrDesignerRoute.domain?.name}/{qrDesignerRoute.link}</h2>
-                  {qrUrl && <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>{qrUrl}</p>}
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm"
-                  onClick={() => setQrDesignerRoute(null)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
-                >
-                  <X size={16} />
-                  Close
-                </button>
+              <div className="route-qr-header" style={{ marginBottom: '1rem' }}>
+                <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem' }}>QR Code</h2>
+                {qrUrl && <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>{qrUrl}</p>}
               </div>
               {qrUrl ? (
                 <QRCodeDesigner url={qrUrl} />
@@ -1483,6 +1471,15 @@ const RoutesWithSidebar: React.FC = () => {
                   <p>This route has no domain. Assign a domain to generate a QR code URL.</p>
                 </div>
               )}
+              <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setQrDesignerRoute(null)}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           );
         })() : isEditing ? (
