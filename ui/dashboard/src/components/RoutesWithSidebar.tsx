@@ -29,6 +29,7 @@ import {
   CartesianGrid
 } from 'recharts';
 import { apiService, RouteDto, RoutingPolicy, DomainDto, RouteSearchResult } from '../services/api';
+import { useAlert } from '../contexts/AlertContext';
 import { getRouteImagesBaseUrl } from '../config/runtimeEnv';
 import { getCountryDisplayName } from '../utils/countries';
 import LoadingSpinner from './LoadingSpinner';
@@ -984,6 +985,7 @@ const RoutesWithSidebar: React.FC = () => {
   const [iconRefreshKey, setIconRefreshKey] = useState(0);
   const iconRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [qrDesignerRoute, setQrDesignerRoute] = useState<RouteDto | null>(null);
+  const { showAlert, showConfirm } = useAlert();
 
   useEffect(() => {
     fetchRoutes();
@@ -1101,12 +1103,15 @@ const RoutesWithSidebar: React.FC = () => {
   };
 
   const handleDeleteRoute = async (route: RouteDto) => {
-    if (!window.confirm(`Are you sure you want to delete the route "${route.link}"?`)) {
-      return;
-    }
+    const confirmed = await showConfirm(
+      `Are you sure you want to delete the route "${route.link}"?`,
+      'Delete route',
+      { confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!confirmed) return;
 
     if (!route.id) {
-      alert('Cannot delete route: missing ID');
+      showAlert('Cannot delete route: missing ID', 'Error');
       return;
     }
 
@@ -1118,7 +1123,7 @@ const RoutesWithSidebar: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to delete route:', err);
-      alert('Failed to delete route. Please try again.');
+      showAlert('Failed to delete route. Please try again.', 'Error');
     }
   };
 
@@ -1483,9 +1488,14 @@ const RoutesWithSidebar: React.FC = () => {
             </div>
           );
         })() : isEditing ? (
-          <div className="route-edit-content" style={{ padding: '1.5rem' }}>
-            <div className="edit-header">
-              <h2>{editingRoute ? 'Edit Route' : 'Create New Route'}</h2>
+          <div className="route-qr-content" style={{ padding: '1.5rem' }}>
+            <div className="route-qr-header" style={{ marginBottom: '1rem' }}>
+              <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem' }}>
+                {editingRoute ? 'Edit Route' : 'Create New Route'}
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                {editingRoute ? 'Update destination and options' : 'Set up a new shortened link'}
+              </p>
             </div>
             <RouteForm
               route={editingRoute}

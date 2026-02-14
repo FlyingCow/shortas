@@ -25,10 +25,12 @@ import {
   Link as LinkIcon
 } from 'lucide-react';
 import { apiService, RouteDto } from '../services/api';
+import { useAlert } from '../contexts/AlertContext';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
 const Routes: React.FC = () => {
+  const { showAlert, showConfirm } = useAlert();
   const [routes, setRoutes] = useState<RouteDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,12 +58,15 @@ const Routes: React.FC = () => {
   };
 
   const handleDeleteRoute = async (route: RouteDto) => {
-    if (!window.confirm(`Are you sure you want to delete the route "${route.link}"?`)) {
-      return;
-    }
+    const confirmed = await showConfirm(
+      `Are you sure you want to delete the route "${route.link}"?`,
+      'Delete route',
+      { confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!confirmed) return;
 
     if (!route.id) {
-      alert('Cannot delete route: missing ID');
+      showAlert('Cannot delete route: missing ID', 'Error');
       return;
     }
 
@@ -70,7 +75,7 @@ const Routes: React.FC = () => {
       await fetchRoutes();
     } catch (err) {
       console.error('Failed to delete route:', err);
-      alert('Failed to delete route. Please try again.');
+      showAlert('Failed to delete route. Please try again.', 'Error');
     }
   };
 

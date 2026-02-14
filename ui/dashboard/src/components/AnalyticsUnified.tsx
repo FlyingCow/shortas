@@ -26,6 +26,7 @@ import {
   Target
 } from 'lucide-react';
 import { apiService, ClickAnalytics, RoutePerformanceDto } from '../services/api';
+import { useAlert } from '../contexts/AlertContext';
 import { getCountryDisplayName } from '../utils/countries';
 import LoadingSpinner from './LoadingSpinner';
 import WorldMap from './WorldMap';
@@ -640,6 +641,7 @@ const PieLegend: React.FC<{ items: { name: string; color: string }[] }> = ({ ite
 );
 
 const Analytics: React.FC = () => {
+  const { showAlert } = useAlert();
   const [analytics, setAnalytics] = useState<ClickAnalytics | null>(null);
   const [routePerformance, setRoutePerformance] = useState<RoutePerformanceDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -714,7 +716,7 @@ const Analytics: React.FC = () => {
   }, [fetchAnalytics]);
 
   const exportData = () => {
-    alert('Export functionality would be implemented here');
+    showAlert('Export functionality would be implemented here', 'Export');
   };
 
   if (loading && !analytics) {

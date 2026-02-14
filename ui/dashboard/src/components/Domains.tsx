@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Search, Globe, X, ExternalLink, Copy, Check, RefreshCw, AlertCircle, CheckCircle, Clock, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { apiService, DomainDto, CreateDomainDto, DnsConfigDto, DomainVerificationStatus } from '../services/api';
+import { useAlert } from '../contexts/AlertContext';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
@@ -527,6 +528,7 @@ const domainStyles = `
 `;
 
 const Domains: React.FC = () => {
+  const { showAlert, showConfirm } = useAlert();
   const [domains, setDomains] = useState<DomainDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -595,20 +597,25 @@ const Domains: React.FC = () => {
       setFormName('');
     } catch (err: any) {
       console.error('Failed to save domain:', err);
-      alert(err.response?.data?.message || 'Failed to create domain.');
+      showAlert(err.response?.data?.message || 'Failed to create domain.', 'Error');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (domain: DomainDto) => {
-    if (!window.confirm(`Delete "${domain.name}"? Routes using this domain will be affected.`)) return;
+    const confirmed = await showConfirm(
+      `Delete "${domain.name}"? Routes using this domain will be affected.`,
+      'Delete domain',
+      { confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!confirmed) return;
     try {
       await apiService.domains.delete(domain.id);
       await fetchDomains();
     } catch (err: any) {
       console.error('Failed to delete domain:', err);
-      alert(err.response?.data?.message || 'Failed to delete domain.');
+      showAlert(err.response?.data?.message || 'Failed to delete domain.', 'Error');
     }
   };
 
@@ -619,7 +626,7 @@ const Domains: React.FC = () => {
       await fetchDomains();
     } catch (err: any) {
       console.error('Failed to verify domain:', err);
-      alert(err.response?.data?.message || 'Failed to verify domain.');
+      showAlert(err.response?.data?.message || 'Failed to verify domain.', 'Error');
     } finally {
       setVerifyingDomains(prev => {
         const next = new Set(prev);

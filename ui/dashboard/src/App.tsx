@@ -4,6 +4,7 @@ import keycloak, { keycloakInitOptions, initializeKeycloak, keycloakLoginOptions
 import { useMockData } from './config/development';
 import { apiService } from './services/api';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { AlertProvider, useAlert } from './contexts/AlertContext';
 import Dashboard from './components/DashboardUnified';
 import RoutesPage from './components/RoutesWithSidebar';
 import Domains from './components/Domains';
@@ -27,7 +28,8 @@ interface AppState {
   checkingInitialization: boolean;
 }
 
-const App: React.FC = () => {
+function AppContent() {
+  const { showAlert } = useAlert();
   const [state, setState] = useState<AppState>({
     keycloakInitialized: false,
     authenticated: false,
@@ -136,16 +138,13 @@ const App: React.FC = () => {
         error={state.error}
         onRetry={() => window.location.reload()}
         onEnableMockData={() => {
-          // Create or update .env.local with mock data enabled
-          alert('Please add REACT_APP_USE_MOCK_DATA=true to your .env.local file and restart the app.');
+          showAlert('Please add REACT_APP_USE_MOCK_DATA=true to your .env.local file and restart the app.', 'Mock data');
         }}
       />
     );
   }
 
-
   return (
-    <ThemeProvider>
       <Router>
         <Routes>
         {/* Public Routes */}
@@ -186,8 +185,15 @@ const App: React.FC = () => {
         } />
       </Routes>
     </Router>
-    </ThemeProvider>
   );
-};
+}
+
+const App: React.FC = () => (
+  <ThemeProvider>
+    <AlertProvider>
+      <AppContent />
+    </AlertProvider>
+  </ThemeProvider>
+);
 
 export default App;

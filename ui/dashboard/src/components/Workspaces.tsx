@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, Briefcase, Calendar, Shield, X } from 'lucide-react';
 import { apiService, WorkspaceDto, CreateWorkspaceDto } from '../services/api';
+import { useAlert } from '../contexts/AlertContext';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
@@ -360,6 +361,7 @@ interface WorkspaceModalProps {
 }
 
 const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClose, onSave }) => {
+  const { showAlert } = useAlert();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
@@ -387,7 +389,7 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
       await onSave({ name: name.trim(), description: description.trim() });
       onClose();
     } catch {
-      alert('Failed to save workspace. Please try again.');
+      showAlert('Failed to save workspace. Please try again.', 'Error');
     } finally {
       setSaving(false);
     }
@@ -441,6 +443,7 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
 
 /* ---------- Main component ---------- */
 const Workspaces: React.FC = () => {
+  const { showAlert, showConfirm } = useAlert();
   const [workspaces, setWorkspaces] = useState<WorkspaceDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -477,12 +480,17 @@ const Workspaces: React.FC = () => {
   };
 
   const handleDelete = async (ws: WorkspaceDto) => {
-    if (!window.confirm(`Delete "${ws.name}"? This cannot be undone.`)) return;
+    const confirmed = await showConfirm(
+      `Delete "${ws.name}"? This cannot be undone.`,
+      'Delete workspace',
+      { confirmLabel: 'Delete', variant: 'danger' }
+    );
+    if (!confirmed) return;
     try {
       await apiService.workspaces.delete(ws.id);
       await loadWorkspaces();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete workspace');
+      showAlert(err.response?.data?.message || 'Failed to delete workspace', 'Error');
     }
   };
 

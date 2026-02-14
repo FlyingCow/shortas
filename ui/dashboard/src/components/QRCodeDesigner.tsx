@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import QRCodeStyling, { type DotType, type Options } from 'qr-code-styling';
 import { QrCode, Download, ImagePlus, Palette } from 'lucide-react';
+import { useAlert } from '../contexts/AlertContext';
 import './QRCodeDesigner.css';
 
 const DOT_STYLES: { value: DotType; label: string }[] = [
@@ -31,6 +32,7 @@ interface QRCodeDesignerProps {
 }
 
 const QRCodeDesigner: React.FC<QRCodeDesignerProps> = ({ url }) => {
+  const { showAlert } = useAlert();
   const containerRef = useRef<HTMLDivElement>(null);
   const qrRef = useRef<QRCodeStyling | null>(null);
   const [data, setData] = useState(DEFAULT_DATA);
@@ -82,7 +84,7 @@ const QRCodeDesigner: React.FC<QRCodeDesignerProps> = ({ url }) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file (PNG, JPG, SVG, etc.).');
+      showAlert('Please select an image file (PNG, JPG, SVG, etc.).', 'Invalid file');
       return;
     }
     if (centerImage) URL.revokeObjectURL(centerImage);

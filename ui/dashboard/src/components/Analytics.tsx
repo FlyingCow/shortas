@@ -23,10 +23,12 @@ import {
   Download
 } from 'lucide-react';
 import { apiService, ClickAnalytics } from '../services/api';
+import { useAlert } from '../contexts/AlertContext';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
 const Analytics: React.FC = () => {
+  const { showAlert } = useAlert();
   const [analytics, setAnalytics] = useState<ClickAnalytics | null>(null);
   const [topRoutes, setTopRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,8 +85,7 @@ const Analytics: React.FC = () => {
   };
 
   const exportData = () => {
-    // This would implement data export functionality
-    alert('Export functionality would be implemented here');
+    showAlert('Export functionality would be implemented here', 'Export');
   };
 
   if (loading) {
