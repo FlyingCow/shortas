@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Shuffle } from 'lucide-react';
+import { Shuffle, Link2, Globe, ChevronRight, ArrowRightLeft, GitBranch, Tag, Settings } from 'lucide-react';
 import { RouteDto, RoutingPolicy, DomainDto, ConditionRouteDto, ConditionalRouting, apiService } from '../services/api';
 import { ConditionsEditor } from './ConditionsEditor';
 import './DesignSystem.css';
+import './RouteForm.css';
 
 interface RouteFormProps {
   route?: RouteDto | null;
@@ -90,187 +91,12 @@ const HTTP_CODES: { value: number; label: string; desc: string }[] = [
   { value: 308, label: '308', desc: 'Permanent, preserves request method' },
 ];
 
-const routeFormStyles = `
-.rf-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-.rf-section {
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
-  background: var(--bg-primary);
-}
-.rf-section summary {
-  padding: var(--space-sm) var(--space-md);
-  font-weight: 600;
-  font-size: 0.9375rem;
-  color: var(--text-primary);
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid transparent;
-  transition: border-color var(--transition-fast);
-}
-.rf-section summary::-webkit-details-marker {
-  display: none;
-}
-.rf-section summary::after {
-  content: '\\25B6';
-  font-size: 0.625rem;
-  color: var(--text-muted);
-  transition: transform var(--transition-fast);
-}
-.rf-section[open] > summary::after {
-  transform: rotate(90deg);
-}
-.rf-section[open] > summary {
-  border-bottom-color: var(--border-primary);
-}
-.rf-section-body {
-  padding: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-.rf-section-always {
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
-  background: var(--bg-primary);
-}
-.rf-section-always .rf-section-header {
-  padding: var(--space-sm) var(--space-md);
-  font-weight: 600;
-  font-size: 0.9375rem;
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--border-primary);
-}
-.rf-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-.rf-label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-.rf-label .rf-required {
-  color: var(--color-error);
-  margin-left: 2px;
-}
-.rf-input,
-.rf-select {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-sm);
-  font-size: 0.875rem;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-.rf-input:focus,
-.rf-select:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
-}
-.rf-input:disabled,
-.rf-select:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  background: var(--bg-tertiary);
-}
-.rf-input.rf-input-error,
-.rf-select.rf-input-error {
-  border-color: var(--color-error);
-}
-.rf-input.rf-input-error:focus,
-.rf-select.rf-input-error:focus {
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
-}
-.rf-helper {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-.rf-error-text {
-  font-size: 0.75rem;
-  color: var(--color-error);
-}
-.rf-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-sm);
-}
-.rf-checkbox-group {
-  display: flex;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-}
-.rf-checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  cursor: pointer;
-}
-.rf-checkbox-label input[type="checkbox"] {
-  accent-color: var(--color-primary);
-}
-.rf-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-sm);
-  padding-top: var(--space-sm);
-}
-.rf-error-banner {
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-error-light);
-  color: var(--color-error);
-  border: 1px solid var(--color-error);
-  border-radius: var(--radius-sm);
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.rf-error-banner button {
-  background: none;
-  border: none;
-  color: var(--color-error);
-  cursor: pointer;
-  font-size: 1.125rem;
-  line-height: 1;
-  padding: 0 0.25rem;
-}
-.rf-input-with-action {
-  display: flex;
-  gap: 0.5rem;
-  align-items: stretch;
-}
-.rf-generate-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  white-space: nowrap;
-  font-size: 0.8125rem;
-  padding: 0.5rem 0.75rem;
-}
-.rf-code-option-desc {
-  font-size: 0.6875rem;
-  color: var(--text-muted);
-  margin-top: 1px;
-}
-@media (max-width: 600px) {
-  .rf-row {
-    grid-template-columns: 1fr;
-  }
-}
-`;
+const HTTP_CODE_DESCRIPTIONS: Record<number, string> = {
+  301: 'Permanent redirect - browsers cache this',
+  302: 'Temporary redirect - default, no caching',
+  307: 'Temporary, preserves request method',
+  308: 'Permanent, preserves request method',
+};
 
 const RouteForm: React.FC<RouteFormProps> = ({
   route,
@@ -516,30 +342,43 @@ const RouteForm: React.FC<RouteFormProps> = ({
     touched[field] && errors[field] ? 'rf-select rf-input-error' : 'rf-select';
 
   return (
-    <>
-      <style>{routeFormStyles}</style>
-      <form
-        ref={formRef}
-        className="rf-form"
-        onSubmit={handleSubmit}
-        noValidate
-      >
-        {saveError && (
-          <div className="rf-error-banner">
-            <span>{saveError}</span>
-            <button type="button" onClick={() => setSaveError(null)}>
-              &times;
-            </button>
-          </div>
-        )}
+    <form
+      ref={formRef}
+      className="rf-form"
+      onSubmit={handleSubmit}
+      noValidate
+    >
+      {/* Header */}
+      <div className="rf-header">
+        <h3 className="rf-title">
+          <Link2 size={18} />
+          {isEdit ? 'Edit Route' : 'Create Route'}
+        </h3>
+        <p className="rf-desc">
+          {isEdit ? 'Update your short link settings' : 'Set up a new short link with custom destination'}
+        </p>
+      </div>
 
-        {/* Section 1: Link Setup (always open) */}
-        <div className="rf-section-always">
-          <div className="rf-section-header">Link Setup</div>
+      {saveError && (
+        <div className="rf-error-banner">
+          <span>{saveError}</span>
+          <button type="button" onClick={() => setSaveError(null)}>
+            &times;
+          </button>
+        </div>
+      )}
+
+      <div className="rf-body">
+        {/* Section 1: Link Setup */}
+        <div className="rf-section">
+          <div className="rf-section-header">
+            <Globe size={14} />
+            Link Setup
+          </div>
           <div className="rf-section-body">
             {showWorkspace && (
-              <div className="rf-field">
-                <label className="rf-label">Workspace</label>
+              <div className="rf-control-group">
+                <label className="rf-control-label">Workspace</label>
                 <select
                   className="rf-select"
                   value={formData.properties?.workspaceId || ''}
@@ -561,8 +400,8 @@ const RouteForm: React.FC<RouteFormProps> = ({
               </div>
             )}
 
-            <div className="rf-field">
-              <label className="rf-label">
+            <div className="rf-control-group">
+              <label className="rf-control-label">
                 Domain<span className="rf-required">*</span>
               </label>
               <select
@@ -591,8 +430,8 @@ const RouteForm: React.FC<RouteFormProps> = ({
               )}
             </div>
 
-            <div className="rf-field">
-              <label className="rf-label">
+            <div className="rf-control-group">
+              <label className="rf-control-label">
                 Short Link<span className="rf-required">*</span>
               </label>
               <div className="rf-input-with-action">
@@ -605,12 +444,11 @@ const RouteForm: React.FC<RouteFormProps> = ({
                   onBlur={() => handleBlur('link')}
                   disabled={saving || isEdit}
                   readOnly={isEdit}
-                  style={{ flex: 1 }}
                 />
                 {!isEdit && (
                   <button
                     type="button"
-                    className="btn btn-outline rf-generate-btn"
+                    className="rf-btn rf-btn-secondary"
                     onClick={handleGenerateLink}
                     disabled={saving || generatingLink}
                     title="Generate a random short link"
@@ -629,8 +467,8 @@ const RouteForm: React.FC<RouteFormProps> = ({
               )}
             </div>
 
-            <div className="rf-field">
-              <label className="rf-label">
+            <div className="rf-control-group">
+              <label className="rf-control-label">
                 Destination URL<span className="rf-required">*</span>
               </label>
               <input
@@ -648,31 +486,42 @@ const RouteForm: React.FC<RouteFormProps> = ({
         </div>
 
         {/* Section 2: Redirect Options */}
-        <details className="rf-section" open={hasNonDefaultRedirect || undefined}>
-          <summary>Redirect Options</summary>
+        <details className="rf-section-collapsible" open={hasNonDefaultRedirect || undefined}>
+          <summary>
+            <ArrowRightLeft size={14} />
+            Redirect Options
+            <ChevronRight size={14} className="rf-chevron" />
+          </summary>
           <div className="rf-section-body">
-            <div className="rf-field">
-              <label className="rf-label">HTTP Code</label>
-              <select
-                className="rf-select"
-                value={formData.code ?? 302}
-                onChange={(e) => handleChange('code', parseInt(e.target.value))}
-                disabled={saving}
-              >
+            <div className="rf-control-group">
+              <label className="rf-control-label">HTTP Code</label>
+              <div className="rf-code-options">
                 {HTTP_CODES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label} - {c.desc}
-                  </option>
+                  <button
+                    key={c.value}
+                    type="button"
+                    className={`rf-code-btn ${(formData.code ?? 302) === c.value ? 'active' : ''}`}
+                    onClick={() => handleChange('code', c.value)}
+                    disabled={saving}
+                  >
+                    {c.label}
+                  </button>
                 ))}
-              </select>
+              </div>
+              <p className="rf-code-desc">
+                {HTTP_CODE_DESCRIPTIONS[formData.code ?? 302]}
+              </p>
             </div>
-
           </div>
         </details>
 
         {/* Section 3: Conditional Routes */}
-        <details className="rf-section" open={hasConditions || undefined}>
-          <summary>Conditional Routes</summary>
+        <details className="rf-section-collapsible" open={hasConditions || undefined}>
+          <summary>
+            <GitBranch size={14} />
+            Conditional Routes
+            <ChevronRight size={14} className="rf-chevron" />
+          </summary>
           <div className="rf-section-body">
             <ConditionsEditor
               conditions={formData.conditions || []}
@@ -682,11 +531,15 @@ const RouteForm: React.FC<RouteFormProps> = ({
         </details>
 
         {/* Section 4: Tags & Options */}
-        <details className="rf-section" open={hasTagsOrFlags || undefined}>
-          <summary>Tags &amp; Options</summary>
+        <details className="rf-section-collapsible" open={hasTagsOrFlags || undefined}>
+          <summary>
+            <Tag size={14} />
+            Tags &amp; Options
+            <ChevronRight size={14} className="rf-chevron" />
+          </summary>
           <div className="rf-section-body">
-            <div className="rf-field">
-              <label className="rf-label">Tags (comma-separated)</label>
+            <div className="rf-control-group">
+              <label className="rf-control-label">Tags (comma-separated)</label>
               <input
                 className="rf-input"
                 type="text"
@@ -705,46 +558,52 @@ const RouteForm: React.FC<RouteFormProps> = ({
               />
             </div>
 
-            <div className="rf-checkbox-group">
-              <label className="rf-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={formData.properties?.opengraph || false}
-                  onChange={(e) => handlePropertyChange('opengraph', e.target.checked)}
-                  disabled={saving}
-                />
-                Enable OpenGraph
+            <div className="rf-control-group">
+              <label className="rf-control-label">
+                <Settings size={14} />
+                Options
               </label>
+              <div className="rf-checkbox-group">
+                <label className="rf-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.properties?.opengraph || false}
+                    onChange={(e) => handlePropertyChange('opengraph', e.target.checked)}
+                    disabled={saving}
+                  />
+                  Enable OpenGraph
+                </label>
 
-              <label className="rf-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={formData.properties?.allowDebug || false}
-                  onChange={(e) => handlePropertyChange('allowDebug', e.target.checked)}
-                  disabled={saving}
-                />
-                Allow Debug
-              </label>
+                <label className="rf-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.properties?.allowDebug || false}
+                    onChange={(e) => handlePropertyChange('allowDebug', e.target.checked)}
+                    disabled={saving}
+                  />
+                  Allow Debug
+                </label>
+              </div>
             </div>
           </div>
         </details>
+      </div>
 
-        {/* Actions */}
-        <div className="rf-actions">
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={onCancel}
-            disabled={saving}
-          >
-            Cancel
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving...' : isEdit ? 'Update Route' : 'Create Route'}
-          </button>
-        </div>
-      </form>
-    </>
+      {/* Actions */}
+      <div className="rf-actions">
+        <button
+          type="button"
+          className="rf-btn rf-btn-secondary"
+          onClick={onCancel}
+          disabled={saving}
+        >
+          Cancel
+        </button>
+        <button type="submit" className="rf-btn rf-btn-primary" disabled={saving}>
+          {saving ? 'Saving...' : isEdit ? 'Update Route' : 'Create Route'}
+        </button>
+      </div>
+    </form>
   );
 };
 

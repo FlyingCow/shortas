@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
 import { RouteDto, DomainDto, apiService } from '../services/api';
 import RouteForm from './RouteForm';
 import './DesignSystem.css';
+import './RouteForm.css';
 
 interface RouteFormModalProps {
   show: boolean;
@@ -38,24 +38,13 @@ export const RouteFormModal: React.FC<RouteFormModalProps> = ({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 className="modal-title">
-            {route ? 'Edit Route' : 'Create New Route'}
-          </h2>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="modal-body">
-          <RouteForm
-            route={route}
-            domains={domains}
-            onSave={onSave}
-            onCancel={onClose}
-          />
-        </div>
+      <div className="modal-content modal-content-no-padding" onClick={(e) => e.stopPropagation()}>
+        <RouteForm
+          route={route}
+          domains={domains}
+          onSave={onSave}
+          onCancel={onClose}
+        />
       </div>
     </div>
   );
