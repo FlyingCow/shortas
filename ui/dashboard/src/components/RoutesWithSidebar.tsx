@@ -1164,6 +1164,30 @@ const RoutesWithSidebar: React.FC = () => {
     return () => document.removeEventListener('keydown', onKey);
   }, [qrDesignerRoute, isEditing]);
 
+  useEffect(() => {
+    if (isEditing || qrDesignerRoute) return;
+    const isInputFocused = () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || el === document.body) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (isInputFocused()) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+        setEditingRoute(null);
+        setIsEditing(true);
+        e.preventDefault();
+      } else if (e.altKey && e.key.toLowerCase() === 'n') {
+        setEditingRoute(null);
+        setIsEditing(true);
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isEditing, qrDesignerRoute]);
+
   const handleCreateRoute = () => {
     setEditingRoute(null);
     setIsEditing(true);

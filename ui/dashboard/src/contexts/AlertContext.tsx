@@ -94,11 +94,15 @@ export function AlertProvider({ children }: AlertProviderProps) {
         handleClose();
         e.preventDefault();
         e.stopImmediatePropagation();
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        handleConfirm();
+        e.preventDefault();
+        e.stopImmediatePropagation();
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [state, handleClose]);
+  }, [state, handleClose, handleConfirm]);
 
   return (
     <AlertContext.Provider value={value}>

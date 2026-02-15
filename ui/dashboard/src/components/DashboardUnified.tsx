@@ -751,6 +751,23 @@ const Dashboard: React.FC = () => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
+  useEffect(() => {
+    const isInputFocused = () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || el === document.body) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === 'r' && !isInputFocused()) {
+        fetchDashboardData();
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [fetchDashboardData]);
+
   if (loading && !analytics) {
     return <LoadingSpinner message="Loading dashboard..." />;
   }
@@ -1040,34 +1057,45 @@ const Dashboard: React.FC = () => {
               <p className="db-chart-desc">By device type</p>
             </div>
             <div className="db-chart-body" style={{ height: '200px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={analytics?.clicks_by_device || []}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={70}
-                    innerRadius={45}
-                    dataKey="clicks"
-                    nameKey="device"
-                    paddingAngle={2}
-                    stroke="var(--bg-primary)"
-                    strokeWidth={2}
-                  >
-                    {(analytics?.clicks_by_device || []).map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
+              {(analytics?.clicks_by_device || []).length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={analytics?.clicks_by_device || []}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={70}
+                        innerRadius={45}
+                        dataKey="clicks"
+                        nameKey="device"
+                        paddingAngle={2}
+                        stroke="var(--bg-primary)"
+                        strokeWidth={2}
+                      >
+                        {(analytics?.clicks_by_device || []).map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <PieLegend
+                    items={(analytics?.clicks_by_device || []).map((entry, i) => ({
+                      name: entry.device,
+                      color: CHART_COLORS[i % CHART_COLORS.length],
+                    }))}
+                  />
+                </>
+              ) : (
+                <div className="db-empty">
+                  <div className="db-empty-icon">
+                    <Monitor />
+                  </div>
+                  <p>No device data</p>
+                </div>
+              )}
             </div>
-            <PieLegend
-              items={(analytics?.clicks_by_device || []).map((entry, i) => ({
-                name: entry.device,
-                color: CHART_COLORS[i % CHART_COLORS.length],
-              }))}
-            />
           </div>
 
           {/* Browser Distribution */}
@@ -1080,34 +1108,45 @@ const Dashboard: React.FC = () => {
               <p className="db-chart-desc">By browser</p>
             </div>
             <div className="db-chart-body" style={{ height: '200px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={analytics?.clicks_by_browser || []}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={70}
-                    innerRadius={45}
-                    dataKey="clicks"
-                    nameKey="browser"
-                    paddingAngle={2}
-                    stroke="var(--bg-primary)"
-                    strokeWidth={2}
-                  >
-                    {(analytics?.clicks_by_browser || []).map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
+              {(analytics?.clicks_by_browser || []).length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={analytics?.clicks_by_browser || []}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={70}
+                        innerRadius={45}
+                        dataKey="clicks"
+                        nameKey="browser"
+                        paddingAngle={2}
+                        stroke="var(--bg-primary)"
+                        strokeWidth={2}
+                      >
+                        {(analytics?.clicks_by_browser || []).map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <PieLegend
+                    items={(analytics?.clicks_by_browser || []).map((entry, i) => ({
+                      name: entry.browser,
+                      color: CHART_COLORS[i % CHART_COLORS.length],
+                    }))}
+                  />
+                </>
+              ) : (
+                <div className="db-empty">
+                  <div className="db-empty-icon">
+                    <Globe />
+                  </div>
+                  <p>No browser data</p>
+                </div>
+              )}
             </div>
-            <PieLegend
-              items={(analytics?.clicks_by_browser || []).map((entry, i) => ({
-                name: entry.browser,
-                color: CHART_COLORS[i % CHART_COLORS.length],
-              }))}
-            />
           </div>
 
           {/* Traffic Type */}
