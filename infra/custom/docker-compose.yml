@@ -129,6 +129,18 @@ services:
         mc mb myminio/route-images --ignore-existing
         echo 'Setting route-images bucket as public read...'
         mc anonymous set download myminio/route-images
+        echo 'Configuring CORS for route-images bucket...'
+        cat > /tmp/cors.json << 'EOF'
+        {
+          \"CORSRules\": [{
+            \"AllowedHeaders\": [\"*\"],
+            \"AllowedMethods\": [\"GET\", \"PUT\", \"POST\", \"DELETE\"],
+            \"AllowedOrigins\": [\"*\"],
+            \"ExposeHeaders\": [\"ETag\", \"Content-Length\", \"Content-Type\"]
+          }]
+        }
+        EOF
+        mc cors set myminio/route-images /tmp/cors.json
         echo 'MinIO setup complete'
       "
     networks:

@@ -1508,7 +1508,11 @@ const RoutesWithSidebar: React.FC = () => {
                 {qrUrl && <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>{qrUrl}</p>}
               </div>
               {qrUrl ? (
-                <QRCodeDesigner url={qrUrl} />
+                <QRCodeDesigner
+                  url={qrUrl}
+                  routeId={qrDesignerRoute.id}
+                  ownerId={qrDesignerRoute.properties?.ownerId}
+                />
               ) : (
                 <div className="db-empty" style={{ padding: '3rem 2rem' }}>
                   <p>This route has no domain. Assign a domain to generate a QR code URL.</p>
