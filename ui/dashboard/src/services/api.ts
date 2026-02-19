@@ -501,6 +501,11 @@ export const apiService = {
       return response.data;
     },
 
+    unblock: async (id: string): Promise<RouteDto> => {
+      const response = await routerApi.post(`/routes/${id}/unblock`);
+      return response.data;
+    },
+
     suggestLink: async (domainId: string): Promise<{ link: string }> => {
       const response = await routerApi.get('/routes/suggest-link', { params: { domainId } });
       return response.data;

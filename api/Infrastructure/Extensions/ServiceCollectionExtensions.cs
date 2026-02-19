@@ -111,11 +111,26 @@ public static class ServiceCollectionExtensions
         .AddPolicyHandler(GetCircuitBreakerPolicy())
         .AddPolicyHandler(GetTimeoutPolicy());
 
+        // Register HTTP client for Route Verifier (Safe Browsing)
+        services.AddHttpClient("RouteVerifier", client =>
+        {
+            var baseUrl = configuration["ApiSettings:RouteVerifier:BaseUrl"] ?? "http://localhost:5831";
+            var timeout = configuration.GetValue<int>("ApiSettings:RouteVerifier:Timeout", 30);
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(timeout);
+        })
+        .AddPolicyHandler(GetRetryPolicy())
+        .AddPolicyHandler(GetCircuitBreakerPolicy())
+        .AddPolicyHandler(GetTimeoutPolicy());
+
         // Register Outbox background service
         services.AddHostedService<OutboxProcessorService>();
 
         // Register Domain Verification Consumer
         services.AddHostedService<DomainVerificationConsumer>();
+
+        // Register Route Status Consumer (for Safe Browsing verification events)
+        services.AddHostedService<RouteStatusConsumer>();
 
         // Add S3/MinIO Object Storage
         var s3Endpoint = configuration["S3:Endpoint"] ?? "http://localhost:9000";

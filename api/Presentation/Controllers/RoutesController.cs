@@ -394,6 +394,58 @@ public class RoutesController : ControllerBase
     }
 
     /// <summary>
+    /// Unblock a route that was blocked by Safe Browsing verification.
+    /// Sets the route status back to "Active" for manual review scenarios.
+    /// </summary>
+    /// <param name="id">Route ID</param>
+    /// <returns>Updated route</returns>
+    [HttpPost("{id}/unblock")]
+    public async Task<ActionResult<RouteDto>> UnblockRoute(string id)
+    {
+        if (!Guid.TryParse(id, out var routeId))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Invalid route ID format" });
+        }
+
+        var userId = this.GetUserId();
+
+        // Fetch existing route
+        var existingRouteResult = await _routeService.GetRouteByIdAsync(routeId, userId);
+        if (existingRouteResult.IsFailure)
+        {
+            return HandleError(existingRouteResult.ErrorCode ?? "UNKNOWN_ERROR", existingRouteResult.Error);
+        }
+
+        if (existingRouteResult.Value == null)
+        {
+            return NotFound(new { error = "NOT_FOUND", message = "Route not found" });
+        }
+
+        var existingRoute = existingRouteResult.Value;
+
+        // Check if route is actually blocked
+        if (!existingRoute.Status.StartsWith("Blocked", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Route is not blocked" });
+        }
+
+        // Update status to Active
+        existingRoute.Status = "Active";
+
+        var result = await _routeService.UpdateRouteByIdAsync(routeId, userId, existingRoute);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        _logger.LogInformation("Route {RouteId} unblocked by user {UserId}", routeId, userId);
+
+        var updatedRouteDto = MapToDto(result.Value);
+        return Ok(updatedRouteDto);
+    }
+
+    /// <summary>
     /// Bulk create routes
     /// </summary>
     /// <param name="routesDto">List of routes to create</param>

@@ -80,6 +80,10 @@ public class OutboxProcessorService : BackgroundService
             {
                 await ProcessDomainVerificationMessageAsync(message, outboxRepository, httpClientFactory, cancellationToken);
             }
+            else if (IsRouteVerificationEvent(message.EventType))
+            {
+                await ProcessRouteVerificationMessageAsync(message, outboxRepository, httpClientFactory, cancellationToken);
+            }
             else
             {
                 await ProcessMessageAsync(message, outboxRepository, httpClientFactory, cancellationToken);
@@ -96,6 +100,10 @@ public class OutboxProcessorService : BackgroundService
     private static bool IsDomainVerificationEvent(string eventType) =>
         eventType is OutboxEventType.DomainVerificationRequested
                   or OutboxEventType.DomainRemovalRequested;
+
+    private static bool IsRouteVerificationEvent(string eventType) =>
+        eventType is OutboxEventType.RouteVerificationRequested
+                  or OutboxEventType.RouteVerificationRemovalRequested;
 
     private async Task ProcessMessageAsync(
         OutboxMessage message,
@@ -472,6 +480,108 @@ public class OutboxProcessorService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending domain verification message {MessageId} to domain-verifier", message.Id);
+            message.ErrorMessage = ex.Message;
+            return false;
+        }
+    }
+
+    private async Task ProcessRouteVerificationMessageAsync(
+        OutboxMessage message,
+        IOutboxRepository outboxRepository,
+        IHttpClientFactory httpClientFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            message.Status = OutboxMessageStatus.Processing;
+            await outboxRepository.UpdateAsync(message);
+            await outboxRepository.SaveChangesAsync();
+
+            var httpClient = httpClientFactory.CreateClient("RouteVerifier");
+
+            var success = await SendToRouteVerifierAsync(message, httpClient, cancellationToken);
+
+            if (success)
+            {
+                message.Status = OutboxMessageStatus.Completed;
+                message.ProcessedAt = DateTime.UtcNow;
+                message.ErrorMessage = null;
+
+                _logger.LogInformation(
+                    "Successfully processed route verification message {MessageId}, Event: {EventType}",
+                    message.Id,
+                    message.EventType);
+            }
+            else
+            {
+                await HandleFailureAsync(message);
+            }
+
+            await outboxRepository.UpdateAsync(message);
+            await outboxRepository.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing route verification message {MessageId}", message.Id);
+
+            message.ErrorMessage = ex.Message;
+            await HandleFailureAsync(message);
+            await outboxRepository.UpdateAsync(message);
+            await outboxRepository.SaveChangesAsync();
+        }
+    }
+
+    private async Task<bool> SendToRouteVerifierAsync(
+        OutboxMessage message,
+        HttpClient httpClient,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            HttpResponseMessage? response = null;
+
+            switch (message.EventType)
+            {
+                case OutboxEventType.RouteVerificationRequested:
+                    var content = new StringContent(message.Payload, System.Text.Encoding.UTF8, "application/json");
+                    response = await httpClient.PostAsync("/v1/routes", content, cancellationToken);
+                    break;
+
+                case OutboxEventType.RouteVerificationRemovalRequested:
+                    var removePayload = JsonSerializer.Deserialize<JsonElement>(message.Payload, _jsonOptions);
+                    var routeId = removePayload.GetProperty("id").GetString();
+                    if (!string.IsNullOrEmpty(routeId))
+                    {
+                        response = await httpClient.DeleteAsync($"/v1/routes/{routeId}", cancellationToken);
+                    }
+                    break;
+
+                default:
+                    _logger.LogWarning("Unknown route verification event type: {EventType}", message.EventType);
+                    return false;
+            }
+
+            if (response != null && response.IsSuccessStatusCode)
+            {
+                return true;
+            }
+
+            if (response != null)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                message.ErrorMessage = $"HTTP {response.StatusCode}: {errorContent}";
+                _logger.LogWarning(
+                    "Failed to send route verification message {MessageId} to route-verifier. Status: {StatusCode}, Error: {Error}",
+                    message.Id,
+                    response.StatusCode,
+                    errorContent);
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending route verification message {MessageId} to route-verifier", message.Id);
             message.ErrorMessage = ex.Message;
             return false;
         }

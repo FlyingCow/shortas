@@ -162,3 +162,5 @@ services:
 volumes:
   minio_data:
     driver: local
+  safe_browsing_data:
+    driver: local

@@ -8,6 +8,7 @@ members = [
     "click-tracker",
     "domain-verifier",
     "route-icon-worker",
+    "route-verifier",
     "infra/domains",
 ]
 
