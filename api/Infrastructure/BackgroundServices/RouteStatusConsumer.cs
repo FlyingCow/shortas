@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using ShortasProxyApi.Domain.Entities;
 using ShortasProxyApi.Infrastructure.Data;
 
 namespace ShortasProxyApi.Infrastructure.BackgroundServices;
@@ -166,10 +167,30 @@ public class RouteStatusConsumer : BackgroundService
         var previousStatus = route.Status;
         route.Status = statusChange.NewStatus ?? "Active";
 
+        // Create outbox message to propagate status change to click-router-api
+        var outboxPayload = new
+        {
+            route_id = route.Id.ToString(),
+            link = route.Link,
+            status = route.Status,
+            blocked_reason = statusChange.BlockedReason
+        };
+
+        var outboxMessage = new OutboxMessage
+        {
+            EventType = OutboxEventType.RouteStatusUpdated,
+            AggregateId = route.Id.ToString(),
+            Payload = JsonSerializer.Serialize(outboxPayload, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            })
+        };
+
+        await dbContext.OutboxMessages.AddAsync(outboxMessage, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
-            "Updated route {RouteId} status: {PreviousStatus} -> {NewStatus}",
+            "Updated route {RouteId} status: {PreviousStatus} -> {NewStatus}, outbox message created",
             route.Id,
             previousStatus,
             route.Status);

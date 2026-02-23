@@ -84,6 +84,10 @@ public class OutboxProcessorService : BackgroundService
             {
                 await ProcessRouteVerificationMessageAsync(message, outboxRepository, httpClientFactory, cancellationToken);
             }
+            else if (IsRouteStatusEvent(message.EventType))
+            {
+                await ProcessRouteStatusMessageAsync(message, outboxRepository, httpClientFactory, cancellationToken);
+            }
             else
             {
                 await ProcessMessageAsync(message, outboxRepository, httpClientFactory, cancellationToken);
@@ -104,6 +108,9 @@ public class OutboxProcessorService : BackgroundService
     private static bool IsRouteVerificationEvent(string eventType) =>
         eventType is OutboxEventType.RouteVerificationRequested
                   or OutboxEventType.RouteVerificationRemovalRequested;
+
+    private static bool IsRouteStatusEvent(string eventType) =>
+        eventType is OutboxEventType.RouteStatusUpdated;
 
     private async Task ProcessMessageAsync(
         OutboxMessage message,
@@ -582,6 +589,152 @@ public class OutboxProcessorService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending route verification message {MessageId} to route-verifier", message.Id);
+            message.ErrorMessage = ex.Message;
+            return false;
+        }
+    }
+
+    private async Task ProcessRouteStatusMessageAsync(
+        OutboxMessage message,
+        IOutboxRepository outboxRepository,
+        IHttpClientFactory httpClientFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            message.Status = OutboxMessageStatus.Processing;
+            await outboxRepository.UpdateAsync(message);
+            await outboxRepository.SaveChangesAsync();
+
+            var httpClient = httpClientFactory.CreateClient("ClickRouterApi");
+
+            var success = await SendRouteStatusToClickRouterAsync(message, httpClient, cancellationToken);
+
+            if (success)
+            {
+                message.Status = OutboxMessageStatus.Completed;
+                message.ProcessedAt = DateTime.UtcNow;
+                _logger.LogInformation(
+                    "Route status update message {MessageId} processed successfully",
+                    message.Id);
+            }
+            else
+            {
+                await HandleFailureAsync(message);
+            }
+
+            await outboxRepository.UpdateAsync(message);
+            await outboxRepository.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing route status message {MessageId}", message.Id);
+            message.ErrorMessage = ex.Message;
+            await HandleFailureAsync(message);
+            await outboxRepository.UpdateAsync(message);
+            await outboxRepository.SaveChangesAsync();
+        }
+    }
+
+    private async Task<bool> SendRouteStatusToClickRouterAsync(
+        OutboxMessage message,
+        HttpClient httpClient,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var payload = JsonSerializer.Deserialize<JsonElement>(message.Payload, _jsonOptions);
+            var routeId = payload.GetProperty("route_id").GetString();
+            var status = payload.GetProperty("status").GetString();
+            var blockedReason = payload.TryGetProperty("blocked_reason", out var reasonProp)
+                ? reasonProp.GetString()
+                : null;
+
+            if (string.IsNullOrEmpty(routeId))
+            {
+                _logger.LogWarning("Route status message {MessageId} has no route_id", message.Id);
+                return false;
+            }
+
+            // Build the status string for click-router-api
+            // Format: "Active" or "Blocked: {reason}"
+            string statusString;
+            if (status == "Blocked" && !string.IsNullOrEmpty(blockedReason))
+            {
+                statusString = $"Blocked: {blockedReason}";
+            }
+            else if (status == "Blocked")
+            {
+                statusString = "Blocked: Unknown";
+            }
+            else
+            {
+                statusString = "Active";
+            }
+
+            // click-router-api expects a full RouteDto, but we only have status info
+            // We'll send a minimal payload - the API will merge with existing route data
+            var statusPayload = new
+            {
+                status = statusString,
+                // These fields are required by RouteDto but will be overwritten from existing route
+                @switch = "main",
+                link = payload.TryGetProperty("link", out var linkProp) ? linkProp.GetString() : "",
+                destFormat = "Http",
+                terminal = "External",
+                policy = "Basic",
+                properties = new
+                {
+                    routeId = routeId,
+                    opengraph = false,
+                    allowDebug = false
+                }
+            };
+
+            // Use camelCase for click-router-api (it uses serde rename_all = "camelCase")
+            var camelCaseOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var content = new StringContent(
+                JsonSerializer.Serialize(statusPayload, camelCaseOptions),
+                System.Text.Encoding.UTF8,
+                "application/json");
+
+            var response = await httpClient.PutAsync($"/v1/routes/{routeId}", content, cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation(
+                    "Successfully updated route {RouteId} status to {Status} in click-router",
+                    routeId,
+                    status);
+                return true;
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning(
+                "Failed to update route {RouteId} status in click-router. Status: {StatusCode}, Error: {Error}",
+                routeId,
+                response.StatusCode,
+                errorContent);
+
+            // Don't retry on 404 - route might not exist in click-router yet
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning(
+                    "Route {RouteId} not found in click-router, marking as completed",
+                    routeId);
+                return true;
+            }
+
+            message.ErrorMessage = $"HTTP {response.StatusCode}: {errorContent}";
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending route status update to click-router");
             message.ErrorMessage = ex.Message;
             return false;
         }

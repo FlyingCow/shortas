@@ -59,4 +59,7 @@ public static class OutboxEventType
     // Route verification events (Safe Browsing)
     public const string RouteVerificationRequested = "RouteVerificationRequested";
     public const string RouteVerificationRemovalRequested = "RouteVerificationRemovalRequested";
+
+    // Route status events (blocking/unblocking)
+    public const string RouteStatusUpdated = "RouteStatusUpdated";
 }
