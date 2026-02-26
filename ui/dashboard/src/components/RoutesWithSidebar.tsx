@@ -12,7 +12,8 @@ import {
   Globe,
   RefreshCw,
   Copy,
-  QrCode
+  QrCode,
+  ShieldOff
 } from 'lucide-react';
 import {
   BarChart,
@@ -715,6 +716,12 @@ const routeStatsStyles = `
   color: var(--color-error);
 }
 
+.rs-route-tag.blocked {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
 .rs-route-tag.policy {
   background: rgba(59, 130, 246, 0.1);
   color: var(--color-primary);
@@ -765,6 +772,11 @@ const routeStatsStyles = `
 .rs-action-btn.delete:hover {
   background: rgba(239, 68, 68, 0.1);
   color: var(--color-error);
+}
+
+.rs-action-btn.unblock:hover {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--color-success);
 }
 
 .rs-action-btn.copy:hover {
@@ -1293,11 +1305,52 @@ const RoutesWithSidebar: React.FC = () => {
     return 'Basic';
   };
 
+  // Helper functions for blocked status handling
+  const getStatusClass = (status: string): string => {
+    const lower = status.toLowerCase();
+    if (lower.startsWith('blocked')) return 'blocked';
+    if (lower === 'active') return 'active';
+    return 'inactive';
+  };
+
+  const getStatusDisplay = (status: string): string => {
+    if (status.toLowerCase().startsWith('blocked')) return 'Blocked';
+    return status;
+  };
+
+  const isRouteBlocked = (status: string): boolean => {
+    return status.toLowerCase().startsWith('blocked');
+  };
+
+  const handleUnblockRoute = async (route: RouteDto) => {
+    if (!route.id) {
+      showAlert('Cannot unblock route: missing ID', 'Error');
+      return;
+    }
+
+    const confirmed = await showConfirm(
+      `Are you sure you want to unblock the route "${route.link}"? This will make it active again.`,
+      'Unblock route',
+      { confirmLabel: 'Unblock', variant: 'primary' }
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiService.routes.unblock(route.id);
+      await fetchRoutes();
+      showAlert('Route unblocked successfully', 'Success');
+    } catch (err: any) {
+      console.error('Failed to unblock route:', err);
+      showAlert('Failed to unblock route. Please try again.', 'Error');
+    }
+  };
+
   // Use ES search results when search is active, otherwise use local routes with status filter
   const baseRoutes = searchResults !== null ? searchResults : routes;
   const filteredRoutes = baseRoutes.filter(route => {
-    const matchesStatus = statusFilter === 'all' || route.status.toLowerCase() === statusFilter.toLowerCase();
-    return matchesStatus;
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'blocked') return isRouteBlocked(route.status);
+    return route.status.toLowerCase() === statusFilter.toLowerCase();
   });
 
   if (loading) {
@@ -1356,6 +1409,7 @@ const RoutesWithSidebar: React.FC = () => {
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
+                <option value="blocked">Blocked</option>
               </select>
 
               <select
@@ -1407,8 +1461,8 @@ const RoutesWithSidebar: React.FC = () => {
 
                 <div className="rs-route-footer">
                   <div className="rs-route-tags">
-                    <span className={`rs-route-tag ${route.status.toLowerCase()}`}>
-                      {route.status}
+                    <span className={`rs-route-tag ${getStatusClass(route.status)}`}>
+                      {getStatusDisplay(route.status)}
                     </span>
                     {route.policy && getPolicyType(route.policy) !== 'Basic' && (
                       <span className="rs-route-tag policy">
@@ -1438,6 +1492,18 @@ const RoutesWithSidebar: React.FC = () => {
                     >
                       <Copy size={14} />
                     </button>
+                    {isRouteBlocked(route.status) && (
+                      <button
+                        className="rs-action-btn unblock"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUnblockRoute(route);
+                        }}
+                        title="Unblock route"
+                      >
+                        <ShieldOff size={14} />
+                      </button>
+                    )}
                     <button
                       className="rs-action-btn edit"
                       onClick={(e) => {
@@ -1508,7 +1574,11 @@ const RoutesWithSidebar: React.FC = () => {
                 {qrUrl && <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>{qrUrl}</p>}
               </div>
               {qrUrl ? (
-                <QRCodeDesigner url={qrUrl} />
+                <QRCodeDesigner
+                  url={qrUrl}
+                  routeId={qrDesignerRoute.id}
+                  ownerId={qrDesignerRoute.properties?.ownerId}
+                />
               ) : (
                 <div className="db-empty" style={{ padding: '3rem 2rem' }}>
                   <p>This route has no domain. Assign a domain to generate a QR code URL.</p>

@@ -169,6 +169,9 @@ public class EfRouteService : IRouteService
 
             // Enqueue search index update via outbox
             await EnqueueSearchIndexAsync(savedRoute);
+
+            // Enqueue route verification via outbox
+            await EnqueueRouteVerificationAsync(savedRoute);
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
@@ -265,6 +268,9 @@ public class EfRouteService : IRouteService
 
             // Enqueue search index update via outbox
             await EnqueueSearchIndexAsync(existingRoute);
+
+            // Enqueue route verification via outbox (destination may have changed)
+            await EnqueueRouteVerificationAsync(existingRoute);
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
@@ -365,6 +371,9 @@ public class EfRouteService : IRouteService
 
             // Enqueue search index update via outbox
             await EnqueueSearchIndexAsync(existingRoute);
+
+            // Enqueue route verification via outbox (destination may have changed)
+            await EnqueueRouteVerificationAsync(existingRoute);
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
@@ -427,6 +436,9 @@ public class EfRouteService : IRouteService
 
             // Enqueue search index delete via outbox
             await EnqueueSearchDeleteAsync(existingRoute);
+
+            // Enqueue route verification removal via outbox
+            await EnqueueRouteVerificationRemovalAsync(existingRoute);
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
@@ -495,6 +507,9 @@ public class EfRouteService : IRouteService
 
             // Enqueue search index delete via outbox
             await EnqueueSearchDeleteAsync(existingRoute);
+
+            // Enqueue route verification removal via outbox
+            await EnqueueRouteVerificationRemovalAsync(existingRoute);
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
@@ -602,6 +617,9 @@ public class EfRouteService : IRouteService
 
             // Enqueue search index update via outbox
             await EnqueueSearchBulkIndexAsync(savedRoutes);
+
+            // Enqueue route verification via outbox
+            await EnqueueBulkRouteVerificationAsync(savedRoutes);
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
@@ -716,6 +734,9 @@ public class EfRouteService : IRouteService
 
             // Enqueue search index update via outbox
             await EnqueueSearchBulkIndexAsync(routes);
+
+            // Enqueue route verification via outbox (destinations may have changed)
+            await EnqueueBulkRouteVerificationAsync(routes);
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
@@ -793,6 +814,9 @@ public class EfRouteService : IRouteService
 
             // Enqueue search index delete via outbox
             await EnqueueSearchBulkDeleteAsync(routesToDelete);
+
+            // Enqueue route verification removal via outbox
+            await EnqueueBulkRouteVerificationRemovalAsync(routesToDelete);
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
@@ -981,6 +1005,97 @@ public class EfRouteService : IRouteService
             AggregateId = string.Join(",", ids),
             Payload = JsonSerializer.Serialize(ids, _jsonOptions)
         });
+    }
+
+    #endregion
+
+    #region Route Verification Outbox Helpers
+
+    /// <summary>
+    /// Collects all destinations from a route (main dest + conditional policy dests).
+    /// </summary>
+    private static List<string> CollectDestinations(RouteEntity route)
+    {
+        var destinations = new List<string>();
+
+        // Add main destination
+        if (!string.IsNullOrWhiteSpace(route.Dest))
+        {
+            destinations.Add(route.Dest);
+        }
+
+        // Add destinations from conditional policy
+        if (route.Policy is ConditionalPolicy conditionalPolicy)
+        {
+            foreach (var condition in conditionalPolicy.Conditions)
+            {
+                if (!string.IsNullOrWhiteSpace(condition.Dest))
+                {
+                    destinations.Add(condition.Dest);
+                }
+            }
+        }
+
+        return destinations.Distinct().ToList();
+    }
+
+    private async Task EnqueueRouteVerificationAsync(RouteEntity route)
+    {
+        var destinations = CollectDestinations(route);
+
+        // Skip if no destinations to verify
+        if (destinations.Count == 0)
+        {
+            return;
+        }
+
+        var payload = new
+        {
+            id = route.Id.ToString(),
+            link = route.Link,
+            destinations = destinations,
+            owner_id = route.Properties?.OwnerId,
+            workspace_id = route.Properties?.WorkspaceId
+        };
+
+        await _context.OutboxMessages.AddAsync(new OutboxMessage
+        {
+            EventType = OutboxEventType.RouteVerificationRequested,
+            AggregateId = route.Id.ToString(),
+            Payload = JsonSerializer.Serialize(payload, _jsonOptions)
+        });
+    }
+
+    private async Task EnqueueRouteVerificationRemovalAsync(RouteEntity route)
+    {
+        var payload = new
+        {
+            id = route.Id.ToString(),
+            link = route.Link
+        };
+
+        await _context.OutboxMessages.AddAsync(new OutboxMessage
+        {
+            EventType = OutboxEventType.RouteVerificationRemovalRequested,
+            AggregateId = route.Id.ToString(),
+            Payload = JsonSerializer.Serialize(payload, _jsonOptions)
+        });
+    }
+
+    private async Task EnqueueBulkRouteVerificationAsync(List<RouteEntity> routes)
+    {
+        foreach (var route in routes)
+        {
+            await EnqueueRouteVerificationAsync(route);
+        }
+    }
+
+    private async Task EnqueueBulkRouteVerificationRemovalAsync(List<RouteEntity> routes)
+    {
+        foreach (var route in routes)
+        {
+            await EnqueueRouteVerificationRemovalAsync(route);
+        }
     }
 
     #endregion

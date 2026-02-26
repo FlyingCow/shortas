@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import QRCodeStyling, { type DotType, type Options } from 'qr-code-styling';
-import { QrCode, Download, ImagePlus, Palette } from 'lucide-react';
+import { QrCode, Download, ImagePlus, Palette, Save, Loader2 } from 'lucide-react';
 import { useAlert } from '../contexts/AlertContext';
+import { apiService, QrCodeSettingsDto } from '../services/api';
+import { getRouteImagesBaseUrl } from '../config/runtimeEnv';
 import './QRCodeDesigner.css';
 
 const DOT_STYLES: { value: DotType; label: string }[] = [
@@ -29,9 +31,13 @@ const DEFAULT_DATA = 'https://example.com';
 interface QRCodeDesignerProps {
   /** When set, QR content is this URL and the content input is read-only */
   url?: string;
+  /** Route ID for loading/saving settings */
+  routeId?: string;
+  /** Owner ID for storage paths */
+  ownerId?: string;
 }
 
-const QRCodeDesigner: React.FC<QRCodeDesignerProps> = ({ url }) => {
+const QRCodeDesigner: React.FC<QRCodeDesignerProps> = ({ url, routeId, ownerId }) => {
   const { showAlert } = useAlert();
   const containerRef = useRef<HTMLDivElement>(null);
   const qrRef = useRef<QRCodeStyling | null>(null);
@@ -43,6 +49,9 @@ const QRCodeDesigner: React.FC<QRCodeDesignerProps> = ({ url }) => {
   const [size, setSize] = useState(280);
   const [centerImage, setCenterImage] = useState<string | undefined>(undefined);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [logoChanged, setLogoChanged] = useState(false);
 
   const buildOptions = useCallback(
     (): Partial<Options> => ({
@@ -63,6 +72,83 @@ const QRCodeDesigner: React.FC<QRCodeDesignerProps> = ({ url }) => {
     [effectiveData, dotStyle, fgColor, bgColor, size, centerImage]
   );
 
+  // Load settings when routeId changes
+  useEffect(() => {
+    if (!routeId) return;
+
+    setIsLoading(true);
+    apiService.routes.qr.getSettings(routeId)
+      .then((settings: QrCodeSettingsDto) => {
+        if (settings.dotStyle) setDotStyle(settings.dotStyle as DotType);
+        if (settings.fgColor) setFgColor(settings.fgColor);
+        if (settings.bgColor) setBgColor(settings.bgColor);
+        if (settings.size) setSize(settings.size);
+        if (settings.centerImageUrl) {
+          setCenterImage(settings.centerImageUrl);
+        }
+      })
+      .catch(() => {
+        // Use defaults if no settings found
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [routeId]);
+
+  // Save handler
+  const handleSave = useCallback(async () => {
+    if (!routeId || !qrRef.current) return;
+
+    setIsSaving(true);
+    try {
+      // 1. Upload logo if changed
+      let centerImageUrl = centerImage;
+      if (logoChanged && imageFile) {
+        const logoUploadResponse = await apiService.routes.qr.getLogoUploadUrl(routeId, imageFile.type);
+        await fetch(logoUploadResponse.url, {
+          method: 'PUT',
+          body: imageFile,
+          headers: {
+            'Content-Type': imageFile.type,
+          },
+        });
+        // Construct the public URL for the logo
+        centerImageUrl = `${getRouteImagesBaseUrl()}/route-images/${logoUploadResponse.key}`;
+      }
+
+      // 2. Upload QR SVG
+      const svgBlob = await qrRef.current.getRawData('svg');
+      if (svgBlob) {
+        const uploadResponse = await apiService.routes.qr.getUploadUrl(routeId);
+        await fetch(uploadResponse.url, {
+          method: 'PUT',
+          body: svgBlob,
+          headers: {
+            'Content-Type': 'image/svg+xml',
+          },
+        });
+      }
+
+      // 3. Save settings
+      const settings: QrCodeSettingsDto = {
+        dotStyle,
+        fgColor,
+        bgColor,
+        size,
+        centerImageUrl,
+      };
+      await apiService.routes.qr.updateSettings(routeId, settings);
+
+      setLogoChanged(false);
+      showAlert('QR code settings saved successfully', 'Success');
+    } catch (err) {
+      console.error('Failed to save QR settings:', err);
+      showAlert('Failed to save QR code settings', 'Error');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [routeId, dotStyle, fgColor, bgColor, size, centerImage, imageFile, logoChanged, showAlert]);
+
   useEffect(() => {
     if (!containerRef.current) return;
     const opts = buildOptions();
@@ -76,7 +162,7 @@ const QRCodeDesigner: React.FC<QRCodeDesignerProps> = ({ url }) => {
 
   useEffect(() => {
     return () => {
-      if (centerImage) URL.revokeObjectURL(centerImage);
+      if (centerImage && centerImage.startsWith('blob:')) URL.revokeObjectURL(centerImage);
     };
   }, [centerImage]);
 
@@ -87,16 +173,18 @@ const QRCodeDesigner: React.FC<QRCodeDesignerProps> = ({ url }) => {
       showAlert('Please select an image file (PNG, JPG, SVG, etc.).', 'Invalid file');
       return;
     }
-    if (centerImage) URL.revokeObjectURL(centerImage);
+    if (centerImage && centerImage.startsWith('blob:')) URL.revokeObjectURL(centerImage);
     setImageFile(file);
     setCenterImage(URL.createObjectURL(file));
+    setLogoChanged(true);
     e.target.value = '';
   };
 
   const clearImage = () => {
-    if (centerImage) URL.revokeObjectURL(centerImage);
+    if (centerImage && centerImage.startsWith('blob:')) URL.revokeObjectURL(centerImage);
     setCenterImage(undefined);
     setImageFile(null);
+    setLogoChanged(true);
   };
 
   const handleDownload = async () => {
@@ -250,11 +338,28 @@ const QRCodeDesigner: React.FC<QRCodeDesignerProps> = ({ url }) => {
               <Download size={16} />
               Download SVG
             </button>
+            {routeId && (
+              <button
+                type="button"
+                className="qr-btn qr-btn-secondary"
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? <Loader2 size={16} className="qr-icon-spin" /> : <Save size={16} />}
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            )}
           </div>
         </div>
 
         <div className="qr-designer-preview">
-          <div className="qr-preview-inner" ref={containerRef} />
+          {isLoading && (
+            <div className="qr-loading-overlay">
+              <Loader2 size={32} className="qr-icon-spin" />
+              <span>Loading settings...</span>
+            </div>
+          )}
+          <div className="qr-preview-inner" ref={containerRef} style={{ opacity: isLoading ? 0.3 : 1 }} />
         </div>
       </div>
     </div>

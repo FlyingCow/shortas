@@ -17,14 +17,21 @@ public class RoutesController : ControllerBase
     private readonly IRouteService _routeService;
     private readonly IRouteSearchService _routeSearchService;
     private readonly ISlashTagGenerator _slashTagGenerator;
+    private readonly IObjectStorageService _objectStorageService;
     private readonly ILogger<RoutesController> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public RoutesController(IRouteService routeService, IRouteSearchService routeSearchService, ISlashTagGenerator slashTagGenerator, ILogger<RoutesController> logger)
+    public RoutesController(
+        IRouteService routeService,
+        IRouteSearchService routeSearchService,
+        ISlashTagGenerator slashTagGenerator,
+        IObjectStorageService objectStorageService,
+        ILogger<RoutesController> logger)
     {
         _routeService = routeService;
         _routeSearchService = routeSearchService;
         _slashTagGenerator = slashTagGenerator;
+        _objectStorageService = objectStorageService;
         _logger = logger;
         _jsonOptions = new JsonSerializerOptions
         {
@@ -387,6 +394,58 @@ public class RoutesController : ControllerBase
     }
 
     /// <summary>
+    /// Unblock a route that was blocked by Safe Browsing verification.
+    /// Sets the route status back to "Active" for manual review scenarios.
+    /// </summary>
+    /// <param name="id">Route ID</param>
+    /// <returns>Updated route</returns>
+    [HttpPost("{id}/unblock")]
+    public async Task<ActionResult<RouteDto>> UnblockRoute(string id)
+    {
+        if (!Guid.TryParse(id, out var routeId))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Invalid route ID format" });
+        }
+
+        var userId = this.GetUserId();
+
+        // Fetch existing route
+        var existingRouteResult = await _routeService.GetRouteByIdAsync(routeId, userId);
+        if (existingRouteResult.IsFailure)
+        {
+            return HandleError(existingRouteResult.ErrorCode ?? "UNKNOWN_ERROR", existingRouteResult.Error);
+        }
+
+        if (existingRouteResult.Value == null)
+        {
+            return NotFound(new { error = "NOT_FOUND", message = "Route not found" });
+        }
+
+        var existingRoute = existingRouteResult.Value;
+
+        // Check if route is actually blocked
+        if (!existingRoute.Status.StartsWith("Blocked", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Route is not blocked" });
+        }
+
+        // Update status to Active
+        existingRoute.Status = "Active";
+
+        var result = await _routeService.UpdateRouteByIdAsync(routeId, userId, existingRoute);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        _logger.LogInformation("Route {RouteId} unblocked by user {UserId}", routeId, userId);
+
+        var updatedRouteDto = MapToDto(result.Value);
+        return Ok(updatedRouteDto);
+    }
+
+    /// <summary>
     /// Bulk create routes
     /// </summary>
     /// <param name="routesDto">List of routes to create</param>
@@ -572,6 +631,202 @@ public class RoutesController : ControllerBase
         }
 
         return Ok(new { message = $"Reindexed {searchDocuments.Count} routes", count = searchDocuments.Count });
+    }
+
+    /// <summary>
+    /// Get QR code settings for a route
+    /// </summary>
+    /// <param name="id">Route ID</param>
+    /// <returns>QR code settings</returns>
+    [HttpGet("{id}/qr/settings")]
+    public async Task<ActionResult<QrCodeSettingsDto>> GetQrSettings(string id)
+    {
+        if (!Guid.TryParse(id, out var routeId))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Invalid route ID format" });
+        }
+
+        var userId = this.GetUserId();
+        var result = await _routeService.GetRouteByIdAsync(routeId, userId);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        if (result.Value == null)
+        {
+            return NotFound(new { error = "NOT_FOUND", message = "Route not found" });
+        }
+
+        var route = result.Value;
+        var settings = new QrCodeSettingsDto();
+
+        // Extract qrSettings from route.Properties.Custom if present
+        if (route.Properties?.Custom != null &&
+            route.Properties.Custom.TryGetValue("qrSettings", out var qrSettingsObj) &&
+            qrSettingsObj != null)
+        {
+            try
+            {
+                var qrSettingsJson = JsonSerializer.Serialize(qrSettingsObj, _jsonOptions);
+                var parsed = JsonSerializer.Deserialize<QrCodeSettingsDto>(qrSettingsJson, _jsonOptions);
+                if (parsed != null)
+                {
+                    settings = parsed;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse QR settings for route {RouteId}", id);
+            }
+        }
+
+        return Ok(settings);
+    }
+
+    /// <summary>
+    /// Update QR code settings for a route
+    /// </summary>
+    /// <param name="id">Route ID</param>
+    /// <param name="settings">QR code settings</param>
+    /// <returns>Updated QR code settings</returns>
+    [HttpPut("{id}/qr/settings")]
+    public async Task<ActionResult<QrCodeSettingsDto>> UpdateQrSettings(string id, [FromBody] QrCodeSettingsDto settings)
+    {
+        if (!Guid.TryParse(id, out var routeId))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Invalid route ID format" });
+        }
+
+        var userId = this.GetUserId();
+        var result = await _routeService.GetRouteByIdAsync(routeId, userId);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        if (result.Value == null)
+        {
+            return NotFound(new { error = "NOT_FOUND", message = "Route not found" });
+        }
+
+        var route = result.Value;
+
+        // Initialize Properties if null
+        if (route.Properties == null)
+        {
+            route.Properties = new Domain.Entities.RouteProperties();
+        }
+
+        // Store qrSettings in Custom (get, modify, set back due to property getter behavior)
+        var custom = route.Properties.Custom ?? new Dictionary<string, object>();
+        custom["qrSettings"] = settings;
+        route.Properties.Custom = custom;
+
+        // Update the route
+        var updateResult = await _routeService.UpdateRouteByIdAsync(routeId, userId, route);
+
+        if (updateResult.IsFailure)
+        {
+            return HandleError(updateResult.ErrorCode ?? "UNKNOWN_ERROR", updateResult.Error);
+        }
+
+        return Ok(settings);
+    }
+
+    /// <summary>
+    /// Get a presigned URL for uploading the QR code SVG
+    /// </summary>
+    /// <param name="id">Route ID</param>
+    /// <returns>Presigned upload URL</returns>
+    [HttpPost("{id}/qr/upload-url")]
+    public async Task<ActionResult<PresignedUrlResponseDto>> GetQrUploadUrl(string id)
+    {
+        if (!Guid.TryParse(id, out var routeId))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Invalid route ID format" });
+        }
+
+        var userId = this.GetUserId();
+        var result = await _routeService.GetRouteByIdAsync(routeId, userId);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        if (result.Value == null)
+        {
+            return NotFound(new { error = "NOT_FOUND", message = "Route not found" });
+        }
+
+        var route = result.Value;
+        var ownerId = route.Properties?.OwnerId ?? userId;
+        var key = $"{ownerId}/{routeId}/qr.svg";
+
+        var presignedUrl = await _objectStorageService.GeneratePresignedPutUrlAsync(key, "image/svg+xml", 15);
+
+        return Ok(new PresignedUrlResponseDto
+        {
+            Url = presignedUrl,
+            Key = key
+        });
+    }
+
+    /// <summary>
+    /// Get a presigned URL for uploading the QR code center logo
+    /// </summary>
+    /// <param name="id">Route ID</param>
+    /// <param name="request">Upload request with content type</param>
+    /// <returns>Presigned upload URL</returns>
+    [HttpPost("{id}/qr/logo-upload-url")]
+    public async Task<ActionResult<PresignedUrlResponseDto>> GetQrLogoUploadUrl(string id, [FromBody] PresignedUploadRequestDto? request)
+    {
+        if (!Guid.TryParse(id, out var routeId))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "Invalid route ID format" });
+        }
+
+        var userId = this.GetUserId();
+        var result = await _routeService.GetRouteByIdAsync(routeId, userId);
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        if (result.Value == null)
+        {
+            return NotFound(new { error = "NOT_FOUND", message = "Route not found" });
+        }
+
+        var route = result.Value;
+        var ownerId = route.Properties?.OwnerId ?? userId;
+        var contentType = request?.ContentType ?? "image/png";
+
+        // Determine file extension from content type
+        var extension = contentType switch
+        {
+            "image/png" => "png",
+            "image/jpeg" => "jpg",
+            "image/jpg" => "jpg",
+            "image/gif" => "gif",
+            "image/webp" => "webp",
+            "image/svg+xml" => "svg",
+            _ => "png"
+        };
+
+        var key = $"{ownerId}/{routeId}/qr-logo.{extension}";
+
+        var presignedUrl = await _objectStorageService.GeneratePresignedPutUrlAsync(key, contentType, 15);
+
+        return Ok(new PresignedUrlResponseDto
+        {
+            Url = presignedUrl,
+            Key = key
+        });
     }
 
     private ActionResult HandleError(string errorCode, string errorMessage)

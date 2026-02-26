@@ -318,6 +318,20 @@ export interface TrafficTypeStatsDto {
   unique_ips: number;
 }
 
+// QR Code Settings Types
+export interface QrCodeSettingsDto {
+  dotStyle: string;
+  fgColor: string;
+  bgColor: string;
+  size: number;
+  centerImageUrl?: string;
+}
+
+export interface PresignedUrlResponseDto {
+  url: string;
+  key: string;
+}
+
 // Route Search Types (Elasticsearch)
 export interface RouteSearchResult {
   id: string;
@@ -487,6 +501,11 @@ export const apiService = {
       return response.data;
     },
 
+    unblock: async (id: string): Promise<RouteDto> => {
+      const response = await routerApi.post(`/routes/${id}/unblock`);
+      return response.data;
+    },
+
     suggestLink: async (domainId: string): Promise<{ link: string }> => {
       const response = await routerApi.get('/routes/suggest-link', { params: { domainId } });
       return response.data;
@@ -500,6 +519,29 @@ export const apiService = {
     reindex: async (): Promise<{ message: string; count: number }> => {
       const response = await routerApi.post('/routes/search/reindex');
       return response.data;
+    },
+
+    // QR Code Settings API
+    qr: {
+      getSettings: async (routeId: string): Promise<QrCodeSettingsDto> => {
+        const response = await routerApi.get(`/routes/${routeId}/qr/settings`);
+        return response.data;
+      },
+
+      updateSettings: async (routeId: string, settings: QrCodeSettingsDto): Promise<QrCodeSettingsDto> => {
+        const response = await routerApi.put(`/routes/${routeId}/qr/settings`, settings);
+        return response.data;
+      },
+
+      getUploadUrl: async (routeId: string): Promise<PresignedUrlResponseDto> => {
+        const response = await routerApi.post(`/routes/${routeId}/qr/upload-url`);
+        return response.data;
+      },
+
+      getLogoUploadUrl: async (routeId: string, contentType: string): Promise<PresignedUrlResponseDto> => {
+        const response = await routerApi.post(`/routes/${routeId}/qr/logo-upload-url`, { contentType });
+        return response.data;
+      },
     },
   },
 

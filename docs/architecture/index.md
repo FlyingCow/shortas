@@ -98,6 +98,24 @@ REST API for route management — creating, updating, and deleting short links. 
 
 REST API for querying analytics data from ClickHouse. Supports time-range queries, geographic breakdowns, and device/browser distributions.
 
+### Route Verifier
+
+Background worker that protects users from malicious destinations by checking routes against Google Safe Browsing data. Runs on a configurable interval (default: 5 minutes), processing routes in batches.
+
+**Verification flow:**
+
+1. **Route selection** — queries MongoDB for routes due for verification
+2. **Safe Browsing check** — validates destinations against local gglsbl-rest API
+3. **Status update** — blocks routes with unsafe URLs
+4. **Event publishing** — notifies downstream services via RabbitMQ
+
+Routes have two statuses: `Active` (safe) or `Blocked` (unsafe URL detected). Blocked routes include the reason (e.g., "Safe Browsing: MALWARE").
+
+**Recheck intervals:**
+
+- Active routes: every 24 hours
+- Blocked routes: every 1 hour (for faster recovery when threats are removed)
+
 ### Management API
 
 ASP.NET Core 9 service providing workspace management, user settings, domain configuration, and certificate handling. Uses PostgreSQL via Entity Framework Core. Proxies route and analytics requests to the Rust APIs.
@@ -113,12 +131,13 @@ Resolves custom domains and serves TLS certificates for the Click Router.
 | Store | Purpose | Data |
 |-------|---------|------|
 | PostgreSQL | Management state | Workspaces, users, settings, domains, certificates |
-| MongoDB | Route data | Short URL mappings, routing policies, link metadata |
+| MongoDB | Route data | Short URL mappings, routing policies, link metadata, routes to verify |
 | ClickHouse | Analytics | Click events, aggregated metrics, time-series data |
 | Elasticsearch | Route search | Full-text index of route links, domains, destinations |
 | Redis | Ephemeral state | Sessions, cache entries |
-| RabbitMQ | Cache invalidation | Route and user settings change events |
+| RabbitMQ | Messaging | Cache invalidation, route status changes |
 | MinIO | Object storage | ClickHouse data files |
+| gglsbl-rest | Safe Browsing | Local mirror of Google Safe Browsing threat lists |
 
 ## Event Streaming
 
@@ -135,6 +154,36 @@ RabbitMQ broadcasts cache invalidation events from Click Router API to all Click
 - **`cache.invalidation.user_settings`** — user settings change events
 
 Each Click Router instance binds an exclusive auto-delete queue to each exchange. Messages are non-persistent (delivery mode 1) since cache invalidation is ephemeral — if RabbitMQ restarts, the Moka cache TTL provides eventual consistency.
+
+## Route Safety Verification
+
+The Route Verifier service protects users from malicious destinations using Google Safe Browsing data:
+
+```
+Management API ──▶ MongoDB (routes_to_verify)
+                          │
+                          ▼
+                   route-verifier
+                          │
+                          ├──▶ gglsbl-rest (Safe Browsing lookup)
+                          │
+                          ▼
+                   RabbitMQ (route.status.changed)
+                    ╱                    ╲
+                   ▼                      ▼
+            Management API          click-router
+            (PostgreSQL sync)       (cache update)
+```
+
+**Event flow:**
+
+1. Management API writes route with destinations to `routes_to_verify` collection
+2. Route Verifier periodically checks destinations against Safe Browsing
+3. If unsafe, publishes `RouteStatusChanged` event to RabbitMQ
+4. Management API consumes event, updates PostgreSQL, syncs to click-router via outbox
+5. Click Router receives status update and blocks redirects for unsafe routes
+
+**RabbitMQ exchange:** `route.status.changed` (fanout)
 
 ## Search Index Sync
 

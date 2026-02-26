@@ -25,6 +25,7 @@ COPY redirect/click-aggregator/ ./redirect/click-aggregator/
 COPY redirect/click-aggregator-api/ ./redirect/click-aggregator-api/
 COPY redirect/domain-verifier/ ./redirect/domain-verifier/
 COPY redirect/route-icon-worker/ ./redirect/route-icon-worker/
+COPY redirect/route-verifier/ ./redirect/route-verifier/
 COPY redirect/infra/domains/ ./redirect/infra/domains/
 
 # Copy external salvo dependency (needed for workspace resolution)

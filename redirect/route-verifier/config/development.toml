@@ -1,0 +1,18 @@
+[server]
+port = 5831
+
+[mongodb]
+connection_string = "mongodb://root:example@localhost:27017/"
+
+[click_router_api]
+base_url = "http://localhost:5810"
+
+[rabbitmq]
+uri = "amqp://guest:guest@localhost:5672/%2f"
+
+[safe_browsing]
+base_url = "http://localhost:5000"
+
+[worker]
+check_interval_seconds = 60
+batch_size = 10

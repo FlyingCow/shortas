@@ -338,6 +338,45 @@ services:
     networks:
       - shortas-net
 
+  safe-browsing:
+    env_file: ".env"
+    image: mlsecproject/gglsbl-rest:latest
+    container_name: shortas-safe-browsing
+    restart: unless-stopped
+    volumes:
+      - safe_browsing_data:/var/lib/gglsbl
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/status"]
+      interval: 60s
+      timeout: 30s
+      retries: 10
+      start_period: 600s
+    networks:
+      - shortas-net
+
+  route-verifier:
+    build:
+      context: ..
+      dockerfile: redirect/route-verifier/Dockerfile
+    container_name: shortas-route-verifier
+    restart: unless-stopped
+    ports:
+      - "5831:5831"
+    environment:
+      - RUST_LOG=info
+      - APP_RUN_MODE=production
+    depends_on:
+      mongo:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      click-router-api:
+        condition: service_started
+      safe-browsing:
+        condition: service_started
+    networks:
+      - shortas-net
+
   domains:
     build:
       context: ..
@@ -360,6 +399,8 @@ volumes:
   redis_data:
     driver: local
   rabbitmq_data:
+    driver: local
+  safe_browsing_data:
     driver: local
   sc-metadata:
   spu-data:

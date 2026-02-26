@@ -55,4 +55,11 @@ public static class OutboxEventType
     // Domain verification events
     public const string DomainVerificationRequested = "DomainVerificationRequested";
     public const string DomainRemovalRequested = "DomainRemovalRequested";
+
+    // Route verification events (Safe Browsing)
+    public const string RouteVerificationRequested = "RouteVerificationRequested";
+    public const string RouteVerificationRemovalRequested = "RouteVerificationRemovalRequested";
+
+    // Route status events (blocking/unblocking)
+    public const string RouteStatusUpdated = "RouteStatusUpdated";
 }
