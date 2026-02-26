@@ -68,8 +68,11 @@ The entry point for all short URL requests. Built on Salvo (a custom fork) runni
 
 1. **URL extraction** — parse the short code from the request path
 2. **Route lookup** — query MongoDB (with Moka in-memory cache)
-3. **Registration** — emit a click event to `hit-stream-main`
-4. **Result building** — return a redirect response, QR code, proxy, or retarget HTML
+3. **Conditional evaluation** — if the route has conditional routing, evaluate expressions against request context (geo, device, browser, OS)
+4. **Registration** — emit a click event to `hit-stream-main`
+5. **Result building** — return a redirect response, QR code, proxy, or retarget HTML
+
+**Conditional routing** allows routes to redirect to different destinations based on visitor attributes like country, device type, browser, or operating system. Conditions are evaluated using an expression engine that supports comparison operators and logical combinations.
 
 Each instance runs a RabbitMQ consumer that listens for cache invalidation messages and evicts stale entries from the Moka cache. If RabbitMQ is unavailable, caches degrade gracefully via TTL expiry.
 
@@ -116,6 +119,28 @@ Routes have two statuses: `Active` (safe) or `Blocked` (unsafe URL detected). Bl
 - Active routes: every 24 hours
 - Blocked routes: every 1 hour (for faster recovery when threats are removed)
 
+### Route Icon Worker
+
+Background worker that automatically extracts favicons from route destination URLs. Listens to RabbitMQ for route creation/update events and stores icons in MinIO/S3 for display in the dashboard.
+
+**Processing flow:**
+
+1. **Event consumption** — receives route events from RabbitMQ
+2. **Favicon scraping** — fetches the destination URL and extracts favicon links
+3. **Image processing** — downloads and processes the icon
+4. **Storage** — uploads the icon to MinIO/S3
+
+### Domain Verifier
+
+Background worker that verifies custom domain ownership through DNS record validation. Users add a TXT record to prove domain ownership before the domain can be used for short links.
+
+**Verification flow:**
+
+1. **Domain registration** — user adds a custom domain in the dashboard
+2. **Challenge generation** — system generates a unique TXT record value
+3. **DNS lookup** — worker periodically checks for the TXT record
+4. **Verification** — domain is marked as verified once the record is found
+
 ### Management API
 
 ASP.NET Core 9 service providing workspace management, user settings, domain configuration, and certificate handling. Uses PostgreSQL via Entity Framework Core. Proxies route and analytics requests to the Rust APIs.
@@ -136,7 +161,7 @@ Resolves custom domains and serves TLS certificates for the Click Router.
 | Elasticsearch | Route search | Full-text index of route links, domains, destinations |
 | Redis | Ephemeral state | Sessions, cache entries |
 | RabbitMQ | Messaging | Cache invalidation, route status changes |
-| MinIO | Object storage | ClickHouse data files |
+| MinIO | Object storage | ClickHouse data files, route icons |
 | gglsbl-rest | Safe Browsing | Local mirror of Google Safe Browsing threat lists |
 
 ## Event Streaming

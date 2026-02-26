@@ -35,8 +35,8 @@ docker compose up -d
 ```
 
 This brings up:
-- Infrastructure: MongoDB, ClickHouse, Redis, MinIO, Fluvio, RabbitMQ
-- Application services: click-router, click-router-api, click-tracker, click-aggregator, click-aggregator-api, domains
+- Infrastructure: MongoDB, ClickHouse, Redis, MinIO, Fluvio, RabbitMQ, gglsbl-rest (Safe Browsing)
+- Application services: click-router, click-router-api, click-tracker, click-aggregator, click-aggregator-api, route-verifier, route-icon-worker, domain-verifier, domains
 - ClickHouse migrations (runs automatically)
 
 ## Option 2: Local Development

@@ -99,11 +99,14 @@ The Rust workspace in `redirect/` is organized as:
 ```
 redirect/
 ├── Cargo.toml           Workspace root with shared dependencies
-├── click-router/        URL redirect service
+├── click-router/        URL redirect service (incl. conditional routing)
 ├── click-router-api/    Route management API
 ├── click-tracker/       Event enrichment pipeline
 ├── click-aggregator/    ClickHouse ingestion
 ├── click-aggregator-api/ Analytics query API
+├── route-verifier/      Safe Browsing verification worker
+├── route-icon-worker/   Favicon scraping worker
+├── domain-verifier/     Domain ownership verification
 ├── infra/
 │   ├── domains/         Domain resolver service
 │   ├── custom/          Docker Compose for local infra

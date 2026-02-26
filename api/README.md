@@ -17,13 +17,37 @@ ASP.NET Core 9 REST API for managing workspaces, routes, domains, certificates, 
 
 | Controller | Base Path | Description |
 |-----------|-----------|-------------|
-| Routes | `/api/v1/routes` | Short link CRUD and search |
+| Routes | `/api/v1/routes` | Short link CRUD, search, conditional routing, QR codes |
 | Workspaces | `/api/workspaces` | Multi-tenant workspace management |
 | Domains | `/api/domains` | Custom domain configuration |
 | Certificates | `/api/certificates` | TLS certificate management |
 | ClickStream | `/api/clickstream` | Analytics proxy to Click Aggregator API |
 | User | `/api/user` | User profile and settings |
 | Health | `/api/health` | Health check |
+
+### Route Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/routes` | List routes (paginated, filterable) |
+| `GET` | `/api/v1/routes/{id}` | Get route by ID |
+| `POST` | `/api/v1/routes` | Create route (supports conditional routing) |
+| `PUT` | `/api/v1/routes/{id}` | Update route |
+| `DELETE` | `/api/v1/routes/{id}` | Delete route |
+| `POST` | `/api/v1/routes/{id}/unblock` | Unblock a route blocked by Safe Browsing |
+| `GET` | `/api/v1/routes/suggest-link` | Generate unique short link path |
+| `POST` | `/api/v1/routes/bulk` | Bulk create routes |
+| `PUT` | `/api/v1/routes/bulk` | Bulk update routes |
+| `DELETE` | `/api/v1/routes/bulk` | Bulk delete routes |
+
+### QR Code Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/routes/{id}/qr/settings` | Get QR code design settings |
+| `PUT` | `/api/v1/routes/{id}/qr/settings` | Update QR code design settings |
+| `POST` | `/api/v1/routes/{id}/qr/upload-url` | Get presigned URL for QR SVG upload |
+| `POST` | `/api/v1/routes/{id}/qr/logo-upload-url` | Get presigned URL for QR logo upload |
 
 ### Route Search (Elasticsearch)
 

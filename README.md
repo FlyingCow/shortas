@@ -1,6 +1,6 @@
 # Shortas
 
-A high-performance URL shortener and analytics platform with real-time click tracking, geographic enrichment, and multi-tenant workspace support.
+A high-performance URL shortener and analytics platform with real-time click tracking, geographic enrichment, conditional routing, QR code generation, and multi-tenant workspace support.
 
 ## Architecture
 
@@ -36,7 +36,7 @@ Shortas is composed of three main subsystems:
  (routes)   (sessions)  (analytics)
 ```
 
-**Click Router** handles incoming short URL requests, performs redirects, and emits click events to Fluvio. **Click Tracker** consumes raw events, enriches them with geolocation (MaxMind), user-agent parsing, and session tracking (Redis), then publishes aggregated events. **Click Aggregator** consumes aggregated events and stores them in ClickHouse for analytics. Each component has a companion REST API for management and querying.
+**Click Router** handles incoming short URL requests, performs redirects (including conditional routing based on geo, device, or browser), and emits click events to Fluvio. **Click Tracker** consumes raw events, enriches them with geolocation (MaxMind), user-agent parsing, and session tracking (Redis), then publishes aggregated events. **Click Aggregator** consumes aggregated events and stores them in ClickHouse for analytics. Additional workers handle route safety verification (Safe Browsing), favicon scraping, and domain ownership verification. Each component has a companion REST API for management and querying.
 
 ## Tech Stack
 
@@ -104,6 +104,9 @@ shortas/
 │   ├── click-tracker/      Click event enrichment pipeline
 │   ├── click-aggregator/   ClickHouse ingestion consumer
 │   ├── click-aggregator-api/ Analytics query API
+│   ├── route-verifier/     Safe Browsing verification worker
+│   ├── route-icon-worker/  Favicon scraping worker
+│   ├── domain-verifier/    Domain ownership verification
 │   ├── infra/              Infrastructure (domains service, AWS/custom)
 │   ├── clickhouse/         ClickHouse configuration
 │   └── docker-compose.yml  Full stack compose file
@@ -124,6 +127,9 @@ shortas/
 | click-tracker | - | Event enrichment consumer |
 | click-aggregator | - | ClickHouse ingestion consumer |
 | click-aggregator-api | 8082 | Analytics query API |
+| route-verifier | - | Safe Browsing verification worker |
+| route-icon-worker | - | Favicon scraping worker |
+| domain-verifier | - | Domain ownership verification |
 | domains | 5801 | Domain & certificate management |
 | management API | 5050 | Workspace, route & user management |
 | dashboard | 3000 | Admin UI |

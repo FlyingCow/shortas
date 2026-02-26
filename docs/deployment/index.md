@@ -18,9 +18,9 @@ docker compose up -d
 ```
 
 This starts:
-- **Infrastructure**: MongoDB 7, ClickHouse, Redis 7, MinIO, Fluvio (SC + SPU), RabbitMQ
+- **Infrastructure**: MongoDB 7, ClickHouse, Redis 7, MinIO, Fluvio (SC + SPU), RabbitMQ, gglsbl-rest (Safe Browsing)
 - **Init containers**: MinIO bucket setup, Fluvio topic creation, ClickHouse migrations
-- **Application services**: click-router, click-router-api, click-tracker, click-aggregator, click-aggregator-api, domains
+- **Application services**: click-router, click-router-api, click-tracker, click-aggregator, click-aggregator-api, route-verifier, route-icon-worker, domain-verifier, domains
 
 ### Management API
 
@@ -48,8 +48,11 @@ click-router-api     → mongo, redis, rabbitmq
 click-tracker        → redis, fluvio (topics)
 click-aggregator     → clickhouse, fluvio (topics)
 click-aggregator-api → clickhouse (after migrations)
+route-verifier       → mongo, rabbitmq, gglsbl-rest
+route-icon-worker    → rabbitmq, minio
+domain-verifier      → mongo, rabbitmq
 domains              → (standalone)
-management-api       → postgresql, click-router-api, click-aggregator-api
+management-api       → postgresql, elasticsearch, click-router-api, click-aggregator-api
 dashboard            → management-api
 ```
 

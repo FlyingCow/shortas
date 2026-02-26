@@ -23,12 +23,23 @@ Authentication: JWT bearer tokens issued by Keycloak.
 |--------|------|-------------|
 | GET | `/api/v1/routes` | List routes (paginated, filterable by status/workspace) |
 | GET | `/api/v1/routes/{id}` | Get a route by ID |
-| POST | `/api/v1/routes` | Create a new route |
+| POST | `/api/v1/routes` | Create a new route (supports conditional routing) |
 | PUT | `/api/v1/routes/{id}` | Update a route |
 | DELETE | `/api/v1/routes/{id}` | Delete a route |
+| POST | `/api/v1/routes/{id}/unblock` | Unblock a route blocked by Safe Browsing |
+| GET | `/api/v1/routes/suggest-link` | Generate a unique short link path |
 | POST | `/api/v1/routes/bulk` | Bulk create routes |
 | PUT | `/api/v1/routes/bulk` | Bulk update routes |
 | DELETE | `/api/v1/routes/bulk` | Bulk delete routes |
+
+#### QR Codes
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/routes/{id}/qr/settings` | Get QR code design settings |
+| PUT | `/api/v1/routes/{id}/qr/settings` | Update QR code design settings |
+| POST | `/api/v1/routes/{id}/qr/upload-url` | Get presigned URL for QR code SVG upload |
+| POST | `/api/v1/routes/{id}/qr/logo-upload-url` | Get presigned URL for QR code logo upload |
 
 #### Route Search (Elasticsearch)
 
