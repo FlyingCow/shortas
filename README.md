@@ -4,36 +4,42 @@ A high-performance URL shortener and analytics platform with real-time click tra
 
 ## Architecture
 
-Shortas is composed of three main subsystems:
+Shortas is composed of multiple subsystems working together:
 
 ```
-                    ┌──────────────────┐
-                    │   Dashboard UI   │ React 18 / TypeScript
-                    │    (port 3000)   │
-                    └────────┬─────────┘
-                             │
-                    ┌────────▼─────────┐
-                    │  Management API  │ ASP.NET Core 9 / C#
-                    │    (port 5050)   │ PostgreSQL
-                    └────────┬─────────┘
-                             │
-         ┌───────────────────┼───────────────────┐
-         │                   │                   │
-┌────────▼─────────┐ ┌──────▼───────┐ ┌────────▼─────────┐
-│   Click Router   │ │Click Tracker │ │ Click Aggregator │
-│   (port 5800)    │ │  (consumer)  │ │    (consumer)    │
-│   Rust / Salvo   │ │ Rust / Tokio │ │  Rust / Tokio    │
-└──────────────────┘ └──────────────┘ └──────────────────┘
-         │                   │                   │
-         └───────┬───────────┘                   │
-                 │ Fluvio streams                 │
-                 │ hit-stream-main                │
-                 │ click-aggs-main ───────────────┘
-                 │
-    ┌────────────┼────────────┐
-    │            │            │
- MongoDB      Redis      ClickHouse
- (routes)   (sessions)  (analytics)
+                         ┌──────────────────┐
+                         │   Dashboard UI   │ React 18 / TypeScript
+                         │    (port 3000)   │
+                         └────────┬─────────┘
+                                  │
+                         ┌────────▼─────────┐
+                         │  Management API  │ ASP.NET Core 9 / C#
+                         │    (port 5050)   │ PostgreSQL, Elasticsearch
+                         └────────┬─────────┘
+                                  │
+      ┌───────────────────────────┼───────────────────────────┐
+      │                           │                           │
+┌─────▼──────┐  ┌────────────────▼────────────────┐  ┌───────▼────────┐
+│Click Router│  │         Background Workers       │  │Click Aggregator│
+│ (port 5800)│  │  ┌─────────────┬─────────────┐  │  │   (consumer)   │
+│Rust / Salvo│  │  │Route        │Route Icon   │  │  │ Rust / Tokio   │
+└─────┬──────┘  │  │Verifier     │Worker       │  │  └───────┬────────┘
+      │         │  │(Safe Browse)│(Favicons)   │  │          │
+      │         │  ├─────────────┼─────────────┤  │          │
+      │         │  │Domain       │Click Tracker│  │          │
+      │         │  │Verifier     │(Enrichment) │  │          │
+      │         │  │(DNS)        │             │  │          │
+      │         │  └──────┬──────┴──────┬──────┘  │          │
+      │         └─────────┼─────────────┼─────────┘          │
+      │                   │             │                    │
+      └───────┬───────────┼─────────────┼────────────────────┘
+              │           │             │
+              │ Fluvio    │ RabbitMQ    │
+              │           │             │
+    ┌─────────┼───────────┼─────────────┼─────────┐
+    │         │           │             │         │
+ MongoDB   Redis      RabbitMQ      MinIO    ClickHouse
+ (routes) (sessions)  (events)     (icons)  (analytics)
 ```
 
 **Click Router** handles incoming short URL requests, performs redirects (including conditional routing based on geo, device, or browser), and emits click events to Fluvio. **Click Tracker** consumes raw events, enriches them with geolocation (MaxMind), user-agent parsing, and session tracking (Redis), then publishes aggregated events. **Click Aggregator** consumes aggregated events and stores them in ClickHouse for analytics. Additional workers handle route safety verification (Safe Browsing), favicon scraping, and domain ownership verification. Each component has a companion REST API for management and querying.
@@ -42,13 +48,15 @@ Shortas is composed of three main subsystems:
 
 | Layer | Technology |
 |-------|-----------|
-| Management API | ASP.NET Core 9, Entity Framework Core, PostgreSQL |
+| Management API | ASP.NET Core 9, Entity Framework Core, PostgreSQL, Elasticsearch |
 | Redirect services | Rust, Salvo, Tokio |
 | Event streaming | Fluvio |
+| Messaging | RabbitMQ |
 | Document store | MongoDB 7 |
 | Cache / sessions | Redis 7 |
 | Analytics store | ClickHouse (MinIO-backed) |
 | Object storage | MinIO |
+| Route safety | gglsbl-rest (Google Safe Browsing) |
 | Dashboard | React 18, TypeScript, Bootstrap 5 |
 | Auth | Keycloak (JWT) |
 
@@ -68,7 +76,7 @@ cd redirect
 docker compose up -d
 ```
 
-This starts all infrastructure (MongoDB, ClickHouse, Redis, MinIO, Fluvio) and application services.
+This starts all infrastructure (MongoDB, ClickHouse, Redis, MinIO, Fluvio, RabbitMQ, gglsbl-rest) and application services.
 
 ### Local Development
 
