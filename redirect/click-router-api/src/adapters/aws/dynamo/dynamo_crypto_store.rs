@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 
 use aws_config::SdkConfig;
 use aws_sdk_dynamodb::operation::get_item::GetItemOutput;
@@ -8,7 +9,7 @@ use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 
 use crate::core::CryptoStore;
-use crate::model::Keycert;
+use crate::model::{CertificateInfo, Keycert};
 
 #[derive(Clone, Debug)]
 pub struct DynamoCryptoStore {
@@ -46,6 +47,16 @@ impl CryptoStore for DynamoCryptoStore {
     async fn store_certificate(&self, _hostname: &str, _certificate: &Keycert) -> Result<()> {
         todo!()
     }
+
+    async fn store_certificate_with_owner(
+        &self,
+        _hostname: &str,
+        _certificate: &Keycert,
+        _owner_id: Option<&str>,
+    ) -> Result<()> {
+        todo!()
+    }
+
     async fn update_certificate(&self, _hostname: &str, _certificate: &Keycert) -> Result<()> {
         todo!()
     }
@@ -75,5 +86,14 @@ impl CryptoStore for DynamoCryptoStore {
         };
 
         Ok(result?)
+    }
+
+    async fn get_certificates_expiring_before(
+        &self,
+        _before: DateTime<Utc>,
+    ) -> Result<Vec<CertificateInfo>> {
+        // DynamoDB implementation would require a scan with filter
+        // For now, return empty vec - MongoDB is the primary store
+        Ok(vec![])
     }
 }

@@ -17,24 +17,27 @@ use crate::{
         fluvio::hit_registrar::FluvioHitRegistrar,
         geo_ip::geo_ip_location_detector::GeoIPLocationDetector,
         moka::{
-            crypto_cache::MokaCryptoCache, qr_code_cache::MokaQrCodeCache,
-            routes_cache::MokaRoutesCache, settings::Moka,
+            challenge_cache::MokaChallengeCache, crypto_cache::MokaCryptoCache,
+            qr_code_cache::MokaQrCodeCache, routes_cache::MokaRoutesCache, settings::Moka,
             user_settings_cache::MokaUserSettingsCache,
         },
         mongodb::{
-            crypto_store::MongodbCryptoStore, routes_store::MongodbRoutesStore, settings::Mongodb,
+            challenge_store::MongodbChallengeStore, crypto_store::MongodbCryptoStore,
+            routes_store::MongodbRoutesStore, settings::Mongodb,
             user_settings_store::MongodbUserSettingsStore,
         },
         rabbitmq::consumer::start_cache_invalidation_consumer,
         uaparser::user_agent_detector::UAParserUserAgentDetector,
-        CryptoCacheType, CryptoStoreType, HitRegistrarType, LocationDetectorType, RoutesCacheType,
-        RoutesStoreType, UserAgentDetectorType, UserSettingsCacheType, UserSettingsStoreType,
+        ChallengeCacheType, ChallengeStoreType, CryptoCacheType, CryptoStoreType, HitRegistrarType,
+        LocationDetectorType, RoutesCacheType, RoutesStoreType, UserAgentDetectorType,
+        UserSettingsCacheType, UserSettingsStoreType,
     },
     core::{
         flow_router::FlowRouter,
         modules::{
-            conditional::ConditionalModule, not_found::NotFoundModule, qr_code::QrCodeModule,
-            redirect_only::RedirectOnlyModule, root::RootModule, FlowModules,
+            acme_challenge::AcmeChallengeModule, conditional::ConditionalModule,
+            not_found::NotFoundModule, qr_code::QrCodeModule, redirect_only::RedirectOnlyModule,
+            root::RootModule, FlowModules,
         },
     },
     settings::Settings,
@@ -47,6 +50,7 @@ pub struct AppBuilder {
     user_settings_cache: Option<UserSettingsCacheType>,
     routes_cache: Option<RoutesCacheType>,
     crypto_cache: Option<CryptoCacheType>,
+    challenge_cache: Option<ChallengeCacheType>,
     qr_code_cache: Option<Arc<MokaQrCodeCache>>,
     user_agent_detector: Option<UserAgentDetectorType>,
     location_detector: Option<LocationDetectorType>,
@@ -148,6 +152,7 @@ impl AppBuilder {
         self.routes_cache = Some(routes_cache);
         self.user_settings_cache = Some(user_settings_cache);
         self.qr_code_cache = Some(qr_code_cache);
+        // Note: DynamoDB challenge store not implemented yet, challenges only work with MongoDB
 
         self
     }
@@ -176,11 +181,15 @@ impl AppBuilder {
     ) -> (
         RoutesCacheType,
         CryptoCacheType,
+        ChallengeCacheType,
         UserSettingsCacheType,
         Arc<MokaQrCodeCache>,
     ) {
         let (routes_store, crypto_store, user_settings_store) =
             self.init_mongodb_stores(&mongodb_settings).await;
+
+        // Initialize challenge store
+        let challenge_store = MongodbChallengeStore::new(&mongodb_settings).await;
 
         let routes_cache = RoutesCacheType::Moka(MokaRoutesCache::new(
             RoutesStoreType::Mongodb(routes_store),
@@ -190,6 +199,11 @@ impl AppBuilder {
         let crypto_cache = CryptoCacheType::Moka(MokaCryptoCache::new(
             CryptoStoreType::Mongodb(crypto_store),
             moka_settings.crypto_cache.clone(),
+        ));
+
+        let challenge_cache = ChallengeCacheType::Moka(MokaChallengeCache::new(
+            ChallengeStoreType::Mongodb(challenge_store),
+            moka_settings.challenge_cache.clone(),
         ));
 
         let user_settings_cache = UserSettingsCacheType::Moka(MokaUserSettingsCache::new(
@@ -202,17 +216,19 @@ impl AppBuilder {
         (
             routes_cache,
             crypto_cache,
+            challenge_cache,
             user_settings_cache,
             qr_code_cache,
         )
     }
 
     pub async fn with_mongodb(mut self) -> Self {
-        let (routes_cache, crypto_cache, user_settings_cache, qr_code_cache) = self
+        let (routes_cache, crypto_cache, challenge_cache, user_settings_cache, qr_code_cache) = self
             .init_moka_cache_with_mongodb_stores(&self.settings.moka, &self.settings.mongodb)
             .await;
 
         self.crypto_cache = Some(crypto_cache);
+        self.challenge_cache = Some(challenge_cache);
         self.routes_cache = Some(routes_cache);
         self.user_settings_cache = Some(user_settings_cache);
         self.qr_code_cache = Some(qr_code_cache);
@@ -294,6 +310,17 @@ impl AppBuilder {
     }
 
     pub fn with_default_modules(mut self) -> Self {
+        // ACME challenge module must be first to handle /.well-known/acme-challenge/ requests
+        if let Some(challenge_cache) = &self.challenge_cache {
+            self.modules.push(FlowModules::AcmeChallenge(
+                AcmeChallengeModule::new(challenge_cache.clone()),
+            ));
+        } else {
+            tracing::warn!(
+                "Challenge cache not initialized, ACME challenge module will not be available"
+            );
+        }
+
         self.modules.push(FlowModules::Root(RootModule::new(
             self.settings.redirect.clone(),
         )));
@@ -337,5 +364,10 @@ impl AppBuilder {
             self.hit_registrar.clone().unwrap(),
             self.modules.clone(),
         )
+    }
+
+    /// Get the crypto cache for dynamic TLS certificate resolution
+    pub fn get_crypto_cache(&self) -> Option<CryptoCacheType> {
+        self.crypto_cache.clone()
     }
 }

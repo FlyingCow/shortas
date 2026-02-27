@@ -9,8 +9,8 @@ use fluvio::hit_registrar::FluvioHitRegistrar;
 use geo_ip::geo_ip_location_detector::GeoIPLocationDetector;
 use http::{header::IntoHeaderName, uri::Scheme, HeaderValue};
 use moka::{
-    crypto_cache::MokaCryptoCache, routes_cache::MokaRoutesCache,
-    user_settings_cache::MokaUserSettingsCache,
+    challenge_cache::MokaChallengeCache, crypto_cache::MokaCryptoCache,
+    routes_cache::MokaRoutesCache, user_settings_cache::MokaUserSettingsCache,
 };
 use rdkafka::hit_registrar::KafkaHitRegistrar;
 use salvo::{SalvoRequest, SalvoResponse};
@@ -23,11 +23,12 @@ use crate::{
             user_settings_store::InMemoryUserSettingsStore,
         },
         mongodb::{
-            crypto_store::MongodbCryptoStore, routes_store::MongodbRoutesStore,
-            user_settings_store::MongodbUserSettingsStore,
+            challenge_store::MongodbChallengeStore, crypto_store::MongodbCryptoStore,
+            routes_store::MongodbRoutesStore, user_settings_store::MongodbUserSettingsStore,
         },
     },
     core::{
+        challenge::{Challenge, ChallengeCache, ChallengeStore},
         crypto::CryptoCache,
         flow_router::{Request, RequestData, Response, ResponseData},
         hits_register::HitRegistrar,
@@ -238,6 +239,39 @@ impl UserSettingsCache for UserSettingsCacheType {
     async fn invalidate(&self, user_id: &str) -> Result<()> {
         match self {
             UserSettingsCacheType::Moka(cache) => cache.invalidate(user_id).await,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum ChallengeStoreType {
+    Mongodb(MongodbChallengeStore),
+}
+
+#[async_trait::async_trait]
+impl ChallengeStore for ChallengeStoreType {
+    async fn get_challenge(&self, domain: &str, token: &str) -> Result<Option<Challenge>> {
+        match self {
+            ChallengeStoreType::Mongodb(store) => store.get_challenge(domain, token).await,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum ChallengeCacheType {
+    Moka(MokaChallengeCache),
+}
+
+#[async_trait::async_trait]
+impl ChallengeCache for ChallengeCacheType {
+    async fn get_challenge(&self, domain: &str, token: &str) -> Result<Option<Challenge>> {
+        match self {
+            ChallengeCacheType::Moka(cache) => cache.get_challenge(domain, token).await,
+        }
+    }
+    async fn invalidate(&self, domain: &str, token: &str) -> Result<()> {
+        match self {
+            ChallengeCacheType::Moka(cache) => cache.invalidate(domain, token).await,
         }
     }
 }

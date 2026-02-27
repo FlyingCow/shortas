@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -9,6 +10,14 @@ pub struct Keycert {
     pub cert: Vec<u8>,
     /// OCSP response.
     pub ocsp_resp: Vec<u8>,
+}
+
+/// Information about a certificate for expiry tracking
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct CertificateInfo {
+    pub domain: String,
+    pub owner_id: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 impl Default for Keycert {

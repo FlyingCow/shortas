@@ -1,3 +1,4 @@
+pub mod challenge_cache;
 pub mod crypto_cache;
 pub mod qr_code_cache;
 pub mod routes_cache;

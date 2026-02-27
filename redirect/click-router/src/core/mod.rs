@@ -1,3 +1,4 @@
+pub mod challenge;
 pub mod crypto;
 
 pub mod routes;
@@ -20,6 +21,7 @@ pub mod metrics;
 pub mod metrics_endpoint;
 pub mod conversion;
 
+pub use challenge::ChallengeStore;
 pub use crypto::CryptoStore;
 pub use routes::RoutesStore;
 pub use user_settings::UserSettingsStore;

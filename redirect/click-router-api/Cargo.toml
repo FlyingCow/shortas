@@ -48,3 +48,5 @@ reqwest.workspace = true
 url.workspace = true
 base64.workspace = true
 lapin.workspace = true
+x509-parser.workspace = true
+futures.workspace = true

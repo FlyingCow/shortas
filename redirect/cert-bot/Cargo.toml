@@ -1,0 +1,45 @@
+[package]
+name = "cert-bot"
+version.workspace = true
+edition.workspace = true
+description = "Let's Encrypt certificate automation bot using HTTP-01 challenge"
+
+[dependencies]
+# ACME client for Let's Encrypt
+instant-acme.workspace = true
+
+# Async runtime
+tokio.workspace = true
+
+# HTTP client for click-router-api
+reqwest.workspace = true
+
+# MongoDB for order persistence
+mongodb.workspace = true
+
+# RabbitMQ
+lapin.workspace = true
+
+# Crypto for CSR generation
+rcgen.workspace = true
+
+# Common utilities
+anyhow.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_derive.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Configuration
+config.workspace = true
+dotenv.workspace = true
+clap.workspace = true
+
+# Async traits
+async-trait.workspace = true
+futures.workspace = true
+
+# UUID generation
+uuid.workspace = true

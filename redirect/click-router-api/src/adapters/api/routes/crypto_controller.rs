@@ -1,19 +1,116 @@
+use chrono::{DateTime, Utc};
 use salvo::oapi::endpoint;
+use salvo::oapi::ToSchema;
 use salvo::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::adapters::api::{app_state::AppState, error_presenter::ErrorResponse as ErrorPresenter, openapi_schemas::ErrorResponse};
 use crate::dto::KeycertDto;
 use crate::model::error::{ApiError, RouteError, ValidationError};
 use crate::model::keycert::Keycert;
 
+/// Query parameters for certificate listing
+#[derive(Debug, Deserialize)]
+pub struct CertificateListQuery {
+    /// Unix timestamp - only return certificates expiring before this time
+    pub expires_before: Option<i64>,
+}
+
+/// Response for listing expiring certificates
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ExpiringCertificatesResponse {
+    pub certificates: Vec<CertificateExpiryRecord>,
+}
+
+/// Certificate expiry record
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CertificateExpiryRecord {
+    pub domain: String,
+    pub owner_id: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
 pub fn api_routes() -> Router {
-    Router::with_path("/certificates").push(
-        Router::with_path("/{domain}")
-            .get(get_certificate)
-            .post(create_certificate)
-            .put(update_certificate)
-            .delete(delete_certificate),
+    Router::with_path("/certificates")
+        .get(list_expiring_certificates)
+        .push(
+            Router::with_path("/{domain}")
+                .get(get_certificate)
+                .post(create_certificate)
+                .put(update_certificate)
+                .delete(delete_certificate),
+        )
+}
+
+/// List certificates expiring before a given date
+///
+/// Returns a list of certificates that will expire before the specified timestamp.
+/// This is used by cert-bot to find certificates that need renewal.
+#[endpoint(
+    operation_id = "list_expiring_certificates",
+    summary = "List expiring certificates",
+    description = "Returns certificates expiring before the given Unix timestamp. Used for automated renewal workflows.",
+    parameters(
+        ("expires_before" = i64, Query, description = "Unix timestamp - only return certificates expiring before this time")
+    ),
+    responses(
+        (status_code = 200, description = "List of expiring certificates", body = ExpiringCertificatesResponse),
+        (status_code = 400, description = "Bad request - Invalid query parameter", body = ErrorResponse),
+        (status_code = 500, description = "Internal server error", body = ErrorResponse)
     )
+)]
+pub async fn list_expiring_certificates(req: &mut Request, depot: &mut Depot, res: &mut Response) {
+    let query: CertificateListQuery = req.parse_queries().unwrap_or(CertificateListQuery {
+        expires_before: None,
+    });
+
+    let Some(expires_before) = query.expires_before else {
+        let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
+            ValidationError::MissingField("expires_before".to_string()),
+        ));
+        res.status_code(error_response.status_code);
+        res.render(error_response);
+        return;
+    };
+
+    let Some(before_datetime) = DateTime::from_timestamp(expires_before, 0) else {
+        let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
+            ValidationError::InvalidInput {
+                field: "expires_before".to_string(),
+                message: "Invalid Unix timestamp".to_string(),
+            },
+        ));
+        res.status_code(error_response.status_code);
+        res.render(error_response);
+        return;
+    };
+
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
+
+    match app_state
+        .crypto_store
+        .get_certificates_expiring_before(before_datetime)
+        .await
+    {
+        Ok(certificates) => {
+            let response = ExpiringCertificatesResponse {
+                certificates: certificates
+                    .into_iter()
+                    .map(|c| CertificateExpiryRecord {
+                        domain: c.domain,
+                        owner_id: c.owner_id,
+                        expires_at: c.expires_at,
+                    })
+                    .collect(),
+            };
+            res.render(Json(response));
+        }
+        Err(e) => {
+            let error_response = ErrorPresenter::map_error(e);
+            res.status_code(error_response.status_code);
+            res.render(error_response);
+        }
+    }
 }
 
 /// Get SSL certificate for a domain
