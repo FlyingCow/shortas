@@ -1,0 +1,30 @@
+[acme]
+# Use staging for testing, production for real certificates
+# directory_url = "https://acme-v02.api.letsencrypt.org/directory"  # Production
+directory_url = "https://acme-staging-v02.api.letsencrypt.org/directory"  # Staging
+account_email = "admin@example.com"
+account_key_path = "/etc/cert-bot/account.key"
+
+[click_router_api]
+base_url = "http://click-router-api:3000"
+timeout_seconds = 30
+
+[mongodb]
+uri = "mongodb://localhost:27017"
+database = "shortas"
+orders_collection = "certificate_orders"
+
+[rabbitmq]
+uri = "amqp://guest:guest@rabbitmq:5672/%2f"
+domain_exchange = "domain.state.changes"
+certificate_exchange = "cache.invalidation.certificates"
+reconnect_seconds = 5
+
+[worker]
+check_interval_seconds = 30
+batch_size = 10
+max_retries = 3
+
+[renewal]
+check_interval_hours = 24
+renewal_days_before = 30

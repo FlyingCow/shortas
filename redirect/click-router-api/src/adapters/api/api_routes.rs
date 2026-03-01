@@ -3,7 +3,7 @@ use salvo::prelude::*;
 use tracing::info;
 
 use crate::adapters::api::routes::{
-    crypto_controller, routes_controller, user_settings_controller,
+    challenge_controller, crypto_controller, routes_controller, user_settings_controller,
 };
 
 // Simple request logging middleware
@@ -41,7 +41,8 @@ pub fn routes() -> Router {
         // .hoop(jwt_authorization_middleware)  // Disabled for testing
         .push(routes_controller::api_routes())
         .push(crypto_controller::api_routes())
-        .push(user_settings_controller::api_routes());
+        .push(user_settings_controller::api_routes())
+        .push(challenge_controller::api_routes());
 
     // Combine all routes with logging
     Router::new()

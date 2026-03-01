@@ -9,8 +9,8 @@ use fluvio::hit_registrar::FluvioHitRegistrar;
 use geo_ip::geo_ip_location_detector::GeoIPLocationDetector;
 use http::{header::IntoHeaderName, uri::Scheme, HeaderValue};
 use moka::{
-    crypto_cache::MokaCryptoCache, routes_cache::MokaRoutesCache,
-    user_settings_cache::MokaUserSettingsCache,
+    crypto_cache::MokaCryptoCache,
+    routes_cache::MokaRoutesCache, user_settings_cache::MokaUserSettingsCache,
 };
 use rdkafka::hit_registrar::KafkaHitRegistrar;
 use salvo::{SalvoRequest, SalvoResponse};
@@ -23,8 +23,8 @@ use crate::{
             user_settings_store::InMemoryUserSettingsStore,
         },
         mongodb::{
-            crypto_store::MongodbCryptoStore, routes_store::MongodbRoutesStore,
-            user_settings_store::MongodbUserSettingsStore,
+            crypto_store::MongodbCryptoStore,
+            routes_store::MongodbRoutesStore, user_settings_store::MongodbUserSettingsStore,
         },
     },
     core::{

@@ -22,6 +22,9 @@ pub trait RoutesStore: DynClone {
     /// This deletes all existing routes with the same link and inserts the new family.
     /// The operation is atomic - either all routes are stored or none.
     async fn store_route_family(&self, routes: &[Route]) -> Result<()>;
+
+    /// Delete a route by exact switch and link.
+    async fn delete_route_by_switch_and_link(&self, switch: &str, link: &str) -> Result<()>;
 }
 
 clone_trait_object!(RoutesStore);

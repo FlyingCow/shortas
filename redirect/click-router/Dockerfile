@@ -1,23 +1,27 @@
-# Multi-stage build for click-router
-FROM rust:1.88-slim as builder
+# syntax=docker/dockerfile:1.4
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    ca-certificates \
-    g++ \
-    make \
-    cmake \
-    && rm -rf /var/lib/apt/lists/*
+# ==============================================================================
+# Click Router - High-performance redirect service
+# ==============================================================================
 
-# Set working directory
+ARG RUST_VERSION=1.88
+ARG DEBIAN_VERSION=bookworm
+
+# ------------------------------------------------------------------------------
+# Stage 1: Chef - Dependency caching layer
+# ------------------------------------------------------------------------------
+FROM rust:${RUST_VERSION}-slim AS chef
+
+RUN cargo install cargo-chef --locked
 WORKDIR /app
 
-# Copy workspace manifests from redirect repo
-COPY redirect/Cargo.toml redirect/Cargo.lock ./redirect/
+# ------------------------------------------------------------------------------
+# Stage 2: Planner - Analyze dependencies
+# ------------------------------------------------------------------------------
+FROM chef AS planner
 
-# Copy all workspace members (needed for workspace resolution)
+COPY redirect/Cargo.toml redirect/Cargo.lock ./redirect/
+COPY redirect/cert-bot/ ./redirect/cert-bot/
 COPY redirect/click-router/ ./redirect/click-router/
 COPY redirect/click-router-api/ ./redirect/click-router-api/
 COPY redirect/click-tracker/ ./redirect/click-tracker/
@@ -27,48 +31,79 @@ COPY redirect/domain-verifier/ ./redirect/domain-verifier/
 COPY redirect/route-icon-worker/ ./redirect/route-icon-worker/
 COPY redirect/route-verifier/ ./redirect/route-verifier/
 COPY redirect/infra/domains/ ./redirect/infra/domains/
-
-# Copy external salvo dependency
 COPY salvo/ ./salvo/
 
-# Copy data files
-COPY redirect/data/ ./redirect/data/
-
-# Build the application from the redirect workspace
 WORKDIR /app/redirect
-RUN cargo build --release -p click-router
+RUN cargo chef prepare --recipe-path recipe.json
 
-# Runtime stage
-FROM debian:bookworm-slim
+# ------------------------------------------------------------------------------
+# Stage 3: Builder - Compile dependencies and application
+# ------------------------------------------------------------------------------
+FROM chef AS builder
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
     ca-certificates \
+    g++ \
+    make \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN useradd -r -s /bin/false shortas
+# Copy workspace structure for dependency resolution
+COPY redirect/Cargo.toml redirect/Cargo.lock ./redirect/
+COPY redirect/cert-bot/ ./redirect/cert-bot/
+COPY redirect/click-router/ ./redirect/click-router/
+COPY redirect/click-router-api/ ./redirect/click-router-api/
+COPY redirect/click-tracker/ ./redirect/click-tracker/
+COPY redirect/click-aggregator/ ./redirect/click-aggregator/
+COPY redirect/click-aggregator-api/ ./redirect/click-aggregator-api/
+COPY redirect/domain-verifier/ ./redirect/domain-verifier/
+COPY redirect/route-icon-worker/ ./redirect/route-icon-worker/
+COPY redirect/route-verifier/ ./redirect/route-verifier/
+COPY redirect/infra/domains/ ./redirect/infra/domains/
+COPY salvo/ ./salvo/
 
-# Set working directory
+# Build dependencies (cached layer)
+WORKDIR /app/redirect
+COPY --from=planner /app/redirect/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json -p click-router
+
+# Copy source and build application
+COPY redirect/data/ ./data/
+RUN cargo build --release -p click-router
+
+# ------------------------------------------------------------------------------
+# Stage 4: Runtime - Minimal production image
+# ------------------------------------------------------------------------------
+FROM debian:${DEBIAN_VERSION}-slim AS runtime
+
+LABEL org.opencontainers.image.title="Click Router" \
+      org.opencontainers.image.description="High-performance redirect and routing service" \
+      org.opencontainers.image.vendor="Shortas" \
+      org.opencontainers.image.source="https://github.com/FlyingCow/shortas"
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --no-create-home --shell /usr/sbin/nologin shortas
+
 WORKDIR /app
 
-# Copy binary and config from builder
-COPY --from=builder /app/redirect/target/release/click-router /app/
-COPY --from=builder /app/redirect/click-router/config/ ./config/
-COPY --from=builder /app/redirect/data/ ./data/
+# Copy artifacts from builder
+COPY --from=builder --chown=shortas:shortas /app/redirect/target/release/click-router ./
+COPY --from=builder --chown=shortas:shortas /app/redirect/click-router/config/ ./config/
+COPY --from=builder --chown=shortas:shortas /app/redirect/data/ ./data/
 
-# Change ownership
-RUN chown -R shortas:shortas /app
-
-# Switch to non-root user
 USER shortas
 
-# Expose port
 EXPOSE 5800
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -sf http://localhost:5800/health || exit 1
 
-# Run the application
-CMD ["./click-router", "-r", "production"]
+ENTRYPOINT ["./click-router"]
+CMD ["-r", "production"]

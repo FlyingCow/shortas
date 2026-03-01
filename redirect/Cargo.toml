@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "cert-bot",
     "click-router",
     "click-aggregator",
     "click-aggregator-api",
@@ -105,6 +106,9 @@ lazy_static = "1.4.0"
 # Security and crypto
 jsonwebtoken = "9.3.0"
 sha2 = "0.10.8"
+instant-acme = "0.7"
+rcgen = "0.13"
+x509-parser = "0.16"
 
 # Validation and utilities
 validator = "0.20.0"

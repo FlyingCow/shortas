@@ -18,6 +18,7 @@ WORKDIR /app
 COPY redirect/Cargo.toml redirect/Cargo.lock ./redirect/
 
 # Copy all workspace members (needed for workspace resolution)
+COPY redirect/cert-bot/ ./redirect/cert-bot/
 COPY redirect/click-router/ ./redirect/click-router/
 COPY redirect/click-router-api/ ./redirect/click-router-api/
 COPY redirect/click-tracker/ ./redirect/click-tracker/

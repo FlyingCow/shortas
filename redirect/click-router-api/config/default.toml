@@ -13,6 +13,7 @@ database_name = "click_router"
 routes_collection = "routes"
 crypto_collection = "crypto"
 user_settings_collection = "user_settings"
+challenges_collection = "acme_challenges"
 
 [rabbitmq]
 uri = "amqp://guest:guest@rabbitmq:5672/%2f"

@@ -8,4 +8,10 @@ pub struct Mongodb {
     pub routes_collection: String,
     pub crypto_collection: String,
     pub user_settings_collection: String,
+    #[serde(default = "default_challenges_collection")]
+    pub challenges_collection: String,
+}
+
+fn default_challenges_collection() -> String {
+    "acme_challenges".to_string()
 }

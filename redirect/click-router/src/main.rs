@@ -41,11 +41,12 @@ use click_router::{
     adapters::{
         api::conversion_routes,
         salvo::{salvo_proxy, SalvoRequest, SalvoResponse},
-        RequestType, ResponseType,
+        CryptoCacheType, RequestType, ResponseType,
     },
     app::AppBuilder,
     core::{
-        flow_router::{FlowRouter, FlowRouterResult, RedirectType},
+        crypto::CryptoCache,
+        flow_router::{FlowRouterResult, RedirectType},
         metrics::{Timer, METRICS},
         metrics_endpoint::create_metrics_router,
     },
@@ -193,18 +194,80 @@ impl Handler for Redirect {
     }
 }
 
-struct ServerConfigResolverMock;
+/// Dynamic TLS certificate resolver that loads certificates from the crypto cache
+///
+/// This resolver implements SNI-based certificate selection, allowing different
+/// certificates to be served for different domain names. If no crypto cache is
+/// configured, it falls back to the default embedded certificate.
+struct DynamicServerConfigResolver {
+    crypto_cache: Option<CryptoCacheType>,
+    default_config: Arc<RustlsConfig>,
+}
 
-#[async_trait]
-impl ResolvesServerConfig<IoError> for ServerConfigResolverMock {
-    async fn resolve(&self, _client_hello: ClientHello<'_>) -> IoResult<Arc<RustlsConfig>> {
-        let config = RustlsConfig::new(
+impl DynamicServerConfigResolver {
+    /// Create a new dynamic certificate resolver with optional crypto cache
+    fn new(crypto_cache: Option<CryptoCacheType>) -> Self {
+        // Create default certificate config from embedded files
+        let default_config = Arc::new(RustlsConfig::new(
             Keycert::new()
                 .cert(include_bytes!("../certs/cert.pem").as_ref())
                 .key(include_bytes!("../certs/key.pem").as_ref()),
-        );
+        ));
 
-        Ok(Arc::new(config))
+        Self {
+            crypto_cache,
+            default_config,
+        }
+    }
+}
+
+#[async_trait]
+impl ResolvesServerConfig<IoError> for DynamicServerConfigResolver {
+    async fn resolve(&self, client_hello: ClientHello<'_>) -> IoResult<Arc<RustlsConfig>> {
+        // If no crypto cache, use default certificate
+        let crypto_cache = match &self.crypto_cache {
+            Some(cache) => cache,
+            None => return Ok(self.default_config.clone()),
+        };
+
+        // Extract SNI hostname from client hello
+        let server_name = match client_hello.server_name() {
+            Some(name) => name,
+            None => {
+                tracing::debug!("No SNI hostname in client hello, using default certificate");
+                return Ok(self.default_config.clone());
+            }
+        };
+
+        tracing::debug!("TLS connection for domain: {}", server_name);
+
+        // Try to get certificate for this domain from cache
+        match crypto_cache.get_certificate(server_name).await {
+            Ok(Some(keycert)) => {
+                tracing::debug!("Found certificate for domain: {}", server_name);
+                let config = RustlsConfig::new(
+                    Keycert::new()
+                        .cert(keycert.cert.as_slice())
+                        .key(keycert.key.as_slice()),
+                );
+                Ok(Arc::new(config))
+            }
+            Ok(None) => {
+                tracing::debug!(
+                    "No certificate found for domain: {}, using default",
+                    server_name
+                );
+                Ok(self.default_config.clone())
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Failed to load certificate for domain {}: {}, using default",
+                    server_name,
+                    e
+                );
+                Ok(self.default_config.clone())
+            }
+        }
     }
 }
 
@@ -237,7 +300,7 @@ async fn main() {
     )
     .unwrap();
 
-    let flow_router = AppBuilder::new(settings)
+    let mut app_builder = AppBuilder::new(settings)
         .with_geo_ip()
         .with_ua_parser()
         .with_fluvio()
@@ -247,9 +310,12 @@ async fn main() {
         .with_rabbitmq()
         //.with_dynamo()
         // .await
-        .with_default_modules()
-        .build();
+        .with_default_modules();
 
+    // Get crypto cache for dynamic certificate resolution before building
+    let crypto_cache = app_builder.get_crypto_cache();
+
+    let flow_router = app_builder.build();
     init_flow_router(flow_router);
 
     // Create main application router with both redirect and API functionality
@@ -289,9 +355,15 @@ async fn main() {
         tracing::info!("📊 Metrics endpoints disabled (use --enable-metrics to enable)");
     }
 
-    // Start main application server with default address
+    // Start main application server with dynamic certificate resolution
+    if crypto_cache.is_some() {
+        tracing::info!("🔐 Dynamic TLS certificate resolution enabled");
+    } else {
+        tracing::warn!("⚠️ Crypto cache not available, using fallback certificate only");
+    }
+
     let acceptor = TcpListener::new("0.0.0.0:5800")
-        .rustls_async(ServerConfigResolverMock)
+        .rustls_async(DynamicServerConfigResolver::new(crypto_cache))
         .bind()
         .await;
 

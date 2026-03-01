@@ -3,8 +3,8 @@ use tracing::info;
 
 use crate::{
     adapters::mongodb::{
-        crypto_store::MongodbCryptoStore, routes_store::MongodbRoutesStore,
-        user_settings_store::MongodbUserSettingsStore,
+        crypto_store::MongodbCryptoStore,
+        routes_store::MongodbRoutesStore, user_settings_store::MongodbUserSettingsStore,
     },
     app_builder::AppBuilder,
 };

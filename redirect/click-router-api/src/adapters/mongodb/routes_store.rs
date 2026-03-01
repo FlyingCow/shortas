@@ -215,4 +215,10 @@ impl RoutesStore for MongodbRoutesStore {
 
         Ok(())
     }
+
+    async fn delete_route_by_switch_and_link(&self, switch: &str, link: &str) -> Result<()> {
+        let filter = doc! { "switch": switch, "link": link };
+        self.collection.delete_one(filter).await?;
+        Ok(())
+    }
 }

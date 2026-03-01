@@ -158,4 +158,15 @@ impl RoutesStore for DynamoRoutesStore {
         // DynamoDB requires TransactWriteItems for atomic family operations
         todo!("Implement with TransactWriteItems")
     }
+
+    async fn delete_route_by_switch_and_link(&self, switch: &str, link: &str) -> Result<()> {
+        self.client
+            .delete_item()
+            .table_name(&self.routes_table)
+            .key("switch", AttributeValue::S(switch.to_ascii_lowercase()))
+            .key("link", AttributeValue::S(link.to_ascii_lowercase()))
+            .send()
+            .await?;
+        Ok(())
+    }
 }

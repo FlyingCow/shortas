@@ -1,5 +1,5 @@
 ---
-layout: vector-theme
+layout: professional-theme
 title: About
 permalink: /about/
 ---

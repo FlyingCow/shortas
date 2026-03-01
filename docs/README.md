@@ -1,6 +1,6 @@
 # Shortas Documentation
 
-This directory contains the Jekyll-based documentation site for Shortas, hosted at [shortas.work](https://shortas.work/).
+This directory contains the Jekyll-based documentation site for Shortas, hosted at [shortas.work](https://shortas.work/). The site uses a professional theme (slate blue palette, Inter typography, top navigation).
 
 ## Local Preview
 
