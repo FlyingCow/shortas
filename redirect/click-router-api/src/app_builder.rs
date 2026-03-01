@@ -5,7 +5,7 @@ use tracing::{info, warn};
 
 use crate::adapters;
 use crate::adapters::rabbitmq::publisher::RabbitMqPublisher;
-use crate::core::{ChallengeStore, CryptoStore, RoutesStore, UserSettingsStore};
+use crate::core::{CryptoStore, RoutesStore, UserSettingsStore};
 use crate::settings::Server as ServerSettings;
 use crate::{adapters::api::app_state::AppState, settings::Settings};
 
@@ -16,7 +16,6 @@ pub struct AppBuilder {
     pub(super) routes_store: Option<Box<dyn RoutesStore + Send + Sync + 'static>>,
     pub(super) crypto_store: Option<Box<dyn CryptoStore + Send + Sync + 'static>>,
     pub(super) user_settings_store: Option<Box<dyn UserSettingsStore + Send + Sync + 'static>>,
-    pub(super) challenge_store: Option<Box<dyn ChallengeStore + Send + Sync + 'static>>,
     pub(super) rabbitmq_publisher: Option<RabbitMqPublisher>,
 }
 
@@ -32,11 +31,10 @@ impl Api {
         routes_store: Box<dyn RoutesStore + Send + Sync>,
         crypto_store: Box<dyn CryptoStore + Send + Sync>,
         user_settings_store: Box<dyn UserSettingsStore + Send + Sync>,
-        challenge_store: Box<dyn ChallengeStore + Send + Sync>,
         rabbitmq_publisher: Option<RabbitMqPublisher>,
     ) -> Self {
         Api {
-            api_pool: AppState::new(routes_store, crypto_store, user_settings_store, challenge_store, rabbitmq_publisher),
+            api_pool: AppState::new(routes_store, crypto_store, user_settings_store, rabbitmq_publisher),
             settings,
         }
     }
@@ -109,7 +107,6 @@ impl AppBuilder {
             routes_store: None,
             crypto_store: None,
             user_settings_store: None,
-            challenge_store: None,
             rabbitmq_publisher: None,
         }
     }
@@ -138,7 +135,6 @@ impl AppBuilder {
             self.routes_store.clone().unwrap(),
             self.crypto_store.clone().unwrap(),
             self.user_settings_store.clone().unwrap(),
-            self.challenge_store.clone().unwrap(),
             self.rabbitmq_publisher.clone(),
         );
 

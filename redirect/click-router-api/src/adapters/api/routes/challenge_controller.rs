@@ -1,4 +1,3 @@
-use chrono::{Duration, Utc};
 use salvo::oapi::endpoint;
 use salvo::prelude::*;
 
@@ -8,6 +7,12 @@ use crate::adapters::api::{
 };
 use crate::dto::ChallengeDto;
 use crate::model::error::{ApiError, RouteError, ValidationError};
+use crate::model::route::{ChallengeRouting, Route, RouteProperties, RoutingPolicy};
+
+/// Build the ACME challenge path from a token
+fn challenge_path(token: &str) -> String {
+    format!("/.well-known/acme-challenge/{}", token)
+}
 
 pub fn api_routes() -> Router {
     Router::with_path("/challenges")
@@ -24,6 +29,7 @@ pub fn api_routes() -> Router {
 ///
 /// Stores or updates an ACME HTTP-01 challenge that will be served at
 /// `/.well-known/acme-challenge/{token}` by click-router.
+/// The challenge is stored as a route with ChallengeRouting policy.
 #[endpoint(
     operation_id = "store_challenge",
     summary = "Store ACME challenge",
@@ -84,25 +90,37 @@ pub async fn store_challenge(req: &mut Request, depot: &mut Depot, res: &mut Res
         return;
     }
 
-    // Default expiry is 1 hour from now if not specified
-    let expires_at = challenge_dto
-        .expires_at
-        .unwrap_or_else(|| Utc::now() + Duration::hours(1));
+    // Create a route with ChallengeRouting policy
+    let link = challenge_path(&token);
+    let route = Route {
+        switch: domain.clone(),
+        link: link.clone(),
+        dest: Some(challenge_dto.key_authorization.clone()),
+        policy: RoutingPolicy::Challenge(ChallengeRouting {
+            key: challenge_dto.key_authorization.clone(),
+            source: "acme".to_string(),
+            challenge_type: "http-01".to_string(),
+        }),
+        properties: RouteProperties::default(),
+        ..Default::default()
+    };
 
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
-    match app_state
-        .challenge_store
-        .store_challenge(&domain, &token, &challenge_dto.key_authorization, expires_at)
-        .await
-    {
+    // Check if route already exists and update or create
+    let result = match app_state.routes_store.get_route(&domain, &link).await {
+        Ok(Some(_)) => app_state.routes_store.update_route(&route).await,
+        Ok(None) => app_state.routes_store.store_route(&route).await,
+        Err(e) => Err(e),
+    };
+
+    match result {
         Ok(_) => {
             res.status_code(StatusCode::CREATED);
             res.render(Json(serde_json::json!({
                 "message": "Challenge stored successfully",
                 "domain": domain,
-                "token": token,
-                "expires_at": expires_at
+                "token": token
             })));
         }
         Err(e) => {
@@ -136,9 +154,29 @@ pub async fn get_challenge(req: &mut Request, depot: &mut Depot, res: &mut Respo
 
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
-    match app_state.challenge_store.get_challenge(&domain, &token).await {
-        Ok(Some(challenge)) => {
-            res.render(Json(ChallengeDto::from(challenge)));
+    let link = challenge_path(&token);
+    match app_state.routes_store.get_route(&domain, &link).await {
+        Ok(Some(route)) => {
+            // Extract key_authorization from the ChallengeRouting policy
+            if let RoutingPolicy::Challenge(challenge_routing) = &route.policy {
+                let dto = ChallengeDto {
+                    domain: Some(domain.clone()),
+                    token: Some(token.clone()),
+                    key_authorization: challenge_routing.key.clone(),
+                    expires_at: None,
+                };
+                res.render(Json(dto));
+            } else {
+                // Route exists but is not a challenge route
+                let error_response =
+                    ErrorPresenter::from_api_error(&ApiError::Route(RouteError::NotFound {
+                        switch: "challenge".to_string(),
+                        domain: domain.clone(),
+                        path: token.clone(),
+                    }));
+                res.status_code(error_response.status_code);
+                res.render(error_response);
+            }
         }
         Ok(None) => {
             let error_response =
@@ -180,11 +218,16 @@ pub async fn delete_challenge(req: &mut Request, depot: &mut Depot, res: &mut Re
 
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
-    match app_state
-        .challenge_store
-        .delete_challenge(&domain, &token)
-        .await
-    {
+    let link = challenge_path(&token);
+
+    // Create a minimal route for deletion (only switch and link needed)
+    let route = Route {
+        switch: domain.clone(),
+        link,
+        ..Default::default()
+    };
+
+    match app_state.routes_store.delete_route(&route).await {
         Ok(_) => {
             res.status_code(StatusCode::NO_CONTENT);
         }
@@ -198,11 +241,11 @@ pub async fn delete_challenge(req: &mut Request, depot: &mut Depot, res: &mut Re
 
 /// Delete all ACME HTTP-01 challenges for a domain
 ///
-/// Deletes all ACME HTTP-01 challenges associated with the specified domain.
+/// Deletes all ACME HTTP-01 challenge routes associated with the specified domain.
 #[endpoint(
     operation_id = "delete_domain_challenges",
     summary = "Delete all challenges for domain",
-    description = "Deletes all ACME HTTP-01 challenges associated with the specified domain",
+    description = "Deletes all ACME HTTP-01 challenge routes associated with the specified domain",
     parameters(
         ("domain" = String, Path, description = "The domain name", example = "example.com")
     ),
@@ -216,9 +259,12 @@ pub async fn delete_domain_challenges(req: &mut Request, depot: &mut Depot, res:
 
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
+    // Delete all routes for this domain with ACME challenge path prefix
+    let acme_prefix = "/.well-known/acme-challenge/";
+
     match app_state
-        .challenge_store
-        .delete_domain_challenges(&domain)
+        .routes_store
+        .delete_routes_by_switch_and_link_prefix(&domain, acme_prefix)
         .await
     {
         Ok(deleted_count) => {

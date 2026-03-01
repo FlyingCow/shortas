@@ -3,7 +3,7 @@ use tracing::info;
 
 use crate::{
     adapters::mongodb::{
-        challenge_store::MongodbChallengeStore, crypto_store::MongodbCryptoStore,
+        crypto_store::MongodbCryptoStore,
         routes_store::MongodbRoutesStore, user_settings_store::MongodbUserSettingsStore,
     },
     app_builder::AppBuilder,
@@ -34,20 +34,9 @@ impl AppBuilder {
             &self.settings.mongodb.user_settings_collection,
         )) as Box<_>);
 
-        let challenge_store = MongodbChallengeStore::new(
-            &database,
-            &self.settings.mongodb.challenges_collection,
-        );
-        // Create indexes for the challenges collection
-        if let Err(e) = challenge_store.create_indexes().await {
-            tracing::warn!("Failed to create challenge indexes: {}", e);
-        }
-        let challenge_store = Some(Box::new(challenge_store) as Box<_>);
-
         self.routes_store = routes_store;
         self.crypto_store = crypto_store;
         self.user_settings_store = user_settings_store;
-        self.challenge_store = challenge_store;
 
         self
     }

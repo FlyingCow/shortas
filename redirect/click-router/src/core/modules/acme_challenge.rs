@@ -2,24 +2,27 @@ use anyhow::Result;
 use http::StatusCode;
 
 use crate::{
-    adapters::ChallengeCacheType,
+    adapters::RoutesCacheType,
     core::{
-        challenge::ChallengeCache,
         flow_module::{FlowModule, FlowStepContinuation},
         flow_router::{FlowRouter, FlowRouterContext, FlowRouterResult, Request},
+        routes::RoutesCache,
     },
+    model::route::RoutingPolicy,
 };
 
 const ACME_CHALLENGE_PREFIX: &str = "/.well-known/acme-challenge/";
 
+/// ACME challenge module that serves HTTP-01 challenges from routes with ChallengeRouting policy.
+/// This module is readonly - challenges are created via click-router-api.
 #[derive(Clone)]
 pub struct AcmeChallengeModule {
-    challenge_cache: ChallengeCacheType,
+    routes_cache: RoutesCacheType,
 }
 
 impl AcmeChallengeModule {
-    pub fn new(challenge_cache: ChallengeCacheType) -> Self {
-        Self { challenge_cache }
+    pub fn new(routes_cache: RoutesCacheType) -> Self {
+        Self { routes_cache }
     }
 }
 
@@ -37,13 +40,6 @@ impl FlowModule for AcmeChallengeModule {
             return Ok(FlowStepContinuation::Continue);
         }
 
-        // Extract token from path
-        let token = &path[ACME_CHALLENGE_PREFIX.len()..];
-        if token.is_empty() {
-            context.result = Some(FlowRouterResult::Empty(StatusCode::NOT_FOUND));
-            return Ok(FlowStepContinuation::Break);
-        }
-
         // Get domain from host
         let domain = match context.request.uri().host() {
             Some(host) => host.to_string(),
@@ -59,21 +55,28 @@ impl FlowModule for AcmeChallengeModule {
             }
         };
 
-        tracing::debug!("ACME challenge request for domain: {}, token: {}", domain, token);
+        tracing::debug!("ACME challenge request for domain: {}, path: {}", domain, path);
 
-        // Look up challenge in cache/store
-        match self.challenge_cache.get_challenge(&domain, token).await {
-            Ok(Some(challenge)) => {
-                tracing::info!("ACME challenge found for domain: {}", domain);
-                // Return the key authorization as plain text
-                context.result = Some(FlowRouterResult::PlainText(
-                    challenge.key_authorization,
-                    StatusCode::OK,
-                ));
-                Ok(FlowStepContinuation::Break)
+        // Look up challenge route in cache/store
+        // The route is stored with switch=domain and link=path (/.well-known/acme-challenge/{token})
+        match self.routes_cache.get_route(&domain, path).await {
+            Ok(Some(route)) => {
+                // Check if it's a challenge route
+                if let RoutingPolicy::Challenge(challenge_routing) = &route.policy {
+                    tracing::info!("ACME challenge found for domain: {}", domain);
+                    // Return the key authorization as plain text
+                    context.result = Some(FlowRouterResult::PlainText(
+                        challenge_routing.key.clone(),
+                        StatusCode::OK,
+                    ));
+                    return Ok(FlowStepContinuation::Break);
+                }
+                // Route exists but is not a challenge - let other modules handle it
+                tracing::debug!("Route exists but is not a challenge route for: {}", domain);
+                Ok(FlowStepContinuation::Continue)
             }
             Ok(None) => {
-                tracing::warn!("ACME challenge not found for domain: {}, token: {}", domain, token);
+                tracing::warn!("ACME challenge not found for domain: {}, path: {}", domain, path);
                 context.result = Some(FlowRouterResult::Empty(StatusCode::NOT_FOUND));
                 Ok(FlowStepContinuation::Break)
             }

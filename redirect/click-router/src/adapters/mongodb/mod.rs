@@ -1,4 +1,3 @@
-pub mod challenge_store;
 pub mod crypto_store;
 pub mod routes_store;
 pub mod settings;

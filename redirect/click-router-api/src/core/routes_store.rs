@@ -22,6 +22,14 @@ pub trait RoutesStore: DynClone {
     /// This deletes all existing routes with the same link and inserts the new family.
     /// The operation is atomic - either all routes are stored or none.
     async fn store_route_family(&self, routes: &[Route]) -> Result<()>;
+
+    /// Delete all routes for a domain that match a link prefix.
+    /// Used for cleaning up ACME challenge routes after certificate issuance.
+    async fn delete_routes_by_switch_and_link_prefix(
+        &self,
+        switch: &str,
+        link_prefix: &str,
+    ) -> Result<u64>;
 }
 
 clone_trait_object!(RoutesStore);

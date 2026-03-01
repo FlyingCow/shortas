@@ -158,4 +158,14 @@ impl RoutesStore for DynamoRoutesStore {
         // DynamoDB requires TransactWriteItems for atomic family operations
         todo!("Implement with TransactWriteItems")
     }
+
+    async fn delete_routes_by_switch_and_link_prefix(
+        &self,
+        _switch: &str,
+        _link_prefix: &str,
+    ) -> Result<u64> {
+        // DynamoDB requires a scan/query + batch delete
+        // For ACME challenges, MongoDB is the primary store
+        Ok(0)
+    }
 }
