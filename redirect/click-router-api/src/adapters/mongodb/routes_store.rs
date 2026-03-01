@@ -216,35 +216,9 @@ impl RoutesStore for MongodbRoutesStore {
         Ok(())
     }
 
-    async fn delete_routes_by_switch_and_link_prefix(
-        &self,
-        switch: &str,
-        link_prefix: &str,
-    ) -> Result<u64> {
-        // Use regex to match routes with the given switch and link prefix
-        // Escape special regex chars in the prefix
-        let escaped_prefix = link_prefix
-            .replace('\\', "\\\\")
-            .replace('.', "\\.")
-            .replace('/', "\\/")
-            .replace('?', "\\?")
-            .replace('+', "\\+")
-            .replace('*', "\\*")
-            .replace('[', "\\[")
-            .replace(']', "\\]")
-            .replace('(', "\\(")
-            .replace(')', "\\)")
-            .replace('{', "\\{")
-            .replace('}', "\\}")
-            .replace('^', "\\^")
-            .replace('$', "\\$")
-            .replace('|', "\\|");
-
-        let filter = doc! {
-            "switch": switch,
-            "link": { "$regex": format!("^{}", escaped_prefix) }
-        };
-        let result = self.collection.delete_many(filter).await?;
-        Ok(result.deleted_count)
+    async fn delete_route_by_switch_and_link(&self, switch: &str, link: &str) -> Result<()> {
+        let filter = doc! { "switch": switch, "link": link };
+        self.collection.delete_one(filter).await?;
+        Ok(())
     }
 }

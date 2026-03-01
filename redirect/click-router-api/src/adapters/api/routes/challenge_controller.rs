@@ -15,14 +15,12 @@ fn challenge_path(token: &str) -> String {
 }
 
 pub fn api_routes() -> Router {
-    Router::with_path("/challenges")
-        .push(
-            Router::with_path("/{domain}/{token}")
-                .get(get_challenge)
-                .put(store_challenge)
-                .delete(delete_challenge),
-        )
-        .push(Router::with_path("/{domain}").delete(delete_domain_challenges))
+    Router::with_path("/challenges").push(
+        Router::with_path("/{domain}/{token}")
+            .get(get_challenge)
+            .put(store_challenge)
+            .delete(delete_challenge),
+    )
 }
 
 /// Store ACME HTTP-01 challenge for a domain
@@ -220,14 +218,11 @@ pub async fn delete_challenge(req: &mut Request, depot: &mut Depot, res: &mut Re
 
     let link = challenge_path(&token);
 
-    // Create a minimal route for deletion (only switch and link needed)
-    let route = Route {
-        switch: domain.clone(),
-        link,
-        ..Default::default()
-    };
-
-    match app_state.routes_store.delete_route(&route).await {
+    match app_state
+        .routes_store
+        .delete_route_by_switch_and_link(&domain, &link)
+        .await
+    {
         Ok(_) => {
             res.status_code(StatusCode::NO_CONTENT);
         }
@@ -239,46 +234,3 @@ pub async fn delete_challenge(req: &mut Request, depot: &mut Depot, res: &mut Re
     }
 }
 
-/// Delete all ACME HTTP-01 challenges for a domain
-///
-/// Deletes all ACME HTTP-01 challenge routes associated with the specified domain.
-#[endpoint(
-    operation_id = "delete_domain_challenges",
-    summary = "Delete all challenges for domain",
-    description = "Deletes all ACME HTTP-01 challenge routes associated with the specified domain",
-    parameters(
-        ("domain" = String, Path, description = "The domain name", example = "example.com")
-    ),
-    responses(
-        (status_code = 200, description = "Challenges deleted successfully"),
-        (status_code = 500, description = "Internal server error", body = ErrorResponse)
-    )
-)]
-pub async fn delete_domain_challenges(req: &mut Request, depot: &mut Depot, res: &mut Response) {
-    let domain = req.param::<String>("domain").unwrap_or_default();
-
-    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
-
-    // Delete all routes for this domain with ACME challenge path prefix
-    let acme_prefix = "/.well-known/acme-challenge/";
-
-    match app_state
-        .routes_store
-        .delete_routes_by_switch_and_link_prefix(&domain, acme_prefix)
-        .await
-    {
-        Ok(deleted_count) => {
-            res.status_code(StatusCode::OK);
-            res.render(Json(serde_json::json!({
-                "message": "Challenges deleted successfully",
-                "domain": domain,
-                "deleted_count": deleted_count
-            })));
-        }
-        Err(e) => {
-            let error_response = ErrorPresenter::map_error(e);
-            res.status_code(error_response.status_code);
-            res.render(error_response);
-        }
-    }
-}

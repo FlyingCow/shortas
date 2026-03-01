@@ -159,13 +159,14 @@ impl RoutesStore for DynamoRoutesStore {
         todo!("Implement with TransactWriteItems")
     }
 
-    async fn delete_routes_by_switch_and_link_prefix(
-        &self,
-        _switch: &str,
-        _link_prefix: &str,
-    ) -> Result<u64> {
-        // DynamoDB requires a scan/query + batch delete
-        // For ACME challenges, MongoDB is the primary store
-        Ok(0)
+    async fn delete_route_by_switch_and_link(&self, switch: &str, link: &str) -> Result<()> {
+        self.client
+            .delete_item()
+            .table_name(&self.routes_table)
+            .key("switch", AttributeValue::S(switch.to_ascii_lowercase()))
+            .key("link", AttributeValue::S(link.to_ascii_lowercase()))
+            .send()
+            .await?;
+        Ok(())
     }
 }
