@@ -49,9 +49,6 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./clickhouse/config.d/storage.xml:/etc/clickhouse-server/config.d/storage.xml:ro
-    depends_on:
-      minio-setup:
-        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O /dev/null http://localhost:8123/ping || exit 1"]
       interval: 5s
@@ -167,9 +164,9 @@ services:
     container_name: shortas-click-router
     restart: unless-stopped
     ports:
-      - "5800:5800"
+      - "4433:5800"
     environment:
-      - RUST_LOG=warn
+      - RUST_LOG=info
       - APP_RUN_MODE=production
     depends_on:
       mongo:
@@ -179,11 +176,9 @@ services:
       clickhouse:
         condition: service_started
       topic-setup:
-        condition: service_started
+        condition: service_completed_successfully
       domains:
         condition: service_started
-      rabbitmq:
-        condition: service_healthy
     networks:
       - shortas-net
 
@@ -203,8 +198,6 @@ services:
         condition: service_started
       redis:
         condition: service_started
-      rabbitmq:
-        condition: service_healthy
     networks:
       - shortas-net
 
@@ -316,8 +309,6 @@ services:
     depends_on:
       mongo:
         condition: service_started
-      rabbitmq:
-        condition: service_healthy
     networks:
       - shortas-net
 
@@ -330,11 +321,6 @@ services:
     environment:
       - RUST_LOG=info
       - APP_RUN_MODE=production
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      minio:
-        condition: service_started
     networks:
       - shortas-net
 
@@ -368,8 +354,6 @@ services:
     depends_on:
       mongo:
         condition: service_started
-      rabbitmq:
-        condition: service_healthy
       click-router-api:
         condition: service_started
       safe-browsing:
@@ -391,6 +375,27 @@ services:
     networks:
       - shortas-net
 
+  cert-bot:
+    build:
+      context: ..
+      dockerfile: redirect/cert-bot/Dockerfile
+    container_name: shortas-cert-bot
+    restart: unless-stopped
+    env_file:
+      - ./cert-bot/.env
+    environment:
+      - RUST_LOG=info
+      - APP_RUN_MODE=production
+    volumes:
+      - cert_bot_data:/etc/cert-bot
+    depends_on:
+      mongo:
+        condition: service_started
+      click-router-api:
+        condition: service_started
+    networks:
+      - shortas-net
+
 volumes:
   mongo_data:
     driver: local
@@ -398,9 +403,9 @@ volumes:
     driver: local
   redis_data:
     driver: local
-  rabbitmq_data:
-    driver: local
   safe_browsing_data:
+    driver: local
+  cert_bot_data:
     driver: local
   sc-metadata:
   spu-data:

@@ -284,15 +284,23 @@ impl ResolvesServerConfig<IoError> for DynamicServerConfigResolver {
 /// - Comprehensive logging and monitoring
 #[tokio::main]
 async fn main() {
+    eprintln!("click-router: starting...");
+
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("Failed to install rustls crypto provider");
 
+    eprintln!("click-router: rustls initialized");
+
     tracing_subscriber::fmt().init();
+
+    eprintln!("click-router: tracing initialized");
 
     dotenv::from_filename("./.env").ok();
 
     let args = Args::parse();
+
+    eprintln!("click-router: args parsed");
 
     let settings = Settings::new(
         Some(args.run_mode.as_str()),
