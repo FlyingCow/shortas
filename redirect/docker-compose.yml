@@ -164,7 +164,8 @@ services:
     container_name: shortas-click-router
     restart: unless-stopped
     ports:
-      - "4433:5800"
+      - "4433:4433"
+      - "5800:5800"
     environment:
       - RUST_LOG=info
       - APP_RUN_MODE=production

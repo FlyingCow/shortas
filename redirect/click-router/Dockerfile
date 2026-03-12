@@ -4,42 +4,13 @@
 # Click Router - High-performance redirect service
 # ==============================================================================
 
-ARG RUST_VERSION=1.88
-ARG DEBIAN_VERSION=bookworm
+ARG RUST_VERSION=1.94.0
+ARG DEBIAN_VERSION=trixie
 
 # ------------------------------------------------------------------------------
-# Stage 1: Chef - Dependency caching layer
+# Stage 1: Builder - Compile application
 # ------------------------------------------------------------------------------
-FROM rust:${RUST_VERSION}-slim AS chef
-
-RUN cargo install cargo-chef --locked
-WORKDIR /app
-
-# ------------------------------------------------------------------------------
-# Stage 2: Planner - Analyze dependencies
-# ------------------------------------------------------------------------------
-FROM chef AS planner
-
-COPY redirect/Cargo.toml redirect/Cargo.lock ./redirect/
-COPY redirect/cert-bot/ ./redirect/cert-bot/
-COPY redirect/click-router/ ./redirect/click-router/
-COPY redirect/click-router-api/ ./redirect/click-router-api/
-COPY redirect/click-tracker/ ./redirect/click-tracker/
-COPY redirect/click-aggregator/ ./redirect/click-aggregator/
-COPY redirect/click-aggregator-api/ ./redirect/click-aggregator-api/
-COPY redirect/domain-verifier/ ./redirect/domain-verifier/
-COPY redirect/route-icon-worker/ ./redirect/route-icon-worker/
-COPY redirect/route-verifier/ ./redirect/route-verifier/
-COPY redirect/infra/domains/ ./redirect/infra/domains/
-COPY salvo/ ./salvo/
-
-WORKDIR /app/redirect
-RUN cargo chef prepare --recipe-path recipe.json
-
-# ------------------------------------------------------------------------------
-# Stage 3: Builder - Compile dependencies and application
-# ------------------------------------------------------------------------------
-FROM chef AS builder
+FROM rust:${RUST_VERSION}-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -51,7 +22,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy workspace structure for dependency resolution
+WORKDIR /app
+
+# Copy workspace structure
 COPY redirect/Cargo.toml redirect/Cargo.lock ./redirect/
 COPY redirect/cert-bot/ ./redirect/cert-bot/
 COPY redirect/click-router/ ./redirect/click-router/
@@ -64,18 +37,14 @@ COPY redirect/route-icon-worker/ ./redirect/route-icon-worker/
 COPY redirect/route-verifier/ ./redirect/route-verifier/
 COPY redirect/infra/domains/ ./redirect/infra/domains/
 COPY salvo/ ./salvo/
+COPY redirect/data/ ./redirect/data/
 
-# Build dependencies (cached layer)
+# Build application
 WORKDIR /app/redirect
-COPY --from=planner /app/redirect/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json -p click-router
-
-# Copy source and build application
-COPY redirect/data/ ./data/
 RUN cargo build --release -p click-router
 
 # ------------------------------------------------------------------------------
-# Stage 4: Runtime - Minimal production image
+# Stage 2: Runtime - Minimal production image
 # ------------------------------------------------------------------------------
 FROM debian:${DEBIAN_VERSION}-slim AS runtime
 
@@ -100,7 +69,7 @@ COPY --from=builder --chown=shortas:shortas /app/redirect/data/ ./data/
 
 USER shortas
 
-EXPOSE 5800
+EXPOSE 5800 4433
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -sf http://localhost:5800/health || exit 1

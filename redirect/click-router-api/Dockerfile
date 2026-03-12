@@ -1,5 +1,8 @@
 # Multi-stage build for click-router-api
-FROM rust:1.88-slim as builder
+ARG RUST_VERSION=1.94.0
+ARG DEBIAN_VERSION=trixie
+
+FROM rust:${RUST_VERSION}-slim as builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -37,7 +40,7 @@ WORKDIR /app/redirect
 RUN cargo build --release -p click-router-api
 
 # Runtime stage
-FROM debian:bookworm-slim
+FROM debian:${DEBIAN_VERSION}-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
