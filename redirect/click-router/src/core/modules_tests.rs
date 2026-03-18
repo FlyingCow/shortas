@@ -93,6 +93,7 @@ mod modules_tests {
         let redirect = Redirect {
             not_found_url: "http://localhost:5801/404/{}".to_string(),
             index_url: "http://localhost:5801/index/{}".to_string(),
+            blocked_url: "http://localhost:5801/blocked?reason={}".to_string(),
         };
 
         let module = RootModule::new(redirect);
@@ -105,6 +106,7 @@ mod modules_tests {
         let redirect = Redirect {
             not_found_url: "http://localhost:5801/404/{}".to_string(),
             index_url: "http://localhost:5801/index/{}".to_string(),
+            blocked_url: "http://localhost:5801/blocked?reason={}".to_string(),
         };
 
         let module = RootModule::new(redirect);
@@ -144,6 +146,7 @@ mod modules_tests {
         let redirect = Redirect {
             not_found_url: "http://localhost:5801/404/{}".to_string(),
             index_url: "http://localhost:5801/index/{}".to_string(),
+            blocked_url: "http://localhost:5801/blocked?reason={}".to_string(),
         };
 
         let module = RootModule::new(redirect);
@@ -305,6 +308,7 @@ mod modules_tests {
         let redirect = Redirect {
             not_found_url: "http://localhost:5801/404/{}".to_string(),
             index_url: "http://localhost:5801/index/{}".to_string(),
+            blocked_url: "http://localhost:5801/blocked?reason={}".to_string(),
         };
 
         let module = NotFoundModule::new(redirect);
@@ -317,6 +321,7 @@ mod modules_tests {
         let redirect = Redirect {
             not_found_url: "http://localhost:5801/404/{}".to_string(),
             index_url: "http://localhost:5801/index/{}".to_string(),
+            blocked_url: "http://localhost:5801/blocked?reason={}".to_string(),
         };
 
         let module = NotFoundModule::new(redirect);
@@ -353,6 +358,7 @@ mod modules_tests {
         let redirect = Redirect {
             not_found_url: "http://localhost:5801/404/{}".to_string(),
             index_url: "http://localhost:5801/index/{}".to_string(),
+            blocked_url: "http://localhost:5801/blocked?reason={}".to_string(),
         };
 
         let module = FlowModules::Root(RootModule::new(redirect));
@@ -378,6 +384,7 @@ mod modules_tests {
         let redirect = Redirect {
             not_found_url: "http://localhost:5801/404/{}".to_string(),
             index_url: "http://localhost:5801/index/{}".to_string(),
+            blocked_url: "http://localhost:5801/blocked?reason={}".to_string(),
         };
 
         let module = FlowModules::NotFound(NotFoundModule::new(redirect));
@@ -403,6 +410,7 @@ mod modules_tests {
         let redirect = Redirect {
             not_found_url: "http://localhost:5801/404/{}".to_string(),
             index_url: "http://localhost:5801/index/{}".to_string(),
+            blocked_url: "http://localhost:5801/blocked?reason={}".to_string(),
         };
 
         let module = FlowModules::Root(RootModule::new(redirect));
@@ -459,6 +467,7 @@ mod modules_tests {
         let redirect = Redirect {
             not_found_url: "http://localhost:5801/404/{}".to_string(),
             index_url: "http://localhost:5801/index/{}".to_string(),
+            blocked_url: "http://localhost:5801/blocked?reason={}".to_string(),
         };
 
         let module = RootModule::new(redirect);
@@ -534,6 +543,7 @@ mod modules_tests {
         let redirect = Redirect {
             not_found_url: "http://localhost:5801/404/{}".to_string(),
             index_url: "http://localhost:5801/index/{}".to_string(),
+            blocked_url: "http://localhost:5801/blocked?reason={}".to_string(),
         };
 
         let module = NotFoundModule::new(redirect);

@@ -170,24 +170,6 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug executable 'domains'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin=infra/domains",
-                    "--package=infra/domains"
-                ],
-                "filter": {
-                    "name": "infra/domains",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
         }
     ]
 }

@@ -13,6 +13,7 @@ use crate::adapters::uaparser::settings::UAParser;
 pub struct Redirect {
     pub not_found_url: String,
     pub index_url: String,
+    pub blocked_url: String,
 }
 #[derive(Default, Debug, Deserialize, Clone)]
 #[allow(unused)]

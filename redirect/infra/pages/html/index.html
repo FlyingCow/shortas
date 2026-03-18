@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+    <title>Welcome</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e8e8e8;
+        }
+
+        .container {
+            text-align: center;
+            padding: 3rem;
+            max-width: 600px;
+        }
+
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 2rem;
+            background: linear-gradient(135deg, #4a90d9 0%, #667eea 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 40px rgba(74, 144, 217, 0.3);
+        }
+
+        .icon svg {
+            width: 40px;
+            height: 40px;
+            fill: white;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+
+        .domain {
+            font-size: 1.25rem;
+            color: #4a90d9;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+            word-break: break-all;
+        }
+
+        p {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #a0a0a0;
+        }
+
+        .footer {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.875rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </svg>
+        </div>
+        <h1>Welcome</h1>
+        <div class="domain" id="domain-display"></div>
+        <p>This domain is managed by Shortas URL shortening service.</p>
+        <div class="footer">
+            Powered by Shortas
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // Safely extract and sanitize domain parameter
+            function sanitize(str) {
+                if (!str) return '';
+                // Remove any HTML tags and special characters
+                return str.replace(/[<>"'&]/g, '').substring(0, 253);
+            }
+
+            function getDomainParam() {
+                var params = new URLSearchParams(window.location.search);
+                return sanitize(params.get('domain') || '');
+            }
+
+            // Display domain safely using textContent (XSS-safe)
+            var domain = getDomainParam();
+            var displayEl = document.getElementById('domain-display');
+
+            if (domain) {
+                displayEl.textContent = domain;
+            } else {
+                displayEl.textContent = window.location.hostname;
+            }
+
+            // Remove query parameters from URL
+            if (window.location.search) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        })();
+    </script>
+</body>
+</html>

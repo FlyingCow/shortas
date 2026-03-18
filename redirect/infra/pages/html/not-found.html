@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+    <title>Not Found</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e8e8e8;
+        }
+
+        .container {
+            text-align: center;
+            padding: 3rem;
+            max-width: 600px;
+        }
+
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 2rem;
+            background: linear-gradient(135deg, #f39c12 0%, #e74c3c 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 40px rgba(231, 76, 60, 0.3);
+        }
+
+        .icon svg {
+            width: 40px;
+            height: 40px;
+            fill: white;
+        }
+
+        .code {
+            font-size: 5rem;
+            font-weight: 700;
+            color: #e74c3c;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+
+        .route {
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+            word-break: break-all;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        p {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #a0a0a0;
+        }
+
+        .footer {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.875rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+        </div>
+        <div class="code">404</div>
+        <h1>Link Not Found</h1>
+        <div class="route" id="route-display"></div>
+        <p>The short link you are looking for does not exist or has been removed.</p>
+        <div class="footer">
+            Powered by Shortas
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // Safely extract and sanitize parameters
+            function sanitize(str) {
+                if (!str) return '';
+                // Remove any HTML tags and special characters, limit length
+                return str.replace(/[<>"'&]/g, '').substring(0, 2000);
+            }
+
+            function getParam(name) {
+                var params = new URLSearchParams(window.location.search);
+                return sanitize(params.get(name) || '');
+            }
+
+            // Display route safely using textContent (XSS-safe)
+            var domain = getParam('domain');
+            var path = getParam('path');
+            var displayEl = document.getElementById('route-display');
+
+            var fullRoute = '';
+            if (domain) {
+                fullRoute = domain;
+                if (path) {
+                    fullRoute += '/' + path;
+                }
+            } else {
+                fullRoute = window.location.hostname + window.location.pathname;
+            }
+
+            displayEl.textContent = fullRoute;
+
+            // Remove query parameters from URL
+            if (window.location.search) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        })();
+    </script>
+</body>
+</html>

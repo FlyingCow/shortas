@@ -178,8 +178,8 @@ services:
         condition: service_started
       topic-setup:
         condition: service_completed_successfully
-      domains:
-        condition: service_started
+      pages:
+        condition: service_healthy
     networks:
       - shortas-net
 
@@ -326,7 +326,7 @@ services:
       - shortas-net
 
   safe-browsing:
-    env_file: ".env"
+    env_file: "./route-verifier/.env"
     image: mlsecproject/gglsbl-rest:latest
     container_name: shortas-safe-browsing
     restart: unless-stopped
@@ -364,19 +364,23 @@ services:
     networks:
       - shortas-net
 
-  domains:
+  pages:
     build:
       context: ..
-      dockerfile: redirect/infra/domains/Dockerfile
-    container_name: shortas-domains
-    hostname: domains
+      dockerfile: redirect/infra/pages/Dockerfile
+    container_name: shortas-pages
+    hostname: pages
     restart: unless-stopped
     ports:
       - "5801:5801"
-    environment:
-      - RUST_LOG=info
     networks:
       - shortas-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5801/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
   cert-bot:
     build:

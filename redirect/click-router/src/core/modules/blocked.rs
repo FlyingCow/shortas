@@ -1,5 +1,8 @@
+use std::str::FromStr;
+
 use anyhow::{Ok, Result};
-use http::StatusCode;
+use http::{StatusCode, Uri};
+use string_format::*;
 
 use crate::{
     core::{
@@ -7,16 +10,19 @@ use crate::{
         flow_router::{FlowRouter, FlowRouterContext, FlowRouterResult, FlowStep},
     },
     model::route::{BlockedReason, RouteStatus},
+    settings::Redirect,
 };
 
 const IS_BLOCKED: &str = "is_blocked";
 
-#[derive(Debug, Clone, Default)]
-pub struct BlockedModule;
+#[derive(Debug, Clone)]
+pub struct BlockedModule {
+    redirect: Redirect,
+}
 
 impl BlockedModule {
-    pub fn new() -> Self {
-        Self
+    pub fn new(redirect: Redirect) -> Self {
+        Self { redirect }
     }
 }
 
@@ -40,12 +46,23 @@ impl FlowModule for BlockedModule {
         if let Some(reason) = blocked_reason {
             context.add_bool(IS_BLOCKED, true);
 
-            let message = match reason {
-                BlockedReason::Resoned(msg) => format!("This link has been blocked: {}", msg),
-                BlockedReason::Unknown => "This link has been blocked.".to_string(),
+            // URL-encode the reason for safe transmission
+            let reason_text = match &reason {
+                BlockedReason::Resoned(msg) => msg.clone(),
+                BlockedReason::Unknown => String::new(),
             };
 
-            context.result = Some(FlowRouterResult::PlainText(message, StatusCode::GONE));
+            let encoded_reason = urlencoding::encode(&reason_text);
+
+            let blocked_uri = string_format!(
+                self.redirect.blocked_url.clone(),
+                encoded_reason.to_string()
+            );
+
+            context.result = Some(FlowRouterResult::Proxied(
+                Uri::from_str(&blocked_uri).unwrap(),
+                StatusCode::GONE,
+            ));
 
             // Set the step to End so the flow will terminate
             context.current_step = FlowStep::End;
@@ -75,14 +92,26 @@ mod tests {
 
     #[test]
     fn should_create_blocked_module() {
-        let module = BlockedModule::new();
-        assert!(matches!(module, BlockedModule));
+        let redirect = Redirect {
+            index_url: "https://example.com".to_string(),
+            not_found_url: "https://example.com/404".to_string(),
+            blocked_url: "https://example.com/blocked".to_string(),
+        };
+        let module = BlockedModule::new(redirect.clone());
+
+        assert_eq!(module.redirect.blocked_url, "https://example.com/blocked");
     }
 
     #[test]
     fn should_clone_blocked_module() {
-        let module = BlockedModule::new();
+        let redirect = Redirect {
+            index_url: "https://example.com".to_string(),
+            not_found_url: "https://example.com/404".to_string(),
+            blocked_url: "https://example.com/blocked".to_string(),
+        };
+        let module = BlockedModule::new(redirect);
         let cloned = module.clone();
-        assert!(matches!(cloned, BlockedModule));
+
+        assert_eq!(cloned.redirect.blocked_url, "https://example.com/blocked");
     }
 }

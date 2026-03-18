@@ -14,7 +14,7 @@ Rust workspace containing the high-performance URL redirect and click analytics 
 | `route-verifier` | Worker | Checks routes against Google Safe Browsing |
 | `route-icon-worker` | Worker | Scrapes and stores favicons from destination URLs |
 | `domain-verifier` | Worker | Verifies custom domain ownership via DNS |
-| `infra/domains` | Service | Domain resolution and certificate management |
+| `infra/pages` | Static | Custom error and status pages (nginx) |
 
 ## Data Flow
 

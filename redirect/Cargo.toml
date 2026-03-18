@@ -10,7 +10,6 @@ members = [
     "domain-verifier",
     "route-icon-worker",
     "route-verifier",
-    "infra/domains",
 ]
 
 [workspace.package]
