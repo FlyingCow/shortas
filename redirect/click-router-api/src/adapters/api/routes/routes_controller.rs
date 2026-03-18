@@ -30,6 +30,7 @@ pub fn api_routes() -> Router {
             Router::with_path("/{route_id}")
                 .get(get_route_by_id)
                 .put(update_route_by_id)
+                .patch(patch_route_status)
                 .delete(delete_route_by_id),
         )
 }
@@ -950,6 +951,114 @@ pub async fn update_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
                 let previous_dests: Vec<Option<String>> = family.iter().map(|_| previous_dest.clone()).collect();
                 publisher
                     .publish_route_family_updated(&family, &previous_dests)
+                    .await;
+            }
+            res.status_code(StatusCode::OK);
+            res.render(Json(RouteDto::from(route)));
+        }
+        Err(e) => {
+            let error_response = ErrorPresenter::map_error(e);
+            res.status_code(error_response.status_code);
+            res.render(error_response);
+        }
+    }
+}
+
+/// Request body for patching route status
+#[derive(serde::Deserialize, salvo::oapi::ToSchema)]
+pub struct PatchRouteStatusRequest {
+    /// New status for the route
+    pub status: RouteStatusPatch,
+}
+
+/// Route status for patch request
+#[derive(serde::Deserialize, salvo::oapi::ToSchema)]
+#[serde(tag = "type", content = "reason")]
+pub enum RouteStatusPatch {
+    /// Route is active
+    Active,
+    /// Route is blocked with a reason
+    Blocked(String),
+}
+
+/// Patch route status by route ID
+///
+/// Updates only the status of an existing route identified by its route_id.
+/// This is used by route-verifier to block/unblock routes.
+#[endpoint(
+    operation_id = "patch_route_status",
+    summary = "Patch route status by ID",
+    description = "Updates only the status field of an existing route identified by its route_id property.",
+    parameters(
+        ("route_id" = String, Path, description = "The route ID", example = "c00c50f2-edd2-4f7a-9d99-3af9fe04d2d6")
+    ),
+    responses(
+        (status_code = 200, description = "Route status updated successfully", body = RouteDto),
+        (status_code = 400, description = "Bad request - Invalid input data", body = ErrorResponse),
+        (status_code = 404, description = "Route not found", body = ErrorResponse),
+        (status_code = 500, description = "Internal server error", body = ErrorResponse)
+    )
+)]
+pub async fn patch_route_status(req: &mut Request, depot: &mut Depot, res: &mut Response) {
+    let route_id = req.param::<String>("route_id").unwrap_or_default();
+
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
+
+    // Look up the existing route by route_id
+    let mut route = match app_state.routes_store.get_route_by_route_id(&route_id).await {
+        Ok(Some(route)) => route,
+        Ok(None) => {
+            let error_response =
+                ErrorPresenter::from_api_error(&ApiError::Route(RouteError::NotFound {
+                    switch: String::new(),
+                    domain: route_id.clone(),
+                    path: String::new(),
+                }));
+            res.status_code(error_response.status_code);
+            res.render(error_response);
+            return;
+        }
+        Err(e) => {
+            let error_response = ErrorPresenter::map_error(e);
+            res.status_code(error_response.status_code);
+            res.render(error_response);
+            return;
+        }
+    };
+
+    // Parse the patch body
+    let patch: PatchRouteStatusRequest = match req.parse_json().await {
+        Ok(p) => p,
+        Err(e) => {
+            let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
+                ValidationError::InvalidInput {
+                    field: "body".to_string(),
+                    message: format!("Invalid JSON: {}", e),
+                },
+            ));
+            res.status_code(error_response.status_code);
+            res.render(error_response);
+            return;
+        }
+    };
+
+    // Update the status
+    use crate::model::route::{RouteStatus, BlockedReason};
+    route.status = match patch.status {
+        RouteStatusPatch::Active => RouteStatus::Active,
+        RouteStatusPatch::Blocked(reason) => RouteStatus::Blocked(BlockedReason::Resoned(reason)),
+    };
+
+    // Save the updated route
+    match app_state.routes_store.update_route(&route).await {
+        Ok(_) => {
+            // Publish cache invalidation
+            if let Some(ref publisher) = app_state.rabbitmq_publisher {
+                publisher
+                    .publish_route_changed(&RouteChangedMessage::from_route(
+                        &route,
+                        ChangeAction::Updated,
+                    ))
                     .await;
             }
             res.status_code(StatusCode::OK);

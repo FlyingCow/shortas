@@ -95,11 +95,15 @@ impl SafeBrowsingClient {
             return Ok(SafeBrowsingResult::safe());
         }
 
-        let lookup_url = format!("{}/gglsbl/v1/lookup/{}", self.base_url, urlencoding::encode(url));
+        // Build the lookup URL with properly percent-encoded URL parameter
+        let base_url = self.base_url.trim_end_matches('/');
+        // Encode the URL to ensure all special chars (including :) are percent-encoded
+        let encoded_url = urlencoding::encode(url);
+        let lookup_url = Url::parse(&format!("{}/gglsbl/v1/lookup/{}", base_url, encoded_url))?;
 
-        debug!("Checking URL against Safe Browsing: {}", url);
+        debug!("Checking URL against Safe Browsing: {} -> {}", url, lookup_url);
 
-        let response = match self.client.get(&lookup_url).send().await {
+        let response = match self.client.get(lookup_url).send().await {
             Ok(r) => r,
             Err(e) => {
                 error!("Failed to connect to Safe Browsing service: {}", e);

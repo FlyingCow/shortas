@@ -35,9 +35,9 @@ use crate::{
     core::{
         flow_router::FlowRouter,
         modules::{
-            acme_challenge::AcmeChallengeModule, conditional::ConditionalModule,
-            not_found::NotFoundModule, qr_code::QrCodeModule, redirect_only::RedirectOnlyModule,
-            root::RootModule, FlowModules,
+            acme_challenge::AcmeChallengeModule, blocked::BlockedModule,
+            conditional::ConditionalModule, not_found::NotFoundModule, qr_code::QrCodeModule,
+            redirect_only::RedirectOnlyModule, root::RootModule, FlowModules,
         },
     },
     settings::Settings,
@@ -313,6 +313,10 @@ impl AppBuilder {
         self.modules.push(FlowModules::Root(RootModule::new(
             self.settings.redirect.clone(),
         )));
+
+        // Blocked module - prevents redirection for blocked routes
+        self.modules
+            .push(FlowModules::Blocked(BlockedModule::new()));
 
         // Initialize QR code module with cache
         if let Some(qr_cache) = &self.qr_code_cache {

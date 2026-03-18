@@ -14,12 +14,6 @@ pub struct Mongodb {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct ClickRouterApiSettings {
-    pub base_url: String,
-    pub timeout_seconds: u64,
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub struct RabbitMqSettings {
     pub uri: String,
     pub route_status_exchange: String,
@@ -44,7 +38,6 @@ pub struct WorkerSettings {
 pub struct Settings {
     pub server: Server,
     pub mongodb: Mongodb,
-    pub click_router_api: ClickRouterApiSettings,
     pub rabbitmq: Option<RabbitMqSettings>,
     pub safe_browsing: SafeBrowsingSettings,
     pub worker: WorkerSettings,

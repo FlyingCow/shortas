@@ -48,7 +48,6 @@ async fn main() -> Result<()> {
         .with_rabbitmq()
         .await
         .with_safe_browsing_client()
-        .with_click_router_api_client()
         .build()?
         .run()
         .await?;

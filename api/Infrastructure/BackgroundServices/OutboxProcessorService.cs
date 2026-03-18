@@ -656,53 +656,53 @@ public class OutboxProcessorService : BackgroundService
                 return false;
             }
 
-            // Build the status string for click-router-api
-            // Format: "Active" or "Blocked: {reason}"
-            string statusString;
-            if (status == "Blocked" && !string.IsNullOrEmpty(blockedReason))
+            // Build the PATCH payload for click-router-api
+            // The PATCH endpoint expects: { "status": { "type": "Active" } }
+            // or { "status": { "type": "Blocked", "reason": "..." } }
+            object statusPayload;
+            bool isBlocked = status?.StartsWith("Blocked") == true;
+
+            if (isBlocked)
             {
-                statusString = $"Blocked: {blockedReason}";
-            }
-            else if (status == "Blocked")
-            {
-                statusString = "Blocked: Unknown";
+                // Extract reason from status string "Blocked: reason" or use blockedReason
+                var reason = blockedReason;
+                if (string.IsNullOrEmpty(reason) && status != null && status.Contains(":"))
+                {
+                    reason = status.Substring(status.IndexOf(':') + 1).Trim();
+                }
+                reason ??= "Unknown";
+
+                statusPayload = new
+                {
+                    status = new
+                    {
+                        type = "Blocked",
+                        reason = reason
+                    }
+                };
             }
             else
             {
-                statusString = "Active";
+                statusPayload = new
+                {
+                    status = new
+                    {
+                        type = "Active"
+                    }
+                };
             }
 
-            // click-router-api expects a full RouteDto, but we only have status info
-            // We'll send a minimal payload - the API will merge with existing route data
-            var statusPayload = new
-            {
-                status = statusString,
-                // These fields are required by RouteDto but will be overwritten from existing route
-                @switch = "main",
-                link = payload.TryGetProperty("link", out var linkProp) ? linkProp.GetString() : "",
-                destFormat = "Http",
-                terminal = "External",
-                policy = "Basic",
-                properties = new
-                {
-                    routeId = routeId,
-                    opengraph = false,
-                    allowDebug = false
-                }
-            };
-
-            // Use camelCase for click-router-api (it uses serde rename_all = "camelCase")
-            var camelCaseOptions = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
-
             var content = new StringContent(
-                JsonSerializer.Serialize(statusPayload, camelCaseOptions),
+                JsonSerializer.Serialize(statusPayload),
                 System.Text.Encoding.UTF8,
                 "application/json");
 
-            var response = await httpClient.PutAsync($"/v1/routes/{routeId}", content, cancellationToken);
+            // Use PATCH endpoint for status-only updates
+            var request = new HttpRequestMessage(HttpMethod.Patch, $"/v1/routes/{routeId}")
+            {
+                Content = content
+            };
+            var response = await httpClient.SendAsync(request, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {

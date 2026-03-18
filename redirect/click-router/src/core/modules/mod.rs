@@ -1,5 +1,6 @@
 use anyhow::Result;
 use acme_challenge::AcmeChallengeModule;
+use blocked::BlockedModule;
 use conditional::ConditionalModule;
 use not_found::NotFoundModule;
 use qr_code::QrCodeModule;
@@ -12,6 +13,7 @@ use super::{
 };
 
 pub mod acme_challenge;
+pub mod blocked;
 pub mod redirect_only;
 // pub mod abuse_module;
 // pub mod full_path_module;
@@ -26,6 +28,7 @@ pub mod root;
 #[derive(Clone)]
 pub enum FlowModules {
     AcmeChallenge(AcmeChallengeModule),
+    Blocked(BlockedModule),
     Root(RootModule),
     QrCode(QrCodeModule),
     Conditional(ConditionalModule),
@@ -42,6 +45,7 @@ impl FlowModule for FlowModules {
     ) -> Result<FlowStepContinuation> {
         match self {
             FlowModules::AcmeChallenge(module) => module.init(context, flow_router).await,
+            FlowModules::Blocked(module) => module.init(context, flow_router).await,
             FlowModules::Root(module) => module.init(context, flow_router).await,
             FlowModules::QrCode(module) => module.init(context, flow_router).await,
             FlowModules::Conditional(module) => module.init(context, flow_router).await,
@@ -57,6 +61,7 @@ impl FlowModule for FlowModules {
     ) -> Result<FlowStepContinuation> {
         match self {
             FlowModules::AcmeChallenge(module) => module.handle_start(context, flow_router).await,
+            FlowModules::Blocked(module) => module.handle_start(context, flow_router).await,
             FlowModules::Root(module) => module.handle_start(context, flow_router).await,
             FlowModules::QrCode(module) => module.handle_start(context, flow_router).await,
             FlowModules::Conditional(module) => module.handle_start(context, flow_router).await,
@@ -72,6 +77,7 @@ impl FlowModule for FlowModules {
     ) -> Result<FlowStepContinuation> {
         match self {
             FlowModules::AcmeChallenge(module) => module.handle_url_extract(context, flow_router).await,
+            FlowModules::Blocked(module) => module.handle_url_extract(context, flow_router).await,
             FlowModules::Root(module) => module.handle_url_extract(context, flow_router).await,
             FlowModules::QrCode(module) => module.handle_url_extract(context, flow_router).await,
             FlowModules::Conditional(module) => {
@@ -91,6 +97,7 @@ impl FlowModule for FlowModules {
     ) -> Result<FlowStepContinuation> {
         match self {
             FlowModules::AcmeChallenge(module) => module.handle_register(context, flow_router).await,
+            FlowModules::Blocked(module) => module.handle_register(context, flow_router).await,
             FlowModules::Root(module) => module.handle_register(context, flow_router).await,
             FlowModules::QrCode(module) => module.handle_register(context, flow_router).await,
             FlowModules::Conditional(module) => module.handle_register(context, flow_router).await,
@@ -106,6 +113,7 @@ impl FlowModule for FlowModules {
     ) -> Result<FlowStepContinuation> {
         match self {
             FlowModules::AcmeChallenge(module) => module.handle_build_result(context, flow_router).await,
+            FlowModules::Blocked(module) => module.handle_build_result(context, flow_router).await,
             FlowModules::Root(module) => module.handle_build_result(context, flow_router).await,
             FlowModules::QrCode(module) => module.handle_build_result(context, flow_router).await,
             FlowModules::Conditional(module) => {
@@ -125,6 +133,7 @@ impl FlowModule for FlowModules {
     ) -> Result<FlowStepContinuation> {
         match self {
             FlowModules::AcmeChallenge(module) => module.handle_end(context, flow_router).await,
+            FlowModules::Blocked(module) => module.handle_end(context, flow_router).await,
             FlowModules::Root(module) => module.handle_end(context, flow_router).await,
             FlowModules::QrCode(module) => module.handle_end(context, flow_router).await,
             FlowModules::Conditional(module) => module.handle_end(context, flow_router).await,

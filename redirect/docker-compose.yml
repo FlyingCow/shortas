@@ -330,6 +330,8 @@ services:
     image: mlsecproject/gglsbl-rest:latest
     container_name: shortas-safe-browsing
     restart: unless-stopped
+    environment:
+      - TIMEOUT=120
     volumes:
       - safe_browsing_data:/var/lib/gglsbl
     healthcheck:
