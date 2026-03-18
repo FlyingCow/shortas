@@ -155,10 +155,12 @@ impl Handler for Redirect {
                             .unwrap();
                         let _ = res.write_body(data);
                     }
-                    FlowRouterResult::Proxied(url, _status_code) => {
+                    FlowRouterResult::Proxied(url, status_code) => {
                         let url = url.to_string();
                         let proxy = Proxy::new(url, HyperClient::default());
                         proxy.handle(req, depot, res, ctrl).await;
+                        // Override status code after proxy sets the response
+                        res.status_code(status_code);
                     }
                     FlowRouterResult::Redirect(url, redirect_type) => {
                         match redirect_type {

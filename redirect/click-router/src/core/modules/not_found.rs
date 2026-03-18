@@ -53,7 +53,7 @@ impl FlowModule for NotFoundModule {
 
             context.result = Some(FlowRouterResult::Proxied(
                 Uri::from_str(&not_found_uri).unwrap(),
-                StatusCode::OK,
+                StatusCode::NOT_FOUND,
             ));
 
             // Set the step to End so the iterative flow will handle the end step
