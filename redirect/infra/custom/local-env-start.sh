@@ -27,6 +27,3 @@ chmod u+x ./seed-test-data.sh
 ./seed-test-data.sh
 
 echo "# DONE BUILDING LOCAL INFRASTRUCTURE##############################################"
-
-cd ../domains/
-cargo run

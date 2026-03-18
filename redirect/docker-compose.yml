@@ -326,7 +326,7 @@ services:
       - shortas-net
 
   safe-browsing:
-    env_file: ".env"
+    env_file: "./route-verifier/.env"
     image: mlsecproject/gglsbl-rest:latest
     container_name: shortas-safe-browsing
     restart: unless-stopped
@@ -372,11 +372,11 @@ services:
     hostname: pages
     restart: unless-stopped
     ports:
-      - "5801:80"
+      - "5801:5801"
     networks:
       - shortas-net
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5801/health"]
       interval: 30s
       timeout: 3s
       retries: 3
