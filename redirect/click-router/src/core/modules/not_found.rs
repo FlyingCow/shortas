@@ -37,9 +37,18 @@ impl FlowModule for NotFoundModule {
         if let None = context.main_route {
             context.add_bool(IS_404, true);
 
-            let not_found_uri = string_format!(
-                self.redirect.not_found_url.clone(),
-                context.request.uri().host().unwrap().to_string()
+            let domain = context.request.uri().host().unwrap_or_default();
+            let path = context.request.uri().path().trim_start_matches('/');
+
+            // URL-encode the parameters for safe transmission
+            let encoded_domain = urlencoding::encode(domain);
+            let encoded_path = urlencoding::encode(path);
+
+            // Build the not found URL with domain and path parameters
+            let not_found_uri = format!(
+                "{}&path={}",
+                string_format!(self.redirect.not_found_url.clone(), encoded_domain.to_string()),
+                encoded_path
             );
 
             context.result = Some(FlowRouterResult::Proxied(
@@ -80,6 +89,7 @@ mod tests {
         let redirect = Redirect {
             index_url: "https://example.com".to_string(),
             not_found_url: "https://example.com/404".to_string(),
+            blocked_url: "https://example.com/blocked".to_string(),
         };
         let module = NotFoundModule::new(redirect.clone());
 
@@ -91,6 +101,7 @@ mod tests {
         let redirect = Redirect {
             index_url: "https://example.com".to_string(),
             not_found_url: "https://example.com/404".to_string(),
+            blocked_url: "https://example.com/blocked".to_string(),
         };
         let module = NotFoundModule::new(redirect);
         let cloned = module.clone();

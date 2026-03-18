@@ -60,8 +60,9 @@ yaml = "../data/ua-parser/user-agents.yaml"
 mmdb = "../data/geo-ip/GeoLite2-Country.mmdb"
 
 [redirect]
-not_found_url = "http://domains:5801/404/{}"
-index_url = "http://domains:5801/index/{}"
+not_found_url = "http://pages/not-found?domain={}"
+index_url = "http://pages/index?domain={}"
+blocked_url = "http://pages/blocked?reason={}"
 
 [rabbitmq]
 uri = "amqp://guest:guest@rabbitmq:5672/%2f"

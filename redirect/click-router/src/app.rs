@@ -315,8 +315,9 @@ impl AppBuilder {
         )));
 
         // Blocked module - prevents redirection for blocked routes
-        self.modules
-            .push(FlowModules::Blocked(BlockedModule::new()));
+        self.modules.push(FlowModules::Blocked(BlockedModule::new(
+            self.settings.redirect.clone(),
+        )));
 
         // Initialize QR code module with cache
         if let Some(qr_cache) = &self.qr_code_cache {
