@@ -1,4 +1,4 @@
-# Multi-stage build for click-aggregator
+# Multi-stage build for cert-bot
 ARG RUST_VERSION=1.94.0
 ARG DEBIAN_VERSION=trixie
 
@@ -37,7 +37,7 @@ COPY salvo/ ./salvo/
 
 # Build the application from the redirect workspace
 WORKDIR /app/redirect
-RUN cargo build --release -p click-aggregator
+RUN cargo build --release -p cert-bot
 
 # Runtime stage
 FROM debian:${DEBIAN_VERSION}-slim
@@ -55,8 +55,11 @@ RUN useradd -r -s /bin/false shortas
 WORKDIR /app
 
 # Copy binary and config from builder
-COPY --from=builder /app/redirect/target/release/click-aggregator /app/
-COPY --from=builder /app/redirect/click-aggregator/config/ ./config/
+COPY --from=builder /app/redirect/target/release/cert-bot /app/
+COPY --from=builder /app/redirect/cert-bot/config/ ./config/
+
+# Create directory for account key
+RUN mkdir -p /etc/cert-bot && chown -R shortas:shortas /etc/cert-bot
 
 # Change ownership
 RUN chown -R shortas:shortas /app
@@ -64,9 +67,5 @@ RUN chown -R shortas:shortas /app
 # Switch to non-root user
 USER shortas
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
-
 # Run the application
-CMD ["./click-aggregator", "-r", "production"]
+CMD ["./cert-bot", "-r", "production"]

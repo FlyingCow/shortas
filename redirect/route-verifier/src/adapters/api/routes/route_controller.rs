@@ -267,13 +267,6 @@ pub async fn trigger_verification(req: &mut Request, depot: &mut Depot, res: &mu
             id, reason
         );
 
-        // Update route status via click-router-api
-        if let Err(e) = app_state.click_router_api_client.block_route(&id, &reason).await {
-            res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
-            res.render(Json(ErrorResponse::internal(&e.to_string())));
-            return;
-        }
-
         // Update local status
         if let Err(e) = app_state
             .route_store

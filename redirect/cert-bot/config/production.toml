@@ -6,11 +6,11 @@ account_email = "admin@example.com"
 account_key_path = "/etc/cert-bot/account.key"
 
 [click_router_api]
-base_url = "http://click-router-api:3000"
+base_url = "http://click-router-api:5810"
 timeout_seconds = 30
 
 [mongodb]
-uri = "mongodb://localhost:27017"
+uri = "mongodb://root:example@mongo:27017"
 database = "shortas"
 orders_collection = "certificate_orders"
 

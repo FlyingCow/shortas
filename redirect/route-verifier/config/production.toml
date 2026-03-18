@@ -6,18 +6,14 @@ connection_string = "mongodb://root:example@mongo:27017/"
 database_name = "shortas"
 collection = "routes_to_verify"
 
-[click_router_api]
-base_url = "http://click-router-api:5810"
-timeout_seconds = 10
-
 [rabbitmq]
-uri = "amqp://guest:guest@rabbitmq:5672/%2f"
+uri = "amqp://guest:guest@shortas-rabbitmq:5672/%2f"
 route_status_exchange = "route.status.changed"
 reconnect_seconds = 5
 
 [safe_browsing]
 base_url = "http://safe-browsing:5000"
-timeout_seconds = 10
+timeout_seconds = 120
 
 [worker]
 check_interval_seconds = 300

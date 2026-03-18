@@ -11,6 +11,8 @@ use tracing::{debug, info, warn};
 use crate::model::{Domain, VerificationReason, VerificationStatus};
 use crate::settings::DnsSettings;
 
+const DEFAULT_DOMAIN: &str = "shortas.space";
+
 #[derive(Clone)]
 pub struct DnsVerifier {
     resolver: TokioAsyncResolver,
@@ -62,6 +64,13 @@ impl DnsVerifier {
     pub async fn verify(&self, domain: &Domain) -> VerificationResult {
         info!("Verifying domain: {} (id: {})", domain.name, domain.id);
 
+        if DEFAULT_DOMAIN.eq_ignore_ascii_case(domain.name.as_str()) {
+            return VerificationResult {
+                status: VerificationStatus::Verified,
+                reason: VerificationReason::TxtRecordValid,
+            };
+        }
+
         // Step 1: Check TXT record
         let txt_result = self.check_txt_record(&domain.name, &domain.id).await;
         if let Err(reason) = txt_result {
@@ -95,7 +104,11 @@ impl DnsVerifier {
         }
     }
 
-    async fn check_txt_record(&self, domain_name: &str, expected_value: &str) -> Result<(), VerificationReason> {
+    async fn check_txt_record(
+        &self,
+        domain_name: &str,
+        expected_value: &str,
+    ) -> Result<(), VerificationReason> {
         let txt_domain = format!("{}.{}", self.txt_record_name, domain_name);
         debug!("Checking TXT record: {}", txt_domain);
 
@@ -121,22 +134,20 @@ impl DnsVerifier {
                 );
                 Err(VerificationReason::TxtRecordMismatch)
             }
-            Err(e) => {
-                match e.kind() {
-                    ResolveErrorKind::NoRecordsFound { .. } => {
-                        warn!("TXT record missing for domain: {}", domain_name);
-                        Err(VerificationReason::TxtRecordMissing)
-                    }
-                    ResolveErrorKind::Timeout => {
-                        warn!("DNS timeout for TXT record: {}", domain_name);
-                        Err(VerificationReason::DnsTimeout)
-                    }
-                    _ => {
-                        warn!("DNS error for TXT record {}: {}", domain_name, e);
-                        Err(VerificationReason::DnsError(e.to_string()))
-                    }
+            Err(e) => match e.kind() {
+                ResolveErrorKind::NoRecordsFound { .. } => {
+                    warn!("TXT record missing for domain: {}", domain_name);
+                    Err(VerificationReason::TxtRecordMissing)
                 }
-            }
+                ResolveErrorKind::Timeout => {
+                    warn!("DNS timeout for TXT record: {}", domain_name);
+                    Err(VerificationReason::DnsTimeout)
+                }
+                _ => {
+                    warn!("DNS error for TXT record {}: {}", domain_name, e);
+                    Err(VerificationReason::DnsError(e.to_string()))
+                }
+            },
         }
     }
 
@@ -165,29 +176,30 @@ impl DnsVerifier {
                 info!("A records valid for domain: {} ({:?})", domain_name, ips);
                 Ok(())
             }
-            Err(e) => {
-                match e.kind() {
-                    ResolveErrorKind::NoRecordsFound { .. } => {
-                        warn!("A record missing for domain: {}", domain_name);
-                        Err(VerificationReason::ARecordMissing)
-                    }
-                    ResolveErrorKind::Timeout => {
-                        warn!("DNS timeout for A record: {}", domain_name);
-                        Err(VerificationReason::DnsTimeout)
-                    }
-                    _ => {
-                        warn!("DNS error for A record {}: {}", domain_name, e);
-                        Err(VerificationReason::DnsError(e.to_string()))
-                    }
+            Err(e) => match e.kind() {
+                ResolveErrorKind::NoRecordsFound { .. } => {
+                    warn!("A record missing for domain: {}", domain_name);
+                    Err(VerificationReason::ARecordMissing)
                 }
-            }
+                ResolveErrorKind::Timeout => {
+                    warn!("DNS timeout for A record: {}", domain_name);
+                    Err(VerificationReason::DnsTimeout)
+                }
+                _ => {
+                    warn!("DNS error for A record {}: {}", domain_name, e);
+                    Err(VerificationReason::DnsError(e.to_string()))
+                }
+            },
         }
     }
 
     async fn check_aaaa_records(&self, domain_name: &str) -> Result<(), VerificationReason> {
         // AAAA records are optional - only check if we have allowed IPv6 addresses configured
         if self.allowed_ipv6.is_empty() {
-            debug!("No IPv6 addresses configured, skipping AAAA check for: {}", domain_name);
+            debug!(
+                "No IPv6 addresses configured, skipping AAAA check for: {}",
+                domain_name
+            );
             return Ok(());
         }
 

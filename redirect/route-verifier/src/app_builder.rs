@@ -6,7 +6,6 @@ use tracing::{info, warn};
 
 use crate::adapters;
 use crate::adapters::api::app_state::AppState;
-use crate::adapters::click_router_api::ClickRouterApiClient;
 use crate::adapters::mongodb::MongodbRouteStore;
 use crate::adapters::rabbitmq::RabbitMqPublisher;
 use crate::adapters::safe_browsing::SafeBrowsingClient;
@@ -20,7 +19,6 @@ pub struct AppBuilder {
     pub(super) route_store: Option<Box<dyn RouteStore + Send + Sync + 'static>>,
     pub(super) rabbitmq_publisher: Option<RabbitMqPublisher>,
     pub(super) safe_browsing_client: Option<SafeBrowsingClient>,
-    pub(super) click_router_api_client: Option<ClickRouterApiClient>,
 }
 
 pub struct Api {
@@ -34,14 +32,12 @@ impl Api {
         route_store: Box<dyn RouteStore + Send + Sync>,
         rabbitmq_publisher: Option<RabbitMqPublisher>,
         safe_browsing_client: SafeBrowsingClient,
-        click_router_api_client: ClickRouterApiClient,
     ) -> Self {
         Api {
             app_state: AppState::new(
                 route_store,
                 rabbitmq_publisher,
                 safe_browsing_client,
-                click_router_api_client,
             ),
             settings,
         }
@@ -117,7 +113,6 @@ impl AppBuilder {
             route_store: None,
             rabbitmq_publisher: None,
             safe_browsing_client: None,
-            click_router_api_client: None,
         }
     }
 
@@ -159,13 +154,6 @@ impl AppBuilder {
         self
     }
 
-    pub fn with_click_router_api_client(&mut self) -> &mut Self {
-        let client = ClickRouterApiClient::new(&self.settings.click_router_api);
-        self.click_router_api_client = Some(client);
-        info!("Click Router API client initialized");
-        self
-    }
-
     pub fn build(&self) -> Result<Api> {
         info!("Building route-verifier application");
 
@@ -179,17 +167,11 @@ impl AppBuilder {
             .clone()
             .expect("Safe Browsing client not initialized");
 
-        let click_router_api_client = self
-            .click_router_api_client
-            .clone()
-            .expect("Click Router API client not initialized");
-
         let api = Api::new(
             self.settings.clone(),
             route_store,
             self.rabbitmq_publisher.clone(),
             safe_browsing_client,
-            click_router_api_client,
         );
 
         Ok(api)

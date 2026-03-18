@@ -224,6 +224,7 @@ impl DynamicServerConfigResolver {
 #[async_trait]
 impl ResolvesServerConfig<IoError> for DynamicServerConfigResolver {
     async fn resolve(&self, client_hello: ClientHello<'_>) -> IoResult<Arc<RustlsConfig>> {
+        
         // If no crypto cache, use default certificate
         let crypto_cache = match &self.crypto_cache {
             Some(cache) => cache,
@@ -284,15 +285,23 @@ impl ResolvesServerConfig<IoError> for DynamicServerConfigResolver {
 /// - Comprehensive logging and monitoring
 #[tokio::main]
 async fn main() {
+    eprintln!("click-router: starting...");
+
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("Failed to install rustls crypto provider");
 
+    eprintln!("click-router: rustls initialized");
+
     tracing_subscriber::fmt().init();
+
+    eprintln!("click-router: tracing initialized");
 
     dotenv::from_filename("./.env").ok();
 
     let args = Args::parse();
+
+    eprintln!("click-router: args parsed");
 
     let settings = Settings::new(
         Some(args.run_mode.as_str()),
@@ -318,13 +327,18 @@ async fn main() {
     let flow_router = app_builder.build();
     init_flow_router(flow_router);
 
-    // Create main application router with both redirect and API functionality
-    let app_router = Router::new()
-        .push(conversion_routes::conversion_routes()) // Add conversion API routes
-        .push(Router::with_path("{**rest_path}").get(Redirect)); // Keep redirect functionality
+    // Create routers for HTTP and HTTPS servers
+    let http_router = Router::new()
+        .push(conversion_routes::conversion_routes())
+        .push(Router::with_path("{**rest_path}").get(Redirect));
+
+    let https_router = Router::new()
+        .push(conversion_routes::conversion_routes())
+        .push(Router::with_path("{**rest_path}").get(Redirect));
 
     tracing::info!("🚀 Starting Click Router");
-    tracing::info!("   Main server: https://{}", args.listen_addr);
+    tracing::info!("   HTTP server: http://0.0.0.0:5800");
+    tracing::info!("   HTTPS server: https://0.0.0.0:4433");
 
     // Start metrics server if enabled
     if args.enable_metrics {
@@ -362,15 +376,25 @@ async fn main() {
         tracing::warn!("⚠️ Crypto cache not available, using fallback certificate only");
     }
 
-    let acceptor = TcpListener::new("0.0.0.0:5800")
-        .rustls_async(DynamicServerConfigResolver::new(crypto_cache))
-        .bind()
-        .await;
+    // Start HTTPS server on port 4433
+    tokio::spawn(async move {
+        let https_acceptor = TcpListener::new("0.0.0.0:4433")
+            .rustls_async(DynamicServerConfigResolver::new(crypto_cache))
+            .bind()
+            .await;
+        let https_service = Service::new(https_router).hoop(Logger::new());
+        tracing::info!("🔐 HTTPS server listening on https://0.0.0.0:4433");
+        Server::new(https_acceptor).serve(https_service).await;
+    });
 
-    let service = Service::new(app_router).hoop(Logger::new());
+    // Start HTTP server on port 5800
+    let http_acceptor = TcpListener::new("0.0.0.0:5800").bind().await;
+    let http_service = Service::new(http_router).hoop(Logger::new());
 
     tracing::info!("✅ Click Router started successfully!");
+    tracing::info!("   HTTP:  http://0.0.0.0:5800");
+    tracing::info!("   HTTPS: https://0.0.0.0:4433");
     tracing::info!("");
 
-    Server::new(acceptor).serve(service).await;
+    Server::new(http_acceptor).serve(http_service).await;
 }

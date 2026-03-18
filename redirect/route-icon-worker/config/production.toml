@@ -1,0 +1,15 @@
+[rabbitmq]
+uri = "amqp://guest:guest@rabbitmq:5672/%2f"
+route_exchange = "cache.invalidation.routes"
+reconnect_seconds = 5
+
+[s3]
+endpoint = "http://minio:9000"
+bucket = "route-images"
+region = "us-east-1"
+access_key = "minioadmin"
+secret_key = "minioadmin"
+
+[worker]
+request_timeout_seconds = 10
+max_image_size_bytes = 1048576
