@@ -30,7 +30,7 @@ import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
 const Routes: React.FC = () => {
-  const { showAlert, showConfirm } = useAlert();
+  const { showToast, showConfirm } = useAlert();
   const [routes, setRoutes] = useState<RouteDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +66,7 @@ const Routes: React.FC = () => {
     if (!confirmed) return;
 
     if (!route.id) {
-      showAlert('Cannot delete route: missing ID', 'Error');
+      showToast('Cannot delete route: missing ID', 'error');
       return;
     }
 
@@ -75,7 +75,7 @@ const Routes: React.FC = () => {
       await fetchRoutes();
     } catch (err) {
       console.error('Failed to delete route:', err);
-      showAlert('Failed to delete route. Please try again.', 'Error');
+      showToast('Failed to delete route. Please try again.', 'error');
     }
   };
 

@@ -29,7 +29,7 @@ interface AppState {
 }
 
 function AppContent() {
-  const { showAlert } = useAlert();
+  const { showToast } = useAlert();
   const [state, setState] = useState<AppState>({
     keycloakInitialized: false,
     authenticated: false,
@@ -138,7 +138,7 @@ function AppContent() {
         error={state.error}
         onRetry={() => window.location.reload()}
         onEnableMockData={() => {
-          showAlert('Please add REACT_APP_USE_MOCK_DATA=true to your .env.local file and restart the app.', 'Mock data');
+          showToast('Please add REACT_APP_USE_MOCK_DATA=true to your .env.local file and restart the app.', 'info');
         }}
       />
     );

@@ -28,7 +28,7 @@ import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
 const Analytics: React.FC = () => {
-  const { showAlert } = useAlert();
+  const { showToast } = useAlert();
   const [analytics, setAnalytics] = useState<ClickAnalytics | null>(null);
   const [topRoutes, setTopRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +85,7 @@ const Analytics: React.FC = () => {
   };
 
   const exportData = () => {
-    showAlert('Export functionality would be implemented here', 'Export');
+    showToast('Export functionality would be implemented here', 'info');
   };
 
   if (loading) {

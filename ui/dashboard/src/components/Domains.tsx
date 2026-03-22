@@ -603,7 +603,7 @@ interface CustomPagesState {
 }
 
 const Domains: React.FC = () => {
-  const { showAlert, showConfirm } = useAlert();
+  const { showToast, showConfirm } = useAlert();
   const [domains, setDomains] = useState<DomainDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -702,7 +702,7 @@ const Domains: React.FC = () => {
       setFormName('');
     } catch (err: any) {
       console.error('Failed to save domain:', err);
-      showAlert(err.response?.data?.message || 'Failed to create domain.', 'Error');
+      showToast(err.response?.data?.message || 'Failed to create domain.', 'error');
     } finally {
       setSaving(false);
     }
@@ -720,7 +720,7 @@ const Domains: React.FC = () => {
       await fetchDomains();
     } catch (err: any) {
       console.error('Failed to delete domain:', err);
-      showAlert(err.response?.data?.message || 'Failed to delete domain.', 'Error');
+      showToast(err.response?.data?.message || 'Failed to delete domain.', 'error');
     }
   };
 
@@ -731,7 +731,7 @@ const Domains: React.FC = () => {
       await fetchDomains();
     } catch (err: any) {
       console.error('Failed to verify domain:', err);
-      showAlert(err.response?.data?.message || 'Failed to verify domain.', 'Error');
+      showToast(err.response?.data?.message || 'Failed to verify domain.', 'error');
     } finally {
       setVerifyingDomains(prev => {
         const next = new Set(prev);
@@ -784,7 +784,7 @@ const Domains: React.FC = () => {
       });
     } catch (err) {
       console.error('Failed to load custom pages:', err);
-      showAlert('Failed to load custom page settings.', 'Error');
+      showToast('Failed to load custom page settings.', 'error');
     } finally {
       setLoadingCustomPages(false);
     }
@@ -803,10 +803,10 @@ const Domains: React.FC = () => {
 
       setShowCustomPagesModal(false);
       setSelectedDomainForCustomPages(null);
-      showAlert('Custom page settings saved successfully.', 'Success');
+      showToast('Custom page settings saved successfully.', 'success');
     } catch (err: any) {
       console.error('Failed to save custom pages:', err);
-      showAlert(err.response?.data?.message || 'Failed to save custom page settings.', 'Error');
+      showToast(err.response?.data?.message || 'Failed to save custom page settings.', 'error');
     } finally {
       setSavingCustomPages(false);
     }
