@@ -325,9 +325,10 @@ public class DomainsController : ControllerBase
 
         if (!string.IsNullOrEmpty(newUrl))
         {
+            var routeId = existingRoute?.Id ?? Guid.NewGuid();
             var route = new Domain.Entities.Route
             {
-                Id = existingRoute?.Id ?? Guid.NewGuid(),
+                Id = routeId,
                 DomainId = domainId,
                 Switch = switchValue,
                 Link = link,
@@ -339,6 +340,7 @@ public class DomainsController : ControllerBase
                 Terminal = "External",
                 Properties = new Domain.Entities.RouteProperties
                 {
+                    RouteId = routeId.ToString(),
                     OwnerId = userId,
                     Tags = new List<string> { $"custom-page:{switchValue}" }
                 }
