@@ -798,6 +798,14 @@ impl FlowRouter {
         Ok(route)
     }
 
+    pub async fn get_route_by_switch(
+        &self,
+        switch: &str,
+        path: &str,
+    ) -> Result<Option<Route>> {
+        self.routes_manager.get_route_by_switch(switch, path).await
+    }
+
     async fn start<'a>(
         &self,
         req: &'a RequestType<'a>,

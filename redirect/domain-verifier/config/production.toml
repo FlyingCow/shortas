@@ -7,7 +7,7 @@ database_name = "shortas"
 collection = "domains"
 
 [rabbitmq]
-uri = "amqp://guest:guest@rabbitmq:5672/%2f"
+uri = "amqp://guest:guest@shortas-rabbitmq:5672/%2f"
 domain_state_exchange = "domain.state.changed"
 reconnect_seconds = 5
 

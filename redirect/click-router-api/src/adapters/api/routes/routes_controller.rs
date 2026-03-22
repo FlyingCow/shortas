@@ -180,7 +180,10 @@ pub async fn create_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
     };
     // Set path parameters in the route DTO
     route_dto.switch = switch;
-    route_dto.link = format!("{}%2F{}", domain, path);
+    // Only reconstruct link if not already set in the DTO body
+    if route_dto.link.is_empty() {
+        route_dto.link = format!("{}%2F{}", domain, path);
+    }
     // Note: domain and path are used for routing but not stored in the route object
     // The route object contains the actual route configuration
 
@@ -297,7 +300,10 @@ pub async fn update_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
 
     // Set path parameters in the route DTO
     route_dto.switch = switch;
-    route_dto.link = link;
+    // Only set link from path if not already set in the DTO body
+    if route_dto.link.is_empty() {
+        route_dto.link = link;
+    }
 
     // Validate required fields
     if !route_dto.is_valid() {

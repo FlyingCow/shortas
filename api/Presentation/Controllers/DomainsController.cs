@@ -13,12 +13,22 @@ namespace ShortasProxyApi.Presentation.Controllers;
 public class DomainsController : ControllerBase
 {
     private readonly IDomainService _domainService;
+    private readonly IRouteService _routeService;
     private readonly ILogger<DomainsController> _logger;
     private readonly IConfiguration _configuration;
 
-    public DomainsController(IDomainService domainService, ILogger<DomainsController> logger, IConfiguration configuration)
+    // Custom page route switch values
+    private const string IndexSwitch = "index";
+    private const string NotFoundSwitch = "404";
+
+    public DomainsController(
+        IDomainService domainService,
+        IRouteService routeService,
+        ILogger<DomainsController> logger,
+        IConfiguration configuration)
     {
         _domainService = domainService;
+        _routeService = routeService;
         _logger = logger;
         _configuration = configuration;
     }
@@ -205,6 +215,154 @@ public class DomainsController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Get custom pages for a domain
+    /// </summary>
+    /// <param name="domainName">Domain name</param>
+    /// <returns>Custom pages configuration</returns>
+    [HttpGet("{domainName}/custom-pages")]
+    public async Task<ActionResult<CustomPagesDto>> GetCustomPages(string domainName)
+    {
+        var userId = this.GetUserId();
+        var link = $"{domainName}%2F";
+
+        string? indexUrl = null;
+        string? notFoundUrl = null;
+
+        // Get index route
+        var indexResult = await _routeService.GetRouteAsync(domainName, "/", userId, IndexSwitch);
+        if (indexResult.IsSuccess && indexResult.Value != null)
+        {
+            indexUrl = indexResult.Value.Dest;
+        }
+
+        // Get 404 route
+        var notFoundResult = await _routeService.GetRouteAsync(domainName, "/", userId, NotFoundSwitch);
+        if (notFoundResult.IsSuccess && notFoundResult.Value != null)
+        {
+            notFoundUrl = notFoundResult.Value.Dest;
+        }
+
+        return Ok(new CustomPagesDto
+        {
+            DomainName = domainName,
+            CustomIndexUrl = indexUrl,
+            CustomNotFoundUrl = notFoundUrl
+        });
+    }
+
+    /// <summary>
+    /// Update custom pages for a domain
+    /// </summary>
+    /// <param name="domainName">Domain name</param>
+    /// <param name="updateDto">Custom pages data</param>
+    /// <returns>Updated custom pages configuration</returns>
+    [HttpPut("{domainName}/custom-pages")]
+    public async Task<ActionResult<CustomPagesDto>> UpdateCustomPages(string domainName, [FromBody] UpdateCustomPagesDto updateDto)
+    {
+        var userId = this.GetUserId();
+        var link = $"{domainName}%2F";
+
+        // Validate the domain exists and user has access
+        var domainResult = await _domainService.GetDomainByNameAsync(domainName, userId);
+        if (domainResult.IsFailure || domainResult.Value == null)
+        {
+            return NotFound(new { error = "NOT_FOUND", message = $"Domain '{domainName}' not found" });
+        }
+
+        // Validate URLs
+        if (!string.IsNullOrEmpty(updateDto.CustomIndexUrl) && !IsValidUrl(updateDto.CustomIndexUrl))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "CustomIndexUrl must be a valid HTTP or HTTPS URL" });
+        }
+
+        if (!string.IsNullOrEmpty(updateDto.CustomNotFoundUrl) && !IsValidUrl(updateDto.CustomNotFoundUrl))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "CustomNotFoundUrl must be a valid HTTP or HTTPS URL" });
+        }
+
+        var domainId = domainResult.Value.Id;
+
+        // Handle index route
+        await HandleCustomPageRoute(domainId, domainName, IndexSwitch, link, userId, updateDto.CustomIndexUrl);
+
+        // Handle 404 route
+        await HandleCustomPageRoute(domainId, domainName, NotFoundSwitch, link, userId, updateDto.CustomNotFoundUrl);
+
+        return Ok(new CustomPagesDto
+        {
+            DomainName = domainName,
+            CustomIndexUrl = string.IsNullOrEmpty(updateDto.CustomIndexUrl) ? null : updateDto.CustomIndexUrl,
+            CustomNotFoundUrl = string.IsNullOrEmpty(updateDto.CustomNotFoundUrl) ? null : updateDto.CustomNotFoundUrl
+        });
+    }
+
+    /// <summary>
+    /// Delete all custom pages for a domain
+    /// </summary>
+    /// <param name="domainName">Domain name</param>
+    /// <returns>No content</returns>
+    [HttpDelete("{domainName}/custom-pages")]
+    public async Task<IActionResult> DeleteCustomPages(string domainName)
+    {
+        var userId = this.GetUserId();
+
+        // Delete index route
+        await _routeService.DeleteRouteAsync(domainName, "/", userId, IndexSwitch);
+
+        // Delete 404 route
+        await _routeService.DeleteRouteAsync(domainName, "/", userId, NotFoundSwitch);
+
+        return Ok(new { message = "Custom pages deleted successfully", domainName });
+    }
+
+    private async Task HandleCustomPageRoute(Guid domainId, string domainName, string switchValue, string link, string userId, string? newUrl)
+    {
+        var existingResult = await _routeService.GetRouteAsync(domainName, "/", userId, switchValue);
+        var existingRoute = existingResult.IsSuccess ? existingResult.Value : null;
+
+        if (!string.IsNullOrEmpty(newUrl))
+        {
+            var route = new Domain.Entities.Route
+            {
+                Id = existingRoute?.Id ?? Guid.NewGuid(),
+                DomainId = domainId,
+                Switch = switchValue,
+                Link = link,
+                Dest = newUrl,
+                DestFormat = "Http",
+                Code = 302,
+                Ttl = 0,
+                Status = "Active",
+                Terminal = "External",
+                Properties = new Domain.Entities.RouteProperties
+                {
+                    OwnerId = userId,
+                    Tags = new List<string> { $"custom-page:{switchValue}" }
+                }
+            };
+
+            if (existingRoute != null)
+            {
+                await _routeService.UpdateRouteByIdAsync(existingRoute.Id, userId, route);
+            }
+            else
+            {
+                await _routeService.CreateRouteAsync(route);
+            }
+        }
+        else if (existingRoute != null)
+        {
+            await _routeService.DeleteRouteByIdAsync(existingRoute.Id, userId);
+        }
+    }
+
+    private static bool IsValidUrl(string url)
+    {
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 
     private ActionResult HandleError(string errorCode, string errorMessage)

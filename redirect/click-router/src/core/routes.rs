@@ -35,6 +35,14 @@ impl RoutesManager {
 
         Ok(route_result.unwrap())
     }
+
+    /// Get a route by switch and raw path (without key construction)
+    /// Used for special routes like custom index and 404 pages
+    pub async fn get_route_by_switch(&self, switch: &str, path: &str) -> Result<Option<Route>> {
+        let route_result = self.routes_cache.get_route(switch, path).await;
+
+        Ok(route_result.unwrap())
+    }
 }
 
 impl RoutesManager {

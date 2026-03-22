@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, ChevronLeft, ChevronRight, Rocket, Globe, CheckCircle } from 'lucide-react';
 import { apiService, CreateDomainDto } from '../services/api';
-import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
 const wizardStyles = `
@@ -112,6 +111,7 @@ const wizardStyles = `
 .wizard-body {
   padding: 2rem;
   min-height: 300px;
+  overflow: hidden;
 }
 
 .wizard-step-content {
@@ -439,7 +439,10 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete 
 
           <div className="wizard-body">
             {loading ? (
-              <LoadingSpinner />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+                <div className="loading-spinner"></div>
+                <div className="loading-message">Setting up your account...</div>
+              </div>
             ) : (
               renderStepContent()
             )}

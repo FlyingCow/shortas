@@ -310,6 +310,8 @@ services:
     depends_on:
       mongo:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - shortas-net
 

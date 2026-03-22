@@ -71,15 +71,24 @@ public class EfRouteService : IRouteService
             if (string.IsNullOrWhiteSpace(userId))
                 return Result<RouteEntity?>.Failure(Error.Required("userId"));
 
-            // Build the link pattern to search for
-            var linkPattern = $"{domain}/{path}";
+            // Build link patterns to search for (both URL-encoded and literal formats)
+            var encodedLink = $"{domain}%2F";
+            var literalLink = $"{domain}/";
 
-            var route = await _context.Routes
+            var query = _context.Routes
                 .Include(r => r.Properties)
                 .Include(r => r.Domain)
-                .FirstOrDefaultAsync(r => r.Link.Contains(linkPattern) &&
-                                        r.Properties != null &&
-                                        r.Properties.OwnerId == userId);
+                .Where(r => (r.Link.StartsWith(encodedLink) || r.Link.StartsWith(literalLink)) &&
+                           r.Properties != null &&
+                           r.Properties.OwnerId == userId);
+
+            // Filter by switch if provided
+            if (!string.IsNullOrWhiteSpace(switchParam))
+            {
+                query = query.Where(r => r.Switch == switchParam);
+            }
+
+            var route = await query.FirstOrDefaultAsync();
 
             return Result<RouteEntity?>.Success(route);
         }
