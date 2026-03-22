@@ -118,12 +118,12 @@ public class EfRouteService : IRouteService
                 return Result<RouteEntity>.Failure(Error.Required("Domain is required for route creation"));
             }
 
-            // Check if route already exists
+            // Check if route already exists (unique by Link + Switch combination)
             var existing = await _context.Routes
-                .FirstOrDefaultAsync(r => r.Link == route.Link);
+                .FirstOrDefaultAsync(r => r.Link == route.Link && r.Switch == route.Switch);
 
             if (existing != null)
-                return Result<RouteEntity>.Failure(Error.Conflict("Route with this link already exists"));
+                return Result<RouteEntity>.Failure(Error.Conflict("Route with this link and switch already exists"));
 
             // Load domain from database and validate ownership
             route.Domain = await _context.RouteDomains
