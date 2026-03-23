@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::Route;
+use crate::core::trace::HitTrace;
 use crate::core::{ConversionEvent, ConversionFunnelStep};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -57,6 +58,9 @@ pub struct Hit<'a> {
     pub user_agent: Option<&'a str>,
     pub ip: Option<IpAddr>,
     pub utc: DateTime<Utc>,
+    /// Optional trace data for debug routes (only present when allow_debug=true)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trace: Option<HitTrace>,
 }
 
 impl<'a> Click<'a> {
@@ -87,6 +91,27 @@ impl<'a> Hit<'a> {
             ip,
             route,
             data: HitData::Click(&click),
+            trace: None,
+        }
+    }
+
+    pub fn click_with_trace(
+        id: &'a str,
+        utc: DateTime<Utc>,
+        user_agent: Option<&'a str>,
+        ip: Option<IpAddr>,
+        click: &'a Click,
+        route: Option<HitRoute>,
+        trace: Option<HitTrace>,
+    ) -> Self {
+        Self {
+            id,
+            utc,
+            user_agent,
+            ip,
+            route,
+            data: HitData::Click(&click),
+            trace,
         }
     }
 
@@ -105,6 +130,7 @@ impl<'a> Hit<'a> {
             ip,
             route,
             data: HitData::Event(&event),
+            trace: None,
         }
     }
 
@@ -123,6 +149,7 @@ impl<'a> Hit<'a> {
             ip,
             route,
             data: HitData::Conversion(conversion),
+            trace: None,
         }
     }
 
@@ -141,6 +168,7 @@ impl<'a> Hit<'a> {
             ip,
             route,
             data: HitData::FunnelStep(funnel_step),
+            trace: None,
         }
     }
 }

@@ -1,5 +1,8 @@
 version: '3.8'
 
+include:
+  - ./monitoring/docker-compose.yml
+
 networks:
   shortas-net:
     name: shortas-net
@@ -225,9 +228,12 @@ services:
       dockerfile: redirect/click-aggregator/Dockerfile
     container_name: shortas-click-aggregator
     restart: unless-stopped
+    ports:
+      - "9090:9090"
     environment:
       - RUST_LOG=warn
       - APP_RUN_MODE=production
+      - METRICS_PORT=9090
     depends_on:
       clickhouse:
         condition: service_started
