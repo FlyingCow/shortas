@@ -369,6 +369,8 @@ services:
         condition: service_started
       safe-browsing:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - shortas-net
 

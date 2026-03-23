@@ -15,7 +15,7 @@ use crate::{
 };
 
 const IS_404: &str = "is_404";
-const NOT_FOUND_SWITCH: &str = "404";
+const INTERNAL_SWITCH: &str = "internal";
 
 #[derive(Debug, Clone)]
 pub struct NotFoundModule {
@@ -39,11 +39,11 @@ impl FlowModule for NotFoundModule {
             context.add_bool(IS_404, true);
 
             let domain = context.in_route.host.as_str();
-            let not_found_path = format!("{}%2F", domain);
+            let not_found_path = format!("{}%2F.well-known%2F404", domain);
 
-            // Check for custom 404 route: switch="404", link="{domain}%2F"
+            // Check for custom 404 route: switch="internal", link="{domain}%2F.well-known%2F404"
             if let std::result::Result::Ok(Some(route)) =
-                flow_router.get_route_by_switch(NOT_FOUND_SWITCH, &not_found_path).await
+                flow_router.get_route_by_switch(INTERNAL_SWITCH, &not_found_path).await
             {
                 if let Some(ref dest) = route.dest {
                     context.result = Some(FlowRouterResult::Redirect(

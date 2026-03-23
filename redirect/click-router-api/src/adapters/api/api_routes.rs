@@ -3,7 +3,7 @@ use salvo::prelude::*;
 use tracing::info;
 
 use crate::adapters::api::routes::{
-    challenge_controller, crypto_controller, custom_pages_controller, routes_controller,
+    challenge_controller, crypto_controller, routes_controller,
     user_settings_controller,
 };
 
@@ -43,8 +43,7 @@ pub fn routes() -> Router {
         .push(routes_controller::api_routes())
         .push(crypto_controller::api_routes())
         .push(user_settings_controller::api_routes())
-        .push(challenge_controller::api_routes())
-        .push(custom_pages_controller::api_routes());
+        .push(challenge_controller::api_routes());
 
     // Combine all routes with logging
     Router::new()
