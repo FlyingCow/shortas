@@ -59,6 +59,15 @@ public static class ServiceCollectionExtensions
             return new ClickRouterApiClient(httpClient, logger);
         });
 
+        // Register RouteService (HTTP client for click-router-api, used by EfDomainService for custom pages)
+        services.AddScoped<ShortasProxyApi.Application.Services.RouteService>(provider =>
+        {
+            var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("ClickRouterApi");
+            var logger = provider.GetRequiredService<ILogger<ShortasProxyApi.Application.Services.RouteService>>();
+            return new ShortasProxyApi.Application.Services.RouteService(httpClient, logger);
+        });
+
         services.AddHttpClient<ClickAggregatorApiClient>(client =>
         {
             var baseUrl = configuration["ApiSettings:ClickAggregatorApi:BaseUrl"] ?? "http://localhost:8082";

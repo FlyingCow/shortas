@@ -3,13 +3,14 @@ using ShortasProxyApi.Domain.Common;
 using ShortasProxyApi.Domain.Entities;
 using ShortasProxyApi.Domain.Interfaces;
 using ShortasProxyApi.Infrastructure.Data;
+using ShortasProxyApi.Application.Services;
 
 namespace ShortasProxyApi.Infrastructure.Services;
 
 public class EfDomainService : IDomainService
 {
     private readonly ApplicationDbContext _context;
-    private readonly IRouteService _routeService;
+    private readonly RouteService _routeService;
     private readonly ILogger<EfDomainService> _logger;
 
     private const string IndexSwitch = "index";
@@ -17,7 +18,7 @@ public class EfDomainService : IDomainService
 
     public EfDomainService(
         ApplicationDbContext context,
-        IRouteService routeService,
+        RouteService routeService,
         ILogger<EfDomainService> logger)
     {
         _context = context;
