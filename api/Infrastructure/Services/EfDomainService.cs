@@ -13,8 +13,9 @@ public class EfDomainService : IDomainService
     private readonly RouteService _routeService;
     private readonly ILogger<EfDomainService> _logger;
 
-    private const string IndexSwitch = "index";
-    private const string NotFoundSwitch = "404";
+    private const string IndexLink = "index";
+    private const string NotFoundLink = "not-found";
+    private const string InternalSwitch = "_internal";
 
     public EfDomainService(
         ApplicationDbContext context,
@@ -289,25 +290,26 @@ public class EfDomainService : IDomainService
             var previousIndexUrl = existingDomain.CustomIndexUrl;
             var previousNotFoundUrl = existingDomain.CustomNotFoundUrl;
             var domainName = existingDomain.Name;
-            var link = $"{domainName}%2F";
 
             // Propagate routes to downstream API first
             var indexPropagationResult = await PropagateCustomPageRoute(
-                id, domainName, IndexSwitch, link, userId, previousIndexUrl, customIndexUrl);
+                id, domainName, InternalSwitch, IndexLink, userId, previousIndexUrl, customIndexUrl);
             if (indexPropagationResult.IsFailure)
             {
-                return Result<RouteDomain>.Failure(indexPropagationResult.ErrorCode ?? "PROPAGATION_ERROR",
-                    $"Failed to propagate index route: {indexPropagationResult.Error}");
+                return Result<RouteDomain>.Failure(
+                    $"Failed to propagate index route: {indexPropagationResult.Error}",
+                    indexPropagationResult.ErrorCode ?? "PROPAGATION_ERROR");
             }
 
             var notFoundPropagationResult = await PropagateCustomPageRoute(
-                id, domainName, NotFoundSwitch, link, userId, previousNotFoundUrl, customNotFoundUrl);
+                id, domainName, InternalSwitch, NotFoundLink, userId, previousNotFoundUrl, customNotFoundUrl);
             if (notFoundPropagationResult.IsFailure)
             {
                 // Try to rollback the index route change
-                await PropagateCustomPageRoute(id, domainName, IndexSwitch, link, userId, customIndexUrl, previousIndexUrl);
-                return Result<RouteDomain>.Failure(notFoundPropagationResult.ErrorCode ?? "PROPAGATION_ERROR",
-                    $"Failed to propagate 404 route: {notFoundPropagationResult.Error}");
+                await PropagateCustomPageRoute(id, domainName, InternalSwitch, IndexLink, userId, customIndexUrl, previousIndexUrl);
+                return Result<RouteDomain>.Failure(
+                    $"Failed to propagate 404 route: {notFoundPropagationResult.Error}",
+                    notFoundPropagationResult.ErrorCode ?? "PROPAGATION_ERROR");
             }
 
             // Update custom page URLs on domain entity
@@ -367,11 +369,23 @@ public class EfDomainService : IDomainService
 
                 if (!string.IsNullOrEmpty(previousUrl))
                 {
-                    // Update existing route
-                    var updateResult = await _routeService.UpdateRouteAsync(domainName, "/", userId, route);
+                    // Try to update existing route, fallback to create if not found
+                    var updateResult = await _routeService.UpdateRouteAsync(domainName, link, userId, route);
                     if (updateResult.IsFailure)
                     {
-                        return Result.Failure(updateResult.ErrorCode ?? "UPDATE_FAILED", updateResult.Error);
+                        // If route not found in click-router-api, create it instead
+                        if (updateResult.ErrorCode == "NOT_FOUND")
+                        {
+                            var createResult = await _routeService.CreateRouteAsync(route);
+                            if (createResult.IsFailure)
+                            {
+                                return Result.Failure(createResult.Error ?? "Create failed", createResult.ErrorCode ?? "CREATE_FAILED");
+                            }
+                        }
+                        else
+                        {
+                            return Result.Failure(updateResult.Error ?? "Update failed", updateResult.ErrorCode ?? "UPDATE_FAILED");
+                        }
                     }
                 }
                 else
@@ -380,18 +394,25 @@ public class EfDomainService : IDomainService
                     var createResult = await _routeService.CreateRouteAsync(route);
                     if (createResult.IsFailure)
                     {
-                        return Result.Failure(createResult.ErrorCode ?? "CREATE_FAILED", createResult.Error);
+                        return Result.Failure(createResult.Error ?? "Create failed", createResult.ErrorCode ?? "CREATE_FAILED");
                     }
                 }
             }
             else if (!string.IsNullOrEmpty(previousUrl))
             {
-                // Delete route from downstream API
-                var deleteResult = await _routeService.DeleteRouteAsync(domainName, "/", userId, switchValue);
-                if (deleteResult.IsFailure)
+                // Delete route from downstream API (ignore if not found - already deleted)
+                _logger.LogInformation("Deleting custom page route: domain={Domain}, link={Link}, switch={Switch}", domainName, link, switchValue);
+                var deleteResult = await _routeService.DeleteRouteAsync(domainName, link, userId, switchValue);
+                _logger.LogInformation("Delete result: IsFailure={IsFailure}, ErrorCode={ErrorCode}, Error={Error}",
+                    deleteResult.IsFailure, deleteResult.ErrorCode, deleteResult.Error);
+                if (deleteResult.IsFailure && deleteResult.ErrorCode != "NOT_FOUND")
                 {
-                    return Result.Failure(deleteResult.ErrorCode ?? "DELETE_FAILED", deleteResult.Error);
+                    return Result.Failure(deleteResult.Error ?? "Delete failed", deleteResult.ErrorCode ?? "DELETE_FAILED");
                 }
+            }
+            else
+            {
+                _logger.LogInformation("Skipping delete - previousUrl is empty for switch={Switch}", switchValue);
             }
 
             return Result.Success();
