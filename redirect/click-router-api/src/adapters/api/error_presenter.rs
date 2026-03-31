@@ -4,7 +4,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::model::error::{
-    ApiError, AuthenticationError, DatabaseError, ExternalServiceError, RouteError,
+    ApiError, AuthenticationError, DatabaseError, ExternalServiceError, NotFoundError, RouteError,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -116,6 +116,7 @@ impl ErrorResponse {
                 ExternalServiceError::Timeout(_) => StatusCode::GATEWAY_TIMEOUT,
             },
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::NotFound(_) => StatusCode::NOT_FOUND,
         };
 
         ErrorResponse {

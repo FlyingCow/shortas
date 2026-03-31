@@ -3,19 +3,27 @@ using ShortasProxyApi.Domain.Common;
 using ShortasProxyApi.Domain.Entities;
 using ShortasProxyApi.Domain.Interfaces;
 using ShortasProxyApi.Infrastructure.Data;
+using ShortasProxyApi.Application.Services;
 
 namespace ShortasProxyApi.Infrastructure.Services;
 
 public class EfDomainService : IDomainService
 {
     private readonly ApplicationDbContext _context;
+    private readonly RouteService _routeService;
     private readonly ILogger<EfDomainService> _logger;
+
+    private const string IndexLink = "index";
+    private const string NotFoundLink = "not-found";
+    private const string InternalSwitch = "_internal";
 
     public EfDomainService(
         ApplicationDbContext context,
+        RouteService routeService,
         ILogger<EfDomainService> logger)
     {
         _context = context;
+        _routeService = routeService;
         _logger = logger;
     }
 
@@ -258,6 +266,161 @@ public class EfDomainService : IDomainService
             _logger.LogError(ex, "Error listing domains");
             return Result<(List<RouteDomain> Domains, int TotalCount)>.Failure(
                 Error.Internal("Failed to list domains", ex.Message));
+        }
+    }
+
+    public async Task<Result<RouteDomain>> UpdateCustomPagesAsync(Guid id, string userId, string? customIndexUrl, string? customNotFoundUrl)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return Result<RouteDomain>.Failure(Error.Required("userId"));
+
+            // Find existing domain
+            var existingDomain = await _context.RouteDomains
+                .FirstOrDefaultAsync(d => d.Id == id);
+
+            if (existingDomain == null)
+                return Result<RouteDomain>.Failure(Error.NotFound("Domain", id.ToString()));
+
+            // Verify ownership
+            if (existingDomain.OwnerId != userId)
+                return Result<RouteDomain>.Failure(Error.Forbidden());
+
+            var previousIndexUrl = existingDomain.CustomIndexUrl;
+            var previousNotFoundUrl = existingDomain.CustomNotFoundUrl;
+            var domainName = existingDomain.Name;
+
+            // Propagate routes to downstream API first
+            var indexPropagationResult = await PropagateCustomPageRoute(
+                id, domainName, InternalSwitch, IndexLink, userId, previousIndexUrl, customIndexUrl);
+            if (indexPropagationResult.IsFailure)
+            {
+                return Result<RouteDomain>.Failure(
+                    $"Failed to propagate index route: {indexPropagationResult.Error}",
+                    indexPropagationResult.ErrorCode ?? "PROPAGATION_ERROR");
+            }
+
+            var notFoundPropagationResult = await PropagateCustomPageRoute(
+                id, domainName, InternalSwitch, NotFoundLink, userId, previousNotFoundUrl, customNotFoundUrl);
+            if (notFoundPropagationResult.IsFailure)
+            {
+                // Try to rollback the index route change
+                await PropagateCustomPageRoute(id, domainName, InternalSwitch, IndexLink, userId, customIndexUrl, previousIndexUrl);
+                return Result<RouteDomain>.Failure(
+                    $"Failed to propagate 404 route: {notFoundPropagationResult.Error}",
+                    notFoundPropagationResult.ErrorCode ?? "PROPAGATION_ERROR");
+            }
+
+            // Update custom page URLs on domain entity
+            existingDomain.CustomIndexUrl = customIndexUrl;
+            existingDomain.CustomNotFoundUrl = customNotFoundUrl;
+
+            _context.RouteDomains.Update(existingDomain);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Domain custom pages updated: {DomainId}, CustomIndexUrl: {CustomIndexUrl}, CustomNotFoundUrl: {CustomNotFoundUrl}",
+                existingDomain.Id, customIndexUrl, customNotFoundUrl);
+
+            return Result<RouteDomain>.Success(existingDomain);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating domain custom pages: {DomainId}", id);
+            return Result<RouteDomain>.Failure(Error.Internal("Failed to update domain custom pages", ex.Message));
+        }
+    }
+
+    private async Task<Result> PropagateCustomPageRoute(Guid domainId, string domainName, string switchValue, string link, string userId, string? previousUrl, string? newUrl)
+    {
+        // If URL hasn't changed, no need to propagate
+        if (previousUrl == newUrl)
+        {
+            return Result.Success();
+        }
+
+        try
+        {
+            if (!string.IsNullOrEmpty(newUrl))
+            {
+                // Create or update route in downstream API
+                var routeId = Guid.NewGuid();
+                var route = new Domain.Entities.Route
+                {
+                    Id = routeId,
+                    DomainId = domainId,
+                    Domain = new RouteDomain { Name = domainName },
+                    Switch = switchValue,
+                    Link = link,
+                    Dest = newUrl,
+                    DestFormat = "Http",
+                    Code = 302,
+                    Ttl = 0,
+                    Status = "Active",
+                    Terminal = "External",
+                    Properties = new RouteProperties
+                    {
+                        RouteId = routeId.ToString(),
+                        DomainId = domainName,
+                        OwnerId = userId,
+                        Tags = new List<string> { $"custom-page:{switchValue}" }
+                    }
+                };
+
+                if (!string.IsNullOrEmpty(previousUrl))
+                {
+                    // Try to update existing route, fallback to create if not found
+                    var updateResult = await _routeService.UpdateRouteAsync(domainName, link, userId, route);
+                    if (updateResult.IsFailure)
+                    {
+                        // If route not found in click-router-api, create it instead
+                        if (updateResult.ErrorCode == "NOT_FOUND")
+                        {
+                            var createResult = await _routeService.CreateRouteAsync(route);
+                            if (createResult.IsFailure)
+                            {
+                                return Result.Failure(createResult.Error ?? "Create failed", createResult.ErrorCode ?? "CREATE_FAILED");
+                            }
+                        }
+                        else
+                        {
+                            return Result.Failure(updateResult.Error ?? "Update failed", updateResult.ErrorCode ?? "UPDATE_FAILED");
+                        }
+                    }
+                }
+                else
+                {
+                    // Create new route
+                    var createResult = await _routeService.CreateRouteAsync(route);
+                    if (createResult.IsFailure)
+                    {
+                        return Result.Failure(createResult.Error ?? "Create failed", createResult.ErrorCode ?? "CREATE_FAILED");
+                    }
+                }
+            }
+            else if (!string.IsNullOrEmpty(previousUrl))
+            {
+                // Delete route from downstream API (ignore if not found - already deleted)
+                _logger.LogInformation("Deleting custom page route: domain={Domain}, link={Link}, switch={Switch}", domainName, link, switchValue);
+                var deleteResult = await _routeService.DeleteRouteAsync(domainName, link, userId, switchValue);
+                _logger.LogInformation("Delete result: IsFailure={IsFailure}, ErrorCode={ErrorCode}, Error={Error}",
+                    deleteResult.IsFailure, deleteResult.ErrorCode, deleteResult.Error);
+                if (deleteResult.IsFailure && deleteResult.ErrorCode != "NOT_FOUND")
+                {
+                    return Result.Failure(deleteResult.Error ?? "Delete failed", deleteResult.ErrorCode ?? "DELETE_FAILED");
+                }
+            }
+            else
+            {
+                _logger.LogInformation("Skipping delete - previousUrl is empty for switch={Switch}", switchValue);
+            }
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error propagating custom page route: {DomainName}, {Switch}", domainName, switchValue);
+            return Result.Failure(Error.Internal("Failed to propagate route", ex.Message));
         }
     }
 }

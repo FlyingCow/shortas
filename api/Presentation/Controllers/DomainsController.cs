@@ -16,7 +16,10 @@ public class DomainsController : ControllerBase
     private readonly ILogger<DomainsController> _logger;
     private readonly IConfiguration _configuration;
 
-    public DomainsController(IDomainService domainService, ILogger<DomainsController> logger, IConfiguration configuration)
+    public DomainsController(
+        IDomainService domainService,
+        ILogger<DomainsController> logger,
+        IConfiguration configuration)
     {
         _domainService = domainService;
         _logger = logger;
@@ -205,6 +208,119 @@ public class DomainsController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Get custom pages for a domain
+    /// </summary>
+    /// <param name="domainName">Domain name</param>
+    /// <returns>Custom pages configuration</returns>
+    [HttpGet("{domainName}/custom-pages")]
+    public async Task<ActionResult<CustomPagesDto>> GetCustomPages(string domainName)
+    {
+        var userId = this.GetUserId();
+
+        // Get domain to retrieve custom page URLs
+        var domainResult = await _domainService.GetDomainByNameAsync(domainName, userId);
+        if (domainResult.IsFailure || domainResult.Value == null)
+        {
+            return NotFound(new { error = "NOT_FOUND", message = $"Domain '{domainName}' not found" });
+        }
+
+        var domain = domainResult.Value;
+
+        return Ok(new CustomPagesDto
+        {
+            DomainName = domainName,
+            CustomIndexUrl = domain.CustomIndexUrl,
+            CustomNotFoundUrl = domain.CustomNotFoundUrl
+        });
+    }
+
+    /// <summary>
+    /// Update custom pages for a domain
+    /// </summary>
+    /// <param name="domainName">Domain name</param>
+    /// <param name="updateDto">Custom pages data</param>
+    /// <returns>Updated custom pages configuration</returns>
+    [HttpPut("{domainName}/custom-pages")]
+    public async Task<ActionResult<CustomPagesDto>> UpdateCustomPages(string domainName, [FromBody] UpdateCustomPagesDto updateDto)
+    {
+        var userId = this.GetUserId();
+
+        // Validate the domain exists and user has access
+        var domainResult = await _domainService.GetDomainByNameAsync(domainName, userId);
+        if (domainResult.IsFailure || domainResult.Value == null)
+        {
+            return NotFound(new { error = "NOT_FOUND", message = $"Domain '{domainName}' not found" });
+        }
+
+        // Validate URLs
+        if (!string.IsNullOrEmpty(updateDto.CustomIndexUrl) && !IsValidUrl(updateDto.CustomIndexUrl))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "CustomIndexUrl must be a valid HTTP or HTTPS URL" });
+        }
+
+        if (!string.IsNullOrEmpty(updateDto.CustomNotFoundUrl) && !IsValidUrl(updateDto.CustomNotFoundUrl))
+        {
+            return BadRequest(new { error = "VALIDATION_ERROR", message = "CustomNotFoundUrl must be a valid HTTP or HTTPS URL" });
+        }
+
+        var domain = domainResult.Value;
+
+        // Update custom page URLs on domain entity and propagate routes to downstream API
+        var updateResult = await _domainService.UpdateCustomPagesAsync(
+            domain.Id,
+            userId,
+            updateDto.CustomIndexUrl,
+            updateDto.CustomNotFoundUrl);
+
+        if (updateResult.IsFailure)
+        {
+            return HandleError(updateResult.ErrorCode ?? "UNKNOWN_ERROR", updateResult.Error);
+        }
+
+        return Ok(new CustomPagesDto
+        {
+            DomainName = domainName,
+            CustomIndexUrl = string.IsNullOrEmpty(updateDto.CustomIndexUrl) ? null : updateDto.CustomIndexUrl,
+            CustomNotFoundUrl = string.IsNullOrEmpty(updateDto.CustomNotFoundUrl) ? null : updateDto.CustomNotFoundUrl
+        });
+    }
+
+    /// <summary>
+    /// Delete all custom pages for a domain
+    /// </summary>
+    /// <param name="domainName">Domain name</param>
+    /// <returns>No content</returns>
+    [HttpDelete("{domainName}/custom-pages")]
+    public async Task<IActionResult> DeleteCustomPages(string domainName)
+    {
+        var userId = this.GetUserId();
+
+        // Validate the domain exists and user has access
+        var domainResult = await _domainService.GetDomainByNameAsync(domainName, userId);
+        if (domainResult.IsFailure || domainResult.Value == null)
+        {
+            return NotFound(new { error = "NOT_FOUND", message = $"Domain '{domainName}' not found" });
+        }
+
+        var domain = domainResult.Value;
+
+        // Clear custom page URLs on domain entity and delete routes from downstream API
+        var updateResult = await _domainService.UpdateCustomPagesAsync(domain.Id, userId, null, null);
+        if (updateResult.IsFailure)
+        {
+            return HandleError(updateResult.ErrorCode ?? "UNKNOWN_ERROR", updateResult.Error);
+        }
+
+        return Ok(new { message = "Custom pages deleted successfully", domainName });
+    }
+
+    private static bool IsValidUrl(string url)
+    {
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 
     private ActionResult HandleError(string errorCode, string errorMessage)

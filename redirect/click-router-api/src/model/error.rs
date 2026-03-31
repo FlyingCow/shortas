@@ -8,30 +8,34 @@ pub enum ApiError {
     /// Database-related errors
     #[error("Database error: {0}")]
     Database(#[from] DatabaseError),
-    
+
     /// Authentication and authorization errors
     #[error("Authentication error: {0}")]
     Authentication(#[from] AuthenticationError),
-    
+
     /// Validation errors for input data
     #[error("Validation error: {0}")]
     Validation(#[from] ValidationError),
-    
+
     /// Route-specific errors
     #[error("Route error: {0}")]
     Route(#[from] RouteError),
-    
+
     /// Configuration errors
     #[error("Configuration error: {0}")]
     Configuration(#[from] ConfigurationError),
-    
+
     /// External service errors (AWS, MongoDB, etc.)
     #[error("External service error: {0}")]
     ExternalService(#[from] ExternalServiceError),
-    
+
     /// Internal server errors
     #[error("Internal server error: {0}")]
     Internal(#[from] InternalError),
+
+    /// Resource not found errors
+    #[error("Not found: {0}")]
+    NotFound(#[from] NotFoundError),
 }
 
 impl ApiError {
@@ -48,6 +52,7 @@ impl ApiError {
             ApiError::Configuration(e) => e.get_error_code(),
             ApiError::ExternalService(e) => e.get_error_code(),
             ApiError::Internal(e) => e.get_error_code(),
+            ApiError::NotFound(e) => e.get_error_code(),
         }
     }
 }
@@ -276,6 +281,19 @@ pub enum InternalError {
 impl InternalError {
     fn get_error_code(&self) -> u16 {
         500
+    }
+}
+
+/// Resource not found errors
+#[derive(Error, Debug, Clone)]
+pub enum NotFoundError {
+    #[error("{resource} not found: {id}")]
+    ResourceNotFound { resource: String, id: String },
+}
+
+impl NotFoundError {
+    fn get_error_code(&self) -> u16 {
+        404
     }
 }
 

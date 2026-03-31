@@ -997,7 +997,7 @@ const RoutesWithSidebar: React.FC = () => {
   const [iconRefreshKey, setIconRefreshKey] = useState(0);
   const iconRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [qrDesignerRoute, setQrDesignerRoute] = useState<RouteDto | null>(null);
-  const { showAlert, showConfirm } = useAlert();
+  const { showToast, showConfirm } = useAlert();
 
   useEffect(() => {
     fetchRoutes();
@@ -1123,7 +1123,7 @@ const RoutesWithSidebar: React.FC = () => {
     if (!confirmed) return;
 
     if (!route.id) {
-      showAlert('Cannot delete route: missing ID', 'Error');
+      showToast('Cannot delete route: missing ID', 'error');
       return;
     }
 
@@ -1135,7 +1135,7 @@ const RoutesWithSidebar: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to delete route:', err);
-      showAlert('Failed to delete route. Please try again.', 'Error');
+      showToast('Failed to delete route. Please try again.', 'error');
     }
   };
 
@@ -1324,7 +1324,7 @@ const RoutesWithSidebar: React.FC = () => {
 
   const handleUnblockRoute = async (route: RouteDto) => {
     if (!route.id) {
-      showAlert('Cannot unblock route: missing ID', 'Error');
+      showToast('Cannot unblock route: missing ID', 'error');
       return;
     }
 
@@ -1338,10 +1338,10 @@ const RoutesWithSidebar: React.FC = () => {
     try {
       await apiService.routes.unblock(route.id);
       await fetchRoutes();
-      showAlert('Route unblocked successfully', 'Success');
+      showToast('Route unblocked successfully', 'success');
     } catch (err: any) {
       console.error('Failed to unblock route:', err);
-      showAlert('Failed to unblock route. Please try again.', 'Error');
+      showToast('Failed to unblock route. Please try again.', 'error');
     }
   };
 

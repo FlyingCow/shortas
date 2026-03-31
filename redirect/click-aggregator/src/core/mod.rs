@@ -6,6 +6,8 @@ use chrono::Utc;
 pub mod aggs;
 pub mod aggs_pipe;
 pub mod click_stream;
+pub mod metrics;
+pub mod metrics_server;
 pub mod pipe;
 
 use serde::Deserialize;
@@ -115,6 +117,23 @@ impl AggsPipeContext {
     }
 }
 
+/// Trace span data from click-router
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+pub struct TraceSpan {
+    pub name: String,
+    pub start_ms: f64,
+    pub duration_ms: f64,
+}
+
+/// Debug trace data from click-router (only present when allow_debug=true)
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+pub struct HitTrace {
+    pub trace_id: String,
+    pub spans: Vec<TraceSpan>,
+    pub total_ms: f64,
+    pub router_exit_utc: Option<DateTime<Utc>>,
+}
+
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct ClickStreamItem {
     pub id: String,
@@ -139,4 +158,7 @@ pub struct ClickStreamItem {
     pub session_clicks: Option<u128>,
     pub is_unique: bool,
     pub is_bot: bool,
+    /// Debug trace data from click-router (only present when allow_debug=true)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trace: Option<HitTrace>,
 }

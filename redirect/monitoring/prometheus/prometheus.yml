@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers: []
+
+rule_files: []
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Click Router metrics
+  # The click-router exposes metrics on port 5800
+  - job_name: 'click-router'
+    static_configs:
+      - targets: ['shortas-click-router:5800']
+    metrics_path: /metrics
+    scrape_interval: 5s
+
+  # Click Aggregator metrics
+  # The click-aggregator exposes metrics on port 9090
+  - job_name: 'click-aggregator'
+    static_configs:
+      - targets: ['shortas-click-aggregator:9090']
+    metrics_path: /metrics
+    scrape_interval: 5s

@@ -381,6 +381,17 @@ export interface UpdateDomainDto {
   name: string;
 }
 
+export interface CustomPagesDto {
+  domainName: string;
+  customIndexUrl?: string;
+  customNotFoundUrl?: string;
+}
+
+export interface UpdateCustomPagesDto {
+  customIndexUrl?: string | null;
+  customNotFoundUrl?: string | null;
+}
+
 // Certificate Types
 export interface CertificateDto {
   id: string;
@@ -704,6 +715,21 @@ export const apiService = {
     getDnsConfig: async (): Promise<DnsConfigDto> => {
       const response = await routerApi.get('/domains/dns-config');
       return response.data;
+    },
+
+    // Custom Pages API
+    getCustomPages: async (domainName: string): Promise<CustomPagesDto> => {
+      const response = await routerApi.get(`/domains/${encodeURIComponent(domainName)}/custom-pages`);
+      return response.data;
+    },
+
+    updateCustomPages: async (domainName: string, data: UpdateCustomPagesDto): Promise<CustomPagesDto> => {
+      const response = await routerApi.put(`/domains/${encodeURIComponent(domainName)}/custom-pages`, data);
+      return response.data;
+    },
+
+    deleteCustomPages: async (domainName: string): Promise<void> => {
+      await routerApi.delete(`/domains/${encodeURIComponent(domainName)}/custom-pages`);
     },
   },
 

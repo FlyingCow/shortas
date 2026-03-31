@@ -361,7 +361,7 @@ interface WorkspaceModalProps {
 }
 
 const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClose, onSave }) => {
-  const { showAlert } = useAlert();
+  const { showToast } = useAlert();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
@@ -389,7 +389,7 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
       await onSave({ name: name.trim(), description: description.trim() });
       onClose();
     } catch {
-      showAlert('Failed to save workspace. Please try again.', 'Error');
+      showToast('Failed to save workspace. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -443,7 +443,7 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
 
 /* ---------- Main component ---------- */
 const Workspaces: React.FC = () => {
-  const { showAlert, showConfirm } = useAlert();
+  const { showToast, showConfirm } = useAlert();
   const [workspaces, setWorkspaces] = useState<WorkspaceDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -490,7 +490,7 @@ const Workspaces: React.FC = () => {
       await apiService.workspaces.delete(ws.id);
       await loadWorkspaces();
     } catch (err: any) {
-      showAlert(err.response?.data?.message || 'Failed to delete workspace', 'Error');
+      showToast(err.response?.data?.message || 'Failed to delete workspace', 'error');
     }
   };
 

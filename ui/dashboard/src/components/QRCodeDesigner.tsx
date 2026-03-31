@@ -38,7 +38,7 @@ interface QRCodeDesignerProps {
 }
 
 const QRCodeDesigner: React.FC<QRCodeDesignerProps> = ({ url, routeId, ownerId }) => {
-  const { showAlert } = useAlert();
+  const { showToast } = useAlert();
   const containerRef = useRef<HTMLDivElement>(null);
   const qrRef = useRef<QRCodeStyling | null>(null);
   const [data, setData] = useState(DEFAULT_DATA);
@@ -140,14 +140,14 @@ const QRCodeDesigner: React.FC<QRCodeDesignerProps> = ({ url, routeId, ownerId }
       await apiService.routes.qr.updateSettings(routeId, settings);
 
       setLogoChanged(false);
-      showAlert('QR code settings saved successfully', 'Success');
+      showToast('QR code settings saved successfully', 'success');
     } catch (err) {
       console.error('Failed to save QR settings:', err);
-      showAlert('Failed to save QR code settings', 'Error');
+      showToast('Failed to save QR code settings', 'error');
     } finally {
       setIsSaving(false);
     }
-  }, [routeId, dotStyle, fgColor, bgColor, size, centerImage, imageFile, logoChanged, showAlert]);
+  }, [routeId, dotStyle, fgColor, bgColor, size, centerImage, imageFile, logoChanged, showToast]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -170,7 +170,7 @@ const QRCodeDesigner: React.FC<QRCodeDesignerProps> = ({ url, routeId, ownerId }
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      showAlert('Please select an image file (PNG, JPG, SVG, etc.).', 'Invalid file');
+      showToast('Please select an image file (PNG, JPG, SVG, etc.).', 'warning');
       return;
     }
     if (centerImage && centerImage.startsWith('blob:')) URL.revokeObjectURL(centerImage);
