@@ -57,3 +57,14 @@ time_to_idle_minutes = 120   # 2 hours
 not_found_url = "http://pages:5801/not-found?domain={}"
 index_url = "http://pages:5801/index?domain={}"
 blocked_url = "http://pages:5801/blocked?reason={}"
+
+[rabbitmq]
+uri = "amqp://guest:guest@rabbitmq:5672/%2f"
+route_exchange = "cache.invalidation.routes"
+user_settings_exchange = "cache.invalidation.user_settings"
+reconnect_seconds = 5
+
+[server]
+threads = 8
+listen_os_signals = true
+exit = true
