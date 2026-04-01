@@ -19,6 +19,7 @@ pub mod location;
 pub mod metrics;
 pub mod metrics_endpoint;
 pub mod conversion;
+pub mod trace;
 
 pub use crypto::CryptoStore;
 pub use routes::RoutesStore;

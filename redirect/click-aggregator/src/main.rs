@@ -7,6 +7,7 @@ use clap::Parser;
 use click_aggregator::adapters::clickhouse::ClickhouseClickStreamStore;
 use click_aggregator::adapters::ClickStreamStoreType;
 use click_aggregator::core::aggs_pipe::AggsPipe;
+use click_aggregator::core::metrics_server::start_metrics_server;
 use click_aggregator::core::pipe::modules::clicks::store::StoreModule;
 use click_aggregator::core::pipe::modules::clicks::AggsModules;
 use click_aggregator::{
@@ -93,6 +94,31 @@ async fn aggregating_subsystem(subsys: SubsystemHandle) -> Result<()> {
     Ok(())
 }
 
+async fn metrics_subsystem(subsys: SubsystemHandle) -> Result<()> {
+    let token: CancellationToken = CancellationToken::new();
+
+    // Metrics server port - can be configured via env var
+    let port = std::env::var("METRICS_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(9090);
+
+    tokio::select! {
+        _ = subsys.on_shutdown_requested() => {
+            tracing::info!("Metrics server cancelled.");
+            token.cancel();
+        },
+        result = start_metrics_server(port, token.clone()) => {
+            if let Err(e) = result {
+                tracing::error!("Metrics server error: {}", e);
+            }
+            subsys.request_shutdown();
+        }
+    };
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt().init();
@@ -102,6 +128,7 @@ async fn main() -> Result<()> {
     // Setup and execute subsystem tree
     Toplevel::new(|s| async move {
         s.start(SubsystemBuilder::new("Aggregating", aggregating_subsystem));
+        s.start(SubsystemBuilder::new("Metrics", metrics_subsystem));
     })
     .catch_signals()
     .handle_shutdown_requests(Duration::from_millis(1000))

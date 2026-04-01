@@ -641,7 +641,7 @@ const PieLegend: React.FC<{ items: { name: string; color: string }[] }> = ({ ite
 );
 
 const Analytics: React.FC = () => {
-  const { showAlert } = useAlert();
+  const { showToast } = useAlert();
   const [analytics, setAnalytics] = useState<ClickAnalytics | null>(null);
   const [routePerformance, setRoutePerformance] = useState<RoutePerformanceDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -716,7 +716,7 @@ const Analytics: React.FC = () => {
   }, [fetchAnalytics]);
 
   const exportData = () => {
-    showAlert('Export functionality would be implemented here', 'Export');
+    showToast('Export functionality would be implemented here', 'info');
   };
 
   if (loading && !analytics) {

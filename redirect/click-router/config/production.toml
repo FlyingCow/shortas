@@ -53,6 +53,12 @@ max_capacity = 50_000        # Increased from 10,000
 time_to_live_minutes = 240   # 4 hours
 time_to_idle_minutes = 120   # 2 hours
 
+[rabbitmq]
+uri = "amqp://guest:guest@shortas-rabbitmq:5672/%2f"
+route_exchange = "cache.invalidation.routes"
+user_settings_exchange = "cache.invalidation.user_settings"
+reconnect_seconds = 5
+
 [redirect]
 not_found_url = "http://pages:5801/not-found?domain={}"
 index_url = "http://pages:5801/index?domain={}"

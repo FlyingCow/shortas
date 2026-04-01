@@ -3,7 +3,8 @@ use salvo::prelude::*;
 use tracing::info;
 
 use crate::adapters::api::routes::{
-    challenge_controller, crypto_controller, routes_controller, user_settings_controller,
+    challenge_controller, crypto_controller, routes_controller,
+    user_settings_controller,
 };
 
 // Simple request logging middleware

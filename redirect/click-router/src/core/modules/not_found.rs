@@ -14,7 +14,8 @@ use crate::{
     settings::Redirect,
 };
 
-const IS_404: &'static str = "is_404";
+const IS_404: &str = "is_404";
+const INTERNAL_SWITCH: &str = "_internal";
 
 #[derive(Debug, Clone)]
 pub struct NotFoundModule {
@@ -32,16 +33,34 @@ impl FlowModule for NotFoundModule {
     async fn handle_start(
         &self,
         context: &mut FlowRouterContext,
-        _flow_router: &FlowRouter,
+        flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
-        if let None = context.main_route {
+        if context.main_route.is_none() {
             context.add_bool(IS_404, true);
 
-            let domain = context.request.uri().host().unwrap_or_default();
+            let domain = context.in_route.host.as_str();
+            let not_found_path = format!("{}%2Fnot-found", domain);
+
+            // Check for custom 404 route: switch="internal", link="{domain}%2F.well-known%2F404"
+            if let std::result::Result::Ok(Some(route)) =
+                flow_router.get_route_by_switch(INTERNAL_SWITCH, &not_found_path).await
+            {
+                if let Some(ref dest) = route.dest {
+                    context.result = Some(FlowRouterResult::Redirect(
+                        Uri::from_str(dest).unwrap(),
+                        RedirectType::Temporary,
+                    ));
+                    context.current_step = FlowStep::End;
+                    return Ok(FlowStepContinuation::Break);
+                }
+            }
+
+            // Fall back to global not found URL
+            let request_domain = context.request.uri().host().unwrap_or_default();
             let path = context.request.uri().path().trim_start_matches('/');
 
             // URL-encode the parameters for safe transmission
-            let encoded_domain = urlencoding::encode(domain);
+            let encoded_domain = urlencoding::encode(request_domain);
             let encoded_path = urlencoding::encode(path);
 
             // Build the not found URL with domain and path parameters

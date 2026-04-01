@@ -41,6 +41,7 @@ use super::{
     modules::FlowModules,
     protocol::{ProtoInfo, ProtocolExtractor},
     routes::RoutesManager,
+    trace::{HitTrace, TraceCollector},
     user_agent::{Device, UserAgent, UserAgentDetector, OS},
     user_agent_string::UserAgentStringExtractor,
     user_settings::UserSettingsManager,
@@ -297,6 +298,10 @@ pub struct FlowRouterContext<'a> {
     pub response: &'a ResponseType<'a>,
     /// The final result of processing this request
     pub result: Option<FlowRouterResult>,
+    /// Debug trace collector (only active when allow_debug=true)
+    pub trace: Option<TraceCollector>,
+    /// Finalized trace data for passing to hit registration
+    pub hit_trace: Option<HitTrace>,
 }
 
 impl<'a> FlowRouterContext<'a> {
@@ -336,6 +341,8 @@ impl<'a> FlowRouterContext<'a> {
             result: None,
             request,
             response,
+            trace: None,
+            hit_trace: None,
         }
     }
 }
@@ -587,10 +594,23 @@ impl FlowRouter {
         let flow_timer = Timer::new();
         self.metrics.iterative_flow_usage.inc();
 
+        let trace_enabled = context.trace.is_some();
+
         let mut current_step = FlowStep::Start;
 
         loop {
             context.current_step = current_step;
+
+            // Start span for this stage if tracing is enabled
+            if let Some(ref mut trace) = context.trace {
+                trace.start_span(&format!("{:?}", current_step));
+            }
+
+            let stage_timer = if trace_enabled {
+                Some(Timer::new())
+            } else {
+                None
+            };
 
             let should_continue = match current_step {
                 FlowStep::Start => self.handle_start_iterative(context).await?,
@@ -599,10 +619,31 @@ impl FlowRouter {
                 FlowStep::BuildResult => self.handle_build_result_iterative(context).await?,
                 FlowStep::End => {
                     self.handle_end_iterative(context).await?;
+                    // End span and record metrics for End stage
+                    if let Some(ref mut trace) = context.trace {
+                        trace.end_span();
+                    }
+                    if let Some(timer) = stage_timer {
+                        self.metrics
+                            .debug_stage_duration
+                            .with_label_values(&["End"])
+                            .observe(timer.elapsed_seconds());
+                    }
                     break; // End the flow
                 }
                 _ => return Err(anyhow::anyhow!("Invalid flow step: {:?}", current_step)),
             };
+
+            // End span and record debug metrics for this stage
+            if let Some(ref mut trace) = context.trace {
+                trace.end_span();
+            }
+            if let Some(timer) = stage_timer {
+                self.metrics
+                    .debug_stage_duration
+                    .with_label_values(&[&format!("{:?}", current_step)])
+                    .observe(timer.elapsed_seconds());
+            }
 
             // Move to next step if modules didn't break the flow
             current_step = match (current_step, should_continue) {
@@ -618,6 +659,18 @@ impl FlowRouter {
 
         // Record flow processing time
         flow_timer.observe_duration_seconds(&self.metrics.flow_processing_duration);
+
+        // Finalize trace if enabled and record debug total duration
+        if trace_enabled {
+            self.metrics
+                .debug_total_duration
+                .observe(flow_timer.elapsed_seconds());
+
+            // Take the trace collector and finalize it
+            if let Some(trace) = context.trace.take() {
+                context.hit_trace = Some(trace.finalize());
+            }
+        }
 
         Ok(())
     }
@@ -688,26 +741,52 @@ impl FlowRouter {
             }
         }
 
-        let hit_result = self
-            .hit_registrar
-            .register(&Hit::click(
-                &context.id,
-                context.utc,
-                context.user_agent.as_deref(),
-                context.client_ip.as_ref().map(|ip| ip.address),
-                &Click::new(
-                    context
-                        .out_route
-                        .as_ref()
-                        .unwrap()
-                        .dest
-                        .as_ref()
-                        .unwrap()
-                        .as_str(),
-                ),
-                HitRoute::from_route(&context.main_route),
-            ))
-            .await;
+        let trace_enabled = context.trace.is_some();
+        let queue_timer = if trace_enabled {
+            Some(Timer::new())
+        } else {
+            None
+        };
+
+        // Finalize trace before hit registration so it's included in the hit
+        let hit_trace = if let Some(trace) = context.trace.take() {
+            Some(trace.finalize())
+        } else {
+            None
+        };
+
+        let click = Click::new(
+            context
+                .out_route
+                .as_ref()
+                .unwrap()
+                .dest
+                .as_ref()
+                .unwrap()
+                .as_str(),
+        );
+
+        let hit = Hit::click_with_trace(
+            &context.id,
+            context.utc,
+            context.user_agent.as_deref(),
+            context.client_ip.as_ref().map(|ip| ip.address),
+            &click,
+            HitRoute::from_route(&context.main_route),
+            hit_trace.clone(),
+        );
+
+        let hit_result = self.hit_registrar.register(&hit).await;
+
+        // Record hit queue duration for debug routes
+        if let Some(timer) = queue_timer {
+            self.metrics
+                .debug_hit_queue_duration
+                .observe(timer.elapsed_seconds());
+        }
+
+        // Store the hit trace in context for potential later use
+        context.hit_trace = hit_trace;
 
         if hit_result.is_ok() {
             self.metrics.hits_registered.inc();
@@ -798,6 +877,14 @@ impl FlowRouter {
         Ok(route)
     }
 
+    pub async fn get_route_by_switch(
+        &self,
+        switch: &str,
+        path: &str,
+    ) -> Result<Option<Route>> {
+        self.routes_manager.get_route_by_switch(switch, path).await
+    }
+
     async fn start<'a>(
         &self,
         req: &'a RequestType<'a>,
@@ -825,6 +912,12 @@ impl FlowRouter {
         }
 
         let _ = &self.replace_debug_data(&mut context);
+
+        // Initialize debug tracing if allow_debug is enabled for this route
+        if self.allow_debug(&mut context) {
+            self.metrics.debug_requests_total.inc();
+            context.trace = Some(TraceCollector::new(&context.id));
+        }
 
         self.process_flow(&mut context).await?;
 
@@ -968,6 +1061,8 @@ impl FlowRouter {
             result: None,
             request: req,
             response: res,
+            trace: None,
+            hit_trace: None,
         };
 
         context.host = self.host_extractor.detect(&context.request, false);

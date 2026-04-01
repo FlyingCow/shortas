@@ -10,6 +10,10 @@ use crate::dto::RouteDto;
 use crate::model::error::{ApiError, RouteError, ValidationError};
 use crate::model::route::Route;
 
+/// Internal switch is reserved for custom domain pages (index, 404)
+/// and cannot be managed through the routes API
+const INTERNAL_SWITCH: &str = "internal";
+
 pub fn api_routes() -> Router {
     Router::with_path("/routes")
         .get(list_routes)
@@ -101,6 +105,19 @@ pub async fn get_route(req: &mut Request, depot: &mut Depot, res: &mut Response)
     let path = req.param::<String>("path").unwrap_or_default();
     let switch = req.param::<String>("switch").unwrap_or_default();
 
+    // Block operations on internal switch (reserved for custom domain pages)
+    if switch == INTERNAL_SWITCH {
+        let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
+            ValidationError::InvalidInput {
+                field: "switch".to_string(),
+                message: "The 'internal' switch is reserved for custom domain pages and cannot be used through this API".to_string(),
+            },
+        ));
+        res.status_code(error_response.status_code);
+        res.render(error_response);
+        return;
+    }
+
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     let route = app_state
@@ -162,6 +179,19 @@ pub async fn create_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
     let switch = req.param::<String>("switch").unwrap_or_default();
     let domain = req.param::<String>("domain").unwrap_or_default();
     let path = req.param::<String>("path").unwrap_or_default();
+
+    // Block operations on internal switch (reserved for custom domain pages)
+    if switch == INTERNAL_SWITCH {
+        let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
+            ValidationError::InvalidInput {
+                field: "switch".to_string(),
+                message: "The 'internal' switch is reserved for custom domain pages and cannot be used through this API".to_string(),
+            },
+        ));
+        res.status_code(error_response.status_code);
+        res.render(error_response);
+        return;
+    }
 
     // Parse the route DTO from the request body
     let mut route_dto: RouteDto = match req.parse_json().await {
@@ -266,6 +296,19 @@ pub async fn update_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
     let switch = req.param::<String>("switch").unwrap_or_default();
     let domain = req.param::<String>("domain").unwrap_or_default();
     let path = req.param::<String>("path").unwrap_or_default();
+
+    // Block operations on internal switch (reserved for custom domain pages)
+    if switch == INTERNAL_SWITCH {
+        let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
+            ValidationError::InvalidInput {
+                field: "switch".to_string(),
+                message: "The 'internal' switch is reserved for custom domain pages and cannot be used through this API".to_string(),
+            },
+        ));
+        res.status_code(error_response.status_code);
+        res.render(error_response);
+        return;
+    }
 
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
@@ -379,6 +422,19 @@ pub async fn delete_route(req: &mut Request, depot: &mut Depot, res: &mut Respon
     let domain = req.param::<String>("domain").unwrap_or_default();
     let path = req.param::<String>("path").unwrap_or_default();
 
+    // Block operations on internal switch (reserved for custom domain pages)
+    if switch == INTERNAL_SWITCH {
+        let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
+            ValidationError::InvalidInput {
+                field: "switch".to_string(),
+                message: "The 'internal' switch is reserved for custom domain pages and cannot be used through this API".to_string(),
+            },
+        ));
+        res.status_code(error_response.status_code);
+        res.render(error_response);
+        return;
+    }
+
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
     // First, get the route to delete
@@ -483,6 +539,18 @@ pub async fn bulk_create_routes(req: &mut Request, depot: &mut Depot, res: &mut 
 
     // Validate all routes
     for (index, route_dto) in routes_dto.iter().enumerate() {
+        // Block operations on internal switch (reserved for custom domain pages)
+        if route_dto.switch == INTERNAL_SWITCH {
+            let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
+                ValidationError::InvalidInput {
+                    field: format!("routes[{}].switch", index),
+                    message: "The 'internal' switch is reserved for custom domain pages and cannot be used through this API".to_string(),
+                },
+            ));
+            res.status_code(error_response.status_code);
+            res.render(error_response);
+            return;
+        }
         if !route_dto.is_valid() {
             let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
                 ValidationError::InvalidInput {
@@ -592,6 +660,18 @@ pub async fn bulk_update_routes(req: &mut Request, depot: &mut Depot, res: &mut 
 
     // Validate all routes
     for (index, route_dto) in routes_dto.iter().enumerate() {
+        // Block operations on internal switch (reserved for custom domain pages)
+        if route_dto.switch == INTERNAL_SWITCH {
+            let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
+                ValidationError::InvalidInput {
+                    field: format!("routes[{}].switch", index),
+                    message: "The 'internal' switch is reserved for custom domain pages and cannot be used through this API".to_string(),
+                },
+            ));
+            res.status_code(error_response.status_code);
+            res.render(error_response);
+            return;
+        }
         if !route_dto.is_valid() {
             let error_response = ErrorPresenter::from_api_error(&ApiError::Validation(
                 ValidationError::InvalidInput {
@@ -732,6 +812,15 @@ pub async fn bulk_delete_routes(req: &mut Request, depot: &mut Depot, res: &mut 
         if switch.is_empty() || domain.is_empty() || path.is_empty() {
             errors.push(format!(
                 "Route {}: Missing required fields (switch, domain, path)",
+                index
+            ));
+            continue;
+        }
+
+        // Block operations on internal switch (reserved for custom domain pages)
+        if switch == INTERNAL_SWITCH {
+            errors.push(format!(
+                "Route {}: The 'internal' switch is reserved for custom domain pages and cannot be used through this API",
                 index
             ));
             continue;

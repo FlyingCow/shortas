@@ -18,6 +18,6 @@ crypto_collection = "core_routes_encryption_main"
 user_settings_collection = "core_user_settings_main"
 
 [rabbitmq]
-uri = "amqp://guest:guest@rabbitmq:5672/%2f"
+uri = "amqp://guest:guest@shortas-rabbitmq:5672/%2f"
 route_exchange = "cache.invalidation.routes"
 user_settings_exchange = "cache.invalidation.user_settings"

@@ -16,8 +16,8 @@
 
 use lazy_static::lazy_static;
 use prometheus::{
-    Counter, Histogram, IntCounter, IntGauge, Registry, Opts, HistogramOpts,
-    register_counter, register_histogram, register_int_counter, register_int_gauge,
+    Counter, Histogram, HistogramVec, IntCounter, IntGauge, Registry, Opts, HistogramOpts,
+    register_counter, register_histogram, register_histogram_vec, register_int_counter, register_int_gauge,
 };
 use std::time::Instant;
 
@@ -86,6 +86,19 @@ pub struct FlowRouterMetrics {
 
     /// Memory allocations per request (estimated)
     pub memory_allocations_per_request: Histogram,
+
+    // Debug route metrics (only incremented when allow_debug=true)
+    /// Total number of debug route requests processed
+    pub debug_requests_total: IntCounter,
+
+    /// Per-stage timing for debug routes (labels: stage)
+    pub debug_stage_duration: HistogramVec,
+
+    /// Time to queue hit for debug routes
+    pub debug_hit_queue_duration: Histogram,
+
+    /// End-to-end processing time for debug routes
+    pub debug_total_duration: Histogram,
 }
 
 impl Default for FlowRouterMetrics {
@@ -165,6 +178,26 @@ impl Default for FlowRouterMetrics {
             .unwrap(),
             memory_allocations_per_request: Histogram::with_opts(HistogramOpts::new(
                 "fallback_memory_allocations",
+                "Fallback histogram",
+            ))
+            .unwrap(),
+            debug_requests_total: IntCounter::new(
+                "fallback_debug_requests_total",
+                "Fallback counter",
+            )
+            .unwrap(),
+            debug_stage_duration: HistogramVec::new(
+                HistogramOpts::new("fallback_debug_stage_duration", "Fallback histogram"),
+                &["stage"],
+            )
+            .unwrap(),
+            debug_hit_queue_duration: Histogram::with_opts(HistogramOpts::new(
+                "fallback_debug_hit_queue_duration",
+                "Fallback histogram",
+            ))
+            .unwrap(),
+            debug_total_duration: Histogram::with_opts(HistogramOpts::new(
+                "fallback_debug_total_duration",
                 "Fallback histogram",
             ))
             .unwrap(),
@@ -301,6 +334,37 @@ impl FlowRouterMetrics {
                 )
                 .buckets(vec![1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0])
             )?,
+
+            // Debug route metrics
+            debug_requests_total: register_int_counter!(
+                "flow_router_debug_requests_total",
+                "Total number of debug route requests processed"
+            )?,
+
+            debug_stage_duration: register_histogram_vec!(
+                HistogramOpts::new(
+                    "flow_router_debug_stage_duration_seconds",
+                    "Per-stage timing for debug routes"
+                )
+                .buckets(vec![0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1]),
+                &["stage"]
+            )?,
+
+            debug_hit_queue_duration: register_histogram!(
+                HistogramOpts::new(
+                    "flow_router_debug_hit_queue_duration_seconds",
+                    "Time to queue hit for debug routes"
+                )
+                .buckets(vec![0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1])
+            )?,
+
+            debug_total_duration: register_histogram!(
+                HistogramOpts::new(
+                    "flow_router_debug_total_duration_seconds",
+                    "End-to-end processing time for debug routes"
+                )
+                .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0])
+            )?,
         })
     }
     
@@ -433,6 +497,37 @@ impl FlowRouterMetrics {
                     "Memory allocations per request",
                 )
                 .buckets(vec![1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0]),
+            )?,
+
+            // Debug route metrics
+            debug_requests_total: IntCounter::with_opts(Opts::new(
+                "flow_router_debug_requests_total",
+                "Total number of debug route requests processed",
+            ))?,
+
+            debug_stage_duration: HistogramVec::new(
+                HistogramOpts::new(
+                    "flow_router_debug_stage_duration_seconds",
+                    "Per-stage timing for debug routes",
+                )
+                .buckets(vec![0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1]),
+                &["stage"],
+            )?,
+
+            debug_hit_queue_duration: Histogram::with_opts(
+                HistogramOpts::new(
+                    "flow_router_debug_hit_queue_duration_seconds",
+                    "Time to queue hit for debug routes",
+                )
+                .buckets(vec![0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1]),
+            )?,
+
+            debug_total_duration: Histogram::with_opts(
+                HistogramOpts::new(
+                    "flow_router_debug_total_duration_seconds",
+                    "End-to-end processing time for debug routes",
+                )
+                .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0]),
             )?,
         })
     }

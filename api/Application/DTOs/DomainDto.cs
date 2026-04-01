@@ -29,3 +29,16 @@ public class DnsConfigDto
     public List<string> AllowedIpv4 { get; set; } = new();
     public List<string> AllowedIpv6 { get; set; } = new();
 }
+
+public class CustomPagesDto
+{
+    public string DomainName { get; set; } = string.Empty;
+    public string? CustomIndexUrl { get; set; }
+    public string? CustomNotFoundUrl { get; set; }
+}
+
+public class UpdateCustomPagesDto
+{
+    public string? CustomIndexUrl { get; set; }
+    public string? CustomNotFoundUrl { get; set; }
+}

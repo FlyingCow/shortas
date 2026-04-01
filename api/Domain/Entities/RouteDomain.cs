@@ -19,6 +19,10 @@ public class RouteDomain
     public DateTime? LastVerificationCheck { get; set; }
     public DateTime? NextVerificationCheck { get; set; }
 
+    // Custom pages
+    public string? CustomIndexUrl { get; set; }
+    public string? CustomNotFoundUrl { get; set; }
+
     // Navigation properties
     public ICollection<Route> Routes { get; set; } = new List<Route>();
     public ICollection<Certificate> Certificates { get; set; } = new List<Certificate>();

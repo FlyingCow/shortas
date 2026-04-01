@@ -2,7 +2,12 @@ use aws_config::SdkConfig;
 use tracing::info;
 
 use crate::{
-    adapters::aws::dynamo::{dynamo_crypto_store::DynamoCryptoStore, dynamo_routes_store::DynamoRoutesStore, dynamo_user_settings_store::DynamoUserSettingsStore}, app_builder::AppBuilder,
+    adapters::aws::dynamo::{
+        dynamo_crypto_store::DynamoCryptoStore,
+        dynamo_routes_store::DynamoRoutesStore,
+        dynamo_user_settings_store::DynamoUserSettingsStore,
+    },
+    app_builder::AppBuilder,
 };
 
 use super::aws_settings::AWS;

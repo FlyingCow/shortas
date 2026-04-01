@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Search, Globe, X, ExternalLink, Copy, Check, RefreshCw, AlertCircle, CheckCircle, Clock, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Plus, Trash2, Search, Globe, X, ExternalLink, Copy, Check, RefreshCw, AlertCircle, CheckCircle, Clock, ChevronDown, ChevronUp, Info, Settings } from 'lucide-react';
 import { apiService, DomainDto, CreateDomainDto, DnsConfigDto, DomainVerificationStatus } from '../services/api';
 import { useAlert } from '../contexts/AlertContext';
 import LoadingSpinner from './LoadingSpinner';
@@ -525,10 +525,85 @@ const domainStyles = `
   font-size: 0.75rem;
   color: var(--text-primary);
 }
+
+/* Custom Pages Modal */
+.dom-custom-pages-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+.dom-custom-pages-field:last-child {
+  margin-bottom: 0;
+}
+
+.dom-custom-pages-field label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.dom-custom-pages-field label .label-hint {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.dom-custom-pages-field input {
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.dom-custom-pages-field input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.dom-custom-pages-field input::placeholder {
+  color: var(--text-muted);
+}
+
+.dom-custom-pages-field .field-hint {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.dom-custom-pages-info {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.dom-custom-pages-info svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--text-muted);
+}
 `;
 
+interface CustomPagesState {
+  indexUrl: string;
+  notFoundUrl: string;
+}
+
 const Domains: React.FC = () => {
-  const { showAlert, showConfirm } = useAlert();
+  const { showToast, showConfirm } = useAlert();
   const [domains, setDomains] = useState<DomainDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -542,6 +617,16 @@ const Domains: React.FC = () => {
   const [dnsConfig, setDnsConfig] = useState<DnsConfigDto | null>(null);
   const [dnsConfigLoading, setDnsConfigLoading] = useState(false);
   const [copiedRecord, setCopiedRecord] = useState<string | null>(null);
+
+  // Custom pages modal state
+  const [showCustomPagesModal, setShowCustomPagesModal] = useState(false);
+  const [selectedDomainForCustomPages, setSelectedDomainForCustomPages] = useState<DomainDto | null>(null);
+  const [customPagesState, setCustomPagesState] = useState<CustomPagesState>({
+    indexUrl: '',
+    notFoundUrl: '',
+  });
+  const [loadingCustomPages, setLoadingCustomPages] = useState(false);
+  const [savingCustomPages, setSavingCustomPages] = useState(false);
 
   useEffect(() => {
     fetchDomains();
@@ -586,17 +671,24 @@ const Domains: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!showModal) return;
+    if (!showModal && !showCustomPagesModal) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !saving) {
-        setShowModal(false);
-        e.preventDefault();
-        e.stopImmediatePropagation();
+      if (e.key === 'Escape') {
+        if (showModal && !saving) {
+          setShowModal(false);
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        } else if (showCustomPagesModal && !savingCustomPages) {
+          setShowCustomPagesModal(false);
+          setSelectedDomainForCustomPages(null);
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [showModal, saving]);
+  }, [showModal, saving, showCustomPagesModal, savingCustomPages]);
 
   const handleSave = async () => {
     const name = formName.trim().toLowerCase();
@@ -610,7 +702,7 @@ const Domains: React.FC = () => {
       setFormName('');
     } catch (err: any) {
       console.error('Failed to save domain:', err);
-      showAlert(err.response?.data?.message || 'Failed to create domain.', 'Error');
+      showToast(err.response?.data?.message || 'Failed to create domain.', 'error');
     } finally {
       setSaving(false);
     }
@@ -628,7 +720,7 @@ const Domains: React.FC = () => {
       await fetchDomains();
     } catch (err: any) {
       console.error('Failed to delete domain:', err);
-      showAlert(err.response?.data?.message || 'Failed to delete domain.', 'Error');
+      showToast(err.response?.data?.message || 'Failed to delete domain.', 'error');
     }
   };
 
@@ -639,7 +731,7 @@ const Domains: React.FC = () => {
       await fetchDomains();
     } catch (err: any) {
       console.error('Failed to verify domain:', err);
-      showAlert(err.response?.data?.message || 'Failed to verify domain.', 'Error');
+      showToast(err.response?.data?.message || 'Failed to verify domain.', 'error');
     } finally {
       setVerifyingDomains(prev => {
         const next = new Set(prev);
@@ -674,6 +766,59 @@ const Domains: React.FC = () => {
     });
     if (isExpanding) {
       fetchDnsConfig();
+    }
+  };
+
+  // Custom pages handlers
+  const handleOpenCustomPages = async (domain: DomainDto) => {
+    setSelectedDomainForCustomPages(domain);
+    setCustomPagesState({ indexUrl: '', notFoundUrl: '' });
+    setShowCustomPagesModal(true);
+    setLoadingCustomPages(true);
+
+    try {
+      const customPages = await apiService.domains.getCustomPages(domain.name);
+      setCustomPagesState({
+        indexUrl: customPages.customIndexUrl || '',
+        notFoundUrl: customPages.customNotFoundUrl || '',
+      });
+    } catch (err) {
+      console.error('Failed to load custom pages:', err);
+      showToast('Failed to load custom page settings.', 'error');
+    } finally {
+      setLoadingCustomPages(false);
+    }
+  };
+
+  const handleSaveCustomPages = async () => {
+    if (!selectedDomainForCustomPages) return;
+
+    setSavingCustomPages(true);
+
+    try {
+      await apiService.domains.updateCustomPages(selectedDomainForCustomPages.name, {
+        customIndexUrl: customPagesState.indexUrl.trim() || null,
+        customNotFoundUrl: customPagesState.notFoundUrl.trim() || null,
+      });
+
+      setShowCustomPagesModal(false);
+      setSelectedDomainForCustomPages(null);
+      showToast('Custom page settings saved successfully.', 'success');
+    } catch (err: any) {
+      console.error('Failed to save custom pages:', err);
+      showToast(err.response?.data?.message || 'Failed to save custom page settings.', 'error');
+    } finally {
+      setSavingCustomPages(false);
+    }
+  };
+
+  const isValidUrl = (url: string): boolean => {
+    if (!url.trim()) return true; // Empty is valid (means no custom page)
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
     }
   };
 
@@ -781,6 +926,13 @@ const Domains: React.FC = () => {
                     )}
                   </div>
                   <div className="dom-actions">
+                    <button
+                      className="dom-action-btn"
+                      onClick={() => handleOpenCustomPages(domain)}
+                      title="Custom pages (index & 404)"
+                    >
+                      <Settings size={15} />
+                    </button>
                     <button
                       className={`dom-action-btn ${verifyingDomains.has(domain.id) ? 'spinning' : ''}`}
                       onClick={() => handleVerify(domain)}
@@ -1008,6 +1160,104 @@ const Domains: React.FC = () => {
                 </button>
                 <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || !formName.trim()}>
                   {saving ? 'Adding...' : 'Add Domain'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Pages Modal */}
+        {showCustomPagesModal && selectedDomainForCustomPages && (
+          <div className="dom-modal-overlay" onClick={() => { if (!savingCustomPages) { setShowCustomPagesModal(false); setSelectedDomainForCustomPages(null); } }}>
+            <div className="dom-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="dom-modal-header">
+                <h2>Custom Pages for {selectedDomainForCustomPages.name}</h2>
+                <button
+                  className="dom-modal-close"
+                  onClick={() => { if (!savingCustomPages) { setShowCustomPagesModal(false); setSelectedDomainForCustomPages(null); } }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="dom-modal-body">
+                {loadingCustomPages ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    Loading custom page settings...
+                  </div>
+                ) : (
+                  <>
+                    <div className="dom-custom-pages-field">
+                      <label>
+                        Custom Index Page
+                        <span className="label-hint">(optional)</span>
+                      </label>
+                      <input
+                        type="url"
+                        value={customPagesState.indexUrl}
+                        onChange={(e) => setCustomPagesState(prev => ({ ...prev, indexUrl: e.target.value }))}
+                        placeholder="https://example.com/welcome"
+                        disabled={savingCustomPages}
+                      />
+                      <span className="field-hint">
+                        Users visiting the root of this domain will be redirected to this URL.
+                      </span>
+                      {customPagesState.indexUrl && !isValidUrl(customPagesState.indexUrl) && (
+                        <span className="field-hint" style={{ color: 'var(--color-error)' }}>
+                          Please enter a valid URL.
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="dom-custom-pages-field">
+                      <label>
+                        Custom 404 Page
+                        <span className="label-hint">(optional)</span>
+                      </label>
+                      <input
+                        type="url"
+                        value={customPagesState.notFoundUrl}
+                        onChange={(e) => setCustomPagesState(prev => ({ ...prev, notFoundUrl: e.target.value }))}
+                        placeholder="https://example.com/not-found"
+                        disabled={savingCustomPages}
+                      />
+                      <span className="field-hint">
+                        Users visiting non-existent paths on this domain will be redirected to this URL.
+                      </span>
+                      {customPagesState.notFoundUrl && !isValidUrl(customPagesState.notFoundUrl) && (
+                        <span className="field-hint" style={{ color: 'var(--color-error)' }}>
+                          Please enter a valid URL.
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="dom-custom-pages-info">
+                      <Info size={14} />
+                      <span>
+                        Leave fields empty to use the default pages. Custom pages are implemented as redirect routes.
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="dom-modal-footer">
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={() => { setShowCustomPagesModal(false); setSelectedDomainForCustomPages(null); }}
+                  disabled={savingCustomPages}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleSaveCustomPages}
+                  disabled={
+                    savingCustomPages ||
+                    loadingCustomPages ||
+                    Boolean(customPagesState.indexUrl && !isValidUrl(customPagesState.indexUrl)) ||
+                    Boolean(customPagesState.notFoundUrl && !isValidUrl(customPagesState.notFoundUrl))
+                  }
+                >
+                  {savingCustomPages ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </div>

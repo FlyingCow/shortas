@@ -13,6 +13,7 @@ use crate::{
 };
 
 static IS_ROOT: &str = "is_root";
+const INTERNAL_SWITCH: &str = "_internal";
 
 #[derive(Debug, Clone)]
 pub struct RootModule {
@@ -30,9 +31,25 @@ impl FlowModule for RootModule {
     async fn handle_start(
         &self,
         context: &mut FlowRouterContext,
-        _flow_router: &FlowRouter,
+        flow_router: &FlowRouter,
     ) -> Result<FlowStepContinuation> {
         if context.request.uri().path() == "/" {
+            let domain = context.in_route.host.as_str();
+            let index_path = format!("{}%2Findex", domain);
+
+            // Check for custom index route: switch="internal", link="{domain}%2F.well-known%2Findex"
+            if let Ok(Some(route)) = flow_router.get_route_by_switch(INTERNAL_SWITCH, &index_path).await {
+                if let Some(ref dest) = route.dest {
+                    context.result = Some(FlowRouterResult::Redirect(
+                        Uri::from_str(dest).unwrap(),
+                        RedirectType::Temporary,
+                    ));
+                    context.add_bool(IS_ROOT, true);
+                    return Ok(FlowStepContinuation::Break);
+                }
+            }
+
+            // Fall back to global index URL
             let root_uri = string_format!(
                 self.redirect.index_url.clone(),
                 context.request.uri().host().unwrap().to_string()
@@ -45,7 +62,6 @@ impl FlowModule for RootModule {
 
             context.add_bool(IS_ROOT, true);
 
-            //println!("IS_ROOT");
             return Ok(FlowStepContinuation::Break);
         }
 
