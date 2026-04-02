@@ -15,7 +15,7 @@ database = "shortas"
 orders_collection = "certificate_orders"
 
 [rabbitmq]
-uri = "amqp://guest:guest@rabbitmq:5672/%2f"
+uri = "amqp://guest:guest@shortas-rabbitmq:5672/%2f"
 domain_exchange = "domain.state.changed"
 certificate_exchange = "cache.invalidation.certificates"
 reconnect_seconds = 5

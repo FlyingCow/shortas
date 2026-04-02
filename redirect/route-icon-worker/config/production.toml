@@ -1,5 +1,5 @@
 [rabbitmq]
-uri = "amqp://guest:guest@rabbitmq:5672/%2f"
+uri = "amqp://guest:guest@shortas-rabbitmq:5672/%2f"
 route_exchange = "cache.invalidation.routes"
 reconnect_seconds = 5
 
