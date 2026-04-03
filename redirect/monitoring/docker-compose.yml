@@ -22,11 +22,15 @@ services:
   loki:
     image: grafana/loki:3.0.0
     container_name: shortas-loki
+    restart: unless-stopped
     ports:
       - "3100:3100"
     volumes:
+      - ./loki/config.yml:/etc/loki/config.yml:ro
       - loki_data:/loki
-    command: -config.file=/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/config.yml
+    # Requires MinIO (shortas-minio) from infra/custom/docker-compose.yml
+    # Bucket 'loki' must be created in MinIO before starting
     networks:
       - shortas-net
 

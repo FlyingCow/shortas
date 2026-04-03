@@ -128,6 +128,8 @@ services:
         mc mb myminio/clickhouse --ignore-existing
         echo 'Creating route-images bucket...'
         mc mb myminio/route-images --ignore-existing
+        echo 'Creating loki bucket...'
+        mc mb myminio/loki --ignore-existing
         echo 'Setting route-images bucket as public read...'
         mc anonymous set download myminio/route-images
         echo 'Configuring CORS for route-images bucket...'

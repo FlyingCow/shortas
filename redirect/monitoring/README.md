@@ -10,6 +10,17 @@ Prometheus, Grafana, and Loki monitoring stack for Shortas services.
 | Grafana | 3001 | Visualization dashboards |
 | Loki | 3100 | Log aggregation |
 
+## Prerequisites
+
+Loki requires MinIO for log storage. Ensure MinIO is running from the main infrastructure:
+
+```bash
+cd infra/custom
+docker compose up -d minio minio-setup
+```
+
+The `minio-setup` container creates the required `loki` bucket automatically.
+
 ## Quick Start
 
 ```bash
@@ -34,6 +45,12 @@ Access Grafana at http://localhost:3001 (admin/admin).
       │   Prometheus    │       │      Loki       │
       │   (port 9091)   │       │   (port 3100)   │
       └────────┬────────┘       └────────┬────────┘
+               │                         │
+               │                         ▼
+               │                ┌─────────────────┐
+               │                │     MinIO       │
+               │                │  (S3 storage)   │
+               │                └─────────────────┘
                │                         │
                └──────────┬──────────────┘
                           │
@@ -72,6 +89,27 @@ Loki aggregates logs from all services. Services send Warning and Error level lo
 
 - **Rust services**: `tracing-loki` crate
 - **.NET API**: `Serilog.Sinks.Grafana.Loki`
+
+### Storage Backend
+
+Loki uses MinIO (S3-compatible) for log storage instead of local filesystem. This provides:
+
+- Durable storage with MinIO's data protection
+- Shared storage across Loki instances (if scaled)
+- Consistent storage backend with ClickHouse
+
+**MinIO Configuration:**
+
+| Setting | Value |
+|---------|-------|
+| Endpoint | `shortas-minio:9000` |
+| Bucket | `loki` |
+| Access Key | `minioadmin` |
+| Secret Key | `minioadmin` |
+
+The `loki` bucket is created automatically by `minio-setup` in `infra/custom/docker-compose.yml`.
+
+Configuration file: `loki/config.yml`
 
 ### Log Labels
 
@@ -175,7 +213,8 @@ curl http://localhost:3100/loki/api/v1/label/service/values
 |--------|---------|
 | `prometheus_data` | Prometheus time-series database |
 | `grafana_data` | Grafana dashboards and settings |
-| `loki_data` | Loki log storage |
+| `loki_data` | Loki working directory (compactor, WAL) |
+| MinIO `loki` bucket | Loki log chunks and index storage |
 
 ## Network
 
