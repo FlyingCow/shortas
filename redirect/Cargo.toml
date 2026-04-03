@@ -96,6 +96,7 @@ indexmap = "2.2.6"
 # Logging and tracing
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+tracing-loki = "0.2"
 env_logger = "0.11.3"
 
 # Monitoring and metrics

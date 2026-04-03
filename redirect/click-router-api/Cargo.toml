@@ -15,6 +15,7 @@ documentation.workspace = true
 salvo.workspace = true
 rustls.workspace = true
 tracing-subscriber.workspace = true
+tracing-loki.workspace = true
 anyhow.workspace = true
 async-recursion.workspace = true
 async-trait.workspace = true

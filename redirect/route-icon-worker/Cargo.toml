@@ -11,6 +11,7 @@ documentation.workspace = true
 [dependencies]
 # Workspace dependencies
 tracing-subscriber.workspace = true
+tracing-loki.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 clap.workspace = true

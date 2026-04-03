@@ -17,18 +17,43 @@ pub struct Args {
 async fn main() -> Result<()> {
     dotenv::from_filename("./.env").ok();
 
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    // Initialize tracing with Loki integration
+    let loki_url = std::env::var("LOKI_URL").unwrap_or_else(|_| "http://loki:3100".to_string());
 
-    tracing_subscriber::registry()
-        .with(env_filter)
-        .with(
-            tracing_subscriber::fmt::layer()
-                .with_target(true)
-                .with_thread_ids(true)
-                .with_file(true)
-                .with_line_number(true),
-        )
-        .init();
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn"));
+
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_target(true)
+        .with_thread_ids(true)
+        .with_file(true)
+        .with_line_number(true);
+
+    let loki_result = url::Url::parse(&loki_url)
+        .ok()
+        .and_then(|url| {
+            tracing_loki::builder()
+                .label("service", "domain-verifier")
+                .ok()
+                .and_then(|b| b.build_url(url).ok())
+        });
+
+    match loki_result {
+        Some((loki_layer, loki_task)) => {
+            tracing_subscriber::registry()
+                .with(env_filter)
+                .with(fmt_layer)
+                .with(loki_layer)
+                .init();
+            tokio::spawn(loki_task);
+        }
+        None => {
+            tracing_subscriber::registry()
+                .with(env_filter)
+                .with(fmt_layer)
+                .init();
+            eprintln!("domain-verifier: Failed to initialize Loki logging");
+        }
+    }
 
     tracing::info!("Starting domain-verifier");
 

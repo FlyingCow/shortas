@@ -170,7 +170,8 @@ services:
       - "4433:4433"
       - "5800:5800"
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=warn
+      - LOKI_URL=http://shortas-loki:3100
       - APP_RUN_MODE=production
     depends_on:
       mongo:
@@ -195,7 +196,8 @@ services:
     ports:
       - "5810:5810"
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=warn
+      - LOKI_URL=http://shortas-loki:3100
       - APP_RUN_MODE=production
     depends_on:
       mongo:
@@ -213,6 +215,7 @@ services:
     restart: unless-stopped
     environment:
       - RUST_LOG=warn
+      - LOKI_URL=http://shortas-loki:3100
       - APP_RUN_MODE=production
     depends_on:
       redis:
@@ -232,6 +235,7 @@ services:
       - "9090:9090"
     environment:
       - RUST_LOG=warn
+      - LOKI_URL=http://shortas-loki:3100
       - APP_RUN_MODE=production
       - METRICS_PORT=9090
     depends_on:
@@ -294,7 +298,8 @@ services:
     ports:
       - "5820:5820"
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=warn
+      - LOKI_URL=http://shortas-loki:3100
       - APP_RUN_MODE=production
     depends_on:
       clickhouse-migrations:
@@ -311,7 +316,8 @@ services:
     ports:
       - "5830:5830"
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=warn
+      - LOKI_URL=http://shortas-loki:3100
       - APP_RUN_MODE=production
     depends_on:
       mongo:
@@ -328,7 +334,8 @@ services:
     container_name: shortas-route-icon-worker
     restart: unless-stopped
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=warn
+      - LOKI_URL=http://shortas-loki:3100
       - APP_RUN_MODE=production
     networks:
       - shortas-net
@@ -360,7 +367,8 @@ services:
     ports:
       - "5831:5831"
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=warn
+      - LOKI_URL=http://shortas-loki:3100
       - APP_RUN_MODE=production
     depends_on:
       mongo:
@@ -401,7 +409,8 @@ services:
     env_file:
       - ./cert-bot/.env
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=warn
+      - LOKI_URL=http://shortas-loki:3100
       - APP_RUN_MODE=production
     volumes:
       - cert_bot_data:/etc/cert-bot

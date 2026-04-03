@@ -12,6 +12,7 @@ documentation.workspace = true
 # Workspace dependencies
 salvo.workspace = true
 tracing-subscriber.workspace = true
+tracing-loki.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 clap.workspace = true
