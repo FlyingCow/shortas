@@ -22,7 +22,21 @@ REST API for managing short link routes. Built on Salvo with OpenAPI support.
 
 ## Port
 
-Runs on port 8080 (mapped to 8081 in Docker Compose).
+Runs on port 5810.
+
+## Logging & Monitoring
+
+Warning and error logs are sent to Grafana Loki for centralized log aggregation.
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `LOKI_URL` | Loki push endpoint | `http://shortas-loki:3100` |
+| `RUST_LOG` | Log level filter | `warn` |
+
+View logs in Grafana:
+```logql
+{service="click-router-api"}
+```
 
 ## Dependencies
 

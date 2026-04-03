@@ -163,6 +163,8 @@ Resolves custom domains and serves TLS certificates for the Click Router.
 | RabbitMQ | Messaging | Cache invalidation, route status changes |
 | MinIO | Object storage | ClickHouse data files, route icons |
 | gglsbl-rest | Safe Browsing | Local mirror of Google Safe Browsing threat lists |
+| Prometheus | Metrics | Time-series metrics from all services |
+| Loki | Logs | Aggregated warning/error logs from all services |
 
 ## Event Streaming
 
@@ -251,3 +253,82 @@ A manual reindex endpoint (`POST /api/v1/routes/search/reindex`) is available fo
 ## Authentication
 
 Keycloak handles user authentication. The Management API validates JWTs issued by Keycloak, and the Dashboard integrates via `keycloak-js`.
+
+## Monitoring & Observability
+
+Shortas includes a comprehensive monitoring stack for metrics collection and log aggregation.
+
+### Stack Components
+
+| Component | Purpose | Port |
+|-----------|---------|------|
+| Prometheus | Metrics collection and storage | 9091 |
+| Grafana | Visualization and dashboards | 3001 |
+| Loki | Log aggregation | 3100 |
+
+### Metrics Collection
+
+All Rust services expose Prometheus metrics endpoints. Prometheus scrapes these endpoints and stores time-series data for:
+
+- Request counts and latencies
+- Error rates
+- Active connections
+- Cache hit/miss ratios
+- Queue depths
+
+### Log Aggregation
+
+All services send Warning and Error level logs to Grafana Loki for centralized log management:
+
+```
+┌─────────────────┐     ┌─────────────────┐
+│  Rust Services  │────▶│      Loki       │
+│ (tracing-loki)  │     │  (port 3100)    │
+└─────────────────┘     └────────┬────────┘
+                                 │
+┌─────────────────┐              │
+│   .NET API      │──────────────┤
+│ (Serilog.Loki)  │              │
+└─────────────────┘              │
+                                 ▼
+                        ┌─────────────────┐
+                        │    Grafana      │
+                        │  (port 3001)    │
+                        └─────────────────┘
+```
+
+**Rust services** use `tracing-loki` to send structured logs directly to Loki with service labels.
+
+**The .NET API** uses `Serilog.Sinks.Grafana.Loki` for log shipping.
+
+### Log Levels
+
+Services are configured to send only Warning and Error level logs to Loki to minimize noise:
+
+- `RUST_LOG=warn` for Rust services
+- `restrictedToMinimumLevel: Warning` for .NET API
+
+### Querying Logs
+
+In Grafana, use the Explore view with the Loki datasource:
+
+```logql
+# All service logs
+{service=~".+"}
+
+# Specific service
+{service="click-router"}
+
+# Filter by level
+{service=~".+"} |= "ERROR"
+
+# Search for patterns
+{service=~".+"} |~ "(?i)timeout|connection"
+```
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LOKI_URL` | Loki push API endpoint | `http://shortas-loki:3100` |
+| `RUST_LOG` | Log level filter | `warn` |

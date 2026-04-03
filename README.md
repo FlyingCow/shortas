@@ -40,6 +40,18 @@ Shortas is composed of multiple subsystems working together:
     │         │           │             │         │
  MongoDB   Redis      RabbitMQ      MinIO    ClickHouse
  (routes) (sessions)  (events)     (icons)  (analytics)
+
+                    Monitoring Stack
+    ┌─────────────────────────────────────────────┐
+    │                                             │
+    │  Prometheus ◄─── metrics ───┐               │
+    │  (port 9091)                │               │
+    │       │                All Services         │
+    │       ▼                     │               │
+    │   Grafana ◄─── logs ── Loki ◄───────────────┤
+    │  (port 3001)         (port 3100)            │
+    │                                             │
+    └─────────────────────────────────────────────┘
 ```
 
 **Click Router** handles incoming short URL requests, performs redirects (including conditional routing based on geo, device, or browser), and emits click events to Fluvio. **Click Tracker** consumes raw events, enriches them with geolocation (MaxMind), user-agent parsing, and session tracking (Redis), then publishes aggregated events. **Click Aggregator** consumes aggregated events and stores them in ClickHouse for analytics. Additional workers handle route safety verification (Safe Browsing), favicon scraping, and domain ownership verification. Each component has a companion REST API for management and querying.
@@ -59,6 +71,7 @@ Shortas is composed of multiple subsystems working together:
 | Route safety | gglsbl-rest (Google Safe Browsing) |
 | Dashboard | React 18, TypeScript, Bootstrap 5 |
 | Auth | Keycloak (JWT) |
+| Monitoring | Prometheus, Grafana, Loki |
 
 ## Prerequisites
 
@@ -115,6 +128,8 @@ shortas/
 │   ├── route-verifier/     Safe Browsing verification worker
 │   ├── route-icon-worker/  Favicon scraping worker
 │   ├── domain-verifier/    Domain ownership verification
+│   ├── cert-bot/           Let's Encrypt certificate automation
+│   ├── monitoring/         Prometheus, Grafana, Loki stack
 │   ├── infra/              Infrastructure (domains service, AWS/custom)
 │   ├── clickhouse/         ClickHouse configuration
 │   └── docker-compose.yml  Full stack compose file
@@ -131,17 +146,19 @@ shortas/
 | Service | Port | Description |
 |---------|------|-------------|
 | click-router | 5800 | HTTP redirect & click capture |
-| click-router-api | 8081 | Route CRUD API |
+| click-router-api | 5810 | Route CRUD API |
 | click-tracker | - | Event enrichment consumer |
-| click-aggregator | - | ClickHouse ingestion consumer |
-| click-aggregator-api | 8082 | Analytics query API |
-| route-verifier | - | Safe Browsing verification worker |
+| click-aggregator | 9090 | ClickHouse ingestion consumer (metrics) |
+| click-aggregator-api | 5820 | Analytics query API |
+| route-verifier | 5831 | Safe Browsing verification worker |
 | route-icon-worker | - | Favicon scraping worker |
-| domain-verifier | - | Domain ownership verification |
-| domains | 5801 | Domain & certificate management |
+| domain-verifier | 5830 | Domain ownership verification |
+| cert-bot | - | Let's Encrypt certificate automation |
 | management API | 5050 | Workspace, route & user management |
 | dashboard | 3000 | Admin UI |
-| landing | 3001 | Marketing site |
+| prometheus | 9091 | Metrics collection |
+| grafana | 3001 | Monitoring dashboards |
+| loki | 3100 | Log aggregation |
 
 ## Make Targets
 

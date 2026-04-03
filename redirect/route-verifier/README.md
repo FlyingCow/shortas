@@ -51,6 +51,20 @@ Blocked routes are rechecked more frequently to allow automatic unblocking if th
 |------|---------|
 | 5831 | HTTP health endpoint |
 
+## Logging & Monitoring
+
+Warning and error logs are sent to Grafana Loki for centralized log aggregation.
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `LOKI_URL` | Loki push endpoint | `http://shortas-loki:3100` |
+| `RUST_LOG` | Log level filter | `warn` |
+
+View logs in Grafana:
+```logql
+{service="route-verifier"}
+```
+
 ## Configuration
 
 Key settings in `config/default.toml`:

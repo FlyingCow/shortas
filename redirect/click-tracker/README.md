@@ -25,6 +25,20 @@ Fluvio (hit-stream-main) → click-tracker → Fluvio (click-aggs-main)
 - Configurable channel-based parallelism
 - Supports both Fluvio (primary) and Kafka (fallback) as event sources
 
+## Logging & Monitoring
+
+Warning and error logs are sent to Grafana Loki for centralized log aggregation.
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `LOKI_URL` | Loki push endpoint | `http://shortas-loki:3100` |
+| `RUST_LOG` | Log level filter | `warn` |
+
+View logs in Grafana:
+```logql
+{service="click-tracker"}
+```
+
 ## Dependencies
 
 - Fluvio — event consumption and publishing

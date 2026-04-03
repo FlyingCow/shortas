@@ -28,7 +28,22 @@ Supports dynamic TLS certificate resolution through the Domains service (port 58
 | Port | Purpose |
 |------|---------|
 | 5800 | HTTP server |
+| 4433 | HTTPS server |
 | 9090 | Prometheus metrics |
+
+## Logging & Monitoring
+
+Warning and error logs are sent to Grafana Loki for centralized log aggregation.
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `LOKI_URL` | Loki push endpoint | `http://shortas-loki:3100` |
+| `RUST_LOG` | Log level filter | `warn` |
+
+View logs in Grafana:
+```logql
+{service="click-router"}
+```
 
 ## Dependencies
 

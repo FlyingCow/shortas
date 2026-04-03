@@ -9,7 +9,7 @@ ASP.NET Core 9 REST API for managing workspaces, routes, domains, certificates, 
 - Elasticsearch 7.17 (NEST client) for full-text route search
 - Keycloak JWT authentication
 - FluentValidation
-- Serilog logging
+- Serilog logging (with Grafana Loki integration)
 - Polly resilience policies
 - Swagger/OpenAPI
 
@@ -130,6 +130,41 @@ curl -X POST http://localhost:8090/api/v1/routes/search/reindex \
 ```
 
 This fetches all routes from PostgreSQL and bulk-indexes them into Elasticsearch.
+
+## Logging & Monitoring
+
+The API uses Serilog for structured logging with multiple sinks:
+
+- **Console** — local development
+- **File** — rolling log files in `logs/`
+- **Grafana Loki** — centralized log aggregation (Warning+ level)
+
+Logs are sent to Loki with the `service=shortas-api` label. View logs in Grafana:
+
+```logql
+{service="shortas-api"}
+```
+
+Configuration in `appsettings.json`:
+
+```json
+{
+  "Serilog": {
+    "WriteTo": [
+      { "Name": "Console" },
+      { "Name": "File", "Args": { "path": "logs/shortas-api-.txt" } },
+      {
+        "Name": "GrafanaLoki",
+        "Args": {
+          "uri": "http://shortas-loki:3100",
+          "labels": [{ "key": "service", "value": "shortas-api" }],
+          "restrictedToMinimumLevel": "Warning"
+        }
+      }
+    ]
+  }
+}
+```
 
 ## Database Migrations
 
