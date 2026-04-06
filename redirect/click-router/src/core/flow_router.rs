@@ -37,7 +37,7 @@ use super::{
     ip::{IPExtractor, IPInfo},
     language::{Language, LanguageExtractor},
     location::{Country, LocationDetector},
-    metrics::{FlowRouterMetrics, Timer},
+    metrics::{FlowRouterMetrics, Timer, METRICS},
     modules::FlowModules,
     protocol::{ProtoInfo, ProtocolExtractor},
     routes::RoutesManager,
@@ -513,7 +513,7 @@ impl FlowRouter {
             user_agent_detector,
             location_detector,
             modules,
-            metrics: FlowRouterMetrics::new().expect("Failed to initialize metrics"),
+            metrics: METRICS.clone(),
             request_counter: AtomicU64::new(0),
         }
     }

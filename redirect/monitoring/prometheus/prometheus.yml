@@ -14,10 +14,10 @@ scrape_configs:
       - targets: ['localhost:9090']
 
   # Click Router metrics
-  # The click-router exposes metrics on port 5800
+  # The click-router exposes metrics on port 9092
   - job_name: 'click-router'
     static_configs:
-      - targets: ['shortas-click-router:5800']
+      - targets: ['shortas-click-router:9092']
     metrics_path: /metrics
     scrape_interval: 5s
 

@@ -45,6 +45,9 @@
 **/*.prof
 **/perf.data*
 
+# Infrastructure data directories
+infra/custom/fs/
+
 # Docker files (not needed inside build)
 **/Dockerfile*
 **/docker-compose*.yml

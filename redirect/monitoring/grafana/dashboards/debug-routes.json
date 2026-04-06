@@ -32,7 +32,7 @@
       },
       "id": 1,
       "panels": [],
-      "title": "Debug Routes Overview",
+      "title": "Router Overview",
       "type": "row"
     },
     {
@@ -87,12 +87,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "flow_router_debug_requests_total",
-          "legendFormat": "Debug Requests",
+          "expr": "flow_router_requests_total",
+          "legendFormat": "Total Requests",
           "refId": "A"
         }
       ],
-      "title": "Total Debug Requests",
+      "title": "Total Requests",
       "type": "stat"
     },
     {
@@ -147,12 +147,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(flow_router_debug_requests_total[5m])",
+          "expr": "rate(flow_router_requests_total[5m])",
           "legendFormat": "Request Rate",
           "refId": "A"
         }
       ],
-      "title": "Debug Request Rate",
+      "title": "Request Rate",
       "type": "stat"
     },
     {
@@ -172,6 +172,10 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
               }
             ]
           },
@@ -207,12 +211,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "aggregator_debug_clicks_total",
-          "legendFormat": "Aggregator Debug Clicks",
+          "expr": "flow_router_requests_error_total",
+          "legendFormat": "Errors",
           "refId": "A"
         }
       ],
-      "title": "Aggregator Debug Clicks",
+      "title": "Total Errors",
       "type": "stat"
     },
     {
@@ -267,12 +271,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "aggregator_clicks_processed_total",
-          "legendFormat": "Total Clicks Processed",
+          "expr": "flow_router_active_requests",
+          "legendFormat": "Active Requests",
           "refId": "A"
         }
       ],
-      "title": "Total Clicks Processed",
+      "title": "Active Requests",
       "type": "stat"
     },
     {
@@ -285,7 +289,7 @@
       },
       "id": 6,
       "panels": [],
-      "title": "Router Stage Breakdown",
+      "title": "Request Latency",
       "type": "row"
     },
     {
@@ -373,89 +377,31 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(flow_router_debug_stage_duration_seconds_bucket[5m])) by (le, stage))",
-          "legendFormat": "{{stage}} p95",
+          "expr": "histogram_quantile(0.50, sum(rate(flow_router_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50",
           "refId": "A"
-        }
-      ],
-      "title": "Stage Duration P95",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "mappings": [],
-          "unit": "s"
         },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 6
-      },
-      "id": 8,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "right",
-          "showLegend": true
-        },
-        "pieType": "pie",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "10.4.0",
-      "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(flow_router_debug_stage_duration_seconds_sum[5m])) by (stage)",
-          "legendFormat": "{{stage}}",
-          "refId": "A"
+          "expr": "histogram_quantile(0.95, sum(rate(flow_router_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum(rate(flow_router_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
         }
       ],
-      "title": "Time Spent per Stage",
-      "type": "piechart"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 14
-      },
-      "id": 9,
-      "panels": [],
-      "title": "End-to-End Latency",
-      "type": "row"
+      "title": "Request Duration",
+      "type": "timeseries"
     },
     {
       "datasource": {
@@ -510,6 +456,130 @@
             ]
           },
           "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.50, sum(rate(flow_router_flow_processing_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(flow_router_flow_processing_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum(rate(flow_router_flow_processing_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "title": "Flow Processing Duration",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "id": 9,
+      "panels": [],
+      "title": "Cache Performance",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percentunit"
         },
         "overrides": []
       },
@@ -524,7 +594,7 @@
         "legend": {
           "calcs": [
             "mean",
-            "max"
+            "last"
           ],
           "displayMode": "table",
           "placement": "bottom",
@@ -542,8 +612,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.50, sum(rate(flow_router_debug_total_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Router p50",
+          "expr": "flow_router_route_cache_hits_total / (flow_router_route_cache_hits_total + flow_router_route_cache_misses_total)",
+          "legendFormat": "Route Cache Hit Rate",
           "refId": "A"
         },
         {
@@ -551,8 +621,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(flow_router_debug_total_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Router p95",
+          "expr": "flow_router_user_settings_cache_hits_total / (flow_router_user_settings_cache_hits_total + flow_router_user_settings_cache_misses_total)",
+          "legendFormat": "User Settings Cache Hit Rate",
           "refId": "B"
         },
         {
@@ -560,12 +630,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.99, sum(rate(flow_router_debug_total_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Router p99",
+          "expr": "flow_router_qr_cache_hits_total / (flow_router_qr_cache_hits_total + flow_router_qr_cache_misses_total)",
+          "legendFormat": "QR Cache Hit Rate",
           "refId": "C"
         }
       ],
-      "title": "Router Debug Total Duration",
+      "title": "Cache Hit Rate",
       "type": "timeseries"
     },
     {
@@ -620,7 +690,7 @@
               }
             ]
           },
-          "unit": "s"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -634,8 +704,7 @@
       "options": {
         "legend": {
           "calcs": [
-            "mean",
-            "max"
+            "last"
           ],
           "displayMode": "table",
           "placement": "bottom",
@@ -653,8 +722,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.50, sum(rate(aggregator_debug_pipeline_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Pipeline p50",
+          "expr": "flow_router_route_cache_hits_total",
+          "legendFormat": "Route Cache Hits",
           "refId": "A"
         },
         {
@@ -662,8 +731,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(aggregator_debug_pipeline_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Pipeline p95",
+          "expr": "flow_router_route_cache_misses_total",
+          "legendFormat": "Route Cache Misses",
           "refId": "B"
         },
         {
@@ -671,12 +740,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.99, sum(rate(aggregator_debug_pipeline_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Pipeline p99",
+          "expr": "flow_router_route_db_queries_total",
+          "legendFormat": "DB Queries",
           "refId": "C"
         }
       ],
-      "title": "Aggregator Debug Pipeline Duration",
+      "title": "Cache Operations",
       "type": "timeseries"
     },
     {
@@ -689,7 +758,7 @@
       },
       "id": 12,
       "panels": [],
-      "title": "Queue Latency",
+      "title": "Database & Queue Performance",
       "type": "row"
     },
     {
@@ -741,14 +810,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 5
               }
             ]
           },
@@ -785,8 +846,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.50, sum(rate(flow_router_debug_hit_queue_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Router Queue p50",
+          "expr": "histogram_quantile(0.50, sum(rate(flow_router_db_query_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "DB Query p50",
           "refId": "A"
         },
         {
@@ -794,8 +855,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(flow_router_debug_hit_queue_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Router Queue p95",
+          "expr": "histogram_quantile(0.95, sum(rate(flow_router_db_query_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "DB Query p95",
           "refId": "B"
         },
         {
@@ -803,12 +864,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.99, sum(rate(flow_router_debug_hit_queue_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Router Queue p99",
+          "expr": "histogram_quantile(0.99, sum(rate(flow_router_db_query_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "DB Query p99",
           "refId": "C"
         }
       ],
-      "title": "Router Hit Queue Duration",
+      "title": "Database Query Duration",
       "type": "timeseries"
     },
     {
@@ -860,14 +921,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 5
               }
             ]
           },
@@ -904,8 +957,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.50, sum(rate(aggregator_debug_queue_latency_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Queue Latency p50",
+          "expr": "histogram_quantile(0.50, sum(rate(flow_router_cache_lookup_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "Cache Lookup p50",
           "refId": "A"
         },
         {
@@ -913,8 +966,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(aggregator_debug_queue_latency_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Queue Latency p95",
+          "expr": "histogram_quantile(0.95, sum(rate(flow_router_cache_lookup_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "Cache Lookup p95",
           "refId": "B"
         },
         {
@@ -922,12 +975,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.99, sum(rate(aggregator_debug_queue_latency_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Queue Latency p99",
+          "expr": "histogram_quantile(0.99, sum(rate(flow_router_cache_lookup_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "Cache Lookup p99",
           "refId": "C"
         }
       ],
-      "title": "Fluvio/Kafka Queue Latency (Router to Aggregator)",
+      "title": "Cache Lookup Duration",
       "type": "timeseries"
     },
     {
@@ -940,7 +993,7 @@
       },
       "id": 15,
       "panels": [],
-      "title": "ClickHouse Write Performance",
+      "title": "Click Aggregator",
       "type": "row"
     },
     {
@@ -953,37 +1006,65 @@
           "color": {
             "mode": "palette-classic"
           },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 33
+      },
+      "id": 16,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "aggregator_clicks_processed_total",
+          "legendFormat": "Clicks Processed",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Clicks Processed",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
           },
           "mappings": [],
           "thresholds": {
@@ -995,31 +1076,30 @@
               }
             ]
           },
-          "unit": "s"
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
+        "h": 4,
+        "w": 6,
+        "x": 6,
         "y": 33
       },
-      "id": 16,
+      "id": 17,
       "options": {
-        "legend": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
           "calcs": [
-            "mean",
-            "max"
+            "lastNotNull"
           ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
+        "textMode": "auto"
       },
       "pluginVersion": "10.4.0",
       "targets": [
@@ -1028,31 +1108,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.50, sum(rate(aggregator_debug_store_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Store p50",
+          "expr": "flow_router_hits_registered_total",
+          "legendFormat": "Hits Registered",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.95, sum(rate(aggregator_debug_store_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Store p95",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.99, sum(rate(aggregator_debug_store_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "Store p99",
-          "refId": "C"
         }
       ],
-      "title": "ClickHouse Write Duration",
-      "type": "timeseries"
+      "title": "Hits Registered (Router)",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -1116,7 +1178,7 @@
         "x": 12,
         "y": 33
       },
-      "id": 17,
+      "id": 18,
       "options": {
         "legend": {
           "calcs": [
@@ -1148,12 +1210,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(aggregator_debug_clicks_total[5m])",
-          "legendFormat": "Debug Clicks/sec",
+          "expr": "rate(flow_router_hits_registered_total[5m])",
+          "legendFormat": "Hits/sec (Router)",
           "refId": "B"
         }
       ],
-      "title": "Write Rate",
+      "title": "Processing Rate",
       "type": "timeseries"
     },
     {
@@ -1164,9 +1226,9 @@
         "x": 0,
         "y": 41
       },
-      "id": 18,
+      "id": 19,
       "panels": [],
-      "title": "General Router Performance",
+      "title": "Request Rate",
       "type": "row"
     },
     {
@@ -1227,11 +1289,11 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 24,
         "x": 0,
         "y": 42
       },
-      "id": 19,
+      "id": 20,
       "options": {
         "legend": {
           "calcs": [
@@ -1277,118 +1339,70 @@
           "refId": "C"
         }
       ],
-      "title": "Router Request Rate",
+      "title": "Request Rate",
       "type": "timeseries"
     },
     {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "id": 21,
+      "panels": [],
+      "title": "Service Logs",
+      "type": "row"
+    },
+    {
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "percentunit"
-        },
+        "defaults": {},
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 42
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 51
       },
-      "id": 20,
+      "id": 22,
       "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "last"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
       },
       "pluginVersion": "10.4.0",
       "targets": [
         {
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "flow_router_route_cache_hits_total / (flow_router_route_cache_hits_total + flow_router_route_cache_misses_total)",
-          "legendFormat": "Route Cache Hit Rate",
+          "expr": "{service=~\"click-router|click-tracker|click-aggregator|shortas-api\"}",
+          "legendFormat": "",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "flow_router_user_settings_cache_hits_total / (flow_router_user_settings_cache_hits_total + flow_router_user_settings_cache_misses_total)",
-          "legendFormat": "User Settings Cache Hit Rate",
-          "refId": "B"
         }
       ],
-      "title": "Cache Hit Rate",
-      "type": "timeseries"
+      "title": "Warning & Error Logs",
+      "type": "logs"
     }
   ],
   "refresh": "5s",
   "schemaVersion": 39,
   "tags": [
     "shortas",
-    "debug",
-    "tracing"
+    "monitoring",
+    "performance"
   ],
   "templating": {
     "list": []
@@ -1399,7 +1413,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Debug Routes Tracing",
+  "title": "Click Router Performance",
   "uid": "debug-routes-tracing",
   "version": 1,
   "weekStart": ""

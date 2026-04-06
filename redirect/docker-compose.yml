@@ -169,10 +169,13 @@ services:
     ports:
       - "4433:4433"
       - "5800:5800"
+      - "9092:9092"
     environment:
       - RUST_LOG=warn
       - LOKI_URL=http://shortas-loki:3100
       - APP_RUN_MODE=production
+      - APP_METRICS_ADDR=0.0.0.0:9092
+      - APP_ENABLE_METRICS=true
     depends_on:
       mongo:
         condition: service_started

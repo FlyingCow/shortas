@@ -395,9 +395,10 @@ async fn main() {
             args.metrics_addr
         );
 
-        // Start metrics server in background with default address
+        // Start metrics server in background
+        let metrics_addr: &'static str = Box::leak(args.metrics_addr.clone().into_boxed_str());
         tokio::spawn(async move {
-            let metrics_acceptor = TcpListener::new("0.0.0.0:9090").bind().await;
+            let metrics_acceptor = TcpListener::new(metrics_addr).bind().await;
             Server::new(metrics_acceptor).serve(metrics_service).await;
         });
     } else {
