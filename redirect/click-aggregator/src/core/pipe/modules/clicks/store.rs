@@ -44,7 +44,29 @@ impl AggsModule for StoreModule {
 
         // Record store duration for debug clicks
         if has_trace {
+            let store_duration_ms = store_timer.elapsed_seconds() * 1000.0;
             store_timer.observe_duration_seconds(&METRICS.debug_store_duration);
+
+            // Log trace event for debug routes (use warn level to ensure it appears in Loki)
+            if let Some(ref trace) = context.click.trace {
+                let queue_latency_ms = trace.router_exit_utc
+                    .map(|exit| Utc::now().signed_duration_since(exit).num_milliseconds() as f64)
+                    .unwrap_or(0.0);
+
+                if let Ok(click_json) = serde_json::to_string(&context.click) {
+                    tracing::warn!(
+                        trace_id = %trace.trace_id,
+                        route_id = %context.click.route_id,
+                        service = "click-aggregator",
+                        step = "StoreModule",
+                        router_total_ms = %trace.total_ms,
+                        queue_latency_ms = %queue_latency_ms,
+                        store_duration_ms = %store_duration_ms,
+                        click = %click_json,
+                        "Debug trace: click stored to ClickHouse"
+                    );
+                }
+            }
         }
 
         result

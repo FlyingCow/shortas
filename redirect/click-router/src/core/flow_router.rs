@@ -634,6 +634,21 @@ impl FlowRouter {
                 _ => return Err(anyhow::anyhow!("Invalid flow step: {:?}", current_step)),
             };
 
+            // Log flow step completion for debug routes
+            if trace_enabled {
+                let route_id = context.main_route.as_ref()
+                    .and_then(|r| r.properties.route_id.clone())
+                    .unwrap_or_default();
+                tracing::warn!(
+                    trace_id = %context.id,
+                    route_id = %route_id,
+                    service = "click-router",
+                    step = %format!("{:?}", current_step),
+                    continue_flow = %should_continue,
+                    "Debug trace: flow step completed"
+                );
+            }
+
             // End span and record debug metrics for this stage
             if let Some(ref mut trace) = context.trace {
                 trace.end_span();
@@ -776,6 +791,23 @@ impl FlowRouter {
             hit_trace.clone(),
         );
 
+        // Log hit JSON for debug routes before sending to click-tracker
+        if trace_enabled {
+            let route_id = context.main_route.as_ref()
+                .and_then(|r| r.properties.route_id.clone())
+                .unwrap_or_default();
+            if let Ok(hit_json) = serde_json::to_string(&hit) {
+                tracing::warn!(
+                    trace_id = %context.id,
+                    route_id = %route_id,
+                    service = "click-router",
+                    step = "SendToTracker",
+                    hit = %hit_json,
+                    "Debug trace: hit sent to click-tracker"
+                );
+            }
+        }
+
         let hit_result = self.hit_registrar.register(&hit).await;
 
         // Record hit queue duration for debug routes
@@ -786,10 +818,24 @@ impl FlowRouter {
         }
 
         // Store the hit trace in context for potential later use
-        context.hit_trace = hit_trace;
+        context.hit_trace = hit_trace.clone();
 
         if hit_result.is_ok() {
             self.metrics.hits_registered.inc();
+
+            // Log trace event for debug routes (use warn level to ensure it appears in Loki)
+            if let Some(ref trace) = hit_trace {
+                tracing::warn!(
+                    trace_id = %trace.trace_id,
+                    route_id = %context.main_route.as_ref()
+                        .and_then(|r| r.properties.route_id.clone())
+                        .unwrap_or_default(),
+                    service = "click-router",
+                    step = "HitRegistered",
+                    total_ms = %trace.total_ms,
+                    "Debug trace: click registered"
+                );
+            }
         }
 
         hit_result?;

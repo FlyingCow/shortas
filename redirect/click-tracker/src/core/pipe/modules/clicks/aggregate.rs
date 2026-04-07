@@ -68,6 +68,24 @@ impl TrackingModule for AggregateModule {
                 stream_item.is_unique = session.count == 1;
             }
 
+            // Propagate trace data from click-router
+            stream_item.trace = context.hit.trace.clone();
+
+            // Log trace event and stream_item JSON for debug routes
+            if let Some(ref trace) = stream_item.trace {
+                if let Ok(stream_item_json) = serde_json::to_string(&stream_item) {
+                    tracing::warn!(
+                        trace_id = %trace.trace_id,
+                        route_id = %stream_item.route_id.as_deref().unwrap_or(""),
+                        service = "click-tracker",
+                        step = "AggregateModule",
+                        total_ms = %trace.total_ms,
+                        stream_item = %stream_item_json,
+                        "Debug trace: sending to click-aggregator"
+                    );
+                }
+            }
+
             self.click_aggs_registrar.register(stream_item).await?;
         }
         

@@ -19,11 +19,25 @@ impl TrackingModule for EnrichSessionModule {
 
         let ip = context.hit.ip.unwrap();
         let route = context.hit.route.clone().unwrap();
+        let route_id = route.id.clone().unwrap_or_default();
 
         let session = self
             .session_detector
-            .detect(route.id.unwrap().as_str(), &ip, &context.hit.utc)
+            .detect(route_id.as_str(), &ip, &context.hit.utc)
             .await?;
+
+        // Log module execution for debug routes
+        if let Some(ref trace) = context.hit.trace {
+            tracing::warn!(
+                trace_id = %trace.trace_id,
+                route_id = %route_id,
+                service = "click-tracker",
+                step = "SessionModule",
+                session_clicks = %session.count,
+                is_unique = %(session.count == 1),
+                "Debug trace: session module executed"
+            );
+        }
 
         context.session = Some(session);
 

@@ -25,6 +25,21 @@ impl TrackingModule for EnrichUserAgentModule {
                 }
             }
 
+            // Log module execution for debug routes
+            if let Some(ref trace) = context.hit.trace {
+                tracing::warn!(
+                    trace_id = %trace.trace_id,
+                    route_id = %context.hit.route.as_ref().and_then(|r| r.id.as_ref()).map(|s| s.as_str()).unwrap_or(""),
+                    service = "click-tracker",
+                    step = "UserAgentModule",
+                    ua_family = %client.user_agent.family,
+                    os_family = %client.os.family,
+                    device_family = %client.device.family,
+                    is_spider = %context.spider,
+                    "Debug trace: user agent module executed"
+                );
+            }
+
             // Move parsed values into context
             context.client_ua = Some(client.user_agent);
             context.client_os = Some(client.os);
