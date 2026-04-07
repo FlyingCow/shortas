@@ -15,5 +15,6 @@ public interface IDomainService
         int page = 1,
         int pageSize = 20,
         string? search = null);
+    Task<Result<List<RouteDomain>>> ListSharedDomainsAsync();
     Task<Result<RouteDomain>> UpdateCustomPagesAsync(Guid id, string userId, string? customIndexUrl, string? customNotFoundUrl);
 }

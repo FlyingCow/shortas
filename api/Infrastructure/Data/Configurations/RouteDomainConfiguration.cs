@@ -36,8 +36,13 @@ public class RouteDomainConfiguration : IEntityTypeConfiguration<RouteDomain>
         builder.Property(d => d.LastVerificationCheck);
         builder.Property(d => d.NextVerificationCheck);
 
-        // Add unique index on Name per Owner (each user can have unique domain names)
-        builder.HasIndex(d => new { d.OwnerId, d.Name })
+        // IsShared flag for shared/common domains
+        builder.Property(d => d.IsShared)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        // Domain names must be globally unique (shared domains use special owner ID)
+        builder.HasIndex(d => d.Name)
             .IsUnique();
 
         // Add index on OwnerId for performance

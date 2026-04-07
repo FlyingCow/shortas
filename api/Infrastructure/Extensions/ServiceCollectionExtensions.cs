@@ -141,6 +141,9 @@ public static class ServiceCollectionExtensions
         // Register Route Status Consumer (for Safe Browsing verification events)
         services.AddHostedService<RouteStatusConsumer>();
 
+        // Register Shared Domain Seeder (seeds shared domains on startup)
+        services.AddHostedService<SharedDomainSeeder>();
+
         // Add S3/MinIO Object Storage
         var s3Endpoint = configuration["S3:Endpoint"] ?? "http://localhost:9000";
         var s3AccessKey = configuration["S3:AccessKey"] ?? "minioadmin";

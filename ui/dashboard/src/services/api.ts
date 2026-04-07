@@ -365,6 +365,7 @@ export interface DomainDto {
   verificationReason: string;
   lastVerificationCheck?: string;
   nextVerificationCheck?: string;
+  isShared?: boolean;
 }
 
 export interface DnsConfigDto {
@@ -714,6 +715,11 @@ export const apiService = {
 
     getDnsConfig: async (): Promise<DnsConfigDto> => {
       const response = await routerApi.get('/domains/dns-config');
+      return response.data;
+    },
+
+    listShared: async (): Promise<DomainDto[]> => {
+      const response = await routerApi.get('/domains/shared');
       return response.data;
     },
 

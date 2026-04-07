@@ -80,6 +80,25 @@ public class DomainsController : ControllerBase
     }
 
     /// <summary>
+    /// List all shared/common domains that any user can use
+    /// </summary>
+    /// <returns>List of shared domains</returns>
+    [HttpGet("shared")]
+    [AllowAnonymous]
+    public async Task<ActionResult<List<DomainDto>>> ListSharedDomains()
+    {
+        var result = await _domainService.ListSharedDomainsAsync();
+
+        if (result.IsFailure)
+        {
+            return HandleError(result.ErrorCode ?? "UNKNOWN_ERROR", result.Error);
+        }
+
+        var domainDtos = result.Value.Select(MapToDto).ToList();
+        return Ok(domainDtos);
+    }
+
+    /// <summary>
     /// Get domain information by ID
     /// </summary>
     /// <param name="id">Domain ID</param>
@@ -346,6 +365,7 @@ public class DomainsController : ControllerBase
             Id = domain.Id,
             Name = domain.Name,
             OwnerId = domain.OwnerId,
+            IsShared = domain.IsShared,
             VerificationStatus = domain.VerificationStatus.ToString(),
             VerificationReason = domain.VerificationReason,
             LastVerificationCheck = domain.LastVerificationCheck,

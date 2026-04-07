@@ -134,10 +134,10 @@ public class EfRouteService : IRouteService
                 return Result<RouteEntity>.Failure(Error.NotFound("Domain", route.DomainId.Value.ToString()));
             }
 
-            // Verify domain belongs to current user
+            // Verify domain belongs to current user (or is shared)
             if (route.Properties != null && !string.IsNullOrWhiteSpace(route.Properties.OwnerId))
             {
-                if (route.Domain.OwnerId != route.Properties.OwnerId)
+                if (!route.Domain.IsShared && route.Domain.OwnerId != route.Properties.OwnerId)
                 {
                     return Result<RouteEntity>.Failure(Error.Forbidden("Domain does not belong to user"));
                 }
@@ -580,10 +580,10 @@ public class EfRouteService : IRouteService
                     return Result<List<RouteEntity>>.Failure(Error.NotFound("Domain", route.DomainId!.Value.ToString()));
                 }
 
-                // Verify domain belongs to the route owner
+                // Verify domain belongs to the route owner (or is shared)
                 if (route.Properties != null && !string.IsNullOrWhiteSpace(route.Properties.OwnerId))
                 {
-                    if (route.Domain.OwnerId != route.Properties.OwnerId)
+                    if (!route.Domain.IsShared && route.Domain.OwnerId != route.Properties.OwnerId)
                     {
                         return Result<List<RouteEntity>>.Failure(Error.Forbidden($"Domain {route.Domain.Name} does not belong to user"));
                     }

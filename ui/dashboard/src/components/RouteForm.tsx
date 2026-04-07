@@ -417,7 +417,7 @@ const RouteForm: React.FC<RouteFormProps> = ({
                 <option value="">Select a domain...</option>
                 {domains.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.name}
+                    {d.name}{d.isShared ? ' (Shared)' : ''}
                   </option>
                 ))}
               </select>

@@ -13,6 +13,9 @@ public class RouteDomain
 
     public string OwnerId { get; set; } = string.Empty;
 
+    // Shared domain flag - shared domains can be used by any user
+    public bool IsShared { get; set; } = false;
+
     // Verification status
     public DomainVerificationStatus VerificationStatus { get; set; } = DomainVerificationStatus.Pending;
     public string VerificationReason { get; set; } = "not_checked";

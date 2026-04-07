@@ -34,8 +34,9 @@ public class EfDomainService : IDomainService
             if (string.IsNullOrWhiteSpace(userId))
                 return Result<RouteDomain?>.Failure(Error.Required("userId"));
 
+            // Return domain if user owns it OR if it's shared
             var domain = await _context.RouteDomains
-                .FirstOrDefaultAsync(d => d.Id == id && d.OwnerId == userId);
+                .FirstOrDefaultAsync(d => d.Id == id && (d.OwnerId == userId || d.IsShared));
 
             if (domain == null)
                 return Result<RouteDomain?>.Failure(Error.NotFound("Domain", id.ToString()));
@@ -59,9 +60,10 @@ public class EfDomainService : IDomainService
             if (string.IsNullOrWhiteSpace(userId))
                 return Result<RouteDomain?>.Failure(Error.Required("userId"));
 
+            // Return domain if user owns it OR if it's shared
             var normalizedName = name.ToLowerInvariant();
             var domain = await _context.RouteDomains
-                .FirstOrDefaultAsync(d => d.Name == normalizedName && d.OwnerId == userId);
+                .FirstOrDefaultAsync(d => d.Name == normalizedName && (d.OwnerId == userId || d.IsShared));
 
             if (domain == null)
                 return Result<RouteDomain?>.Failure(Error.NotFound("Domain", name));
@@ -88,10 +90,10 @@ public class EfDomainService : IDomainService
             // Set the owner
             domain.OwnerId = userId;
 
-            // Check if domain already exists for this user
+            // Check if domain already exists (domain names are globally unique)
             var normalizedName = domain.Name.ToLowerInvariant();
             var existing = await _context.RouteDomains
-                .FirstOrDefaultAsync(d => d.Name == normalizedName && d.OwnerId == userId);
+                .FirstOrDefaultAsync(d => d.Name == normalizedName);
 
             if (existing != null)
                 return Result<RouteDomain>.Failure(Error.Conflict("Domain with this name already exists"));
@@ -145,14 +147,18 @@ public class EfDomainService : IDomainService
             if (existingDomain == null)
                 return Result<RouteDomain>.Failure(Error.NotFound("Domain", id.ToString()));
 
+            // Shared domains cannot be modified
+            if (existingDomain.IsShared)
+                return Result<RouteDomain>.Failure(Error.Forbidden("Shared domains cannot be modified"));
+
             // Verify ownership
             if (existingDomain.OwnerId != userId)
                 return Result<RouteDomain>.Failure(Error.Forbidden());
 
-            // Check if another domain with the same name exists for this user
+            // Check if another domain with the same name already exists (globally unique)
             var normalizedName = domain.Name.ToLowerInvariant();
             var duplicate = await _context.RouteDomains
-                .FirstOrDefaultAsync(d => d.Name == normalizedName && d.Id != id && d.OwnerId == userId);
+                .FirstOrDefaultAsync(d => d.Name == normalizedName && d.Id != id);
 
             if (duplicate != null)
                 return Result<RouteDomain>.Failure(Error.Conflict("Domain with this name already exists"));
@@ -188,6 +194,10 @@ public class EfDomainService : IDomainService
 
             if (existingDomain == null)
                 return Result.Failure(Error.NotFound("Domain", id.ToString()));
+
+            // Shared domains cannot be deleted
+            if (existingDomain.IsShared)
+                return Result.Failure(Error.Forbidden("Shared domains cannot be deleted"));
 
             // Verify ownership
             if (existingDomain.OwnerId != userId)
@@ -238,8 +248,9 @@ public class EfDomainService : IDomainService
             if (string.IsNullOrWhiteSpace(userId))
                 return Result<(List<RouteDomain> Domains, int TotalCount)>.Failure(Error.Required("userId"));
 
+            // Only include user's own domains (shared domains available via separate endpoint)
             var query = _context.RouteDomains
-                .Where(d => d.OwnerId == userId)
+                .Where(d => d.OwnerId == userId && !d.IsShared)
                 .AsQueryable();
 
             // Apply search filter
@@ -269,6 +280,25 @@ public class EfDomainService : IDomainService
         }
     }
 
+    public async Task<Result<List<RouteDomain>>> ListSharedDomainsAsync()
+    {
+        try
+        {
+            var sharedDomains = await _context.RouteDomains
+                .Where(d => d.IsShared)
+                .OrderBy(d => d.Name)
+                .ToListAsync();
+
+            return Result<List<RouteDomain>>.Success(sharedDomains);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing shared domains");
+            return Result<List<RouteDomain>>.Failure(
+                Error.Internal("Failed to list shared domains", ex.Message));
+        }
+    }
+
     public async Task<Result<RouteDomain>> UpdateCustomPagesAsync(Guid id, string userId, string? customIndexUrl, string? customNotFoundUrl)
     {
         try
@@ -282,6 +312,10 @@ public class EfDomainService : IDomainService
 
             if (existingDomain == null)
                 return Result<RouteDomain>.Failure(Error.NotFound("Domain", id.ToString()));
+
+            // Shared domains cannot have custom pages modified
+            if (existingDomain.IsShared)
+                return Result<RouteDomain>.Failure(Error.Forbidden("Shared domains cannot have custom pages"));
 
             // Verify ownership
             if (existingDomain.OwnerId != userId)

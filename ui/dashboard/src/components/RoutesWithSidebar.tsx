@@ -1098,8 +1098,13 @@ const RoutesWithSidebar: React.FC = () => {
 
   const fetchDomains = async () => {
     try {
-      const response = await apiService.domains.list({ page: 1, pageSize: 100 });
-      setDomains(response.data);
+      const [userDomainsResponse, sharedDomains] = await Promise.all([
+        apiService.domains.list({ page: 1, pageSize: 100 }),
+        apiService.domains.listShared().catch(() => [] as DomainDto[]),
+      ]);
+      // Combine shared domains first, then user domains
+      const combined = [...sharedDomains, ...userDomainsResponse.data];
+      setDomains(combined);
     } catch (err: any) {
       console.error('Failed to fetch domains:', err);
     }

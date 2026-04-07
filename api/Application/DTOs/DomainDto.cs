@@ -7,6 +7,7 @@ public class DomainDto
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string OwnerId { get; set; } = string.Empty;
+    public bool IsShared { get; set; }
     public string VerificationStatus { get; set; } = "Pending";
     public string VerificationReason { get; set; } = "not_checked";
     public DateTime? LastVerificationCheck { get; set; }
