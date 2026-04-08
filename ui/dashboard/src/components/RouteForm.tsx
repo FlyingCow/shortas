@@ -108,6 +108,11 @@ const RouteForm: React.FC<RouteFormProps> = ({
 }) => {
   const isEdit = !!route;
 
+  // Only allow creating routes on verified domains
+  // For edit mode, include the current domain even if it became unverified
+  const verifiedDomains = domains.filter((d) => d.verificationStatus === 'Verified');
+  const availableDomains = isEdit ? domains : verifiedDomains;
+
   const buildInitialData = (): Partial<RouteDto> => {
     if (route) {
       // For edit mode, use conditions from route if available, otherwise parse from policy
@@ -161,14 +166,14 @@ const RouteForm: React.FC<RouteFormProps> = ({
   }, [route]);
 
   // Auto-select domain when there is exactly one available and creating a new route
-  const singleDomain = !isEdit && domains.length === 1;
+  const singleDomain = !isEdit && verifiedDomains.length === 1;
   useEffect(() => {
     if (singleDomain && !formData.domainId) {
-      const domainId = domains[0].id;
+      const domainId = verifiedDomains[0].id;
       setFormData((prev) => ({ ...prev, domainId }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [domains, singleDomain]);
+  }, [verifiedDomains, singleDomain]);
 
   // Auto-select workspace when there is exactly one available and creating a new route
   const singleWorkspace = !isEdit && (workspaces || []).length === 1;
@@ -415,7 +420,7 @@ const RouteForm: React.FC<RouteFormProps> = ({
                 disabled={saving || isEdit || singleDomain}
               >
                 <option value="">Select a domain...</option>
-                {domains.map((d) => (
+                {availableDomains.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}{d.isShared ? ' (Shared)' : ''}
                   </option>
@@ -425,7 +430,7 @@ const RouteForm: React.FC<RouteFormProps> = ({
                 <span className="rf-helper">
                   {isEdit
                     ? 'Domain cannot be changed after creation'
-                    : 'Choose the domain for this short link'}
+                    : 'Only verified domains are available'}
                 </span>
               )}
             </div>
