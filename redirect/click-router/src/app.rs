@@ -319,11 +319,12 @@ impl AppBuilder {
             self.settings.redirect.clone(),
         )));
 
-        // Initialize QR code module with cache
+        // Initialize QR code module with cache and optional QR images base URL
         if let Some(qr_cache) = &self.qr_code_cache {
             self.modules
                 .push(FlowModules::QrCode(QrCodeModule::with_defaults(
                     qr_cache.clone(),
+                    self.settings.redirect.qr_images_base_url.clone(),
                 )));
         } else {
             tracing::warn!("QR code cache not initialized, QR code module will not be available");

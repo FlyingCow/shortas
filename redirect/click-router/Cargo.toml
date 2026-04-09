@@ -61,6 +61,7 @@ percent-encoding.workspace = true
 string_format.workspace = true
 futures.workspace = true
 mongodb.workspace = true
+reqwest.workspace = true
 lapin.workspace = true
 prometheus.workspace = true
 lazy_static.workspace = true

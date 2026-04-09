@@ -14,6 +14,10 @@ pub struct Redirect {
     pub not_found_url: String,
     pub index_url: String,
     pub blocked_url: String,
+    /// Base URL for fetching stored QR images (e.g., "http://minio-nginx/route-images")
+    /// QR images are fetched from: {qr_images_base_url}/{owner_id}/{route_id}/qr.svg
+    #[serde(default)]
+    pub qr_images_base_url: Option<String>,
 }
 #[derive(Default, Debug, Deserialize, Clone)]
 #[allow(unused)]

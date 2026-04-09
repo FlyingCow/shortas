@@ -63,6 +63,7 @@ mmdb = "../data/geo-ip/GeoLite2-Country.mmdb"
 not_found_url = "http://pages:5801/not-found?domain={}"
 index_url = "http://pages:5801/index?domain={}"
 blocked_url = "http://pages:5801/blocked?reason={}"
+qr_images_base_url = "http://minio-nginx/route-images"
 
 [rabbitmq]
 uri = "amqp://guest:guest@rabbitmq:5672/%2f"

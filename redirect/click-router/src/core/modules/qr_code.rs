@@ -15,14 +15,19 @@ const QR_SUFFIX: &str = ".qr";
 
 /// QR Code generation module with caching support
 ///
-/// This module intercepts requests ending with `.qr` suffix and generates
-/// QR codes for the destination URLs. The module uses a Moka cache to avoid
-/// regenerating QR codes for the same URLs.
+/// This module intercepts requests ending with `.qr` suffix and serves
+/// QR codes for the destination URLs. If a QR code was previously generated
+/// and stored via the UI (in object storage), it will be proxied. Otherwise,
+/// a QR code is generated on-the-fly using the Moka cache.
 #[derive(Clone)]
 pub struct QrCodeModule {
     cache: Arc<MokaQrCodeCache>,
     min_size: u32,
     max_size: u32,
+    /// Base URL for fetching stored QR images (e.g., "http://minio-nginx/route-images")
+    qr_images_base_url: Option<String>,
+    /// HTTP client for fetching stored QR images
+    http_client: reqwest::Client,
 }
 
 impl QrCodeModule {
@@ -32,17 +37,65 @@ impl QrCodeModule {
     /// * `cache` - The Moka cache for storing generated QR codes
     /// * `min_size` - Minimum dimensions for QR codes in pixels (default: 400)
     /// * `max_size` - Maximum dimensions for QR codes in pixels (default: 800)
-    pub fn new(cache: Arc<MokaQrCodeCache>, min_size: u32, max_size: u32) -> Self {
+    /// * `qr_images_base_url` - Optional base URL for fetching stored QR images
+    pub fn new(
+        cache: Arc<MokaQrCodeCache>,
+        min_size: u32,
+        max_size: u32,
+        qr_images_base_url: Option<String>,
+    ) -> Self {
+        let http_client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .unwrap_or_default();
+
         Self {
             cache,
             min_size,
             max_size,
+            qr_images_base_url,
+            http_client,
         }
     }
 
     /// Creates a new QR code module with default size parameters
-    pub fn with_defaults(cache: Arc<MokaQrCodeCache>) -> Self {
-        Self::new(cache, 400, 800)
+    pub fn with_defaults(cache: Arc<MokaQrCodeCache>, qr_images_base_url: Option<String>) -> Self {
+        Self::new(cache, 400, 800, qr_images_base_url)
+    }
+
+    /// Attempts to fetch a stored QR image from object storage
+    ///
+    /// Returns Some(svg_bytes) if found, None if not found or on error
+    async fn fetch_stored_qr(&self, owner_id: &str, route_id: &str) -> Option<Vec<u8>> {
+        let base_url = self.qr_images_base_url.as_ref()?;
+        let url = format!("{}/{}/{}/qr.svg", base_url, owner_id, route_id);
+
+        match self.http_client.get(&url).send().await {
+            Ok(response) if response.status().is_success() => {
+                match response.bytes().await {
+                    Ok(bytes) => {
+                        tracing::debug!("Fetched stored QR image from {}", url);
+                        Some(bytes.to_vec())
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to read QR image bytes from {}: {}", url, e);
+                        None
+                    }
+                }
+            }
+            Ok(response) if response.status() == reqwest::StatusCode::NOT_FOUND => {
+                tracing::debug!("No stored QR image found at {}", url);
+                None
+            }
+            Ok(response) => {
+                tracing::warn!("Unexpected status {} fetching QR image from {}", response.status(), url);
+                None
+            }
+            Err(e) => {
+                tracing::warn!("Failed to fetch QR image from {}: {}", url, e);
+                None
+            }
+        }
     }
 
     /// Strips the .qr suffix from a path if present
@@ -94,7 +147,24 @@ impl FlowModule for QrCodeModule {
             return Ok(FlowStepContinuation::Continue);
         }
 
-        // Build the full URL for the original path (without .qr suffix)
+        // Try to fetch stored QR image from object storage first
+        if let Some(ref main_route) = context.main_route {
+            if let (Some(owner_id), Some(route_id)) = (
+                main_route.properties.owner_id.as_ref(),
+                main_route.properties.route_id.as_ref(),
+            ) {
+                if let Some(svg_data) = self.fetch_stored_qr(owner_id, route_id).await {
+                    context.result = Some(FlowRouterResult::Image(
+                        svg_data,
+                        "image/svg+xml".to_string(),
+                        StatusCode::OK,
+                    ));
+                    return Ok(FlowStepContinuation::Break);
+                }
+            }
+        }
+
+        // Fall back to generating QR code on-the-fly
         if let Some(original_path) = context.get_string(ORIGINAL_PATH) {
             // Construct the full URL: scheme://host:port/path
             let qr_url = format!(
@@ -172,7 +242,7 @@ mod tests {
             time_to_idle_minutes: 30,
         };
         let cache = Arc::new(MokaQrCodeCache::new(settings));
-        let module = QrCodeModule::with_defaults(cache);
+        let module = QrCodeModule::with_defaults(cache, None);
 
         // Generate via cache
         let result = module
