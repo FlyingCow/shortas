@@ -70,7 +70,7 @@ Shortas is composed of multiple subsystems working together:
 | Object storage | MinIO |
 | Route safety | gglsbl-rest (Google Safe Browsing) |
 | Dashboard | React 18, TypeScript, Bootstrap 5 |
-| Auth | Keycloak (JWT) |
+| Auth | Keycloak (local) / AWS Cognito (AWS) |
 | Monitoring | Prometheus, Grafana, Loki |
 
 ## Prerequisites
@@ -114,6 +114,35 @@ cd ui/dashboard
 npm install && npm start
 ```
 
+### AWS Deployment
+
+For production deployments, Shortas can be deployed to AWS using Terraform. This replaces local services with AWS managed equivalents:
+
+| Local | AWS |
+|-------|-----|
+| MongoDB | DynamoDB |
+| PostgreSQL | RDS Aurora |
+| Redis | ElastiCache |
+| MinIO | S3 |
+| RabbitMQ | Amazon MQ |
+| Keycloak | AWS Cognito |
+
+```bash
+# Deploy to AWS (dev environment)
+cd infra/aws/terraform/environments/dev
+terraform init
+terraform apply
+
+# Build and push Docker images
+cd ../scripts
+./build-push-images.sh dev
+
+# Deploy services
+./deploy-services.sh dev
+```
+
+See [infra/aws/terraform/README.md](infra/aws/terraform/README.md) for detailed AWS deployment instructions.
+
 ## Project Structure
 
 ```
@@ -130,7 +159,9 @@ shortas/
 │   ├── domain-verifier/    Domain ownership verification
 │   ├── cert-bot/           Let's Encrypt certificate automation
 │   ├── monitoring/         Prometheus, Grafana, Loki stack
-│   ├── infra/              Infrastructure (domains service, AWS/custom)
+│   ├── infra/              Infrastructure configs
+├── infra/
+│   └── aws/terraform/      AWS Terraform modules and environments
 │   ├── clickhouse/         ClickHouse configuration
 │   └── docker-compose.yml  Full stack compose file
 ├── ui/

@@ -1,15 +1,16 @@
 [rabbitmq]
+# URI is loaded from environment variable APP_RABBITMQ_URI in AWS
 uri = "amqp://guest:guest@shortas-rabbitmq:5672/%2f"
 route_exchange = "cache.invalidation.routes"
 reconnect_seconds = 5
 
 [s3]
-endpoint = "http://minio:9000"
-bucket = "route-images"
+# No endpoint - uses AWS S3 default
+# No credentials - uses IAM role via default credential chain
+bucket = "shortas-route-images-prod"
 region = "us-east-1"
-access_key = "minioadmin"
-secret_key = "minioadmin"
+use_path_style = false  # AWS S3 uses virtual-hosted style
 
 [worker]
-request_timeout_seconds = 10
-max_image_size_bytes = 1048576
+request_timeout_seconds = 15
+max_image_size_bytes = 2097152  # 2MB for production

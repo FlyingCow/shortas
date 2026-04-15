@@ -9,6 +9,7 @@ bucket = "route-images"
 region = "us-east-1"
 access_key = "minioadmin"
 secret_key = "minioadmin"
+use_path_style = true  # Required for MinIO
 
 [worker]
 request_timeout_seconds = 10

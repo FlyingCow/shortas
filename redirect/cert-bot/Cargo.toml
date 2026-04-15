@@ -11,6 +11,10 @@ instant-acme.workspace = true
 # Async runtime
 tokio.workspace = true
 
+# AWS SDK for DynamoDB
+aws-config.workspace = true
+aws-sdk-dynamodb.workspace = true
+
 # HTTP client for click-router-api
 reqwest.workspace = true
 

@@ -11,6 +11,10 @@ documentation.workspace = true
 [dependencies]
 # Workspace dependencies
 salvo.workspace = true
+
+# AWS SDK for DynamoDB
+aws-config.workspace = true
+aws-sdk-dynamodb.workspace = true
 tracing-subscriber.workspace = true
 tracing-loki.workspace = true
 url.workspace = true

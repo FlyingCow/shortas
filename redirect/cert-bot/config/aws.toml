@@ -1,0 +1,38 @@
+# AWS Production Configuration for Cert Bot
+# This config is used when running on AWS ECS
+
+[acme]
+directory_url = "https://acme-v02.api.letsencrypt.org/directory"  # Production
+account_email = "admin@shortas.com"
+account_key_path = "/etc/cert-bot/account.key"
+
+[click_router_api]
+base_url = "http://click-router-api.prod.shortas.local:3000"
+timeout_seconds = 30
+
+[aws]
+local = false
+
+[aws.dynamo]
+orders_table = "core-certificate-orders-prod"
+
+# MongoDB is not used in AWS - DynamoDB is the primary store
+[mongodb]
+uri = ""
+database = ""
+orders_collection = ""
+
+# RabbitMQ URI is loaded from environment variable APP_RABBITMQ_URI
+[rabbitmq]
+domain_exchange = "domain.state.changed"
+certificate_exchange = "cache.invalidation.certificates"
+reconnect_seconds = 5
+
+[worker]
+check_interval_seconds = 30
+batch_size = 10
+max_retries = 3
+
+[renewal]
+check_interval_hours = 24
+renewal_days_before = 30

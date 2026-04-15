@@ -1,0 +1,68 @@
+# AWS Dev Configuration for Click Router
+# This config is used when running on AWS ECS (dev environment)
+
+[aws]
+local = false
+
+[aws.dynamo]
+encryption_table = "core-routes-encryption-dev"
+routes_table = "core-routes-dev"
+hostname_mappings_table = "core-routes-hostname-mapping-dev"
+user_settings_table = "core-user-settings-dev"
+challenges_table = "core-challenges-dev"
+
+# MongoDB is not used in AWS - DynamoDB is the primary store
+[mongodb]
+uri = ""
+database = ""
+
+[fluvio]
+[fluvio.hit_stream]
+topic = "hit-stream-dev"
+host = "fluvio-sc.dev.shortas.local:9003"
+batch_size = 500
+linger = 100
+
+[moka]
+[moka.crypto_cache]
+max_capacity = 10_000
+time_to_live_minutes = 60
+time_to_idle_minutes = 20
+
+[moka.routes_cache]
+max_capacity = 50_000
+time_to_live_minutes = 60
+time_to_idle_minutes = 30
+
+[moka.user_settings_cache]
+max_capacity = 25_000
+time_to_live_minutes = 120
+time_to_idle_minutes = 60
+
+[moka.challenge_cache]
+max_capacity = 10_000
+time_to_live_minutes = 5
+time_to_idle_minutes = 2
+
+[uaparser]
+yaml = "/app/data/ua-parser/regexes.yaml"
+
+[geo_ip]
+mmdb = "/app/data/geo-ip/GeoLite2-Country.mmdb"
+
+# RabbitMQ URI is loaded from environment variable APP_RABBITMQ_URI
+[rabbitmq]
+route_exchange = "cache.invalidation.routes"
+user_settings_exchange = "cache.invalidation.user_settings"
+reconnect_seconds = 5
+
+[redirect]
+not_found_url = "http://pages.dev.shortas.local:5801/not-found?domain={}"
+index_url = "http://pages.dev.shortas.local:5801/index?domain={}"
+blocked_url = "http://pages.dev.shortas.local:5801/blocked?reason={}"
+qr_images_base_url = "https://shortas-route-images-dev.s3.amazonaws.com"
+
+[server]
+threads = 8
+listen_os_signals = true
+exit = true

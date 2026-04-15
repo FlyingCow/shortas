@@ -16,23 +16,50 @@ pub struct ImageStore {
 
 impl ImageStore {
     pub async fn new(settings: &S3Settings) -> Result<Self> {
-        let credentials = Credentials::new(
-            &settings.access_key,
-            &settings.secret_key,
-            None,
-            None,
-            "route-icon-worker",
-        );
+        let region = Region::new(settings.region.clone());
 
-        let config = aws_sdk_s3::Config::builder()
-            .behavior_version(BehaviorVersion::latest())
-            .endpoint_url(&settings.endpoint)
-            .region(Region::new(settings.region.clone()))
-            .credentials_provider(credentials)
-            .force_path_style(true)
-            .build();
+        // Build S3 config based on whether explicit credentials are provided
+        let client = if let (Some(access_key), Some(secret_key)) = (&settings.access_key, &settings.secret_key) {
+            // Use explicit credentials (for MinIO/LocalStack)
+            let credentials = Credentials::new(
+                access_key,
+                secret_key,
+                None,
+                None,
+                "route-icon-worker",
+            );
 
-        let client = Client::from_conf(config);
+            let mut config_builder = aws_sdk_s3::Config::builder()
+                .behavior_version(BehaviorVersion::latest())
+                .region(region)
+                .credentials_provider(credentials)
+                .force_path_style(settings.use_path_style);
+
+            // Set custom endpoint if provided (MinIO/LocalStack)
+            if let Some(endpoint) = &settings.endpoint {
+                config_builder = config_builder.endpoint_url(endpoint);
+            }
+
+            Client::from_conf(config_builder.build())
+        } else {
+            // Use AWS default credential chain (IAM roles, env vars, etc.)
+            info!("Using AWS default credential chain for S3 access");
+            let aws_config = aws_config::from_env()
+                .region(region)
+                .load()
+                .await;
+
+            let mut config_builder = aws_sdk_s3::config::Builder::from(&aws_config)
+                .behavior_version(BehaviorVersion::latest())
+                .force_path_style(settings.use_path_style);
+
+            // Set custom endpoint if provided
+            if let Some(endpoint) = &settings.endpoint {
+                config_builder = config_builder.endpoint_url(endpoint);
+            }
+
+            Client::from_conf(config_builder.build())
+        };
 
         Ok(Self {
             client,

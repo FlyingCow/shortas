@@ -6,4 +6,6 @@ pub struct Dynamo {
     pub routes_table: String,
     pub hostname_mappings_table: String,
     pub user_settings_table: String,
+    #[serde(default)]
+    pub challenges_table: String,
 }

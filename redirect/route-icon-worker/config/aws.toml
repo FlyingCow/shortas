@@ -1,0 +1,17 @@
+# AWS Production Configuration for Route Icon Worker
+
+[rabbitmq]
+# URI is loaded from environment variable APP_RABBITMQ_URI
+route_exchange = "cache.invalidation.routes"
+reconnect_seconds = 5
+
+[s3]
+# No endpoint - uses AWS S3 default
+# No credentials - uses IAM role via default credential chain
+bucket = "shortas-route-images-prod"
+region = "us-east-1"
+use_path_style = false
+
+[worker]
+request_timeout_seconds = 15
+max_image_size_bytes = 2097152  # 2MB

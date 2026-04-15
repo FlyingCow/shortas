@@ -1,0 +1,68 @@
+# AWS Production Configuration for Click Router
+# This config is used when running on AWS ECS
+
+[aws]
+local = false
+
+[aws.dynamo]
+encryption_table = "core-routes-encryption-prod"
+routes_table = "core-routes-prod"
+hostname_mappings_table = "core-routes-hostname-mapping-prod"
+user_settings_table = "core-user-settings-prod"
+challenges_table = "core-challenges-prod"
+
+# MongoDB is not used in AWS - DynamoDB is the primary store
+[mongodb]
+uri = ""
+database = ""
+
+[fluvio]
+[fluvio.hit_stream]
+topic = "hit-stream-prod"
+host = "fluvio-sc.prod.shortas.local:9003"
+batch_size = 1000
+linger = 100
+
+[moka]
+[moka.crypto_cache]
+max_capacity = 50_000
+time_to_live_minutes = 1440  # 24 hours
+time_to_idle_minutes = 720   # 12 hours
+
+[moka.routes_cache]
+max_capacity = 500_000       # Large cache for production
+time_to_live_minutes = 120   # 2 hours
+time_to_idle_minutes = 60    # 1 hour
+
+[moka.user_settings_cache]
+max_capacity = 100_000
+time_to_live_minutes = 240   # 4 hours
+time_to_idle_minutes = 120   # 2 hours
+
+[moka.challenge_cache]
+max_capacity = 50_000
+time_to_live_minutes = 5
+time_to_idle_minutes = 2
+
+[uaparser]
+yaml = "/app/data/ua-parser/regexes.yaml"
+
+[geo_ip]
+mmdb = "/app/data/geo-ip/GeoLite2-Country.mmdb"
+
+# RabbitMQ URI is loaded from environment variable APP_RABBITMQ_URI
+[rabbitmq]
+route_exchange = "cache.invalidation.routes"
+user_settings_exchange = "cache.invalidation.user_settings"
+reconnect_seconds = 5
+
+[redirect]
+not_found_url = "http://pages.prod.shortas.local:5801/not-found?domain={}"
+index_url = "http://pages.prod.shortas.local:5801/index?domain={}"
+blocked_url = "http://pages.prod.shortas.local:5801/blocked?reason={}"
+qr_images_base_url = "https://shortas-route-images-prod.s3.amazonaws.com"
+
+[server]
+threads = 16
+listen_os_signals = true
+exit = true

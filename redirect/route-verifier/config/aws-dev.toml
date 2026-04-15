@@ -1,0 +1,32 @@
+# AWS Dev Configuration for Route Verifier
+# This config is used when running on AWS ECS (dev environment)
+
+[server]
+port = 5831
+
+[aws]
+local = false
+
+[aws.dynamo]
+routes_table = "core-routes-to-verify-dev"
+
+# MongoDB is not used in AWS - DynamoDB is the primary store
+[mongodb]
+connection_string = ""
+database_name = ""
+collection = ""
+
+# RabbitMQ URI is loaded from environment variable APP_RABBITMQ_URI
+[rabbitmq]
+route_status_exchange = "route.status.changed"
+reconnect_seconds = 5
+
+[safe_browsing]
+base_url = "http://safe-browsing.dev.shortas.local:5000"
+timeout_seconds = 120
+
+[worker]
+check_interval_seconds = 300
+batch_size = 50
+recheck_interval_hours = 12
+blocked_recheck_interval_hours = 1

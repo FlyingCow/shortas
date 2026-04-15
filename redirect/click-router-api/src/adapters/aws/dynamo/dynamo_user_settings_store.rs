@@ -81,14 +81,86 @@ impl DynamoUserSettingsStore {
 
 #[async_trait::async_trait()]
 impl UserSettingsStore for DynamoUserSettingsStore {
-    async fn store_user_settings(&self, _user_settings: &UserSettings) -> Result<()> {
-        todo!()
+    async fn store_user_settings(&self, user_settings: &UserSettings) -> Result<()> {
+        let mut request = self
+            .client
+            .put_item()
+            .table_name(&self.user_settings_table)
+            .item("user_id", AttributeValue::S(user_settings.user_id.clone()))
+            .item("user_email", AttributeValue::S(user_settings.user_email.clone()))
+            .item("status", AttributeValue::S(match user_settings.active_status {
+                ActiveStatus::Active => ACTIVE.to_string(),
+                ActiveStatus::Blocked => BLOCKED.to_string(),
+            }))
+            .item("debug", AttributeValue::Bool(user_settings.debug))
+            .item("overflow", AttributeValue::Bool(user_settings.overflow));
+
+        if let Some(api_key) = &user_settings.api_key {
+            request = request.item("api_key", AttributeValue::S(api_key.clone()));
+        }
+
+        if !user_settings.skip.is_empty() {
+            request = request.item("skip", AttributeValue::Ss(user_settings.skip.clone()));
+        }
+
+        if !user_settings.allowed_request_params.is_empty() {
+            request = request.item("request_params", AttributeValue::Ss(user_settings.allowed_request_params.clone()));
+        }
+
+        if !user_settings.allowed_destination_params.is_empty() {
+            request = request.item("destination_params", AttributeValue::Ss(user_settings.allowed_destination_params.clone()));
+        }
+
+        request
+            .condition_expression("attribute_not_exists(user_id)")
+            .send()
+            .await?;
+
+        Ok(())
     }
-    async fn update_user_settings(&self, _user_settings: &UserSettings) -> Result<()> {
-        todo!()
+
+    async fn update_user_settings(&self, user_settings: &UserSettings) -> Result<()> {
+        let mut request = self
+            .client
+            .put_item()
+            .table_name(&self.user_settings_table)
+            .item("user_id", AttributeValue::S(user_settings.user_id.clone()))
+            .item("user_email", AttributeValue::S(user_settings.user_email.clone()))
+            .item("status", AttributeValue::S(match user_settings.active_status {
+                ActiveStatus::Active => ACTIVE.to_string(),
+                ActiveStatus::Blocked => BLOCKED.to_string(),
+            }))
+            .item("debug", AttributeValue::Bool(user_settings.debug))
+            .item("overflow", AttributeValue::Bool(user_settings.overflow));
+
+        if let Some(api_key) = &user_settings.api_key {
+            request = request.item("api_key", AttributeValue::S(api_key.clone()));
+        }
+
+        if !user_settings.skip.is_empty() {
+            request = request.item("skip", AttributeValue::Ss(user_settings.skip.clone()));
+        }
+
+        if !user_settings.allowed_request_params.is_empty() {
+            request = request.item("request_params", AttributeValue::Ss(user_settings.allowed_request_params.clone()));
+        }
+
+        if !user_settings.allowed_destination_params.is_empty() {
+            request = request.item("destination_params", AttributeValue::Ss(user_settings.allowed_destination_params.clone()));
+        }
+
+        request.send().await?;
+        Ok(())
     }
-    async fn delete_user_settings(&self, _user_settings: &UserSettings) -> Result<()> {
-        todo!()
+
+    async fn delete_user_settings(&self, user_settings: &UserSettings) -> Result<()> {
+        self.client
+            .delete_item()
+            .table_name(&self.user_settings_table)
+            .key("user_id", AttributeValue::S(user_settings.user_id.clone()))
+            .send()
+            .await?;
+        Ok(())
     }
 
     async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {

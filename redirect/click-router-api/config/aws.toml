@@ -1,0 +1,31 @@
+# AWS Production Configuration for Click Router API
+# This config is used when running on AWS ECS
+
+[aws]
+local = false
+
+[aws.dynamo]
+encryption_table = "core-routes-encryption-prod"
+routes_table = "core-routes-prod"
+hostname_mappings_table = "core-routes-hostname-mapping-prod"
+user_settings_table = "core-user-settings-prod"
+
+# MongoDB is not used in AWS - DynamoDB is the primary store
+[mongodb]
+connection_string = ""
+database_name = ""
+routes_collection = ""
+crypto_collection = ""
+user_settings_collection = ""
+challenges_collection = ""
+
+# RabbitMQ URI is loaded from environment variable APP_RABBITMQ_URI
+[rabbitmq]
+route_exchange = "cache.invalidation.routes"
+user_settings_exchange = "cache.invalidation.user_settings"
+
+[server]
+threads = 16
+listen_os_signals = true
+exit = true
+port = 3000

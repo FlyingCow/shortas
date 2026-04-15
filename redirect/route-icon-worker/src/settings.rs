@@ -15,12 +15,22 @@ fn default_reconnect_seconds() -> u64 {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct S3Settings {
-    pub endpoint: String,
+    /// S3 endpoint URL. Optional for AWS S3 (uses default), required for MinIO/LocalStack.
+    pub endpoint: Option<String>,
     pub bucket: String,
     #[serde(default = "default_region")]
     pub region: String,
-    pub access_key: String,
-    pub secret_key: String,
+    /// Access key. Optional - uses IAM role/default credential chain if not provided.
+    pub access_key: Option<String>,
+    /// Secret key. Optional - uses IAM role/default credential chain if not provided.
+    pub secret_key: Option<String>,
+    /// Use path-style URLs. Set to true for MinIO, false for AWS S3.
+    #[serde(default = "default_use_path_style")]
+    pub use_path_style: bool,
+}
+
+fn default_use_path_style() -> bool {
+    false
 }
 
 fn default_region() -> String {
