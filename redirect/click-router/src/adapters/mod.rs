@@ -1,3 +1,63 @@
+//! # Adapter Layer
+//!
+//! This module provides storage and service adapters for different backends.
+//! We use enum-based dispatch instead of trait objects for performance.
+//!
+//! ## Architecture
+//!
+//! ```text
+//! core/          <- Defines traits (RoutesStore, CryptoStore, etc.)
+//!   └── routes.rs
+//!   └── crypto.rs
+//!
+//! adapters/      <- Implements traits for different backends
+//!   └── mongodb/
+//!   └── aws/dynamo/
+//!   └── moka/
+//!   └── mod.rs   <- This file: enum wrappers for runtime selection
+//! ```
+//!
+//! ## Pattern: Enum-Based Dispatch
+//!
+//! Each adapter type is an enum wrapping concrete implementations:
+//!
+//! ```rust,ignore
+//! pub enum RoutesStoreType {
+//!     Dynamo(DynamoRoutesStore),
+//!     Mongodb(MongodbRoutesStore),
+//!     InMemory(InMemoryRoutesStore),
+//! }
+//! ```
+//!
+//! The enum implements the trait by delegating to the inner type:
+//!
+//! ```rust,ignore
+//! impl RoutesStore for RoutesStoreType {
+//!     async fn get_route(&self, switch: &str, path: &str) -> Result<Option<Route>> {
+//!         match self {
+//!             Self::Dynamo(s) => s.get_route(switch, path).await,
+//!             Self::Mongodb(s) => s.get_route(switch, path).await,
+//!             Self::InMemory(s) => s.get_route(switch, path).await,
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! ## Adding a New Adapter
+//!
+//! 1. Create implementation in `adapters/{backend}/` (e.g., `adapters/redis/`)
+//! 2. Add enum variant to the appropriate `*Type` enum in this file
+//! 3. Add match arm to each trait method implementation
+//!
+//! ## Why Not Trait Objects?
+//!
+//! - Clone without Arc wrappers
+//! - No vtable overhead
+//! - Compile-time exhaustiveness checking
+//!
+//! For new adapters, consider using the `impl_adapter_enum!` macro from
+//! `adapters/adapter_enum.rs` to reduce boilerplate.
+
 use std::net::IpAddr;
 
 use anyhow::{Error, Result};
@@ -40,6 +100,8 @@ use crate::{
     model::{Hit, Keycert, Route, UserSettings},
 };
 
+pub mod adapter_enum;
+pub mod api;
 pub mod aws;
 pub mod fluvio;
 pub mod geo_ip;
@@ -50,7 +112,6 @@ pub mod rabbitmq;
 pub mod rdkafka;
 pub mod salvo;
 pub mod uaparser;
-pub mod api;
 
 #[derive(Clone)]
 pub enum HitRegistrarType {
