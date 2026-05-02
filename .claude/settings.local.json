@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(git -C /home/max/dev/shortas log --oneline -10)",
+      "Bash(ASPNETCORE_ENVIRONMENT=Development dotnet run:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm install)",
+      "Bash(npm ci:*)",
+      "Bash(tree:*)",
+      "Bash(cargo build:*)",
+      "Bash(ls:*)",
+      "Bash(make:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx react-scripts build:*)",
+      "Bash(head:*)",
+      "Bash(cargo check:*)",
+      "Bash(dotnet build:*)",
+      "Bash(xargs ls:*)",
+      "Bash(git log:*)",
+      "Bash(xargs cat:*)",
+      "Bash(grep:*)",
+      "Bash(git -C /home/max/dev/shortas log --oneline -30)",
+      "Bash(git fetch:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker run:*)",
+      "Bash(docker logs:*)",
+      "Bash(nc:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker inspect:*)",
+      "Bash(python3:*)",
+      "Bash(docker network inspect:*)",
+      "Bash(curl:*)",
+      "Bash(docker restart:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker build:*)",
+      "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && head -30 {}')"
+    ]
+  }
+}

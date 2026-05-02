@@ -1,0 +1,63 @@
+version: '3.8'
+
+networks:
+  shortas-net:
+    external: true
+
+services:
+  management-api:
+    build:
+      context: ..
+      dockerfile: management-api/Dockerfile
+    container_name: shortas-management-api
+    restart: unless-stopped
+    ports:
+      - "8091:8080"
+    environment:
+      - RUST_LOG=info
+      # Server settings
+      - APP__SERVER__HOST=0.0.0.0
+      - APP__SERVER__PORT=8080
+      # Database settings (PostgreSQL - same as C# API)
+      - APP__DATABASE__HOST=shortas-api-postgres
+      - APP__DATABASE__PORT=5432
+      - APP__DATABASE__USERNAME=shortas_user
+      - APP__DATABASE__PASSWORD=shortas_password
+      - APP__DATABASE__DATABASE=shortas_dev_db
+      - APP__DATABASE__MAX_CONNECTIONS=10
+      # JWT settings (Keycloak)
+      - APP__JWT__ISSUER=http://keycloak:8080/realms/shortas-dev
+      - APP__JWT__AUDIENCE=shortas-api
+      - APP__JWT__JWKS_URL=http://keycloak:8080/realms/shortas-dev/protocol/openid-connect/certs
+      # Click Router API
+      - APP__CLICK_ROUTER__BASE_URL=http://shortas-click-router-api:5810
+      - APP__CLICK_ROUTER__TIMEOUT_MS=5000
+      # Click Aggregator API
+      - APP__CLICK_AGGREGATOR__BASE_URL=http://shortas-click-aggregator-api:5820
+      - APP__CLICK_AGGREGATOR__TIMEOUT_MS=10000
+      # Elasticsearch
+      - APP__ELASTICSEARCH__URL=http://shortas-api-elasticsearch:9200
+      - APP__ELASTICSEARCH__ROUTES_INDEX=routes
+      # MinIO
+      - APP__MINIO__ENDPOINT=http://shortas-minio:9000
+      - APP__MINIO__REGION=us-east-1
+      - APP__MINIO__ACCESS_KEY=minioadmin
+      - APP__MINIO__SECRET_KEY=minioadmin
+      - APP__MINIO__BUCKET=route-images
+      # RabbitMQ
+      - APP__RABBITMQ__URL=amqp://guest:guest@shortas-rabbitmq:5672
+      - APP__RABBITMQ__DOMAIN_VERIFICATION_QUEUE=domain-verification
+      - APP__RABBITMQ__ROUTE_STATUS_QUEUE=route-status
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      shortas-api-postgres:
+        condition: service_healthy
+      shortas-api-elasticsearch:
+        condition: service_healthy
+    networks:
+      - shortas-net

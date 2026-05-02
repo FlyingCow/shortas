@@ -1,0 +1,381 @@
+# AI Context for Shortas URL Shortener Platform
+# This file helps AI assistants understand the full codebase structure and patterns
+
+project:
+  name: shortas
+  type: url-shortener-saas-platform
+  description: |
+    Multi-tenant URL shortener with real-time analytics, conditional routing,
+    QR code generation, custom domain support, and automatic TLS certificates.
+
+# ============================================================================
+# SYSTEM ARCHITECTURE
+# ============================================================================
+
+architecture:
+  overview: |
+    User Click → click-router → click-tracker → click-aggregator → ClickHouse
+                     ↓
+              Management API (ASP.NET) ← Dashboard (React)
+
+    Background Workers: route-verifier, domain-verifier, cert-bot, route-icon-worker
+
+  services:
+    # Core redirect path
+    click-router:
+      port: 5800
+      purpose: High-performance URL redirect handler
+      tech: Rust/Salvo
+      storage: MongoDB or DynamoDB (via adapters)
+
+    click-router-api:
+      port: 5810
+      purpose: REST API for route CRUD operations
+      tech: Rust/Salvo with OpenAPI
+
+    click-tracker:
+      purpose: Event enrichment pipeline (geolocation, user-agent, sessions)
+      tech: Rust/Tokio consumer (no web server)
+      input: Fluvio/Kafka/RabbitMQ
+      output: RabbitMQ
+
+    click-aggregator:
+      purpose: ClickHouse ingestion consumer
+      tech: Rust/Tokio consumer
+      output: ClickHouse, Prometheus metrics
+
+    click-aggregator-api:
+      port: 5820
+      purpose: Analytics query API
+      tech: Rust/Salvo
+
+    # Background workers
+    route-verifier:
+      port: 5831
+      purpose: Google Safe Browsing verification
+      tech: Rust/Salvo
+
+    domain-verifier:
+      port: 5830
+      purpose: DNS ownership verification
+      tech: Rust/Salvo with Hickory DNS
+
+    cert-bot:
+      purpose: Let's Encrypt certificate automation
+      tech: Rust with instant-acme
+
+    route-icon-worker:
+      purpose: Favicon scraping and storage
+      tech: Rust consumer with scraper/reqwest
+
+    # Management layer
+    management-api:
+      port: 5050
+      purpose: Admin API for routes, domains, workspaces
+      tech: ASP.NET Core 9, EF Core, PostgreSQL
+      location: /api
+
+    # Frontend
+    dashboard:
+      port: 3000
+      purpose: Admin dashboard
+      tech: React 18, TypeScript, Bootstrap
+      location: /ui/dashboard
+
+    landing:
+      purpose: Public marketing site
+      tech: React 19, TypeScript
+      location: /ui/landing
+
+# ============================================================================
+# TECHNOLOGY STACK
+# ============================================================================
+
+stack:
+  rust_services:
+    framework: salvo-0.84 (custom fork in /salvo)
+    runtime: tokio-1.47
+    workspace: /redirect/Cargo.toml (9 members)
+
+  api:
+    language: csharp
+    framework: aspnet-core-9
+    orm: entity-framework-core-8
+    database: postgresql
+    search: elasticsearch
+
+  frontend:
+    dashboard: react-18, typescript, bootstrap-5
+    landing: react-19, typescript
+    build: create-react-app
+
+  data_stores:
+    routes: mongodb (local) / dynamodb (aws)
+    management: postgresql
+    analytics: clickhouse
+    sessions: redis
+    search: elasticsearch
+    images: minio (local) / s3 (aws)
+
+  messaging:
+    events: fluvio / kafka
+    commands: rabbitmq
+
+  infrastructure:
+    local: docker-compose
+    production: aws-ecs-terraform (19 modules)
+    auth: keycloak (local) / cognito (aws)
+
+# ============================================================================
+# RUST PATTERNS
+# ============================================================================
+
+rust_patterns:
+  workspace:
+    location: /redirect/Cargo.toml
+    members:
+      - click-router
+      - click-router-api
+      - click-tracker
+      - click-aggregator
+      - click-aggregator-api
+      - cert-bot
+      - domain-verifier
+      - route-verifier
+      - route-icon-worker
+
+  adapter_pattern:
+    description: |
+      Enum-based dispatch for multiple storage backends.
+      Chosen over trait objects for: Clone without Arc, no vtable overhead,
+      compile-time exhaustiveness checking.
+
+    example: |
+      pub enum RoutesStoreType {
+          Dynamo(DynamoRoutesStore),
+          Mongodb(MongodbRoutesStore),
+          InMemory(InMemoryRoutesStore),
+      }
+
+      impl RoutesStore for RoutesStoreType {
+          async fn get_route(&self, ...) -> Result<...> {
+              match self {
+                  Self::Dynamo(s) => s.get_route(...).await,
+                  Self::Mongodb(s) => s.get_route(...).await,
+                  Self::InMemory(s) => s.get_route(...).await,
+              }
+          }
+      }
+
+    when_to_use: |
+      - click-router uses enums (performance critical)
+      - click-router-api uses trait objects (flexibility, less code)
+
+  configuration:
+    hierarchy:
+      1: config/default.toml
+      2: config/{run_mode}.toml
+      3: config/local.toml (git-ignored)
+      4: environment variables (APP_* prefix)
+
+    loading: |
+      let settings = Config::builder()
+          .add_source(File::with_name("config/default"))
+          .add_source(File::with_name(&format!("config/{}", run_mode)))
+          .add_source(Environment::with_prefix("APP"))
+          .build()?;
+
+  naming:
+    traits: "{Name}Store" or "{Name}Cache" (RoutesStore, CryptoCache)
+    implementations: "{Backend}{Name}Store" (MongodbRoutesStore, DynamoRoutesStore)
+    modules: snake_case (flow_router, routes_store)
+    adapters_dir: /src/adapters/{backend}/
+
+# ============================================================================
+# C# API PATTERNS
+# ============================================================================
+
+csharp_patterns:
+  architecture:
+    style: clean-architecture
+    layers:
+      Presentation: Controllers, Middleware
+      Application: DTOs, Services, Extensions
+      Domain: Entities, Interfaces, Common
+      Infrastructure: Data, HttpClients, Services, BackgroundServices
+
+  service_interfaces:
+    # Use these instead of combined interfaces when possible
+    IRouteCommandService: Write operations (create, update, delete)
+    IRouteQueryService: Read operations (get, list)
+    IRouteService: Combined (for EfRouteService only)
+
+    implementations:
+      EfRouteService: Database (implements IRouteService)
+      RouteService: HTTP client (implements IRouteCommandService only)
+      ClickRouterApiService: HTTP client to click-router-api
+
+  error_handling:
+    pattern: Result<T> with Error factory
+    location: Domain/Common/Result.cs, Domain/Common/Error.cs
+    usage: |
+      return Result<Route>.Success(route);
+      return Result<Route>.Failure(Error.NotFound("Route", id));
+
+    factories:
+      - Error.NotFound(resource, identifier)
+      - Error.Validation(message, details?)
+      - Error.Unauthorized()
+      - Error.Forbidden()
+      - Error.Internal(message, details?)
+      - Error.Network(message)
+      - Error.Timeout(service, seconds)
+
+  json_serialization:
+    config: Domain/Common/JsonConfig.cs
+    usage: "JsonSerializer.Serialize(obj, JsonConfig.Default)"
+    rule: Never create new JsonSerializerOptions in services
+
+  naming:
+    interfaces: I{Name}Service
+    ef_services: Ef{Name}Service
+    api_clients: {Name}ApiClient
+    entities: "{Name}" (no suffix)
+    dtos: "{Name}Dto"
+    controllers: "{Plural}Controller"
+
+# ============================================================================
+# FRONTEND PATTERNS
+# ============================================================================
+
+frontend_patterns:
+  dashboard:
+    location: /ui/dashboard
+    structure:
+      components/: React components
+      contexts/: React Context state management
+      services/: API clients (axios)
+      config/: Configuration
+      types/: TypeScript interfaces
+      utils/: Helper functions
+
+    key_components:
+      - Analytics.tsx (charts/metrics)
+      - Clickstream.tsx (real-time events)
+      - Domains.tsx (domain management)
+      - ConditionsEditor.tsx (conditional routing)
+      - InitializationWizard.tsx (onboarding)
+
+    api_proxy: "http://localhost:8080" (to ASP.NET API)
+
+  landing:
+    location: /ui/landing
+    purpose: Marketing/public website
+    minimal_deps: React 19 only
+
+# ============================================================================
+# KEY DIRECTORIES
+# ============================================================================
+
+directories:
+  # Rust services
+  rust_workspace: redirect/
+  click_router: redirect/click-router/src/
+  click_router_api: redirect/click-router-api/src/
+  click_tracker: redirect/click-tracker/src/
+  click_aggregator: redirect/click-aggregator/src/
+  workers: redirect/{cert-bot,domain-verifier,route-verifier,route-icon-worker}/src/
+
+  # C# API
+  api_root: api/
+  controllers: api/Presentation/Controllers/
+  services: api/Application/Services/ and api/Infrastructure/Services/
+  entities: api/Domain/Entities/
+  interfaces: api/Domain/Interfaces/
+  dtos: api/Application/DTOs/
+  common: api/Domain/Common/
+
+  # Frontend
+  dashboard: ui/dashboard/src/
+  landing: ui/landing/src/
+
+  # Infrastructure
+  terraform: infra/aws/terraform/
+  docker: infra/custom/
+
+  # Shared
+  salvo_fork: salvo/ (git submodule)
+
+# ============================================================================
+# CONFIGURATION FILES
+# ============================================================================
+
+config_files:
+  rust:
+    - redirect/{service}/config/default.toml
+    - redirect/{service}/config/production.toml
+    - redirect/{service}/config/development.toml
+
+  csharp:
+    - api/appsettings.json
+    - api/appsettings.Development.json
+    - api/appsettings.Aws.json
+
+  frontend:
+    - ui/dashboard/package.json
+    - ui/landing/package.json
+
+  infrastructure:
+    - redirect/docker-compose.yml
+    - infra/aws/terraform/environments/{env}/terraform.tfvars
+
+# ============================================================================
+# ANTI-PATTERNS TO AVOID
+# ============================================================================
+
+avoid:
+  rust:
+    - Using trait objects in hot paths (use enums instead)
+    - Hardcoding config values (use config/ files)
+    - Blocking in async context (use spawn_blocking)
+    - Unwrap in production code (use ? operator)
+
+  csharp:
+    - Throwing exceptions from services (use Result<T>)
+    - Mixing HTTP client and database in same service
+    - Creating new JsonSerializerOptions (use JsonConfig.Default)
+    - Implementing interfaces with NotImplementedException
+    - Hardcoding secrets in appsettings.json
+
+  frontend:
+    - Direct API calls outside services/ directory
+    - Hardcoding API URLs (use config)
+    - Missing TypeScript types
+
+# ============================================================================
+# ADDING NEW FEATURES
+# ============================================================================
+
+new_feature:
+  rust_service:
+    1: Create crate in redirect/{service-name}/
+    2: Add to workspace members in redirect/Cargo.toml
+    3: Implement adapters in src/adapters/
+    4: Add config in config/default.toml
+    5: Add Dockerfile if needed
+    6: Add to docker-compose.yml
+
+  api_endpoint:
+    1: Create interface in Domain/Interfaces/
+    2: Create entity in Domain/Entities/ if needed
+    3: Create DTO in Application/DTOs/
+    4: Implement service in Infrastructure/Services/
+    5: Register in Program.cs
+    6: Add controller in Presentation/Controllers/
+    7: Always return Result<T>
+
+  dashboard_feature:
+    1: Create component in components/
+    2: Add route in App.tsx if needed
+    3: Create service in services/ for API calls
+    4: Add types in types/

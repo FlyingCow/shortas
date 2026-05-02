@@ -10,6 +10,7 @@ members = [
     "domain-verifier",
     "route-icon-worker",
     "route-verifier",
+    "shortas-common",
 ]
 
 [workspace.package]
@@ -132,6 +133,12 @@ http-body-util = "0.1.1"
 
 # DNS resolution
 hickory-resolver = "0.24"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono", "json"] }
+
+# Search
+elasticsearch = "8.17.0-alpha.1"
 
 # Development dependencies
 criterion = { version = "0.6.0", features = ["html_reports", "async_futures"] }
