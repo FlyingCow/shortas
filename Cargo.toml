@@ -1,0 +1,72 @@
+[workspace]
+resolver = "2"
+members = ["management-api", "redirect/shortas-common"]
+exclude = ["salvo"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Max Cechina <max@cechina.tech>"]
+license = "MIT"
+repository = "https://github.com/FlyingCow/shortas"
+homepage = "https://shortas.work/"
+documentation = "https://shortas.work/"
+
+[workspace.dependencies]
+# Local crates
+shortas-common = { path = "redirect/shortas-common" }
+
+# Core async runtime and utilities
+tokio = { version = "1.47.1", features = ["full"] }
+tokio-util = "0.7.14"
+async-trait = "0.1.88"
+futures = "0.3.31"
+
+# Error handling
+anyhow = "1.0.97"
+thiserror = "2.0.17"
+
+# Serialization
+serde = { version = "1.0.200", features = ["derive"] }
+serde_json = "1.0.117"
+
+# Time and date
+chrono = { version = "0.4.38", features = ["serde"] }
+
+# Configuration and CLI
+config = "0.15.17"
+clap = { version = "4.5.4", features = ["derive", "env"] }
+dotenv = "0.15.0"
+
+# AWS SDK
+aws-config = "1.3.0"
+aws-sdk-s3 = "1.25.0"
+
+# HTTP and web framework
+salvo = { version = "0.84.0", features = ["oapi", "jwt-auth", "rate-limiter", "cors"] }
+http = "1.1.0"
+reqwest = { version = "0.12.0", features = ["json"] }
+
+# Messaging
+lapin = "2.5"
+
+# Utilities
+uuid = { version = "1.8.0", features = ["v4", "serde"] }
+rand = "0.9.1"
+base64 = "0.22.0"
+url = "2.5.0"
+validator = "0.20.0"
+derive_more = { version = "2.0.1", features = ["full"] }
+
+# Logging and tracing
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+
+# Security
+jsonwebtoken = "9.3.0"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono", "json"] }
+
+# Search
+elasticsearch = "8.17.0-alpha.1"

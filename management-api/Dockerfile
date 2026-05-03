@@ -1,5 +1,5 @@
 # Multi-stage build for management-api
-ARG RUST_VERSION=1.87.0
+ARG RUST_VERSION=1.95
 ARG DEBIAN_VERSION=bookworm
 
 FROM rust:${RUST_VERSION}-slim AS builder
@@ -17,15 +17,17 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
+# Copy workspace root
+COPY Cargo.toml Cargo.lock ./
+
 # Copy management-api
 COPY management-api/ ./management-api/
 
-# Copy shortas-common dependency
+# Copy shortas-common (uses explicit versions, no workspace needed)
 COPY redirect/shortas-common/ ./redirect/shortas-common/
 
 # Build the application
-WORKDIR /app/management-api
-RUN cargo build --release
+RUN cargo build --release -p management-api
 
 # Runtime stage
 FROM debian:${DEBIAN_VERSION}-slim
@@ -43,7 +45,7 @@ RUN useradd -r -s /bin/false shortas
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=builder /app/management-api/target/release/management-api /app/
+COPY --from=builder /app/target/release/management-api /app/
 
 # Change ownership
 RUN chown -R shortas:shortas /app

@@ -2,7 +2,6 @@ version: "3.8"
 include:
   - ../../redirect/docker-compose.yml
   - ../../management-api/docker-compose.yml
-  - ../../api/docker-compose.yml
   - ../../ui/docker-compose.yml
 
 networks:

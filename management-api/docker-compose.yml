@@ -5,6 +5,45 @@ networks:
     external: true
 
 services:
+  shortas-api-postgres:
+    image: postgres:15-alpine
+    container_name: shortas-api-postgres
+    environment:
+      POSTGRES_DB: shortas_dev_db
+      POSTGRES_USER: shortas_user
+      POSTGRES_PASSWORD: shortas_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shortas_user -d shortas_dev_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shortas-net
+
+  shortas-api-elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.16
+    container_name: shortas-api-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shortas-net
+
   management-api:
     build:
       context: ..
@@ -12,13 +51,13 @@ services:
     container_name: shortas-management-api
     restart: unless-stopped
     ports:
-      - "8091:8080"
+      - "8090:8080"
     environment:
       - RUST_LOG=info
       # Server settings
       - APP__SERVER__HOST=0.0.0.0
       - APP__SERVER__PORT=8080
-      # Database settings (PostgreSQL - same as C# API)
+      # Database settings (PostgreSQL)
       - APP__DATABASE__HOST=shortas-api-postgres
       - APP__DATABASE__PORT=5432
       - APP__DATABASE__USERNAME=shortas_user
@@ -61,3 +100,7 @@ services:
         condition: service_healthy
     networks:
       - shortas-net
+
+volumes:
+  postgres_data:
+  elasticsearch_data:

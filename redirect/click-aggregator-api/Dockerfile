@@ -1,5 +1,5 @@
 # Multi-stage build for click-aggregator-api
-ARG RUST_VERSION=1.94.0
+ARG RUST_VERSION=1.95
 ARG DEBIAN_VERSION=trixie
 
 FROM rust:${RUST_VERSION}-slim as builder
@@ -30,6 +30,7 @@ COPY redirect/click-aggregator-api/ ./redirect/click-aggregator-api/
 COPY redirect/domain-verifier/ ./redirect/domain-verifier/
 COPY redirect/route-icon-worker/ ./redirect/route-icon-worker/
 COPY redirect/route-verifier/ ./redirect/route-verifier/
+COPY redirect/shortas-common/ ./redirect/shortas-common/
 
 # Copy external salvo dependency (needed for workspace resolution)
 COPY salvo/ ./salvo/
