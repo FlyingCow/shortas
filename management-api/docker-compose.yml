@@ -54,6 +54,7 @@ services:
       - "8090:8080"
     environment:
       - RUST_LOG=info
+      - APP_RUN_MODE=development
       # Server settings
       - APP__SERVER__HOST=0.0.0.0
       - APP__SERVER__PORT=8080
@@ -65,8 +66,10 @@ services:
       - APP__DATABASE__DATABASE=shortas_dev_db
       - APP__DATABASE__MAX_CONNECTIONS=10
       # JWT settings (Keycloak)
-      - APP__JWT__ISSUER=http://keycloak:8080/realms/shortas-dev
+      # Issuer must match token's iss claim (localhost from dashboard's perspective)
+      - APP__JWT__ISSUER=http://localhost:8080/realms/shortas-dev
       - APP__JWT__AUDIENCE=shortas-api
+      # JWKS URL uses internal docker network name to fetch keys
       - APP__JWT__JWKS_URL=http://keycloak:8080/realms/shortas-dev/protocol/openid-connect/certs
       # Click Router API
       - APP__CLICK_ROUTER__BASE_URL=http://shortas-click-router-api:5810
@@ -79,6 +82,7 @@ services:
       - APP__ELASTICSEARCH__ROUTES_INDEX=routes
       # MinIO
       - APP__MINIO__ENDPOINT=http://shortas-minio:9000
+      - APP__MINIO__PUBLIC_ENDPOINT=http://localhost:9003
       - APP__MINIO__REGION=us-east-1
       - APP__MINIO__ACCESS_KEY=minioadmin
       - APP__MINIO__SECRET_KEY=minioadmin
@@ -87,6 +91,8 @@ services:
       - APP__RABBITMQ__URL=amqp://guest:guest@shortas-rabbitmq:5672
       - APP__RABBITMQ__DOMAIN_VERIFICATION_QUEUE=domain-verification
       - APP__RABBITMQ__ROUTE_STATUS_QUEUE=route-status
+      # Shared domains (default: shortas.space)
+      # - APP__SHARED_DOMAINS__NAMES__0=shortas.space
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

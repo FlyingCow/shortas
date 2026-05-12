@@ -9,16 +9,20 @@ use crate::presentation::middleware::{
     render_created, render_error, render_no_content, render_success, DepotExt, UserExt,
 };
 
+use super::cors_preflight;
+
 /// Build certificates controller router.
 pub fn certificates_controller() -> Router {
     Router::with_path("certificates")
         .get(list_certificates)
         .post(create_certificate)
+        .options(cors_preflight)
         .push(
-            Router::with_path("<id>")
+            Router::with_path("{id}")
                 .get(get_certificate)
                 .put(update_certificate)
-                .delete(delete_certificate),
+                .delete(delete_certificate)
+                .options(cors_preflight),
         )
 }
 

@@ -145,6 +145,12 @@ impl Handler for RateLimiter {
         res: &mut Response,
         ctrl: &mut FlowCtrl,
     ) {
+        // Skip rate limiting for OPTIONS requests (CORS preflight)
+        if req.method() == salvo::http::Method::OPTIONS {
+            ctrl.call_next(req, depot, res).await;
+            return;
+        }
+
         // Get rate limit key (user ID or IP)
         let key = match depot.user_id() {
             Ok(id) => id,

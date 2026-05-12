@@ -1,4 +1,5 @@
 pub mod challenge_dto;
+pub mod contracts;
 pub mod keycert_dto;
 pub mod route_dto;
 pub mod user_settings_dto;

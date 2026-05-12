@@ -11,7 +11,11 @@ documentation.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# Local crates
+shortas-common.workspace = true
+
 # Workspace dependencies
+uuid.workspace = true
 salvo.workspace = true
 rustls.workspace = true
 tracing-subscriber.workspace = true

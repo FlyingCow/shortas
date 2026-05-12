@@ -9,21 +9,26 @@ use crate::infrastructure::http_clients::{
 };
 use crate::presentation::middleware::{render_error, render_success, DepotExt};
 
+use super::cors_preflight;
+
 /// Build clickstream controller router.
 pub fn clickstream_controller() -> Router {
     Router::with_path("clickstream")
+        .options(cors_preflight)
         .push(
             Router::with_path("routes/<route_id>")
                 .get(get_route_stats)
-                .push(Router::with_path("timeseries").get(get_route_time_series))
-                .push(Router::with_path("geo").get(get_route_geo))
-                .push(Router::with_path("devices").get(get_route_devices))
-                .push(Router::with_path("browsers").get(get_route_browsers)),
+                .options(cors_preflight)
+                .push(Router::with_path("timeseries").get(get_route_time_series).options(cors_preflight))
+                .push(Router::with_path("geo").get(get_route_geo).options(cors_preflight))
+                .push(Router::with_path("devices").get(get_route_devices).options(cors_preflight))
+                .push(Router::with_path("browsers").get(get_route_browsers).options(cors_preflight)),
         )
         .push(
             Router::with_path("workspaces/<workspace_id>")
                 .get(get_workspace_stats)
-                .push(Router::with_path("top-routes").get(get_workspace_top_routes)),
+                .options(cors_preflight)
+                .push(Router::with_path("top-routes").get(get_workspace_top_routes).options(cors_preflight)),
         )
 }
 

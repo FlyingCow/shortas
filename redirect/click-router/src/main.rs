@@ -226,7 +226,6 @@ impl DynamicServerConfigResolver {
 #[async_trait]
 impl ResolvesServerConfig<IoError> for DynamicServerConfigResolver {
     async fn resolve(&self, client_hello: ClientHello<'_>) -> IoResult<Arc<RustlsConfig>> {
-        
         // If no crypto cache, use default certificate
         let crypto_cache = match &self.crypto_cache {
             Some(cache) => cache,
@@ -300,17 +299,14 @@ async fn main() {
     // Initialize tracing with Loki integration
     let loki_url = std::env::var("LOKI_URL").unwrap_or_else(|_| "http://loki:3100".to_string());
 
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("warn"));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn"));
 
-    let loki_result = url::Url::parse(&loki_url)
-        .ok()
-        .and_then(|url| {
-            tracing_loki::builder()
-                .label("service", "click-router")
-                .ok()
-                .and_then(|b| b.build_url(url).ok())
-        });
+    let loki_result = url::Url::parse(&loki_url).ok().and_then(|url| {
+        tracing_loki::builder()
+            .label("service", "click-router")
+            .ok()
+            .and_then(|b| b.build_url(url).ok())
+    });
 
     match loki_result {
         Some((loki_layer, loki_task)) => {

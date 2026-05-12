@@ -161,6 +161,12 @@ impl Handler for JwtAuth {
         res: &mut Response,
         ctrl: &mut FlowCtrl,
     ) {
+        // Skip authentication for OPTIONS requests (CORS preflight)
+        if req.method() == salvo::http::Method::OPTIONS {
+            ctrl.call_next(req, depot, res).await;
+            return;
+        }
+
         // Extract token from Authorization header
         let auth_header = req.headers().get("Authorization");
 
@@ -217,6 +223,7 @@ impl Handler for JwtAuth {
 pub trait UserExt {
     fn user_profile(&self) -> anyhow::Result<&UserProfile>;
     fn user_id(&self) -> anyhow::Result<String>;
+    fn user_email(&self) -> anyhow::Result<String>;
 }
 
 impl UserExt for Depot {
@@ -227,5 +234,12 @@ impl UserExt for Depot {
 
     fn user_id(&self) -> anyhow::Result<String> {
         Ok(self.user_profile()?.id.clone())
+    }
+
+    fn user_email(&self) -> anyhow::Result<String> {
+        self.user_profile()?
+            .email
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("User email not found"))
     }
 }

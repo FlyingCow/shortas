@@ -1,13 +1,24 @@
 //! Route service for orchestrating route operations.
 
+use rand::Rng;
+use std::collections::HashSet;
 use std::sync::Arc;
+use tracing::{debug, warn};
 use uuid::Uuid;
 
-use crate::domain::entities::{ApiError, OutboxMessage, Result, Route};
+use crate::domain::entities::{ApiError, OutboxMessage, Result, Route, RouteStatus};
 use crate::domain::traits::{
     DomainRepository, OutboxRepository, PaginatedResult, RouteFilters, RouteRepository,
 };
 use crate::infrastructure::http_clients::ClickRouterClient;
+
+/// Constants for link generation algorithm
+const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+const MIN_LENGTH: usize = 3;
+const MAX_LENGTH: usize = 10;
+const BATCH_SIZE: usize = 10;
+const FILL_THRESHOLD: f64 = 0.3; // grow length when >30% of space is used
+const MAX_RETRIES: usize = 3;
 
 /// Route service for managing routes.
 pub struct RouteService {
@@ -98,7 +109,7 @@ impl RouteService {
 
         // Generate link if not provided
         if route.link.is_empty() {
-            route.link = self.route_repo.suggest_link(domain_id).await?;
+            route.link = self.suggest_link(domain_id).await?;
         }
 
         // Check link uniqueness
@@ -152,10 +163,12 @@ impl RouteService {
         // Update in database
         let saved = self.route_repo.update(&route).await?;
 
-        // Get domain for propagation
+        // Get domain for propagation (non-blocking - log errors but don't fail the request)
         if let Some(domain_id) = saved.domain_id {
             if let Ok(Some(domain)) = self.domain_repo.get_by_id(domain_id).await {
-                self.propagate_route(&saved, &domain.name).await?;
+                if let Err(e) = self.propagate_route(&saved, &domain.name).await {
+                    warn!(route_id = %saved.id, error = %e, "Failed to propagate route to click-router");
+                }
             }
         }
 
@@ -305,7 +318,7 @@ impl RouteService {
 
         self.validate_ownership(&route, user_id)?;
 
-        route.status = shortas_common::RouteStatus::Active;
+        route.status = RouteStatus::Active;
 
         let saved = self.route_repo.update(&route).await?;
 
@@ -320,8 +333,100 @@ impl RouteService {
     }
 
     /// Suggest a unique link for a domain.
+    ///
+    /// Uses a probabilistic algorithm:
+    /// 1. Get the route count for the domain (cheap query).
+    /// 2. Determine optimal tag length based on fill ratio.
+    /// 3. Generate a batch of random candidates.
+    /// 4. Check which candidates already exist (single batch query).
+    /// 5. Return the first available candidate.
+    /// 6. If all collide, retry with increased length.
     pub async fn suggest_link(&self, domain_id: Uuid) -> Result<String> {
-        self.route_repo.suggest_link(domain_id).await
+        // Validate domain exists
+        let domain = self
+            .domain_repo
+            .get_by_id(domain_id)
+            .await?
+            .ok_or_else(|| ApiError::not_found("Domain", &domain_id.to_string()))?;
+
+        // Step 1: Get route count for this domain
+        let existing_count = self.route_repo.count_by_domain(domain_id).await?;
+
+        // Step 2: Determine optimal length
+        let mut length = Self::calculate_optimal_length(existing_count as usize);
+
+        // Steps 3-6: Generate and verify with retries
+        for retry in 0..MAX_RETRIES {
+            let candidates = Self::generate_candidates(length, BATCH_SIZE);
+
+            // Step 4: Batch-check which candidates already exist
+            let existing_links = self
+                .route_repo
+                .find_existing_links(domain_id, &candidates)
+                .await?;
+            let existing_set: HashSet<_> = existing_links.into_iter().collect();
+
+            // Step 5: Return first available candidate
+            if let Some(available) = candidates.into_iter().find(|c| !existing_set.contains(c)) {
+                debug!(
+                    tag = %available,
+                    domain_id = %domain_id,
+                    domain_name = %domain.name,
+                    length = length,
+                    retry = retry,
+                    "Generated slash tag"
+                );
+                return Ok(available);
+            }
+
+            // All candidates collided - increase length and retry
+            warn!(
+                batch_size = BATCH_SIZE,
+                domain_id = %domain_id,
+                length = length,
+                next_length = length + 1,
+                "All candidates collided, retrying with increased length"
+            );
+            length = (length + 1).min(MAX_LENGTH);
+        }
+
+        Err(ApiError::internal(
+            "Failed to generate a unique slash tag after maximum retries",
+        ))
+    }
+
+    /// Calculate optimal tag length based on existing route count.
+    /// Find the smallest length L (>= MIN_LENGTH) where fill ratio < threshold.
+    fn calculate_optimal_length(existing_count: usize) -> usize {
+        let alphabet_size = ALPHABET.len() as f64; // 36
+
+        for length in MIN_LENGTH..=MAX_LENGTH {
+            let total_space = alphabet_size.powi(length as i32);
+            let fill_ratio = existing_count as f64 / total_space;
+
+            if fill_ratio < FILL_THRESHOLD {
+                return length;
+            }
+        }
+
+        MAX_LENGTH
+    }
+
+    /// Generate a batch of random strings from the alphabet.
+    fn generate_candidates(length: usize, count: usize) -> Vec<String> {
+        let mut rng = rand::rng();
+        let alphabet_len = ALPHABET.len();
+
+        (0..count)
+            .map(|_| {
+                (0..length)
+                    .map(|_| {
+                        let idx = rng.random_range(0..alphabet_len);
+                        ALPHABET[idx] as char
+                    })
+                    .collect()
+            })
+            .collect()
     }
 
     /// Validate user ownership of a route.

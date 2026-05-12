@@ -11,6 +11,9 @@ documentation.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# Local crates
+shortas-common.workspace = true
+
 # Workspace dependencies
 salvo.workspace = true
 rustls.workspace = true

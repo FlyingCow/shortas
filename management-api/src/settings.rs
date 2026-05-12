@@ -1,6 +1,9 @@
 //! Application settings and configuration.
 
+use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
+
+const DEV_RUN_MODE: &str = "development";
 
 /// Root settings structure.
 #[derive(Debug, Clone, Deserialize)]
@@ -13,6 +16,22 @@ pub struct Settings {
     pub elasticsearch: ElasticsearchSettings,
     pub minio: MinioSettings,
     pub rabbitmq: RabbitMqSettings,
+    #[serde(default)]
+    pub shared_domains: SharedDomainsSettings,
+}
+
+/// Shared domains settings.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SharedDomainsSettings {
+    pub names: Vec<String>,
+}
+
+impl Default for SharedDomainsSettings {
+    fn default() -> Self {
+        Self {
+            names: vec!["shortas.space".to_string()],
+        }
+    }
 }
 
 /// HTTP server settings.
@@ -135,6 +154,8 @@ impl Default for ElasticsearchSettings {
 #[derive(Debug, Clone, Deserialize)]
 pub struct MinioSettings {
     pub endpoint: String,
+    /// Public endpoint for presigned URLs (browser-accessible). Falls back to endpoint if not set.
+    pub public_endpoint: Option<String>,
     pub region: String,
     pub access_key: String,
     pub secret_key: String,
@@ -145,6 +166,7 @@ impl Default for MinioSettings {
     fn default() -> Self {
         Self {
             endpoint: "http://localhost:9000".to_string(),
+            public_endpoint: None,
             region: "us-east-1".to_string(),
             access_key: "minioadmin".to_string(),
             secret_key: "minioadmin".to_string(),
@@ -172,14 +194,39 @@ impl Default for RabbitMqSettings {
 }
 
 impl Settings {
-    /// Load settings from environment variables and config files.
-    pub fn load() -> anyhow::Result<Self> {
-        let config = config::Config::builder()
-            .add_source(config::Environment::with_prefix("APP").separator("__"))
+    /// Load settings from config files and environment variables.
+    ///
+    /// Config files are loaded in the following order (later sources override earlier ones):
+    /// 1. `{config_path}/default.toml` - Base configuration
+    /// 2. `{config_path}/{run_mode}.toml` - Environment-specific config (optional)
+    /// 3. `{config_path}/local.toml` - Local overrides, not in git (optional)
+    /// 4. Environment variables with `APP__` prefix (e.g., `APP__SERVER__PORT=8080`)
+    pub fn new(run_mode: Option<&str>, config_path: Option<&str>) -> Result<Self, ConfigError> {
+        let run_mode = run_mode.unwrap_or(DEV_RUN_MODE);
+        let path = config_path.unwrap_or("./config");
+
+        let s = Config::builder()
+            // Start off by merging in the "default" configuration file
+            .add_source(File::with_name(&format!("{}/default", path)))
+            // Add in the current environment file
+            // Default to 'development' env
+            // Note that this file is _optional_
+            .add_source(File::with_name(&format!("{}/{}", path, run_mode)).required(false))
+            // Add in a local configuration file
+            // This file shouldn't be checked in to git
+            .add_source(File::with_name(&format!("{}/local", path)).required(false))
+            // Add in settings from the environment (with a prefix of APP)
+            // Eg.. `APP__SERVER__PORT=8080 ./target/app` would set the `server.port` key
+            .add_source(Environment::with_prefix("APP").separator("__"))
             .build()?;
 
-        let settings: Settings = config.try_deserialize().unwrap_or_else(|_| Settings::default());
-        Ok(settings)
+        s.try_deserialize()
+    }
+
+    /// Load settings with default run mode and config path.
+    /// Convenience method for backwards compatibility.
+    pub fn load() -> anyhow::Result<Self> {
+        Self::new(None, None).map_err(|e| anyhow::anyhow!("Failed to load settings: {}", e))
     }
 }
 
@@ -194,6 +241,7 @@ impl Default for Settings {
             elasticsearch: ElasticsearchSettings::default(),
             minio: MinioSettings::default(),
             rabbitmq: RabbitMqSettings::default(),
+            shared_domains: SharedDomainsSettings::default(),
         }
     }
 }

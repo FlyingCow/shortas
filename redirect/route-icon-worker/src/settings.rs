@@ -81,7 +81,7 @@ impl Settings {
             .add_source(File::with_name(&format!("{}/default", path)))
             .add_source(File::with_name(&format!("{}/{}", path, run_mode)).required(false))
             .add_source(File::with_name(&format!("{}/local", path)).required(false))
-            .add_source(Environment::with_prefix("app"))
+            .add_source(Environment::with_prefix("app").separator("__"))
             .build()?;
 
         s.try_deserialize()

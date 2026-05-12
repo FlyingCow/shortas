@@ -1,5 +1,7 @@
 //! Routes controller for managing URL shortcuts.
 
+use std::collections::HashMap;
+
 use salvo::prelude::*;
 use uuid::Uuid;
 
@@ -13,24 +15,32 @@ use crate::presentation::middleware::{
     render_created, render_error, render_no_content, render_success, DepotExt, UserExt,
 };
 
+use super::cors_preflight;
+
 /// Build routes controller router.
 pub fn routes_controller() -> Router {
     Router::with_path("routes")
         .get(list_routes)
         .post(create_route)
-        .push(Router::with_path("bulk").post(bulk_create_routes).put(bulk_update_routes).delete(bulk_delete_routes))
-        .push(Router::with_path("suggest-link").get(suggest_link))
-        .push(Router::with_path("search").get(search_routes))
-        .push(Router::with_path("search/reindex").post(reindex_routes))
+        .options(cors_preflight)
+        .push(Router::with_path("bulk").post(bulk_create_routes).put(bulk_update_routes).delete(bulk_delete_routes).options(cors_preflight))
+        .push(Router::with_path("suggest-link").get(suggest_link).options(cors_preflight))
+        .push(Router::with_path("search").get(search_routes).options(cors_preflight))
+        .push(Router::with_path("search/reindex").post(reindex_routes).options(cors_preflight))
         .push(
-            Router::with_path("<id>")
+            Router::with_path("{id}")
                 .get(get_route)
                 .put(update_route)
                 .delete(delete_route)
-                .push(Router::with_path("unblock").post(unblock_route))
-                .push(Router::with_path("qr/settings").get(get_qr_settings).put(update_qr_settings))
-                .push(Router::with_path("qr/upload-url").post(get_qr_upload_url))
-                .push(Router::with_path("qr/logo-upload-url").post(get_qr_logo_upload_url)),
+                .options(cors_preflight)
+                .push(Router::with_path("unblock").post(unblock_route).options(cors_preflight))
+                .push(
+                    Router::with_path("qr")
+                        .options(cors_preflight)
+                        .push(Router::with_path("settings").get(get_qr_settings).put(update_qr_settings).options(cors_preflight))
+                        .push(Router::with_path("upload-url").post(get_qr_upload_url).options(cors_preflight))
+                        .push(Router::with_path("logo-upload-url").post(get_qr_logo_upload_url).options(cors_preflight)),
+                ),
         )
 }
 
@@ -84,26 +94,35 @@ pub async fn list_routes(req: &mut Request, depot: &mut Depot, res: &mut Respons
 
     match app_state.route_service.list(&user_id, page, page_size, filters).await {
         Ok(result) => {
-            let total_count = result.total_count;
-            let page = result.page;
-            let page_size = result.page_size;
-            let total_pages = result.total_pages();
+            // Collect unique domain IDs
+            let domain_ids: Vec<Uuid> = result
+                .items
+                .iter()
+                .filter_map(|r| r.domain_id)
+                .collect();
+
+            // Batch fetch domains and create lookup map
+            let domains_map: HashMap<Uuid, _> = app_state
+                .domain_repo
+                .get_by_ids(&domain_ids)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|d| (d.id, d))
+                .collect();
 
             let routes: Vec<RouteDto> = result
                 .items
                 .into_iter()
-                .map(|r| RouteDto::from_entity(r, None))
+                .map(|r| {
+                    let domain = r.domain_id.and_then(|id| domains_map.get(&id).cloned());
+                    RouteDto::from_entity(r, domain)
+                })
                 .collect();
 
             render_success(
                 res,
-                PaginatedRoutesDto {
-                    routes,
-                    total_count,
-                    page,
-                    page_size,
-                    total_pages,
-                },
+                PaginatedRoutesDto::new(routes, result.page, result.page_size, result.total_count),
             );
         }
         Err(e) => render_error(res, e),
@@ -439,9 +458,27 @@ pub async fn bulk_create_routes(req: &mut Request, depot: &mut Depot, res: &mut 
 
     match app_state.route_service.bulk_create(routes, &user_id).await {
         Ok(created) => {
+            // Collect unique domain IDs and batch fetch
+            let domain_ids: Vec<Uuid> = created
+                .iter()
+                .filter_map(|r| r.domain_id)
+                .collect();
+
+            let domains_map: HashMap<Uuid, _> = app_state
+                .domain_repo
+                .get_by_ids(&domain_ids)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|d| (d.id, d))
+                .collect();
+
             let dtos: Vec<RouteDto> = created
                 .into_iter()
-                .map(|r| RouteDto::from_entity(r, None))
+                .map(|r| {
+                    let domain = r.domain_id.and_then(|id| domains_map.get(&id).cloned());
+                    RouteDto::from_entity(r, domain)
+                })
                 .collect();
             render_created(res, dtos);
         }
@@ -501,9 +538,27 @@ pub async fn bulk_update_routes(req: &mut Request, depot: &mut Depot, res: &mut 
 
     match app_state.route_service.bulk_update(routes, &user_id).await {
         Ok(updated) => {
+            // Collect unique domain IDs and batch fetch
+            let domain_ids: Vec<Uuid> = updated
+                .iter()
+                .filter_map(|r| r.domain_id)
+                .collect();
+
+            let domains_map: HashMap<Uuid, _> = app_state
+                .domain_repo
+                .get_by_ids(&domain_ids)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|d| (d.id, d))
+                .collect();
+
             let dtos: Vec<RouteDto> = updated
                 .into_iter()
-                .map(|r| RouteDto::from_entity(r, None))
+                .map(|r| {
+                    let domain = r.domain_id.and_then(|id| domains_map.get(&id).cloned());
+                    RouteDto::from_entity(r, domain)
+                })
                 .collect();
             render_success(res, dtos);
         }
@@ -570,7 +625,7 @@ pub async fn bulk_delete_routes(req: &mut Request, depot: &mut Depot, res: &mut 
     description = "Generate a unique link suggestion for a domain",
     tags("Routes"),
     parameters(
-        ("domain_id" = String, Query, description = "Domain ID")
+        ("domainId" = String, Query, description = "Domain ID")
     ),
     responses(
         (status_code = 200, description = "Link suggestion", body = LinkSuggestionDto)
@@ -585,11 +640,14 @@ pub async fn suggest_link(req: &mut Request, depot: &mut Depot, res: &mut Respon
         }
     };
 
-    let domain_id_str: String = req.query("domain_id").unwrap_or_default();
+    // Accept both camelCase (domainId) and snake_case (domain_id) for compatibility
+    let domain_id_str: String = req.query("domainId")
+        .or_else(|| req.query("domain_id"))
+        .unwrap_or_default();
     let domain_id = match Uuid::parse_str(&domain_id_str) {
         Ok(id) => id,
         Err(_) => {
-            render_error(res, ApiError::validation("Invalid domain_id"));
+            render_error(res, ApiError::validation("Invalid domainId"));
             return;
         }
     };
@@ -650,22 +708,39 @@ pub async fn search_routes(req: &mut Request, depot: &mut Depot, res: &mut Respo
     {
         Ok(result) => {
             // Fetch full route data for each ID
-            let mut routes = Vec::new();
+            let mut route_entities = Vec::new();
             for id in result.route_ids {
                 if let Ok(Some(route)) = app_state.route_repo.get_by_id(id).await {
-                    routes.push(RouteDto::from_entity(route, None));
+                    route_entities.push(route);
                 }
             }
 
+            // Collect unique domain IDs and batch fetch
+            let domain_ids: Vec<Uuid> = route_entities
+                .iter()
+                .filter_map(|r| r.domain_id)
+                .collect();
+
+            let domains_map: HashMap<Uuid, _> = app_state
+                .domain_repo
+                .get_by_ids(&domain_ids)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|d| (d.id, d))
+                .collect();
+
+            let routes: Vec<RouteDto> = route_entities
+                .into_iter()
+                .map(|r| {
+                    let domain = r.domain_id.and_then(|id| domains_map.get(&id).cloned());
+                    RouteDto::from_entity(r, domain)
+                })
+                .collect();
+
             render_success(
                 res,
-                PaginatedRoutesDto {
-                    routes,
-                    total_count: result.total_count,
-                    page,
-                    page_size,
-                    total_pages: ((result.total_count as f64) / (page_size as f64)).ceil() as i32,
-                },
+                PaginatedRoutesDto::new(routes, page, page_size, result.total_count),
             );
         }
         Err(e) => render_error(res, ApiError::internal(e.to_string())),
@@ -853,13 +928,18 @@ pub async fn get_qr_upload_url(req: &mut Request, depot: &mut Depot, res: &mut R
         }
     };
 
-    // Verify ownership
-    if let Err(e) = app_state.route_service.get_by_id(id, &user_id).await {
-        render_error(res, e);
-        return;
-    }
+    // Verify ownership and get route
+    let route = match app_state.route_service.get_by_id(id, &user_id).await {
+        Ok(r) => r,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
 
-    match app_state.storage_service.get_qr_upload_url(&id.to_string()).await {
+    let owner_id = route.properties.owner_id.as_deref().unwrap_or(&user_id);
+
+    match app_state.storage_service.get_qr_upload_url(owner_id, &id.to_string()).await {
         Ok(presigned) => render_success(
             res,
             PresignedUrlDto {
@@ -910,17 +990,21 @@ pub async fn get_qr_logo_upload_url(req: &mut Request, depot: &mut Depot, res: &
         }
     };
 
-    // Verify ownership
-    if let Err(e) = app_state.route_service.get_by_id(id, &user_id).await {
-        render_error(res, e);
-        return;
-    }
+    // Verify ownership and get route
+    let route = match app_state.route_service.get_by_id(id, &user_id).await {
+        Ok(r) => r,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
 
+    let owner_id = route.properties.owner_id.as_deref().unwrap_or(&user_id);
     let extension = req.query::<String>("extension").unwrap_or_else(|| "png".to_string());
 
     match app_state
         .storage_service
-        .get_qr_logo_upload_url(&id.to_string(), &extension)
+        .get_qr_logo_upload_url(owner_id, &id.to_string(), &extension)
         .await
     {
         Ok(presigned) => render_success(

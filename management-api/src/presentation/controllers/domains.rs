@@ -3,39 +3,49 @@
 use salvo::prelude::*;
 use uuid::Uuid;
 
-use crate::application::dto::{CreateDomainDto, DnsConfigDto, DomainDto, UpdateDomainDto};
+use crate::application::dto::{CreateDomainDto, DnsConfigDto, DomainDto, PaginatedDomainsDto, UpdateDomainDto};
 use crate::domain::entities::ApiError;
 use crate::presentation::middleware::{
     render_created, render_error, render_no_content, render_success, DepotExt, UserExt,
 };
+
+use super::cors_preflight;
 
 /// Build domains controller router.
 pub fn domains_controller() -> Router {
     Router::with_path("domains")
         .get(list_domains)
         .post(create_domain)
-        .push(Router::with_path("shared").get(list_shared_domains))
+        .options(cors_preflight)
+        .push(Router::with_path("dns-config").get(get_global_dns_config).options(cors_preflight))
+        .push(Router::with_path("shared").get(list_shared_domains).options(cors_preflight))
         .push(
-            Router::with_path("<id>")
+            Router::with_path("{id}")
                 .get(get_domain)
                 .put(update_domain)
                 .delete(delete_domain)
-                .push(Router::with_path("dns-config").get(get_dns_config))
-                .push(Router::with_path("verify").post(verify_domain)),
+                .options(cors_preflight)
+                .push(Router::with_path("dns-config").get(get_dns_config).options(cors_preflight))
+                .push(Router::with_path("verify").post(verify_domain).options(cors_preflight)),
         )
 }
 
-/// List domains for the current user.
+/// List domains for the current user with pagination.
 #[endpoint(
     operation_id = "list_domains",
     summary = "List domains",
-    description = "List all domains accessible by the current user",
+    description = "List all domains accessible by the current user with pagination",
     tags("Domains"),
+    parameters(
+        ("page" = Option<i32>, Query, description = "Page number (default: 1)"),
+        ("pageSize" = Option<i32>, Query, description = "Page size (default: 20)"),
+        ("search" = Option<String>, Query, description = "Search term for domain name")
+    ),
     responses(
-        (status_code = 200, description = "Domains list", body = Vec<DomainDto>)
+        (status_code = 200, description = "Paginated domains list", body = PaginatedDomainsDto)
     )
 )]
-pub async fn list_domains(depot: &mut Depot, res: &mut Response) {
+pub async fn list_domains(req: &mut Request, depot: &mut Depot, res: &mut Response) {
     let app_state = match depot.app_state() {
         Ok(state) => state,
         Err(e) => {
@@ -52,13 +62,55 @@ pub async fn list_domains(depot: &mut Depot, res: &mut Response) {
         }
     };
 
+    let page: i32 = req.query("page").unwrap_or(1);
+    let page_size: i32 = req.query("pageSize").unwrap_or(20);
+    let search: Option<String> = req.query("search");
+
     match app_state.domain_repo.list_accessible(&user_id).await {
         Ok(domains) => {
-            let dtos: Vec<DomainDto> = domains.into_iter().map(DomainDto::from_entity).collect();
-            render_success(res, dtos);
+            // Apply search filter if provided
+            let filtered: Vec<_> = if let Some(ref search_term) = search {
+                let term = search_term.to_lowercase();
+                domains.into_iter()
+                    .filter(|d| d.name.to_lowercase().contains(&term))
+                    .collect()
+            } else {
+                domains
+            };
+
+            let total_count = filtered.len() as i64;
+
+            // Apply pagination
+            let start = ((page - 1) * page_size) as usize;
+            let paginated: Vec<_> = filtered.into_iter()
+                .skip(start)
+                .take(page_size as usize)
+                .collect();
+
+            let dtos: Vec<DomainDto> = paginated.into_iter().map(DomainDto::from_entity).collect();
+            render_success(res, PaginatedDomainsDto::new(dtos, page, page_size, total_count));
         }
         Err(e) => render_error(res, e),
     }
+}
+
+/// Get global DNS configuration for domain verification.
+#[endpoint(
+    operation_id = "get_global_dns_config",
+    summary = "Get DNS config",
+    description = "Get DNS configuration for domain verification",
+    tags("Domains"),
+    responses(
+        (status_code = 200, description = "DNS configuration")
+    )
+)]
+pub async fn get_global_dns_config(res: &mut Response) {
+    // Return DNS config from settings or defaults
+    render_success(res, serde_json::json!({
+        "txtRecordName": "_shortas-domain-challenge",
+        "allowedIpv4": ["203.0.113.10"],
+        "allowedIpv6": []
+    }));
 }
 
 /// List shared domains.

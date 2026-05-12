@@ -6,14 +6,15 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::domain::entities::{
-    ConditionalRouting, DestinationFormat, QrSettings, Route, RouteDomain, RouteProperties,
-    RouteStatus, RoutingPolicy, RoutingTerminal,
+    BlockedReason, ChallengeRouting, ConditionalRouting, DestinationFormat, FileRouting,
+    QrSettings, Route, RouteDomain, RouteProperties, RouteStatus, RoutingPolicy, RoutingTerminal,
 };
 
 use super::DomainDto;
 
 /// Route response DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RouteDto {
     pub id: String,
     #[serde(rename = "switch")]
@@ -61,6 +62,7 @@ impl RouteDto {
 
 /// Route creation request DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateRouteDto {
     #[serde(default = "default_switch")]
     pub switch: String,
@@ -82,7 +84,8 @@ pub struct CreateRouteDto {
     pub policy: Option<RoutingPolicyDto>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<RoutePropertiesDto>,
-    pub domain_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub domain_id: Option<String>,
     /// Shorthand for conditional routing (alternative to policy).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conditions: Option<Vec<ConditionDestinationDto>>,
@@ -107,7 +110,9 @@ fn default_terminal() -> String {
 impl CreateRouteDto {
     /// Convert to domain entity.
     pub fn to_entity(self, user_id: &str) -> Result<Route, String> {
-        let domain_id = Uuid::parse_str(&self.domain_id)
+        let domain_id_str = self.domain_id
+            .ok_or("domain_id is required")?;
+        let domain_id = Uuid::parse_str(&domain_id_str)
             .map_err(|_| "Invalid domain_id")?;
 
         let dest_format = match self.dest_format.as_str() {
@@ -122,7 +127,7 @@ impl CreateRouteDto {
         };
 
         let status = match self.status.as_str() {
-            "Blocked" => RouteStatus::Blocked(shortas_common::BlockedReason::Unknown),
+            "Blocked" => RouteStatus::Blocked(BlockedReason::Unknown),
             _ => RouteStatus::Active,
         };
 
@@ -130,7 +135,8 @@ impl CreateRouteDto {
         let policy = if let Some(conditions) = self.conditions {
             let conds: Vec<ConditionalRouting> = conditions
                 .into_iter()
-                .map(|c| c.to_entity())
+                .enumerate()
+                .map(|(i, c)| c.to_entity(i))
                 .collect();
             RoutingPolicy::Conditional { conditions: conds }
         } else if let Some(policy_dto) = self.policy {
@@ -166,6 +172,7 @@ impl CreateRouteDto {
 
 /// Route update request DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateRouteDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dest: Option<String>,
@@ -207,7 +214,7 @@ impl UpdateRouteDto {
         }
         if let Some(status) = self.status {
             route.status = match status.as_str() {
-                "Blocked" => RouteStatus::Blocked(shortas_common::BlockedReason::Unknown),
+                "Blocked" => RouteStatus::Blocked(BlockedReason::Unknown),
                 _ => RouteStatus::Active,
             };
         }
@@ -221,7 +228,8 @@ impl UpdateRouteDto {
         if let Some(conditions) = self.conditions {
             let conds: Vec<ConditionalRouting> = conditions
                 .into_iter()
-                .map(|c| c.to_entity())
+                .enumerate()
+                .map(|(i, c)| c.to_entity(i))
                 .collect();
             route.policy = RoutingPolicy::Conditional { conditions: conds };
         } else if let Some(policy) = self.policy {
@@ -274,17 +282,17 @@ impl RoutingPolicyDto {
         match self {
             RoutingPolicyDto::Basic => RoutingPolicy::Basic,
             RoutingPolicyDto::Conditional { conditions } => RoutingPolicy::Conditional {
-                conditions: conditions.into_iter().map(|c| c.to_entity()).collect(),
+                conditions: conditions.into_iter().enumerate().map(|(i, c)| c.to_entity(i)).collect(),
             },
             RoutingPolicyDto::Challenge { challenge } => RoutingPolicy::Challenge {
-                challenge: challenge.map(|c| shortas_common::ChallengeRouting {
+                challenge: challenge.map(|c| ChallengeRouting {
                     key: c.key,
                     source: c.source,
                     challenge_type: c.challenge_type,
                 }),
             },
             RoutingPolicyDto::File { file } => RoutingPolicy::File {
-                file: file.map(|f| shortas_common::FileRouting {
+                file: file.map(|f| FileRouting {
                     content_type: f.content_type,
                 }),
             },
@@ -295,8 +303,10 @@ impl RoutingPolicyDto {
 
 /// Conditional routing DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ConditionalRoutingDto {
-    pub key: String,
+    #[serde(default)]
+    pub key: Option<String>,
     pub condition: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dest: Option<String>,
@@ -305,15 +315,15 @@ pub struct ConditionalRoutingDto {
 impl ConditionalRoutingDto {
     pub fn from_entity(routing: &ConditionalRouting) -> Self {
         Self {
-            key: routing.key.clone(),
+            key: Some(routing.key.clone()),
             condition: serde_json::to_value(&routing.condition).unwrap_or(Value::Null),
             dest: routing.dest.clone(),
         }
     }
 
-    pub fn to_entity(self) -> ConditionalRouting {
+    pub fn to_entity(self, index: usize) -> ConditionalRouting {
         ConditionalRouting {
-            key: self.key,
+            key: self.key.unwrap_or_else(|| format!("cond-{}", index)),
             condition: serde_json::from_value(self.condition).unwrap_or_default(),
             dest: self.dest,
         }
@@ -322,16 +332,19 @@ impl ConditionalRoutingDto {
 
 /// Shorthand condition-destination for API input.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ConditionDestinationDto {
-    pub key: String,
+    /// Optional key for condition branch (auto-generated if not provided)
+    #[serde(default)]
+    pub key: Option<String>,
     pub condition: Value,
     pub dest: String,
 }
 
 impl ConditionDestinationDto {
-    pub fn to_entity(self) -> ConditionalRouting {
+    pub fn to_entity(self, index: usize) -> ConditionalRouting {
         ConditionalRouting {
-            key: self.key,
+            key: self.key.unwrap_or_else(|| format!("cond-{}", index)),
             condition: serde_json::from_value(self.condition).unwrap_or_default(),
             dest: Some(self.dest),
         }
@@ -354,6 +367,7 @@ pub struct FileRoutingDto {
 
 /// Route properties DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RoutePropertiesDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub route_id: Option<String>,
@@ -441,6 +455,7 @@ impl RoutePropertiesDto {
 
 /// QR settings DTO.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct QrSettingsDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub foreground_color: Option<String>,
@@ -509,12 +524,34 @@ pub struct PresignedUrlDto {
     pub expires_at: String,
 }
 
-/// Paginated routes response.
+/// Pagination metadata matching C# API format.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct PaginatedRoutesDto {
-    pub routes: Vec<RouteDto>,
-    pub total_count: i64,
+#[serde(rename_all = "camelCase")]
+pub struct PaginationDto {
     pub page: i32,
     pub page_size: i32,
+    pub total_count: i64,
     pub total_pages: i32,
+}
+
+/// Paginated routes response matching C# API format.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PaginatedRoutesDto {
+    pub data: Vec<RouteDto>,
+    pub pagination: PaginationDto,
+}
+
+impl PaginatedRoutesDto {
+    pub fn new(routes: Vec<RouteDto>, page: i32, page_size: i32, total_count: i64) -> Self {
+        let total_pages = ((total_count as f64) / (page_size as f64)).ceil() as i32;
+        Self {
+            data: routes,
+            pagination: PaginationDto {
+                page,
+                page_size,
+                total_count,
+                total_pages,
+            },
+        }
+    }
 }

@@ -8,6 +8,7 @@ use crate::domain::entities::RouteDomain;
 
 /// Domain response DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct DomainDto {
     pub id: String,
     pub name: String,
@@ -17,6 +18,8 @@ pub struct DomainDto {
     pub verification_reason: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_verification_check: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_verification_check: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub custom_index_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -35,6 +38,7 @@ impl DomainDto {
             verification_status: domain.verification_status.as_str().to_string(),
             verification_reason: domain.verification_reason,
             last_verification_check: domain.last_verification_check.map(|dt| dt.to_rfc3339()),
+            next_verification_check: domain.next_verification_check.map(|dt| dt.to_rfc3339()),
             custom_index_url: domain.custom_index_url,
             custom_not_found_url: domain.custom_not_found_url,
             created_at: domain.created_at.map(|dt| dt.to_rfc3339()),
@@ -107,5 +111,37 @@ pub struct VerifyDomainDto {
 impl VerifyDomainDto {
     pub fn parse_id(&self) -> Result<Uuid, String> {
         Uuid::parse_str(&self.domain_id).map_err(|_| "Invalid domain_id".to_string())
+    }
+}
+
+/// Pagination metadata matching C# API format.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DomainPaginationDto {
+    pub page: i32,
+    pub page_size: i32,
+    pub total_count: i64,
+    pub total_pages: i32,
+}
+
+/// Paginated domains response matching C# API format.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PaginatedDomainsDto {
+    pub data: Vec<DomainDto>,
+    pub pagination: DomainPaginationDto,
+}
+
+impl PaginatedDomainsDto {
+    pub fn new(domains: Vec<DomainDto>, page: i32, page_size: i32, total_count: i64) -> Self {
+        let total_pages = ((total_count as f64) / (page_size as f64)).ceil() as i32;
+        Self {
+            data: domains,
+            pagination: DomainPaginationDto {
+                page,
+                page_size,
+                total_count,
+                total_pages,
+            },
+        }
     }
 }

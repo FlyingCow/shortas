@@ -1,0 +1,43 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+
+[database]
+host = "localhost"
+port = 5432
+username = "postgres"
+password = "postgres"
+database = "shortas"
+max_connections = 10
+
+[jwt]
+issuer = "https://auth.shortas.work/realms/shortas"
+audience = "shortas-api"
+jwks_url = "https://auth.shortas.work/realms/shortas/protocol/openid-connect/certs"
+
+[click_router]
+base_url = "http://localhost:8081"
+timeout_ms = 5000
+
+[click_aggregator]
+base_url = "http://localhost:8082"
+timeout_ms = 10000
+
+[elasticsearch]
+url = "http://localhost:9200"
+routes_index = "routes"
+
+[minio]
+endpoint = "http://localhost:9000"
+region = "us-east-1"
+access_key = "minioadmin"
+secret_key = "minioadmin"
+bucket = "shortas"
+
+[rabbitmq]
+url = "amqp://localhost:5672"
+domain_verification_queue = "domain-verification"
+route_status_queue = "route-status"
+
+[shared_domains]
+names = ["shortas.space"]

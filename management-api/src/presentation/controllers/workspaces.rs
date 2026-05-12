@@ -12,24 +12,30 @@ use crate::presentation::middleware::{
     render_created, render_error, render_no_content, render_success, DepotExt, UserExt,
 };
 
+use super::cors_preflight;
+
 /// Build workspaces controller router.
 pub fn workspaces_controller() -> Router {
     Router::with_path("workspaces")
         .get(list_workspaces)
         .post(create_workspace)
+        .options(cors_preflight)
         .push(
-            Router::with_path("<id>")
+            Router::with_path("{id}")
                 .get(get_workspace)
                 .put(update_workspace)
                 .delete(delete_workspace)
+                .options(cors_preflight)
                 .push(
                     Router::with_path("members")
                         .get(list_members)
                         .post(add_member)
+                        .options(cors_preflight)
                         .push(
-                            Router::with_path("<user_id>")
+                            Router::with_path("{user_id}")
                                 .put(update_member_role)
-                                .delete(remove_member),
+                                .delete(remove_member)
+                                .options(cors_preflight),
                         ),
                 ),
         )

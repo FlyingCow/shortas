@@ -1,8 +1,5 @@
 # Multi-stage build for management-api
-ARG RUST_VERSION=1.95
-ARG DEBIAN_VERSION=bookworm
-
-FROM rust:${RUST_VERSION}-slim AS builder
+FROM rust:bookworm AS builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -30,7 +27,7 @@ COPY redirect/shortas-common/ ./redirect/shortas-common/
 RUN cargo build --release -p management-api
 
 # Runtime stage
-FROM debian:${DEBIAN_VERSION}-slim
+FROM debian:bookworm-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -46,6 +43,9 @@ WORKDIR /app
 
 # Copy binary from builder
 COPY --from=builder /app/target/release/management-api /app/
+
+# Copy config files
+COPY management-api/config/ /app/config/
 
 # Change ownership
 RUN chown -R shortas:shortas /app

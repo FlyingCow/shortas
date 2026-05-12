@@ -82,8 +82,11 @@ pub trait RouteRepository: Send + Sync {
     /// Check if link exists for domain.
     async fn link_exists(&self, domain_id: Uuid, link: &str) -> Result<bool>;
 
-    /// Generate a unique link suggestion.
-    async fn suggest_link(&self, domain_id: Uuid) -> Result<String>;
+    /// Check which links from a batch already exist for a domain.
+    async fn find_existing_links(&self, domain_id: Uuid, links: &[String]) -> Result<Vec<String>>;
+
+    /// Count routes for a domain.
+    async fn count_by_domain(&self, domain_id: Uuid) -> Result<i64>;
 
     /// Get routes by owner ID.
     async fn get_by_owner(&self, owner_id: &str, limit: i32) -> Result<Vec<Route>>;

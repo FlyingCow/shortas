@@ -4,8 +4,7 @@
 //! certificates, and analytics.
 
 use anyhow::Result;
-use salvo::cors::Cors;
-use salvo::http::Method;
+use clap::Parser;
 use salvo::prelude::*;
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
@@ -17,6 +16,18 @@ use management_api::infrastructure::messaging::{OutboxProcessor, RabbitMqConsume
 use management_api::presentation::controllers::api_routes;
 use management_api::presentation::middleware::{AppState, AppStateMiddleware};
 use management_api::settings::Settings;
+
+/// Command-line arguments for the Management API.
+#[derive(Parser, Debug)]
+#[command(version)]
+pub struct Args {
+    /// Application run mode (development, production, test)
+    #[arg(short, long, default_value_t = String::from("development"), env("APP_RUN_MODE"))]
+    pub run_mode: String,
+    /// Path to the configuration directory
+    #[arg(short, long, default_value_t = String::from("./config"), env("APP_CONFIG_PATH"))]
+    pub config_path: String,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,8 +41,15 @@ async fn main() -> Result<()> {
 
     info!("Starting Management API v{}", env!("CARGO_PKG_VERSION"));
 
+    // Load .env file if present
+    dotenv::from_filename("./.env").ok();
+
+    // Parse command line arguments
+    let args = Args::parse();
+    info!("Run mode: {}, Config path: {}", args.run_mode, args.config_path);
+
     // Load settings
-    let settings = Settings::load()?;
+    let settings = Settings::new(Some(&args.run_mode), Some(&args.config_path))?;
     info!("Loaded configuration");
 
     // Create database pool
@@ -40,6 +58,16 @@ async fn main() -> Result<()> {
         .connect(&settings.database.connection_string())
         .await?;
     info!("Connected to database");
+
+    // Run migrations
+    info!("Running database migrations...");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await?;
+    info!("Database migrations completed");
+
+    // Seed shared domains
+    seed_shared_domains(&pool, &settings.shared_domains.names).await?;
 
     // Create application state
     let app_state = AppState::new(settings.clone(), pool.clone()).await?;
@@ -98,29 +126,15 @@ async fn main() -> Result<()> {
     }
 
     // Build router
-    let router = api_routes(settings.jwt.clone());
+    let api_router = api_routes(settings.jwt.clone());
 
     // Add OpenAPI documentation
-    let doc = OpenApi::new("Management API", env!("CARGO_PKG_VERSION")).merge_router(&router);
-
-    // Configure CORS
-    let cors = Cors::new()
-        .allow_origin("*")
-        .allow_methods(vec![
-            Method::GET,
-            Method::POST,
-            Method::PUT,
-            Method::DELETE,
-            Method::OPTIONS,
-        ])
-        .allow_headers(vec!["Authorization", "Content-Type"])
-        .max_age(3600)
-        .into_handler();
+    let doc = OpenApi::new("Management API", env!("CARGO_PKG_VERSION")).merge_router(&api_router);
 
     // Build final router with middleware
-    let router = router
-        .hoop(cors)
+    let router = Router::new()
         .hoop(AppStateMiddleware::new(app_state))
+        .push(api_router)
         .unshift(doc.into_router("/api-doc/openapi.json"))
         .unshift(SwaggerUi::new("/api-doc/openapi.json").into_router("/swagger-ui"));
 
@@ -143,5 +157,64 @@ async fn main() -> Result<()> {
     }
 
     info!("Server shutdown complete");
+    Ok(())
+}
+
+/// Seed shared domains on startup.
+/// Creates any configured shared domains that don't already exist.
+async fn seed_shared_domains(pool: &sqlx::PgPool, domain_names: &[String]) -> Result<()> {
+    use sqlx::Row;
+    use uuid::Uuid;
+
+    if domain_names.is_empty() {
+        info!("No shared domains configured");
+        return Ok(());
+    }
+
+    info!("Seeding shared domains: {:?}", domain_names);
+
+    const SYSTEM_OWNER_ID: &str = "__system__";
+
+    for name in domain_names {
+        let normalized_name = name.to_lowercase();
+
+        // Check if domain exists
+        let existing = sqlx::query("SELECT id, is_shared FROM route_domains WHERE LOWER(name) = LOWER($1)")
+            .bind(&normalized_name)
+            .fetch_optional(pool)
+            .await?;
+
+        match existing {
+            Some(row) => {
+                let is_shared: bool = row.try_get("is_shared").unwrap_or(false);
+                if !is_shared {
+                    tracing::warn!(
+                        "Domain '{}' exists but is not marked as shared. Skipping.",
+                        normalized_name
+                    );
+                } else {
+                    tracing::debug!("Shared domain '{}' already exists", normalized_name);
+                }
+            }
+            None => {
+                let id = Uuid::new_v4();
+                sqlx::query(
+                    r#"
+                    INSERT INTO route_domains (id, name, owner_id, is_shared, verification_status, verification_reason, created_at, updated_at)
+                    VALUES ($1, $2, $3, true, 'Verified', 'shared_domain', NOW(), NOW())
+                    "#,
+                )
+                .bind(id)
+                .bind(&normalized_name)
+                .bind(SYSTEM_OWNER_ID)
+                .execute(pool)
+                .await?;
+
+                info!("Created shared domain: {} (ID: {})", normalized_name, id);
+            }
+        }
+    }
+
+    info!("Shared domain seeding completed");
     Ok(())
 }

@@ -11,6 +11,9 @@ pub trait DomainRepository: Send + Sync {
     /// Get domain by ID.
     async fn get_by_id(&self, id: Uuid) -> Result<Option<RouteDomain>>;
 
+    /// Get domains by multiple IDs.
+    async fn get_by_ids(&self, ids: &[Uuid]) -> Result<Vec<RouteDomain>>;
+
     /// Get domain by name.
     async fn get_by_name(&self, name: &str) -> Result<Option<RouteDomain>>;
 

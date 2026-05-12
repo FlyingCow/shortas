@@ -5,8 +5,8 @@ use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
 use crate::domain::entities::{
-    ApiError, DestinationFormat, Result, Route, RouteProperties, RouteStatus, RoutingPolicy,
-    RoutingTerminal,
+    ApiError, BlockedReason, DestinationFormat, Result, Route, RouteProperties, RouteStatus,
+    RoutingPolicy, RoutingTerminal,
 };
 use crate::domain::traits::{PaginatedResult, RouteFilters, RouteRepository};
 
@@ -37,7 +37,7 @@ impl PgRouteRepository {
 
         // Parse properties from joined columns
         let properties = RouteProperties {
-            route_id: row.try_get("prop_route_id").ok(),
+            route_id: row.try_get::<Uuid, _>("prop_route_id").ok().map(|u| u.to_string()),
             domain_id: row.try_get::<Option<Uuid>, _>("prop_domain_id").ok().flatten().map(|u| u.to_string()),
             owner_id: row.try_get("owner_id").ok(),
             creator_id: row.try_get("creator_id").ok(),
@@ -82,7 +82,7 @@ impl PgRouteRepository {
         };
 
         let status = match status_str.as_str() {
-            "Blocked" => RouteStatus::Blocked(shortas_common::BlockedReason::Unknown),
+            "Blocked" => RouteStatus::Blocked(BlockedReason::Unknown),
             _ => RouteStatus::Active,
         };
 
@@ -104,18 +104,6 @@ impl PgRouteRepository {
         })
     }
 
-    /// Generate a random alphanumeric link.
-    fn generate_link() -> String {
-        use rand::Rng;
-        const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        let mut rng = rand::rng();
-        (0..8)
-            .map(|_| {
-                let idx = rng.random_range(0..CHARSET.len());
-                CHARSET[idx] as char
-            })
-            .collect()
-    }
 }
 
 #[async_trait]
@@ -186,64 +174,37 @@ impl RouteRepository for PgRouteRepository {
     ) -> Result<PaginatedResult<Route>> {
         let offset = (page - 1) * page_size;
 
-        // Build dynamic WHERE clause
-        let mut conditions = Vec::new();
-        let mut params: Vec<String> = Vec::new();
-
-        if let Some(ref status) = filters.status {
-            params.push(status.clone());
-            conditions.push(format!("r.status = ${}", params.len()));
-        }
-
-        if let Some(ref owner_id) = filters.owner_id {
-            params.push(owner_id.clone());
-            conditions.push(format!("p.owner_id = ${}", params.len()));
-        }
-
-        if let Some(ref workspace_id) = filters.workspace_id {
-            params.push(workspace_id.clone());
-            conditions.push(format!("p.workspace_id = ${}", params.len()));
-        }
-
-        if let Some(domain_id) = filters.domain_id {
-            params.push(domain_id.to_string());
-            conditions.push(format!("r.domain_id = ${}::uuid", params.len()));
-        }
-
-        if let Some(ref search) = filters.search {
-            params.push(format!("%{}%", search));
-            conditions.push(format!("(r.link ILIKE ${} OR r.dest ILIKE ${})", params.len(), params.len()));
-        }
-
-        // Always filter for main switch (don't show conditional children)
-        conditions.push("r.switch = 'main'".to_string());
-
-        let where_clause = if conditions.is_empty() {
-            String::new()
-        } else {
-            format!("WHERE {}", conditions.join(" AND "))
-        };
-
-        // Count query
-        let count_sql = format!(
+        // Build query with optional filters using COALESCE pattern
+        // This avoids dynamic parameter binding issues
+        let count_row = sqlx::query(
             r#"
             SELECT COUNT(*) as count
             FROM routes r
             LEFT JOIN route_properties p ON r.id = p.route_id
-            {}
+            WHERE r.switch = 'main'
+              AND ($1::text IS NULL OR r.status = $1)
+              AND ($2::text IS NULL OR p.owner_id = $2)
+              AND ($3::text IS NULL OR p.workspace_id = $3)
+              AND ($4::uuid IS NULL OR r.domain_id = $4)
+              AND ($5::text IS NULL OR r.link ILIKE $5 OR r.dest ILIKE $5)
             "#,
-            where_clause
-        );
-
-        let count_row = sqlx::query(&count_sql)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| ApiError::internal(e.to_string()))?;
+        )
+        .bind(filters.status.as_deref())
+        .bind(filters.owner_id.as_deref())
+        .bind(filters.workspace_id.as_deref())
+        .bind(filters.domain_id)
+        .bind(filters.search.as_ref().map(|s| format!("%{}%", s)))
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to count routes: {}", e);
+            ApiError::internal(e.to_string())
+        })?;
 
         let total_count: i64 = count_row.try_get("count").unwrap_or(0);
 
         // Data query
-        let data_sql = format!(
+        let rows = sqlx::query(
             r#"
             SELECT r.*,
                    p.id as properties_id, p.route_id as prop_route_id, p.domain_id as prop_domain_id,
@@ -252,17 +213,29 @@ impl RouteRepository for PgRouteRepository {
                    p.bundling_json, p.qr_settings_json, p.opengraph, p.allow_debug
             FROM routes r
             LEFT JOIN route_properties p ON r.id = p.route_id
-            {}
+            WHERE r.switch = 'main'
+              AND ($1::text IS NULL OR r.status = $1)
+              AND ($2::text IS NULL OR p.owner_id = $2)
+              AND ($3::text IS NULL OR p.workspace_id = $3)
+              AND ($4::uuid IS NULL OR r.domain_id = $4)
+              AND ($5::text IS NULL OR r.link ILIKE $5 OR r.dest ILIKE $5)
             ORDER BY r.created_at DESC
-            LIMIT {} OFFSET {}
+            LIMIT $6 OFFSET $7
             "#,
-            where_clause, page_size, offset
-        );
-
-        let rows = sqlx::query(&data_sql)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| ApiError::internal(e.to_string()))?;
+        )
+        .bind(filters.status.as_deref())
+        .bind(filters.owner_id.as_deref())
+        .bind(filters.workspace_id.as_deref())
+        .bind(filters.domain_id)
+        .bind(filters.search.as_ref().map(|s| format!("%{}%", s)))
+        .bind(page_size)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to list routes: {}", e);
+            ApiError::internal(e.to_string())
+        })?;
 
         let routes: Vec<Route> = rows
             .iter()
@@ -453,15 +426,39 @@ impl RouteRepository for PgRouteRepository {
         Ok(row.try_get::<bool, _>("exists").unwrap_or(false))
     }
 
-    async fn suggest_link(&self, domain_id: Uuid) -> Result<String> {
-        // Try up to 10 times to generate a unique link
-        for _ in 0..10 {
-            let link = Self::generate_link();
-            if !self.link_exists(domain_id, &link).await? {
-                return Ok(link);
-            }
+    async fn find_existing_links(&self, domain_id: Uuid, links: &[String]) -> Result<Vec<String>> {
+        if links.is_empty() {
+            return Ok(Vec::new());
         }
-        Err(ApiError::internal("Failed to generate unique link"))
+
+        let rows = sqlx::query(
+            r#"
+            SELECT link FROM routes
+            WHERE domain_id = $1 AND link = ANY($2) AND switch = 'main'
+            "#,
+        )
+        .bind(domain_id)
+        .bind(links)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(rows
+            .iter()
+            .filter_map(|r| r.try_get::<String, _>("link").ok())
+            .collect())
+    }
+
+    async fn count_by_domain(&self, domain_id: Uuid) -> Result<i64> {
+        let row = sqlx::query(
+            "SELECT COUNT(*) as count FROM routes WHERE domain_id = $1 AND switch = 'main'",
+        )
+        .bind(domain_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(row.try_get::<i64, _>("count").unwrap_or(0))
     }
 
     async fn get_by_owner(&self, owner_id: &str, limit: i32) -> Result<Vec<Route>> {

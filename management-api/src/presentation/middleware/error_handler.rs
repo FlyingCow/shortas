@@ -2,6 +2,7 @@
 
 use salvo::prelude::*;
 use serde::Serialize;
+use tracing::error;
 
 use crate::domain::entities::ApiError;
 
@@ -28,6 +29,25 @@ impl From<ApiError> for ErrorResponse {
 pub fn render_error(res: &mut Response, error: ApiError) {
     let status_code = StatusCode::from_u16(error.status_code())
         .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+
+    // Log all errors server-side
+    match error.code {
+        crate::domain::entities::ErrorCode::InternalError => {
+            error!(
+                code = %error.code.as_str(),
+                message = %error.message,
+                details = ?error.details,
+                "Internal server error"
+            );
+        }
+        _ => {
+            tracing::warn!(
+                code = %error.code.as_str(),
+                message = %error.message,
+                "API error"
+            );
+        }
+    }
 
     res.status_code(status_code);
     res.render(Json(ErrorResponse::from(error)));
@@ -63,6 +83,20 @@ impl Handler for SecurityHeaders {
         ctrl: &mut FlowCtrl,
     ) {
         ctrl.call_next(req, depot, res).await;
+
+        // Add CORS headers
+        res.headers_mut().insert(
+            "Access-Control-Allow-Origin",
+            "*".parse().unwrap(),
+        );
+        res.headers_mut().insert(
+            "Access-Control-Allow-Methods",
+            "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD".parse().unwrap(),
+        );
+        res.headers_mut().insert(
+            "Access-Control-Allow-Headers",
+            "Authorization, Content-Type, Accept, Origin, X-Requested-With".parse().unwrap(),
+        );
 
         // Add security headers
         res.headers_mut().insert(

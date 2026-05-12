@@ -69,6 +69,20 @@ impl DomainRepository for PgDomainRepository {
         }
     }
 
+    async fn get_by_ids(&self, ids: &[Uuid]) -> Result<Vec<RouteDomain>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let rows = sqlx::query("SELECT * FROM route_domains WHERE id = ANY($1)")
+            .bind(ids)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(rows.iter().filter_map(|r| Self::map_row(r).ok()).collect())
+    }
+
     async fn get_by_name(&self, name: &str) -> Result<Option<RouteDomain>> {
         let row = sqlx::query("SELECT * FROM route_domains WHERE LOWER(name) = LOWER($1)")
             .bind(name)
@@ -102,8 +116,10 @@ impl DomainRepository for PgDomainRepository {
     }
 
     async fn list_accessible(&self, user_id: &str) -> Result<Vec<RouteDomain>> {
+        // Return user's own domains only
+        // Frontend combines this with /domains/shared endpoint for full list
         let rows = sqlx::query(
-            "SELECT * FROM route_domains WHERE owner_id = $1 OR is_shared = true ORDER BY is_shared, name",
+            "SELECT * FROM route_domains WHERE owner_id = $1 ORDER BY name",
         )
         .bind(user_id)
         .fetch_all(&self.pool)

@@ -16,9 +16,6 @@ path = "src/main.rs"
 path = "src/lib.rs"
 
 [dependencies]
-# Local crate
-shortas-common.workspace = true
-
 # Core async runtime and utilities
 tokio.workspace = true
 tokio-util.workspace = true

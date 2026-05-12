@@ -34,7 +34,8 @@
       "Bash(docker restart:*)",
       "Bash(docker ps:*)",
       "Bash(docker build:*)",
-      "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && head -30 {}')"
+      "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && head -30 {}')",
+      "Bash(git checkout:*)"
     ]
   }
 }

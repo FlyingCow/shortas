@@ -11,6 +11,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use tracing::{error, info, warn};
 
+use crate::domain::entities::{BlockedReason, RouteStatus};
 use crate::domain::traits::DomainRepository;
 use crate::settings::RabbitMqSettings;
 
@@ -176,8 +177,8 @@ impl RabbitMqConsumer {
                                         // Update route status based on Safe Browsing result
                                         if msg.status == "Blocked" {
                                             let reason = msg.reason.unwrap_or_else(|| "Safe Browsing".to_string());
-                                            route.status = shortas_common::RouteStatus::Blocked(
-                                                shortas_common::BlockedReason::Reasoned(reason)
+                                            route.status = RouteStatus::Blocked(
+                                                BlockedReason::Reasoned(reason)
                                             );
 
                                             if let Err(e) = route_repo.update(&route).await {
