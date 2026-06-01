@@ -13,7 +13,7 @@ use moka::{
     routes_cache::MokaRoutesCache, user_settings_cache::MokaUserSettingsCache,
 };
 use rdkafka::hit_registrar::KafkaHitRegistrar;
-use salvo::{SalvoRequest, SalvoResponse};
+use axum::{AxumRequest, AxumResponse};
 use uaparser::user_agent_detector::UAParserUserAgentDetector;
 
 use crate::{
@@ -48,7 +48,8 @@ pub mod moka;
 pub mod mongodb;
 pub mod rabbitmq;
 pub mod rdkafka;
-pub mod salvo;
+pub mod axum;
+// pub mod salvo; // Temporarily commented out during migration to Axum
 pub mod uaparser;
 pub mod api;
 
@@ -71,64 +72,63 @@ impl HitRegistrar for HitRegistrarType {
 }
 
 pub enum RequestType<'a> {
-    //hyper,
-    Salvo(&'a SalvoRequest<'a>),
+    Axum(&'a AxumRequest),
     Test(RequestData),
 }
 
 impl<'a> Request for RequestType<'a> {
     fn uri(&self) -> &http::Uri {
         match self {
-            RequestType::Salvo(request) => request.uri(),
+            RequestType::Axum(request) => request.uri(),
             RequestType::Test(request) => &request.uri,
         }
     }
 
     fn headers(&self) -> &http::HeaderMap {
         match self {
-            RequestType::Salvo(request) => request.headers(),
+            RequestType::Axum(request) => request.headers(),
             RequestType::Test(request) => &request.headers,
         }
     }
 
     fn method(&self) -> &http::Method {
         match self {
-            RequestType::Salvo(request) => request.method(),
+            RequestType::Axum(request) => request.method(),
             RequestType::Test(request) => &request.method,
         }
     }
 
     fn scheme(&self) -> &http::uri::Scheme {
         match self {
-            RequestType::Salvo(request) => request.scheme(),
+            RequestType::Axum(request) => request.scheme(),
             RequestType::Test(_) => &Scheme::HTTP,
         }
     }
 
     fn remote_addr(&self) -> Option<std::net::SocketAddr> {
         match self {
-            RequestType::Salvo(request) => request.remote_addr(),
+            RequestType::Axum(request) => request.remote_addr(),
             RequestType::Test(request) => request.remote_addr,
         }
     }
 
     fn params(&self) -> &indexmap::IndexMap<String, String> {
         match self {
-            RequestType::Salvo(request) => request.params(),
+            RequestType::Axum(request) => request.params(),
             RequestType::Test(request) => &request.params,
         }
     }
 
     fn queries(&self) -> &multimap::MultiMap<String, String> {
         match self {
-            RequestType::Salvo(request) => request.queries(),
+            RequestType::Axum(request) => request.queries(),
             RequestType::Test(request) => &request.queries,
         }
     }
 
     fn cookies(&self) -> &cookie::CookieJar {
         match self {
-            RequestType::Salvo(request) => request.cookies(),
+            RequestType::Axum(request) => request.cookies(),
             RequestType::Test(request) => &request.cookies,
         }
     }
@@ -138,15 +138,14 @@ impl<'a> Request for RequestType<'a> {
         T: AsRef<str>,
     {
         match self {
-            RequestType::Salvo(request) => request.cookie(name),
+            RequestType::Axum(request) => request.cookie(name),
             RequestType::Test(request) => request.cookies.get(name.as_ref()),
         }
     }
 }
 
 pub enum ResponseType<'a> {
-    //hyper,
-    Salvo(&'a mut SalvoResponse<'a>),
+    Axum(&'a mut AxumResponse),
     Test(ResponseData),
 }
 
@@ -157,7 +156,7 @@ impl<'a> Response for ResponseType<'a> {
         V: TryInto<HeaderValue>,
     {
         match self {
-            ResponseType::Salvo(response) => {
+            ResponseType::Axum(response) => {
                 let _ = &response.add_header(name, value, overwrite)?;
 
                 Ok(())
@@ -176,7 +175,7 @@ impl<'a> Response for ResponseType<'a> {
 
     fn cookies(&self) -> &cookie::CookieJar {
         match self {
-            ResponseType::Salvo(response) => response.cookies(),
+            ResponseType::Axum(response) => response.cookies(),
             ResponseType::Test(response) => &response.cookies,
         }
     }
@@ -190,14 +189,14 @@ impl<'a> Response for ResponseType<'a> {
         T: AsRef<str>,
     {
         match self {
-            ResponseType::Salvo(response) => response.cookie(name),
+            ResponseType::Axum(response) => response.cookie(name),
             ResponseType::Test(response) => response.cookies.get(name.as_ref()),
         }
     }
 
     fn add_cookie(&mut self, cookie: cookie::Cookie<'static>) {
         match self {
-            ResponseType::Salvo(response) => response.add_cookie(cookie),
+            ResponseType::Axum(response) => response.add_cookie(cookie),
             ResponseType::Test(response) => response.cookies.add(cookie),
         }
     }

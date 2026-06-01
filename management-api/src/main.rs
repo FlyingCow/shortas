@@ -1,4 +1,5 @@
 //! Management API - Rust implementation of the URL shortening management service.
+//! Build timestamp: 2026-05-12T16:40:00Z
 //!
 //! This service provides REST APIs for managing routes, domains, workspaces,
 //! certificates, and analytics.

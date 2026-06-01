@@ -1,5 +1,8 @@
 # Multi-stage build for management-api
-FROM rust:bookworm AS builder
+ARG RUST_VERSION=1.95
+ARG DEBIAN_VERSION=trixie
+
+FROM rust:${RUST_VERSION}-slim AS builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -27,7 +30,7 @@ COPY redirect/shortas-common/ ./redirect/shortas-common/
 RUN cargo build --release -p management-api
 
 # Runtime stage
-FROM debian:bookworm-slim
+FROM debian:${DEBIAN_VERSION}-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \

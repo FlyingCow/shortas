@@ -16,8 +16,8 @@
 
 use lazy_static::lazy_static;
 use prometheus::{
-    Counter, Histogram, HistogramVec, IntCounter, IntGauge, Registry, Opts, HistogramOpts,
-    register_counter, register_histogram, register_histogram_vec, register_int_counter, register_int_gauge,
+    Histogram, HistogramVec, IntCounter, IntGauge, Registry, Opts, HistogramOpts,
+    register_histogram, register_histogram_vec, register_int_counter, register_int_gauge,
 };
 use std::time::Instant;
 
@@ -555,8 +555,9 @@ impl Timer {
     }
 }
 
-/// Global metrics instance
+// Global metrics instance
 lazy_static! {
+    /// Global metrics instance for tracking application performance
     pub static ref METRICS: FlowRouterMetrics = {
         FlowRouterMetrics::new().unwrap_or_else(|e| {
             // If metrics are already registered, create a default instance

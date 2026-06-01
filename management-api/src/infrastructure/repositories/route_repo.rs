@@ -8,7 +8,7 @@ use crate::domain::entities::{
     ApiError, BlockedReason, DestinationFormat, Result, Route, RouteProperties, RouteStatus,
     RoutingPolicy, RoutingTerminal,
 };
-use crate::domain::traits::{PaginatedResult, RouteFilters, RouteRepository};
+use crate::domain::traits::{PaginatedResult, RouteFilters, RouteInfo, RouteRepository};
 
 /// PostgreSQL route repository.
 pub struct PgRouteRepository {
@@ -130,6 +130,35 @@ impl RouteRepository for PgRouteRepository {
             Some(r) => Ok(Some(Self::map_row(&r)?)),
             None => Ok(None),
         }
+    }
+
+    async fn get_route_info_by_ids(&self, ids: &[Uuid]) -> Result<Vec<RouteInfo>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let rows = sqlx::query(
+            r#"
+            SELECT r.id, r.link, d.name as domain_name
+            FROM routes r
+            LEFT JOIN route_domains d ON r.domain_id = d.id
+            WHERE r.id = ANY($1)
+            "#,
+        )
+        .bind(ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(rows
+            .iter()
+            .filter_map(|row| {
+                let id: Uuid = row.try_get("id").ok()?;
+                let link: String = row.try_get("link").ok()?;
+                let domain_name: Option<String> = row.try_get("domain_name").ok();
+                Some(RouteInfo { id, link, domain_name })
+            })
+            .collect())
     }
 
     async fn get_by_domain_and_path(

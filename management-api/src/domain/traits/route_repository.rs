@@ -39,11 +39,22 @@ impl<T> PaginatedResult<T> {
     }
 }
 
+/// Lightweight route info for enrichment.
+#[derive(Debug, Clone)]
+pub struct RouteInfo {
+    pub id: Uuid,
+    pub link: String,
+    pub domain_name: Option<String>,
+}
+
 /// Route repository trait for database operations.
 #[async_trait]
 pub trait RouteRepository: Send + Sync {
     /// Get route by ID.
     async fn get_by_id(&self, id: Uuid) -> Result<Option<Route>>;
+
+    /// Get route info (link + domain name) for multiple route IDs.
+    async fn get_route_info_by_ids(&self, ids: &[Uuid]) -> Result<Vec<RouteInfo>>;
 
     /// Get route by domain and path.
     async fn get_by_domain_and_path(
