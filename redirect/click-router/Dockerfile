@@ -4,7 +4,7 @@
 # Click Router - High-performance redirect service
 # ==============================================================================
 
-ARG RUST_VERSION=1.94.0
+ARG RUST_VERSION=1.95
 ARG DEBIAN_VERSION=trixie
 
 # ------------------------------------------------------------------------------
@@ -35,6 +35,7 @@ COPY redirect/click-aggregator-api/ ./redirect/click-aggregator-api/
 COPY redirect/domain-verifier/ ./redirect/domain-verifier/
 COPY redirect/route-icon-worker/ ./redirect/route-icon-worker/
 COPY redirect/route-verifier/ ./redirect/route-verifier/
+COPY redirect/shortas-common/ ./redirect/shortas-common/
 COPY salvo/ ./salvo/
 COPY redirect/data/ ./redirect/data/
 

@@ -12,47 +12,56 @@
 //! These endpoints are typically served on a separate port from the main application
 //! to isolate monitoring traffic from user traffic.
 
-use prometheus::{Encoder, TextEncoder};
-use salvo::{prelude::*, writing::Json, writing::Text, Response};
+use prometheus::TextEncoder;
+use axum::{
+    response::IntoResponse,
+    routing::get,
+    Json, Router,
+};
+use http::{header, StatusCode};
 use crate::core::metrics::METRICS;
 
 /// Handler for the Prometheus metrics endpoint
-/// 
+///
 /// Serves metrics in Prometheus text format for scraping by monitoring systems.
 /// Returns all registered metrics with their current values.
-/// 
+///
 /// # Response
 /// - Content-Type: `text/plain; version=0.0.4; charset=utf-8`
 /// - Body: Prometheus-formatted metrics data
-#[handler]
-pub async fn metrics_handler(res: &mut Response) {
+pub async fn metrics_handler() -> impl IntoResponse {
     let encoder = TextEncoder::new();
     let metric_families = prometheus::gather();
-    
+
     match encoder.encode_to_string(&metric_families) {
         Ok(metrics_text) => {
-            res.add_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8", true)
-                .unwrap();
-            res.render(Text::Plain(metrics_text));
+            (
+                StatusCode::OK,
+                [(header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
+                metrics_text,
+            )
+                .into_response()
         }
         Err(e) => {
             tracing::error!("Failed to encode metrics: {}", e);
-            res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
-            res.render(Text::Plain("Failed to encode metrics"));
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to encode metrics",
+            )
+                .into_response()
         }
     }
 }
 
 /// Handler for the health check endpoint
-/// 
+///
 /// Provides a health status response with basic system metrics for monitoring
 /// and load balancer health checks.
-/// 
+///
 /// # Response
 /// - Content-Type: `application/json`
 /// - Body: JSON object with status, timestamp, and key metrics
-#[handler]
-pub async fn health_handler(res: &mut Response) {
+pub async fn health_handler() -> impl IntoResponse {
     let health_info = serde_json::json!({
         "status": "healthy",
         "timestamp": std::time::SystemTime::now()
@@ -70,20 +79,19 @@ pub async fn health_handler(res: &mut Response) {
             "recursive_flow_usage": METRICS.recursive_flow_usage.get(),
         }
     });
-    
-    res.render(Json(health_info));
+
+    Json(health_info)
 }
 
 /// Handler for detailed metrics information endpoint
-/// 
+///
 /// Provides comprehensive metrics data in JSON format with calculated
 /// rates and performance indicators.
-/// 
+///
 /// # Response
 /// - Content-Type: `application/json`
 /// - Body: JSON object with detailed metrics, rates, and performance data
-#[handler]
-pub async fn metrics_info_handler(res: &mut Response) {
+pub async fn metrics_info_handler() -> impl IntoResponse {
     let cache_hit_rate = {
         let hits = METRICS.route_cache_hits.get() as f64;
         let misses = METRICS.route_cache_misses.get() as f64;
@@ -166,16 +174,16 @@ pub async fn metrics_info_handler(res: &mut Response) {
             }
         }
     });
-    
-    res.render(Json(metrics_info));
+
+    Json(metrics_info)
 }
 
 /// Create router for metrics endpoints
 pub fn create_metrics_router() -> Router {
     Router::new()
-        .push(Router::with_path("/metrics").get(metrics_handler))
-        .push(Router::with_path("/health").get(health_handler))
-        .push(Router::with_path("/metrics/info").get(metrics_info_handler))
+        .route("/metrics", get(metrics_handler))
+        .route("/health", get(health_handler))
+        .route("/metrics/info", get(metrics_info_handler))
 }
 
 #[cfg(test)]

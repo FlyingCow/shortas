@@ -1,4 +1,4 @@
-use crate::{adapters::RequestType, core::flow_router::RequestData};
+use crate::adapters::RequestType;
 
 use super::flow_router::Request;
 

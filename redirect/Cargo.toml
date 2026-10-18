@@ -22,6 +22,9 @@ homepage = "https://shortas.com"
 documentation = "https://shortas.work/"
 
 [workspace.dependencies]
+# Local crates
+shortas-common = { path = "shortas-common" }
+
 # Core async runtime and utilities
 tokio = { version = "1.47.1", features = ["full"] }
 tokio-util = "0.7.14"
@@ -81,7 +84,7 @@ uaparser = "0.6.4"
 maxminddb = "0.26.0"
 urlencoding = "2.1.3"
 ulid = "1.1.3"
-uuid = "1.8.0"
+uuid = { version = "1.8.0", features = ["v4", "serde"] }
 rand = "0.9.1"
 fastrand = "2.3.0"
 percent-encoding = "2.3.1"
@@ -132,6 +135,12 @@ http-body-util = "0.1.1"
 
 # DNS resolution
 hickory-resolver = "0.24"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono", "json"] }
+
+# Search
+elasticsearch = "8.17.0-alpha.1"
 
 # Development dependencies
 criterion = { version = "0.6.0", features = ["html_reports", "async_futures"] }

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm ls:*)",
+      "Bash(npx -y world-atlas)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(npm run build:*)",
+      "Bash(node -e:*)",
+      "Bash(grep:*)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}
