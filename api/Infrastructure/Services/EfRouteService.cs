@@ -11,17 +11,12 @@ using RouteSearchDoc = ShortasProxyApi.Domain.Interfaces.RouteSearchDocument;
 
 namespace ShortasProxyApi.Infrastructure.Services;
 
-/// <summary>
-/// Entity Framework-based route service. Implements full IRouteService
-/// (both IRouteCommandService and IRouteQueryService).
-/// This is the primary service for route operations - use this for all
-/// database-backed route management.
-/// </summary>
 public class EfRouteService : IRouteService
 {
     private readonly ApplicationDbContext _context;
     private readonly ClickRouterApiClient _clickRouterApiClient;
     private readonly ILogger<EfRouteService> _logger;
+    private readonly JsonSerializerOptions _jsonOptions;
 
     public EfRouteService(
         ApplicationDbContext context,
@@ -31,6 +26,10 @@ public class EfRouteService : IRouteService
         _context = context;
         _clickRouterApiClient = clickRouterApiClient;
         _logger = logger;
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
     }
 
     public async Task<Result<RouteEntity?>> GetRouteByIdAsync(Guid id, string userId)
@@ -981,7 +980,7 @@ public class EfRouteService : IRouteService
         {
             EventType = OutboxEventType.RouteSearchIndex,
             AggregateId = route.Id.ToString(),
-            Payload = JsonSerializer.Serialize(doc, JsonConfig.Default)
+            Payload = JsonSerializer.Serialize(doc, _jsonOptions)
         });
     }
 
@@ -991,7 +990,7 @@ public class EfRouteService : IRouteService
         {
             EventType = OutboxEventType.RouteSearchDelete,
             AggregateId = route.Id.ToString(),
-            Payload = JsonSerializer.Serialize(new { id = route.Id.ToString() }, JsonConfig.Default)
+            Payload = JsonSerializer.Serialize(new { id = route.Id.ToString() }, _jsonOptions)
         });
     }
 
@@ -1002,7 +1001,7 @@ public class EfRouteService : IRouteService
         {
             EventType = OutboxEventType.RouteSearchBulkIndex,
             AggregateId = string.Join(",", routes.Select(r => r.Id)),
-            Payload = JsonSerializer.Serialize(docs, JsonConfig.Default)
+            Payload = JsonSerializer.Serialize(docs, _jsonOptions)
         });
     }
 
@@ -1013,7 +1012,7 @@ public class EfRouteService : IRouteService
         {
             EventType = OutboxEventType.RouteSearchBulkDelete,
             AggregateId = string.Join(",", ids),
-            Payload = JsonSerializer.Serialize(ids, JsonConfig.Default)
+            Payload = JsonSerializer.Serialize(ids, _jsonOptions)
         });
     }
 
@@ -1072,7 +1071,7 @@ public class EfRouteService : IRouteService
         {
             EventType = OutboxEventType.RouteVerificationRequested,
             AggregateId = route.Id.ToString(),
-            Payload = JsonSerializer.Serialize(payload, JsonConfig.Default)
+            Payload = JsonSerializer.Serialize(payload, _jsonOptions)
         });
     }
 
@@ -1088,7 +1087,7 @@ public class EfRouteService : IRouteService
         {
             EventType = OutboxEventType.RouteVerificationRemovalRequested,
             AggregateId = route.Id.ToString(),
-            Payload = JsonSerializer.Serialize(payload, JsonConfig.Default)
+            Payload = JsonSerializer.Serialize(payload, _jsonOptions)
         });
     }
 

@@ -69,10 +69,14 @@ qrcode.workspace = true
 image.workspace = true
 
 # Project-specific dependencies
-axum = "0.7"
-axum-server = { version = "0.7", features = ["tls-rustls"] }
-tower-http = { version = "0.6", features = ["trace", "cors", "timeout"] }
-tower-cookies = "0.10"
+salvo = { path = "../../salvo/crates/salvo", features = [
+    "anyhow",
+    "proxy",
+    "rustls",
+    "quinn",
+    "test",
+    "logging",
+] }
 
 [dev-dependencies]
 criterion.workspace = true

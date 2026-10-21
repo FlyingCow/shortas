@@ -14,11 +14,17 @@ public class ClickRouterApiClient
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<ClickRouterApiClient> _logger;
+    private readonly JsonSerializerOptions _jsonOptions;
 
     public ClickRouterApiClient(HttpClient httpClient, ILogger<ClickRouterApiClient> logger)
     {
         _httpClient = httpClient;
         _logger = logger;
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
+        };
     }
 
     #region Route Operations
@@ -49,7 +55,7 @@ public class ClickRouterApiClient
         {
             // Map to ClickRouter DTO for API communication
             var apiDto = ClickRouterRouteDto.FromDto(route);
-            var json = JsonSerializer.Serialize(apiDto, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var switchValue = route.Switch ?? "main";
@@ -79,7 +85,7 @@ public class ClickRouterApiClient
         try
         {
             var apiDto = ClickRouterRouteDto.FromDto(route);
-            var json = JsonSerializer.Serialize(apiDto, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PutAsync($"/v1/routes/{id}", content);
@@ -138,7 +144,7 @@ public class ClickRouterApiClient
         {
             // Map to ClickRouter DTO for API communication
             var apiDto = ClickRouterRouteDto.FromDto(route);
-            var json = JsonSerializer.Serialize(apiDto, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var switchValue = route.Switch ?? "main";
@@ -178,7 +184,7 @@ public class ClickRouterApiClient
         {
             // Map to ClickRouter DTOs for API communication
             var apiDtos = routes.Select(ClickRouterRouteDto.FromDto).ToList();
-            var json = JsonSerializer.Serialize(apiDtos, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(apiDtos, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync("/v1/routes/bulk", content);
@@ -200,7 +206,7 @@ public class ClickRouterApiClient
         {
             // Map to ClickRouter DTOs for API communication
             var apiDtos = routes.Select(ClickRouterRouteDto.FromDto).ToList();
-            var json = JsonSerializer.Serialize(apiDtos, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(apiDtos, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PutAsync("/v1/routes/bulk", content);
@@ -220,7 +226,7 @@ public class ClickRouterApiClient
     {
         try
         {
-            var json = JsonSerializer.Serialize(routeIds, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(routeIds, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var request = new HttpRequestMessage(HttpMethod.Delete, "/v1/routes/bulk")
@@ -283,7 +289,7 @@ public class ClickRouterApiClient
 
             // Parse the response structure
             var dataElement = root.GetProperty("data");
-            var apiDtos = JsonSerializer.Deserialize<List<ClickRouterRouteDto>>(dataElement.GetRawText(), JsonConfig.Default);
+            var apiDtos = JsonSerializer.Deserialize<List<ClickRouterRouteDto>>(dataElement.GetRawText(), _jsonOptions);
             var routes = apiDtos?.Select(dto => dto.ToDto()).ToList() ?? new List<RouteDto>();
 
             var totalCount = root.GetProperty("pagination").GetProperty("totalCount").GetInt32();
@@ -326,7 +332,7 @@ public class ClickRouterApiClient
         try
         {
             var apiDto = ClickRouterCertificateDto.FromDto(certificate);
-            var json = JsonSerializer.Serialize(apiDto, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync($"/v1/certificates/{domain}", content);
@@ -347,7 +353,7 @@ public class ClickRouterApiClient
         try
         {
             var apiDto = ClickRouterCertificateDto.FromDto(certificate);
-            var json = JsonSerializer.Serialize(apiDto, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PutAsync($"/v1/certificates/{domain}", content);
@@ -413,7 +419,7 @@ public class ClickRouterApiClient
 
             // Parse the response structure
             var dataElement = root.GetProperty("data");
-            var apiDtos = JsonSerializer.Deserialize<List<ClickRouterCertificateDto>>(dataElement.GetRawText(), JsonConfig.Default);
+            var apiDtos = JsonSerializer.Deserialize<List<ClickRouterCertificateDto>>(dataElement.GetRawText(), _jsonOptions);
             var certificates = apiDtos?.Select(dto => dto.ToDto()).ToList() ?? new List<CertificateDto>();
 
             var totalCount = root.GetProperty("pagination").GetProperty("totalCount").GetInt32();
@@ -464,7 +470,7 @@ public class ClickRouterApiClient
         try
         {
             var apiDto = ClickRouterUserSettingsDto.FromDto(settings);
-            var json = JsonSerializer.Serialize(apiDto, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync($"/v1/user-settings/{userId}", content);
@@ -485,7 +491,7 @@ public class ClickRouterApiClient
         try
         {
             var apiDto = ClickRouterUserSettingsDto.FromDto(settings);
-            var json = JsonSerializer.Serialize(apiDto, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(apiDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PutAsync($"/v1/user-settings/{userId}", content);
@@ -533,7 +539,7 @@ public class ClickRouterApiClient
                 return Result<TAppDto>.Success(default(TAppDto)!);
             }
 
-            var apiDto = JsonSerializer.Deserialize<TApiDto>(content, JsonConfig.Default);
+            var apiDto = JsonSerializer.Deserialize<TApiDto>(content, _jsonOptions);
             if (apiDto == null)
             {
                 return Result<TAppDto>.Success(default(TAppDto)!);
@@ -561,7 +567,7 @@ public class ClickRouterApiClient
                 return Result<List<TAppDto>>.Success(new List<TAppDto>());
             }
 
-            var apiDtos = JsonSerializer.Deserialize<List<TApiDto>>(content, JsonConfig.Default);
+            var apiDtos = JsonSerializer.Deserialize<List<TApiDto>>(content, _jsonOptions);
             if (apiDtos == null)
             {
                 return Result<List<TAppDto>>.Success(new List<TAppDto>());
@@ -597,7 +603,7 @@ public class ClickRouterApiClient
                 return Result<List<TAppDto>>.Success(new List<TAppDto>());
             }
 
-            var apiDtos = JsonSerializer.Deserialize<List<TApiDto>>(arrayElement.GetRawText(), JsonConfig.Default);
+            var apiDtos = JsonSerializer.Deserialize<List<TApiDto>>(arrayElement.GetRawText(), _jsonOptions);
             if (apiDtos == null)
             {
                 return Result<List<TAppDto>>.Success(new List<TAppDto>());

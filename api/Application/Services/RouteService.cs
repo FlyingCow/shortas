@@ -6,24 +6,32 @@ using System.Text.Json;
 
 namespace ShortasProxyApi.Application.Services;
 
-/// <summary>
-/// HTTP client service for route operations against click-router-api.
-/// Only implements IRouteCommandService (write operations).
-/// For read operations (get, list), use EfRouteService via IRouteQueryService.
-/// </summary>
-public class RouteService : IRouteCommandService
+public class RouteService : IRouteService
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<RouteService> _logger;
+    private readonly JsonSerializerOptions _jsonOptions;
 
     public RouteService(HttpClient httpClient, ILogger<RouteService> logger)
     {
         _httpClient = httpClient;
         _logger = logger;
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
+        };
     }
 
-    // Legacy method kept for backward compatibility with existing callers
-    internal async Task<Result<Domain.Entities.Route?>> GetRouteAsync(string domain, string path, string userId, string? switchParam = null)
+    public Task<Result<Domain.Entities.Route?>> GetRouteByIdAsync(Guid id, string userId)
+    {
+        // This HTTP client calls an external API that uses domain/path, not IDs
+        // This method should not be used with this service - use EfRouteService instead
+        return Task.FromResult(Result<Domain.Entities.Route?>.Failure(
+            Error.Internal("GetRouteByIdAsync not supported in HTTP client service. Use EfRouteService or call GetRouteAsync with domain/path.")));
+    }
+
+    public async Task<Result<Domain.Entities.Route?>> GetRouteAsync(string domain, string path, string userId, string? switchParam = null)
     {
         try
         {
@@ -42,7 +50,7 @@ public class RouteService : IRouteCommandService
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                var route = JsonSerializer.Deserialize<Domain.Entities.Route>(content, JsonConfig.Default);
+                var route = JsonSerializer.Deserialize<Domain.Entities.Route>(content, _jsonOptions);
                 return Result<Domain.Entities.Route?>.Success(route);
             }
             
@@ -98,7 +106,7 @@ public class RouteService : IRouteCommandService
                 return Result<Domain.Entities.Route>.Failure(Error.Validation("Route validation failed", errors));
             }
 
-            var json = JsonSerializer.Serialize(route, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(route, _jsonOptions);
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
             var switchValue = route.Switch ?? "main";
@@ -110,7 +118,7 @@ public class RouteService : IRouteCommandService
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync();
-                var createdRoute = JsonSerializer.Deserialize<Domain.Entities.Route>(responseContent, JsonConfig.Default) ?? route;
+                var createdRoute = JsonSerializer.Deserialize<Domain.Entities.Route>(responseContent, _jsonOptions) ?? route;
                 return Result<Domain.Entities.Route>.Success(createdRoute);
             }
 
@@ -192,7 +200,7 @@ public class RouteService : IRouteCommandService
                 return Result<Domain.Entities.Route>.Failure(Error.Validation("Route validation failed", errors));
             }
 
-            var json = JsonSerializer.Serialize(route, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(route, _jsonOptions);
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
             var switchValue = route.Switch ?? "main";
@@ -201,7 +209,7 @@ public class RouteService : IRouteCommandService
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync();
-                var updatedRoute = JsonSerializer.Deserialize<Domain.Entities.Route>(responseContent, JsonConfig.Default) ?? route;
+                var updatedRoute = JsonSerializer.Deserialize<Domain.Entities.Route>(responseContent, _jsonOptions) ?? route;
                 return Result<Domain.Entities.Route>.Success(updatedRoute);
             }
 
@@ -310,7 +318,7 @@ public class RouteService : IRouteCommandService
                 }
             }
 
-            var json = JsonSerializer.Serialize(routes, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(routes, _jsonOptions);
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
             
             var response = await _httpClient.PostAsync("/v1/routes/bulk", content);
@@ -318,7 +326,7 @@ public class RouteService : IRouteCommandService
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync();
-                var createdRoutes = JsonSerializer.Deserialize<List<Domain.Entities.Route>>(responseContent, JsonConfig.Default) ?? routes;
+                var createdRoutes = JsonSerializer.Deserialize<List<Domain.Entities.Route>>(responseContent, _jsonOptions) ?? routes;
                 return Result<List<Domain.Entities.Route>>.Success(createdRoutes);
             }
 
@@ -365,7 +373,7 @@ public class RouteService : IRouteCommandService
                 }
             }
 
-            var json = JsonSerializer.Serialize(routes, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(routes, _jsonOptions);
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
             
             var response = await _httpClient.PutAsync("/v1/routes/bulk", content);
@@ -373,7 +381,7 @@ public class RouteService : IRouteCommandService
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync();
-                var updatedRoutes = JsonSerializer.Deserialize<List<Domain.Entities.Route>>(responseContent, JsonConfig.Default) ?? routes;
+                var updatedRoutes = JsonSerializer.Deserialize<List<Domain.Entities.Route>>(responseContent, _jsonOptions) ?? routes;
                 return Result<List<Domain.Entities.Route>>.Success(updatedRoutes);
             }
 
@@ -410,7 +418,7 @@ public class RouteService : IRouteCommandService
             if (routeIds == null || !routeIds.Any())
                 return Result.Failure(Error.Validation("Route IDs list cannot be empty"));
 
-            var json = JsonSerializer.Serialize(routeIds, JsonConfig.Default);
+            var json = JsonSerializer.Serialize(routeIds, _jsonOptions);
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
             // DELETE with body requires HttpRequestMessage
@@ -450,4 +458,16 @@ public class RouteService : IRouteCommandService
         }
     }
 
+    public Task<Result<(List<Domain.Entities.Route> Routes, int TotalCount)>> ListRoutesAsync(
+        int page = 1,
+        int pageSize = 20,
+        string? search = null,
+        string? status = null,
+        string? ownerId = null,
+        string? workspaceId = null)
+    {
+        // This method is not implemented in the HTTP client proxy service
+        // It should only be called when using the EF-based service
+        throw new NotImplementedException("ListRoutesAsync is only available in EF-based service");
+    }
 }

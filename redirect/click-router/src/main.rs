@@ -24,25 +24,23 @@ use std::{
     sync::Arc,
 };
 
-use axum::{
-    body::Body,
-    extract::{ConnectInfo, Request, State},
-    http::Request as HttpRequest,
-    response::{IntoResponse, Response},
-    routing::get,
-    Json, Router,
+use salvo::{
+    async_trait,
+    conn::{
+        rustls_async::{Keycert, ResolvesServerConfig, RustlsConfig},
+        TcpListener,
+    },
+    prelude::Logger,
+    writing::Json,
+    Depot, FlowCtrl, Handler, Listener, Request, Response, Router, Server, Service,
 };
-use axum_server::tls_rustls::RustlsConfig;
-use rustls::server::ResolvesServerCert;
-use rustls::sign::CertifiedKey;
-use tower_cookies::{CookieManagerLayer, Cookies};
-use tower_http::trace::TraceLayer;
+use salvo_proxy::{hyper_client::HyperClient, Proxy};
 use tokio::time::{timeout, Duration};
 
 use click_router::{
     adapters::{
         api::conversion_routes,
-        axum::{axum_proxy::{self, hyper_client::HyperClient, Proxy}, parse_queries, AxumRequest, AxumResponse},
+        salvo::{salvo_proxy, SalvoRequest, SalvoResponse},
         CryptoCacheType, RequestType, ResponseType,
     },
     app::AppBuilder,
@@ -84,131 +82,196 @@ pub struct Args {
 ///
 /// This handler processes all incoming HTTP requests through the flow router,
 /// collecting metrics and generating appropriate responses.
-async fn redirect_handler(
-    ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
-    req: Request,
-) -> impl IntoResponse {
-    // Start timing the request
-    let request_timer = Timer::new();
-    METRICS.requests_total.inc();
-    METRICS.active_requests.inc();
+struct Redirect;
 
-    let router = get_flow_router();
+// fn to_socket_addr()
 
-    // Extract request components
-    let (parts, body) = req.into_parts();
-    let uri = parts.uri.clone();
-    let headers = parts.headers.clone();
-    let method = parts.method.clone();
-    let scheme = uri.scheme().cloned().unwrap_or(http::uri::Scheme::HTTP);
+#[async_trait]
+impl Handler for Redirect {
+    /// Handles incoming HTTP requests through the flow router
+    ///
+    /// This method processes each request through the complete flow pipeline,
+    /// collecting metrics and generating the appropriate response based on
+    /// the flow router's decision.
+    ///
+    /// # Arguments
+    /// * `req` - The incoming HTTP request
+    /// * `depot` - Salvo's request-scoped data storage
+    /// * `res` - The HTTP response being constructed
+    /// * `ctrl` - Flow control for the request pipeline
+    async fn handle(
+        &self,
+        req: &mut Request,
+        depot: &mut Depot,
+        res: &mut Response,
+        ctrl: &mut FlowCtrl,
+    ) {
+        // Start timing the request
+        let request_timer = Timer::new();
+        METRICS.requests_total.inc();
+        METRICS.active_requests.inc();
 
-    // Build AxumRequest wrapper
-    // Note: Cookies are handled by tower-cookies layer, so we create an empty jar here
-    let cookie_jar = cookie::CookieJar::new();
-    let axum_req = AxumRequest::from_parts(
-        uri,
-        headers,
-        method,
-        scheme,
-        indexmap::IndexMap::new(), // TODO: Extract path params if needed
-        parse_queries(parts.uri.query()),
-        Some(addr),
-        cookie_jar.clone(),
-    );
+        let router = get_flow_router();
 
-    // Build AxumResponse wrapper
-    let mut axum_res = AxumResponse::new(cookie_jar);
+        // Wrap the entire request handling with a 5-second timeout
+        let timeout_result = timeout(
+            Duration::from_secs(5),
+            router.handle(
+                &RequestType::Salvo(&SalvoRequest::new(&req)),
+                &ResponseType::Salvo(&mut SalvoResponse::new(res)),
+            ),
+        )
+        .await;
 
-    // Wrap the entire request handling with a 5-second timeout
-    let timeout_result = timeout(
-        Duration::from_secs(5),
-        router.handle(
-            &RequestType::Axum(&axum_req),
-            &ResponseType::Axum(&mut axum_res),
-        ),
-    )
-    .await;
+        let result = match timeout_result {
+            Ok(result) => result,
+            Err(_) => {
+                // Timeout occurred
+                tracing::warn!("Request timeout after 5 seconds");
+                METRICS.requests_error.inc();
+                res.status_code(StatusCode::GATEWAY_TIMEOUT).render("");
+                request_timer.observe_duration_seconds(&METRICS.request_duration);
+                METRICS.active_requests.dec();
+                return;
+            }
+        };
 
-    let result = match timeout_result {
-        Ok(result) => result,
-        Err(_) => {
-            // Timeout occurred
-            tracing::warn!("Request timeout after 5 seconds");
-            METRICS.requests_error.inc();
-            request_timer.observe_duration_seconds(&METRICS.request_duration);
-            METRICS.active_requests.dec();
-            return (StatusCode::GATEWAY_TIMEOUT, "").into_response();
-        }
-    };
+        // Handle the result and update metrics
+        match result {
+            Ok(flow_result) => {
+                METRICS.requests_success.inc();
 
-    // Handle the result and update metrics
-    let response = match result {
-        Ok(flow_result) => {
-            METRICS.requests_success.inc();
-
-            match flow_result {
-                FlowRouterResult::Empty(status_code) => (status_code, "").into_response(),
-                FlowRouterResult::Json(content, status_code) => {
-                    (status_code, Json(content)).into_response()
-                }
-                FlowRouterResult::PlainText(content, status_code) => {
-                    (status_code, content).into_response()
-                }
-                FlowRouterResult::Image(data, content_type, status_code) => {
-                    (
-                        status_code,
-                        [(http::header::CONTENT_TYPE, content_type)],
-                        data,
-                    )
-                        .into_response()
-                }
-                FlowRouterResult::Proxied(_url, _status_code) => {
-                    // TODO: Implement proxy support for Axum
-                    // For now, return a placeholder response
-                    (StatusCode::NOT_IMPLEMENTED, "Proxy not yet implemented").into_response()
-                }
-                FlowRouterResult::Redirect(url, redirect_type) => {
-                    let status = match redirect_type {
-                        RedirectType::Permanent => StatusCode::PERMANENT_REDIRECT,
-                        RedirectType::Temporary => StatusCode::TEMPORARY_REDIRECT,
-                    };
-                    (
-                        status,
-                        [(http::header::LOCATION, url.to_string())],
-                        "",
-                    )
-                        .into_response()
-                }
-                FlowRouterResult::Retargeting(url, _script_urls) => url.to_string().into_response(),
-                FlowRouterResult::Error => {
-                    METRICS.requests_error.inc();
-                    (StatusCode::INTERNAL_SERVER_ERROR, "").into_response()
+                match flow_result {
+                    FlowRouterResult::Empty(status_code) => res.status_code(status_code).render(""),
+                    FlowRouterResult::Json(content, status_code) => {
+                        res.status_code(status_code).render(Json(content))
+                    }
+                    FlowRouterResult::PlainText(content, status_code) => {
+                        res.status_code(status_code).render(content)
+                    }
+                    FlowRouterResult::Image(data, content_type, status_code) => {
+                        res.status_code(status_code)
+                            .add_header("Content-Type", content_type, true)
+                            .unwrap();
+                        let _ = res.write_body(data);
+                    }
+                    FlowRouterResult::Proxied(url, status_code) => {
+                        let url = url.to_string();
+                        let proxy = Proxy::new(url, HyperClient::default());
+                        proxy.handle(req, depot, res, ctrl).await;
+                        // Override status code after proxy sets the response
+                        res.status_code(status_code);
+                    }
+                    FlowRouterResult::Redirect(url, redirect_type) => {
+                        match redirect_type {
+                            RedirectType::Permanent => {
+                                res.status_code(StatusCode::PERMANENT_REDIRECT)
+                            }
+                            RedirectType::Temporary => {
+                                res.status_code(StatusCode::TEMPORARY_REDIRECT)
+                            }
+                        };
+                        res.add_header("Location", url.to_string(), true)
+                            .unwrap()
+                            .render("");
+                    }
+                    FlowRouterResult::Retargeting(url, _script_urls) => res.render(url.to_string()),
+                    FlowRouterResult::Error => {
+                        METRICS.requests_error.inc();
+                        res.status_code(StatusCode::INTERNAL_SERVER_ERROR)
+                            .render("")
+                    }
                 }
             }
+            Err(_) => {
+                METRICS.requests_error.inc();
+                res.status_code(StatusCode::INTERNAL_SERVER_ERROR)
+                    .render("");
+            }
         }
-        Err(_) => {
-            METRICS.requests_error.inc();
-            (StatusCode::INTERNAL_SERVER_ERROR, "").into_response()
-        }
-    };
 
-    // Record request duration and decrement active requests
-    request_timer.observe_duration_seconds(&METRICS.request_duration);
-    METRICS.active_requests.dec();
-
-    response
+        // Record request duration and decrement active requests
+        request_timer.observe_duration_seconds(&METRICS.request_duration);
+        METRICS.active_requests.dec();
+    }
 }
 
-/// Create a default TLS configuration from embedded certificates
-async fn create_default_tls_config() -> RustlsConfig {
-    // TODO: Implement dynamic certificate resolution for SNI
-    // For now, using static embedded certificates
-    RustlsConfig::from_pem_file(
-        "certs/cert.pem",
-        "certs/key.pem"
-    )
-    .await
-    .expect("Failed to load TLS certificates")
+/// Dynamic TLS certificate resolver that loads certificates from the crypto cache
+///
+/// This resolver implements SNI-based certificate selection, allowing different
+/// certificates to be served for different domain names. If no crypto cache is
+/// configured, it falls back to the default embedded certificate.
+struct DynamicServerConfigResolver {
+    crypto_cache: Option<CryptoCacheType>,
+    default_config: Arc<RustlsConfig>,
+}
+
+impl DynamicServerConfigResolver {
+    /// Create a new dynamic certificate resolver with optional crypto cache
+    fn new(crypto_cache: Option<CryptoCacheType>) -> Self {
+        // Create default certificate config from embedded files
+        let default_config = Arc::new(RustlsConfig::new(
+            Keycert::new()
+                .cert(include_bytes!("../certs/cert.pem").as_ref())
+                .key(include_bytes!("../certs/key.pem").as_ref()),
+        ));
+
+        Self {
+            crypto_cache,
+            default_config,
+        }
+    }
+}
+
+#[async_trait]
+impl ResolvesServerConfig<IoError> for DynamicServerConfigResolver {
+    async fn resolve(&self, client_hello: ClientHello<'_>) -> IoResult<Arc<RustlsConfig>> {
+        
+        // If no crypto cache, use default certificate
+        let crypto_cache = match &self.crypto_cache {
+            Some(cache) => cache,
+            None => return Ok(self.default_config.clone()),
+        };
+
+        // Extract SNI hostname from client hello
+        let server_name = match client_hello.server_name() {
+            Some(name) => name,
+            None => {
+                tracing::debug!("No SNI hostname in client hello, using default certificate");
+                return Ok(self.default_config.clone());
+            }
+        };
+
+        tracing::debug!("TLS connection for domain: {}", server_name);
+
+        // Try to get certificate for this domain from cache
+        match crypto_cache.get_certificate(server_name).await {
+            Ok(Some(keycert)) => {
+                tracing::debug!("Found certificate for domain: {}", server_name);
+                let config = RustlsConfig::new(
+                    Keycert::new()
+                        .cert(keycert.cert.as_slice())
+                        .key(keycert.key.as_slice()),
+                );
+                Ok(Arc::new(config))
+            }
+            Ok(None) => {
+                tracing::debug!(
+                    "No certificate found for domain: {}, using default",
+                    server_name
+                );
+                Ok(self.default_config.clone())
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Failed to load certificate for domain {}: {}, using default",
+                    server_name,
+                    e
+                );
+                Ok(self.default_config.clone())
+            }
+        }
+    }
 }
 
 /// Main entry point for the Click Router application
@@ -237,14 +300,17 @@ async fn main() {
     // Initialize tracing with Loki integration
     let loki_url = std::env::var("LOKI_URL").unwrap_or_else(|_| "http://loki:3100".to_string());
 
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn"));
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("warn"));
 
-    let loki_result = url::Url::parse(&loki_url).ok().and_then(|url| {
-        tracing_loki::builder()
-            .label("service", "click-router")
-            .ok()
-            .and_then(|b| b.build_url(url).ok())
-    });
+    let loki_result = url::Url::parse(&loki_url)
+        .ok()
+        .and_then(|url| {
+            tracing_loki::builder()
+                .label("service", "click-router")
+                .ok()
+                .and_then(|b| b.build_url(url).ok())
+        });
 
     match loki_result {
         Some((loki_layer, loki_task)) => {
@@ -297,12 +363,13 @@ async fn main() {
     init_flow_router(flow_router);
 
     // Create routers for HTTP and HTTPS servers
-    let app = Router::new()
-        .merge(conversion_routes::conversion_routes())
-        .route("/*rest_path", get(redirect_handler))
-        .layer(CookieManagerLayer::new())
-        .layer(TraceLayer::new_for_http())
-        .into_make_service_with_connect_info::<std::net::SocketAddr>();
+    let http_router = Router::new()
+        .push(conversion_routes::conversion_routes())
+        .push(Router::with_path("{**rest_path}").get(Redirect));
+
+    let https_router = Router::new()
+        .push(conversion_routes::conversion_routes())
+        .push(Router::with_path("{**rest_path}").get(Redirect));
 
     tracing::info!("🚀 Starting Click Router");
     tracing::info!("   HTTP server: http://0.0.0.0:5800");
@@ -311,6 +378,7 @@ async fn main() {
     // Start metrics server if enabled
     if args.enable_metrics {
         let metrics_router = create_metrics_router();
+        let metrics_service = Service::new(metrics_router).hoop(Logger::new());
 
         tracing::info!("📊 Metrics endpoints enabled:");
         tracing::info!("   Metrics server: http://{}", args.metrics_addr);
@@ -328,49 +396,41 @@ async fn main() {
         );
 
         // Start metrics server in background
-        let metrics_addr = args.metrics_addr.clone();
+        let metrics_addr: &'static str = Box::leak(args.metrics_addr.clone().into_boxed_str());
         tokio::spawn(async move {
-            let listener = tokio::net::TcpListener::bind(&metrics_addr)
-                .await
-                .expect("Failed to bind metrics server");
-            tracing::info!("📊 Metrics server listening on http://{}", metrics_addr);
-            axum::serve(listener, metrics_router)
-                .await
-                .expect("Metrics server failed");
+            let metrics_acceptor = TcpListener::new(metrics_addr).bind().await;
+            Server::new(metrics_acceptor).serve(metrics_service).await;
         });
     } else {
         tracing::info!("📊 Metrics endpoints disabled (use --enable-metrics to enable)");
     }
 
-    // Start main application server
+    // Start main application server with dynamic certificate resolution
     if crypto_cache.is_some() {
-        tracing::info!("🔐 Dynamic TLS certificate resolution enabled (will be implemented)");
+        tracing::info!("🔐 Dynamic TLS certificate resolution enabled");
     } else {
-        tracing::warn!("⚠️ Crypto cache not available");
+        tracing::warn!("⚠️ Crypto cache not available, using fallback certificate only");
     }
 
     // Start HTTPS server on port 4433
-    let app_clone = app.clone();
     tokio::spawn(async move {
-        let tls_config = create_default_tls_config().await;
+        let https_acceptor = TcpListener::new("0.0.0.0:4433")
+            .rustls_async(DynamicServerConfigResolver::new(crypto_cache))
+            .bind()
+            .await;
+        let https_service = Service::new(https_router).hoop(Logger::new());
         tracing::info!("🔐 HTTPS server listening on https://0.0.0.0:4433");
-        axum_server::bind_rustls("0.0.0.0:4433".parse().unwrap(), tls_config)
-            .serve(app_clone)
-            .await
-            .expect("HTTPS server failed");
+        Server::new(https_acceptor).serve(https_service).await;
     });
 
     // Start HTTP server on port 5800
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:5800")
-        .await
-        .expect("Failed to bind HTTP server");
+    let http_acceptor = TcpListener::new("0.0.0.0:5800").bind().await;
+    let http_service = Service::new(http_router).hoop(Logger::new());
 
     tracing::info!("✅ Click Router started successfully!");
     tracing::info!("   HTTP:  http://0.0.0.0:5800");
     tracing::info!("   HTTPS: https://0.0.0.0:4433");
     tracing::info!("");
 
-    axum::serve(listener, app)
-        .await
-        .expect("HTTP server failed");
+    Server::new(http_acceptor).serve(http_service).await;
 }
