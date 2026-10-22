@@ -107,7 +107,7 @@ services:
           sleep 3
         done &&
         sleep 2 &&
-        fluvio cluster spu register --id 5001 -p spu:9010 -l spu:9010 --private-server spu:9011 &&
+        (fluvio cluster spu register --id 5001 -p spu:9010 -l spu:9010 --private-server spu:9011 || echo 'SPU already registered, continuing...') &&
         echo 'SPU registered successfully'
       "
     networks:
@@ -150,9 +150,9 @@ services:
           echo \"Attempt $$i: SPU not ready, retrying in 3s...\"
           sleep 3
         done &&
-        fluvio topic create hit-stream-main &&
+        (fluvio topic create hit-stream-main || echo 'Topic hit-stream-main already exists') &&
         echo 'Topic hit-stream-main created' &&
-        fluvio topic create click-aggs-main &&
+        (fluvio topic create click-aggs-main || echo 'Topic click-aggs-main already exists') &&
         echo 'Topic click-aggs-main created' &&
         fluvio topic list
       "

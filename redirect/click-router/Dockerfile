@@ -72,7 +72,7 @@ USER shortas
 EXPOSE 5800 4433
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -sf http://localhost:5800/health || exit 1
+    CMD curl -sf "http://localhost:$(echo ${APP_METRICS_ADDR:-0.0.0.0:9090} | cut -d: -f2)/health" || exit 1
 
 ENTRYPOINT ["./click-router"]
 CMD ["-r", "production"]
