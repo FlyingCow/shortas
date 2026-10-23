@@ -1,38 +1,40 @@
 import React from 'react';
 import './Stats.css';
+import { GithubIcon, ArrowRightIcon } from './Icons';
 
 const Stats: React.FC = () => {
   const stats = [
     {
-      number: '10M+',
-      label: 'URLs Shortened',
-      description: 'Links created by our users worldwide'
+      number: '10+',
+      label: 'Rust Microservices',
+      description: 'From the redirect path to analytics ingestion and certificate automation'
     },
     {
-      number: '500K+',
-      label: 'Active Users',
-      description: 'Trusted by individuals and businesses'
+      number: '100%',
+      label: 'Open Source',
+      description: 'MIT licensed, with the full source and architecture docs on GitHub'
     },
     {
-      number: '99.9%',
-      label: 'Uptime',
-      description: 'Reliable service you can count on'
+      number: '17',
+      label: 'Terraform Modules',
+      description: 'A complete AWS deployment, from VPC to ECS, ready to apply'
     },
     {
-      number: '150+',
-      label: 'Countries',
-      description: 'Global reach across all continents'
+      number: '0',
+      label: 'Vendor Lock-In',
+      description: 'Run it on your own infrastructure, with your own data, from day one'
     }
   ];
 
   return (
     <section className="stats section">
       <div className="container">
-        <h2 className="section-title">Trusted Worldwide</h2>
+        <span className="section-eyebrow">By the Numbers</span>
+        <h2 className="section-title">Built in the open</h2>
         <p className="section-subtitle">
-          Join millions of users who trust Shortas for their URL shortening needs
+          A transparent architecture you can read, run, and modify - not a black box.
         </p>
-        
+
         <div className="stats-grid">
           {stats.map((stat, index) => (
             <div key={index} className="stat-card">
@@ -42,15 +44,22 @@ const Stats: React.FC = () => {
             </div>
           ))}
         </div>
-        
+
         <div className="cta-section">
-          <h3 className="cta-title">Ready to get started?</h3>
+          <h3 className="cta-title">Ready to look under the hood?</h3>
           <p className="cta-subtitle">
-            Join thousands of satisfied users and start shortening your URLs today
+            Read the architecture, run it locally, or deploy it to your own AWS account.
           </p>
-          <a href="#signup" className="btn btn-primary btn-large">
-            Start Free Trial
-          </a>
+          <div className="cta-actions">
+            <a href="https://shortas.work/architecture/" target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-large">
+              Read the Architecture
+              <ArrowRightIcon width={18} height={18} />
+            </a>
+            <a href="https://github.com/FlyingCow/shortas" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-large">
+              <GithubIcon width={18} height={18} />
+              Star on GitHub
+            </a>
+          </div>
         </div>
       </div>
     </section>

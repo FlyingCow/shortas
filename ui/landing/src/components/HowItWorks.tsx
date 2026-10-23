@@ -1,33 +1,35 @@
 import React from 'react';
 import './HowItWorks.css';
+import { ArrowRightIcon } from './Icons';
 
 const HowItWorks: React.FC = () => {
   const steps = [
     {
       step: '01',
-      title: 'Paste Your URL',
-      description: 'Simply paste your long URL into our shortening tool. No registration required for basic use.'
+      title: 'Deploy It',
+      description: 'Spin up the stack with Docker Compose locally, or deploy it to AWS with the included Terraform modules.'
     },
     {
       step: '02',
-      title: 'Customize & Generate',
-      description: 'Optionally customize your short link with a branded domain or custom alias, then generate.'
+      title: 'Add a Route',
+      description: 'Create a short link through the dashboard or the REST API - with an optional custom domain and routing rules.'
     },
     {
       step: '03',
       title: 'Share & Track',
-      description: 'Share your short link anywhere and track its performance with detailed analytics.'
+      description: 'Share the link anywhere. Every click streams into ClickHouse so you can see traffic as it happens.'
     }
   ];
 
   return (
     <section id="how-it-works" className="how-it-works section">
       <div className="container">
-        <h2 className="section-title">How It Works</h2>
+        <span className="section-eyebrow">How It Works</span>
+        <h2 className="section-title">From clone to first click</h2>
         <p className="section-subtitle">
-          Get started in seconds with our simple three-step process
+          A self-hosted stack you control end to end - no account, no vendor lock-in.
         </p>
-        
+
         <div className="steps-container">
           {steps.map((step, index) => (
             <div key={index} className="step">
@@ -40,17 +42,14 @@ const HowItWorks: React.FC = () => {
             </div>
           ))}
         </div>
-        
+
         <div className="demo-section">
-          <h3 className="demo-title">Try it now!</h3>
-          <div className="url-shortener-demo">
-            <input 
-              type="url" 
-              placeholder="Paste your long URL here..." 
-              className="url-input-demo"
-            />
-            <button className="btn btn-primary">Shorten URL</button>
-          </div>
+          <h3 className="demo-title">Ready to try it?</h3>
+          <p className="demo-subtitle">The getting-started guide walks through the full local setup in a few minutes.</p>
+          <a href="https://shortas.work/getting-started/" target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-large">
+            Read the Getting Started Guide
+            <ArrowRightIcon width={18} height={18} />
+          </a>
         </div>
       </div>
     </section>
