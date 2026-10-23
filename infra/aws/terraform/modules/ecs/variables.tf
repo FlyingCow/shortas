@@ -9,6 +9,17 @@ variable "region" {
   default     = "us-east-1"
 }
 
+variable "app_run_mode" {
+  description = <<-EOT
+    Value for the APP_RUN_MODE env var every service reads at startup to pick
+    a config/*.toml profile. Use "aws" for prod-shaped real AWS deployments
+    and "aws-dev" for cheaper/dev-shaped ones (dev, budget) - NOT
+    "production"/"development", which select the local docker-compose profiles.
+  EOT
+  type        = string
+  default     = "aws-dev"
+}
+
 variable "vpc_id" {
   description = "VPC ID"
   type        = string
@@ -94,7 +105,7 @@ variable "service_names" {
     "route-verifier",
     "route-icon-worker",
     "cert-bot",
-    "shortas-api",
+    "management-api",
     "dashboard",
     "landing",
     "pages",
@@ -107,16 +118,16 @@ variable "service_names" {
 variable "services" {
   description = "List of service configurations"
   type = list(object({
-    name                  = string
-    cpu                   = number
-    memory                = number
-    desired_count         = number
-    min_count             = optional(number, 1)
-    max_count             = optional(number, 10)
-    container_port        = optional(number)
-    target_group_arn      = optional(string)
-    enable_autoscaling    = optional(bool, false)
-    cpu_target_value      = optional(number, 70)
+    name               = string
+    cpu                = number
+    memory             = number
+    desired_count      = number
+    min_count          = optional(number, 1)
+    max_count          = optional(number, 10)
+    container_port     = optional(number)
+    target_group_arn   = optional(string)
+    enable_autoscaling = optional(bool, false)
+    cpu_target_value   = optional(number, 70)
     environment_variables = optional(list(object({
       name  = string
       value = string

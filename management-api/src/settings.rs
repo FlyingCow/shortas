@@ -153,23 +153,25 @@ impl Default for ElasticsearchSettings {
 /// MinIO/S3 settings.
 #[derive(Debug, Clone, Deserialize)]
 pub struct MinioSettings {
-    pub endpoint: String,
+    /// Custom S3 endpoint (MinIO/LocalStack). Leave unset for real AWS S3.
+    pub endpoint: Option<String>,
     /// Public endpoint for presigned URLs (browser-accessible). Falls back to endpoint if not set.
     pub public_endpoint: Option<String>,
     pub region: String,
-    pub access_key: String,
-    pub secret_key: String,
+    /// Static credentials (MinIO/LocalStack). Leave unset to use the ECS task's IAM role.
+    pub access_key: Option<String>,
+    pub secret_key: Option<String>,
     pub bucket: String,
 }
 
 impl Default for MinioSettings {
     fn default() -> Self {
         Self {
-            endpoint: "http://localhost:9000".to_string(),
+            endpoint: None,
             public_endpoint: None,
             region: "us-east-1".to_string(),
-            access_key: "minioadmin".to_string(),
-            secret_key: "minioadmin".to_string(),
+            access_key: None,
+            secret_key: None,
             bucket: "shortas".to_string(),
         }
     }

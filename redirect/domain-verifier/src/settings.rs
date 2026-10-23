@@ -1,6 +1,8 @@
 use config::{Config, ConfigError, Environment, File};
 use serde_derive::Deserialize;
 
+use crate::adapters::aws::settings::AwsSettings;
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Server {
     pub port: u16,
@@ -39,6 +41,8 @@ pub struct WorkerSettings {
 pub struct Settings {
     pub server: Server,
     pub mongodb: Mongodb,
+    #[serde(default)]
+    pub aws: AwsSettings,
     pub rabbitmq: Option<RabbitMqSettings>,
     pub dns: DnsSettings,
     pub worker: WorkerSettings,

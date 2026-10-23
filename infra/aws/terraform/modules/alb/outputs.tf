@@ -54,9 +54,9 @@ output "aggregator_api_target_group_arn" {
   value       = aws_lb_target_group.aggregator_api.arn
 }
 
-output "shortas_api_target_group_arn" {
-  description = "Target group ARN for shortas-api"
-  value       = aws_lb_target_group.shortas_api.arn
+output "management_api_target_group_arn" {
+  description = "Target group ARN for management-api"
+  value       = aws_lb_target_group.management_api.arn
 }
 
 output "dashboard_target_group_arn" {
@@ -91,7 +91,7 @@ output "target_groups" {
       click_router     = aws_lb_target_group.click_router.arn
       click_router_api = aws_lb_target_group.click_router_api.arn
       aggregator_api   = aws_lb_target_group.aggregator_api.arn
-      shortas_api      = aws_lb_target_group.shortas_api.arn
+      management_api   = aws_lb_target_group.management_api.arn
       dashboard        = aws_lb_target_group.dashboard.arn
       landing          = aws_lb_target_group.landing.arn
       pages            = aws_lb_target_group.pages.arn

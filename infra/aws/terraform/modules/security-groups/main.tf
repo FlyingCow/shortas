@@ -179,6 +179,33 @@ resource "aws_security_group" "elasticache" {
   }
 }
 
+# OpenSearch Security Group
+resource "aws_security_group" "opensearch" {
+  name        = "${var.environment}-shortas-opensearch-sg"
+  description = "Security group for OpenSearch (route search)"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    description     = "HTTPS from ECS"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ecs.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "${var.environment}-shortas-opensearch-sg"
+    Environment = var.environment
+  }
+}
+
 # Amazon MQ Security Group
 resource "aws_security_group" "mq" {
   name        = "${var.environment}-shortas-mq-sg"

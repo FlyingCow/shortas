@@ -33,6 +33,11 @@ output "clickhouse_endpoint" {
   value       = module.clickhouse.http_endpoint
 }
 
+output "opensearch_endpoint" {
+  description = "OpenSearch domain URL (management-api's APP__ELASTICSEARCH__URL)"
+  value       = module.opensearch.url
+}
+
 output "s3_route_images_bucket" {
   description = "S3 bucket for route images"
   value       = module.s3.route_images_bucket_name

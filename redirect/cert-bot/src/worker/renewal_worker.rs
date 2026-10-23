@@ -5,7 +5,7 @@ use tokio::time::{interval, Duration as TokioDuration};
 use tracing::{error, info, warn};
 
 use crate::adapters::click_router_api::ClickRouterApiClient;
-use crate::adapters::mongodb::MongodbOrderStore;
+use crate::adapters::OrderStoreType;
 use crate::core::OrderStore;
 use crate::model::{CertificateOrder, OrderStatus};
 use crate::settings::Settings;
@@ -13,14 +13,14 @@ use crate::settings::Settings;
 /// Worker that checks for certificates nearing expiration and creates renewal orders
 pub struct RenewalWorker {
     settings: Settings,
-    order_store: Arc<MongodbOrderStore>,
+    order_store: OrderStoreType,
     api_client: Arc<ClickRouterApiClient>,
 }
 
 impl RenewalWorker {
     pub fn new(
         settings: Settings,
-        order_store: Arc<MongodbOrderStore>,
+        order_store: OrderStoreType,
         api_client: Arc<ClickRouterApiClient>,
     ) -> Self {
         Self {

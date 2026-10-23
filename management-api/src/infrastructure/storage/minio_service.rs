@@ -27,24 +27,32 @@ pub struct PresignedUrl {
 impl MinioService {
     /// Create a new MinIO service.
     pub async fn new(settings: &MinioSettings) -> anyhow::Result<Self> {
-        let credentials = aws_sdk_s3::config::Credentials::new(
-            &settings.access_key,
-            &settings.secret_key,
-            None,
-            None,
-            "minio",
-        );
+        // Static credentials are only for MinIO/LocalStack. When unset (real AWS),
+        // the SDK's default credential chain picks up the ECS task's IAM role.
+        let credentials = match (&settings.access_key, &settings.secret_key) {
+            (Some(access_key), Some(secret_key)) => Some(aws_sdk_s3::config::Credentials::new(
+                access_key,
+                secret_key,
+                None,
+                None,
+                "minio",
+            )),
+            _ => None,
+        };
 
         // Client for server-side operations (internal endpoint)
-        let config = aws_config::defaults(BehaviorVersion::latest())
-            .endpoint_url(&settings.endpoint)
-            .region(aws_config::Region::new(settings.region.clone()))
-            .credentials_provider(credentials.clone())
-            .load()
-            .await;
+        let mut config_loader = aws_config::defaults(BehaviorVersion::latest())
+            .region(aws_config::Region::new(settings.region.clone()));
+        if let Some(endpoint) = &settings.endpoint {
+            config_loader = config_loader.endpoint_url(endpoint);
+        }
+        if let Some(ref credentials) = credentials {
+            config_loader = config_loader.credentials_provider(credentials.clone());
+        }
+        let config = config_loader.load().await;
 
         let s3_config = aws_sdk_s3::config::Builder::from(&config)
-            .force_path_style(true)
+            .force_path_style(settings.endpoint.is_some())
             .build();
 
         let client = Client::from_conf(s3_config);
@@ -53,17 +61,20 @@ impl MinioService {
         let public_endpoint = settings
             .public_endpoint
             .clone()
-            .unwrap_or_else(|| settings.endpoint.clone());
+            .or_else(|| settings.endpoint.clone());
 
-        let presign_config = aws_config::defaults(BehaviorVersion::latest())
-            .endpoint_url(&public_endpoint)
-            .region(aws_config::Region::new(settings.region.clone()))
-            .credentials_provider(credentials)
-            .load()
-            .await;
+        let mut presign_config_loader = aws_config::defaults(BehaviorVersion::latest())
+            .region(aws_config::Region::new(settings.region.clone()));
+        if let Some(endpoint) = &public_endpoint {
+            presign_config_loader = presign_config_loader.endpoint_url(endpoint);
+        }
+        if let Some(credentials) = credentials {
+            presign_config_loader = presign_config_loader.credentials_provider(credentials);
+        }
+        let presign_config = presign_config_loader.load().await;
 
         let presign_s3_config = aws_sdk_s3::config::Builder::from(&presign_config)
-            .force_path_style(true)
+            .force_path_style(public_endpoint.is_some())
             .build();
 
         let presign_client = Client::from_conf(presign_s3_config);

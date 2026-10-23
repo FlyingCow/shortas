@@ -186,10 +186,10 @@ resource "aws_lb_target_group" "aggregator_api" {
   }
 }
 
-# Shortas API (.NET)
-resource "aws_lb_target_group" "shortas_api" {
-  name        = "${var.environment}-shortas-api"
-  port        = 80
+# Management API (Rust/Salvo)
+resource "aws_lb_target_group" "management_api" {
+  name        = "${var.environment}-management-api"
+  port        = 8080
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "ip"
@@ -207,9 +207,9 @@ resource "aws_lb_target_group" "shortas_api" {
   }
 
   tags = {
-    Name        = "${var.environment}-shortas-api-tg"
+    Name        = "${var.environment}-management-api-tg"
     Environment = var.environment
-    Service     = "shortas-api"
+    Service     = "management-api"
   }
 }
 
@@ -358,14 +358,14 @@ resource "aws_lb_target_group" "domain_verifier" {
 
 # Listener Rules for Path-Based Routing
 
-# API routes -> Shortas API
+# API routes -> Management API
 resource "aws_lb_listener_rule" "api" {
   listener_arn = aws_lb_listener.https.arn
   priority     = 10
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.shortas_api.arn
+    target_group_arn = aws_lb_target_group.management_api.arn
   }
 
   condition {

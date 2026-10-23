@@ -81,9 +81,9 @@ resource "aws_secretsmanager_secret" "api" {
 resource "aws_secretsmanager_secret_version" "api" {
   secret_id = aws_secretsmanager_secret.api.id
   secret_string = jsonencode({
-    jwt_secret           = random_password.jwt_secret.result
-    encryption_key       = var.encryption_key != "" ? var.encryption_key : random_password.jwt_secret.result
-    api_key              = var.api_key
+    jwt_secret     = random_password.jwt_secret.result
+    encryption_key = var.encryption_key != "" ? var.encryption_key : random_password.jwt_secret.result
+    api_key        = var.api_key
   })
 }
 

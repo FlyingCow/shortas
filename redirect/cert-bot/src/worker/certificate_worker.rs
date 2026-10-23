@@ -7,21 +7,20 @@ use tokio::time::{interval, Duration};
 use tracing::{error, info, warn};
 
 use crate::adapters::click_router_api::ClickRouterApiClient;
-use crate::adapters::mongodb::MongodbOrderStore;
+use crate::adapters::OrderStoreType;
 use crate::core::OrderStore;
 use crate::model::{CertificateOrder, OrderStatus};
 use crate::settings::Settings;
 
 pub struct CertificateWorker {
     settings: Settings,
-    order_store: Arc<MongodbOrderStore>,
+    order_store: OrderStoreType,
     api_client: Arc<ClickRouterApiClient>,
     account: Option<Account>,
 }
 
 impl CertificateWorker {
-    pub async fn new(settings: Settings) -> Result<Self> {
-        let order_store = Arc::new(MongodbOrderStore::new(&settings.mongodb).await?);
+    pub async fn new(settings: Settings, order_store: OrderStoreType) -> Result<Self> {
         let api_client = Arc::new(ClickRouterApiClient::new(&settings.click_router_api)?);
 
         Ok(Self {

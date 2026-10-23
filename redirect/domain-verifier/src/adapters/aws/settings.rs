@@ -5,6 +5,7 @@ use serde_derive::Deserialize;
 pub struct AwsSettings {
     #[serde(default)]
     pub local: bool,
+    pub localstack_endpoint: Option<String>,
     pub dynamo: Option<DynamoSettings>,
 }
 

@@ -72,6 +72,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "route_images" {
     id     = "cleanup-old-versions"
     status = "Enabled"
 
+    filter {}
+
     noncurrent_version_expiration {
       noncurrent_days = 30
     }
@@ -80,6 +82,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "route_images" {
   rule {
     id     = "abort-incomplete-uploads"
     status = "Enabled"
+
+    filter {}
 
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
@@ -130,6 +134,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "clickhouse_backups" {
     id     = "transition-to-glacier"
     status = "Enabled"
 
+    filter {}
+
     transition {
       days          = var.backup_transition_days
       storage_class = "GLACIER"
@@ -143,6 +149,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "clickhouse_backups" {
   rule {
     id     = "cleanup-old-versions"
     status = "Enabled"
+
+    filter {}
 
     noncurrent_version_expiration {
       noncurrent_days = 30
@@ -238,6 +246,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
   rule {
     id     = "transition-logs"
     status = "Enabled"
+
+    filter {}
 
     transition {
       days          = 30

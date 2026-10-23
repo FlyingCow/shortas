@@ -23,6 +23,11 @@ output "elasticache_security_group_id" {
   value       = aws_security_group.elasticache.id
 }
 
+output "opensearch_security_group_id" {
+  description = "Security group ID for OpenSearch"
+  value       = aws_security_group.opensearch.id
+}
+
 output "mq_security_group_id" {
   description = "Security group ID for Amazon MQ"
   value       = aws_security_group.mq.id

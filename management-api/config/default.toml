@@ -27,11 +27,12 @@ timeout_ms = 10000
 url = "http://localhost:9200"
 routes_index = "routes"
 
+# endpoint/access_key/secret_key are intentionally NOT set here - they're
+# local-only values (set in development.toml for docker-compose). When
+# left unset, MinioService falls back to the real AWS S3 endpoint and the
+# ECS task's IAM role, which is what every non-local run mode needs.
 [minio]
-endpoint = "http://localhost:9000"
 region = "us-east-1"
-access_key = "minioadmin"
-secret_key = "minioadmin"
 bucket = "shortas"
 
 [rabbitmq]

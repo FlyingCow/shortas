@@ -6,12 +6,27 @@ use tracing::{info, warn};
 
 use crate::adapters;
 use crate::adapters::api::app_state::AppState;
+use crate::adapters::aws::dynamo::domain_store::DynamoDomainStore;
 use crate::adapters::mongodb::MongodbDomainStore;
 use crate::adapters::rabbitmq::RabbitMqPublisher;
 use crate::core::DomainStore;
 use crate::dns::DnsVerifier;
 use crate::settings::Settings;
 use crate::worker::VerificationWorker;
+
+async fn load_aws_config(settings: &crate::adapters::aws::settings::AwsSettings) -> aws_config::SdkConfig {
+    let mut shared_config = aws_config::defaults(aws_config::BehaviorVersion::latest());
+
+    if settings.local {
+        let endpoint = settings
+            .localstack_endpoint
+            .clone()
+            .unwrap_or_else(|| "http://localhost:4566".to_string());
+        shared_config = shared_config.endpoint_url(endpoint);
+    }
+
+    shared_config.load().await
+}
 
 #[derive(Clone)]
 pub struct AppBuilder {
@@ -129,6 +144,22 @@ impl AppBuilder {
                 warn!("Failed to connect to MongoDB: {}", e);
             }
         }
+        self
+    }
+
+    pub async fn with_aws(&mut self) -> &mut Self {
+        let dynamo_settings = self
+            .settings
+            .aws
+            .dynamo
+            .clone()
+            .expect("aws.dynamo settings are required when APP_RUN_MODE starts with 'aws'");
+
+        let config = load_aws_config(&self.settings.aws).await;
+        let store = DynamoDomainStore::new(&config, dynamo_settings.domains_table);
+        self.domain_store = Some(Box::new(store));
+        info!("DynamoDB domain store initialized");
+
         self
     }
 

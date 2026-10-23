@@ -154,9 +154,9 @@ resource "aws_cognito_user_pool_client" "dashboard" {
   }
 
   # Security settings for SPA (public client)
-  generate_secret                      = false
-  prevent_user_existence_errors        = "ENABLED"
-  enable_token_revocation              = true
+  generate_secret                               = false
+  prevent_user_existence_errors                 = "ENABLED"
+  enable_token_revocation                       = true
   enable_propagate_additional_user_context_data = false
 
   # Auth flows
@@ -172,7 +172,7 @@ resource "aws_cognito_user_pool_client" "dashboard" {
 
 # App Client for API (confidential client)
 resource "aws_cognito_user_pool_client" "api" {
-  name         = "${var.environment}-shortas-api"
+  name         = "${var.environment}-management-api"
   user_pool_id = aws_cognito_user_pool.main.id
 
   # OAuth configuration
@@ -205,7 +205,7 @@ resource "aws_cognito_user_pool_client" "api" {
 
 # Resource Server for API scopes
 resource "aws_cognito_resource_server" "api" {
-  identifier   = "shortas-api"
+  identifier   = "management-api"
   name         = "Shortas API"
   user_pool_id = aws_cognito_user_pool.main.id
 

@@ -69,9 +69,16 @@ async fn main() -> Result<()> {
     )
     .unwrap();
 
-    AppBuilder::new(settings)
-        .with_mongodb()
-        .await
+    let mut app_builder = AppBuilder::new(settings);
+
+    // AWS run modes (aws, aws-dev) use DynamoDB; everything else uses MongoDB.
+    if args.run_mode.starts_with("aws") {
+        app_builder.with_aws().await;
+    } else {
+        app_builder.with_mongodb().await;
+    }
+
+    app_builder
         .with_rabbitmq()
         .await
         .build()?

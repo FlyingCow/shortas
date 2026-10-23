@@ -309,17 +309,22 @@ async fn main() {
     )
     .unwrap();
 
-    let mut app_builder = AppBuilder::new(settings)
+    let app_builder = AppBuilder::new(settings)
         .with_geo_ip()
         .with_ua_parser()
         .with_fluvio()
-        .await
-        .with_mongodb()
-        .await
-        .with_rabbitmq()
-        //.with_dynamo()
-        // .await
-        .with_default_modules();
+        .await;
+
+    // AWS run modes (aws, aws-dev) use DynamoDB; everything else (local dev,
+    // docker-compose "production") uses MongoDB. See AppBuilder::with_dynamo/
+    // with_mongodb - both populate the same cache fields, so exactly one must run.
+    let app_builder = if args.run_mode.starts_with("aws") {
+        app_builder.with_dynamo().await
+    } else {
+        app_builder.with_mongodb().await
+    };
+
+    let mut app_builder = app_builder.with_rabbitmq().with_default_modules();
 
     // Get crypto cache for dynamic certificate resolution before building
     let crypto_cache = app_builder.get_crypto_cache();

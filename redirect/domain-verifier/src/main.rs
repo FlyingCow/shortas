@@ -67,9 +67,16 @@ async fn main() -> Result<()> {
     let settings = Settings::new(Some(args.run_mode.as_str()), Some(args.config_path.as_str()))
         .expect("Failed to load settings");
 
-    AppBuilder::new(settings)
-        .with_mongodb()
-        .await
+    let mut app_builder = AppBuilder::new(settings);
+
+    // AWS run modes (aws, aws-dev) use DynamoDB; everything else uses MongoDB.
+    if args.run_mode.starts_with("aws") {
+        app_builder.with_aws().await;
+    } else {
+        app_builder.with_mongodb().await;
+    }
+
+    app_builder
         .with_rabbitmq()
         .await
         .with_dns_verifier()
