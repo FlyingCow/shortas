@@ -189,36 +189,56 @@ pub fn create_metrics_router() -> Router {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use salvo::test::{ResponseExt, TestClient};
+    use axum::body::Body;
+    use http::Request;
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    async fn body_json(response: axum::response::Response) -> serde_json::Value {
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        serde_json::from_slice(&bytes).unwrap()
+    }
 
     #[tokio::test]
     async fn test_health_endpoint() {
         let router = create_metrics_router();
-        let service = Service::new(router);
-        
-        let content = TestClient::get("http://127.0.0.1:5800/health")
-            .send(&service)
-            .await
-            .take_json::<serde_json::Value>()
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
-            
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let content = body_json(response).await;
+
         assert_eq!(content["status"], "healthy");
         assert!(content["metrics"].is_object());
     }
-    
+
     #[tokio::test]
     async fn test_metrics_info_endpoint() {
         let router = create_metrics_router();
-        let service = Service::new(router);
-        
-        let content = TestClient::get("http://127.0.0.1:5800/metrics/info")
-            .send(&service)
-            .await
-            .take_json::<serde_json::Value>()
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/metrics/info")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
-            
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let content = body_json(response).await;
+
         assert!(content["performance_metrics"].is_object());
         assert!(content["cache_performance"].is_object());
         assert!(content["optimization_impact"].is_object());

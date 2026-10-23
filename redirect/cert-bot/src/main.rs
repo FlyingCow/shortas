@@ -42,6 +42,10 @@ async fn main() -> anyhow::Result<()> {
 
     dotenv::from_filename("./.env").ok();
 
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     // Initialize tracing with Loki integration
     let loki_url = std::env::var("LOKI_URL").unwrap_or_else(|_| "http://loki:3100".to_string());
 

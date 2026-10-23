@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::Utc;
 use instant_acme::{Account, AuthorizationStatus, ChallengeType, Identifier, NewAccount, NewOrder, OrderStatus as AcmeOrderStatus};
 use rcgen::{CertificateParams, DistinguishedName, KeyPair};
@@ -36,16 +36,19 @@ impl CertificateWorker {
     async fn init_account(&mut self) -> Result<()> {
         info!("Initializing ACME account with Let's Encrypt");
 
-        let (account, _credentials) = Account::create(
-            &NewAccount {
-                contact: &[&format!("mailto:{}", self.settings.acme.account_email)],
-                terms_of_service_agreed: true,
-                only_return_existing: false,
-            },
-            &self.settings.acme.directory_url,
-            None,
-        )
-        .await?;
+        let (account, _credentials) = Account::builder()
+            .context("ACME Account::builder failed")?
+            .create(
+                &NewAccount {
+                    contact: &[&format!("mailto:{}", self.settings.acme.account_email)],
+                    terms_of_service_agreed: true,
+                    only_return_existing: false,
+                },
+                self.settings.acme.directory_url.clone(),
+                None,
+            )
+            .await
+            .context("ACME Account::create failed")?;
 
         info!("ACME account created/loaded successfully");
         self.account = Some(account);
@@ -93,8 +96,8 @@ impl CertificateWorker {
                     info!("Order processed successfully for domain: {}", order.domain);
                 }
                 Err(e) => {
-                    error!("Failed to process order for domain {}: {}", order.domain, e);
-                    order.error_message = Some(e.to_string());
+                    error!("Failed to process order for domain {}: {:?}", order.domain, e);
+                    order.error_message = Some(format!("{:?}", e));
                     order.retry_count += 1;
                     order.updated_at = Utc::now();
 
@@ -119,40 +122,42 @@ impl CertificateWorker {
         // Create ACME order
         let identifier = Identifier::Dns(order.domain.clone());
         let mut acme_order = account
-            .new_order(&NewOrder {
-                identifiers: &[identifier],
-            })
-            .await?;
+            .new_order(&NewOrder::new(&[identifier]))
+            .await
+            .context("ACME new_order failed")?;
 
         order.acme_order_url = Some(acme_order.url().to_string());
 
-        // Get authorization
-        let authorizations = acme_order.authorizations().await?;
-        let authz = authorizations
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("No authorization found"))?;
-
-        // Note: Authorization URL is part of the order, not individual authz
+        // Get authorization (lazily fetched from the server on first access)
+        let mut authorizations = acme_order.authorizations();
+        let mut authz = authorizations
+            .next()
+            .await
+            .ok_or_else(|| anyhow::anyhow!("No authorization found"))?
+            .context("ACME authorizations() failed")?;
 
         // Find HTTP-01 challenge
-        let challenge = authz
-            .challenges
-            .iter()
-            .find(|c| c.r#type == ChallengeType::Http01)
+        let mut challenge = authz
+            .challenge(ChallengeType::Http01)
             .ok_or_else(|| anyhow::anyhow!("HTTP-01 challenge not available"))?;
 
         // Get key authorization
-        let key_authorization = acme_order.key_authorization(challenge).as_str().to_string();
+        let key_authorization = challenge.key_authorization().as_str().to_string();
+        let token = challenge.token.clone();
 
         // Store challenge via click-router-api
         self.api_client
-            .store_challenge(&order.domain, &challenge.token, &key_authorization)
-            .await?;
+            .store_challenge(&order.domain, &token, &key_authorization)
+            .await
+            .context("store_challenge via click-router-api failed")?;
 
-        info!("Challenge stored for domain: {}, token: {}", order.domain, challenge.token);
+        info!("Challenge stored for domain: {}, token: {}", order.domain, token);
 
         // Tell ACME we're ready
-        acme_order.set_challenge_ready(&challenge.url).await?;
+        challenge
+            .set_ready()
+            .await
+            .context("ACME set_ready failed")?;
 
         // Update order status
         order.status = OrderStatus::ChallengeCreated;
@@ -172,8 +177,8 @@ impl CertificateWorker {
             match self.check_and_finalize_order(&mut order).await {
                 Ok(_) => {}
                 Err(e) => {
-                    error!("Error checking order for domain {}: {}", order.domain, e);
-                    order.error_message = Some(e.to_string());
+                    error!("Error checking order for domain {}: {:?}", order.domain, e);
+                    order.error_message = Some(format!("{:?}", e));
                     order.retry_count += 1;
                     order.updated_at = Utc::now();
 
@@ -214,7 +219,7 @@ impl CertificateWorker {
                 let csr = params.serialize_request(&key_pair)?;
 
                 // Finalize order
-                acme_order.finalize(csr.der()).await?;
+                acme_order.finalize_csr(csr.der()).await?;
 
                 // Wait for certificate
                 let cert_chain_pem = loop {
@@ -252,8 +257,9 @@ impl CertificateWorker {
             }
             AcmeOrderStatus::Pending => {
                 // Check authorization status
-                let authorizations = acme_order.authorizations().await?;
-                if let Some(authz) = authorizations.first() {
+                let mut authorizations = acme_order.authorizations();
+                if let Some(result) = authorizations.next().await {
+                    let authz = result.context("ACME authorizations() failed")?;
                     match authz.status {
                         AuthorizationStatus::Invalid => {
                             order.status = OrderStatus::Failed;

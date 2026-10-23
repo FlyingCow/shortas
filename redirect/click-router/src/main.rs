@@ -42,7 +42,7 @@ use tokio::time::{timeout, Duration};
 use click_router::{
     adapters::{
         api::conversion_routes,
-        axum::{axum_proxy::{self, hyper_client::HyperClient, Proxy}, parse_queries, AxumRequest, AxumResponse},
+        axum::{axum_proxy::{Client, hyper_client::HyperClient}, parse_queries, AxumRequest, AxumResponse},
         CryptoCacheType, RequestType, ResponseType,
     },
     app::AppBuilder,
@@ -55,6 +55,31 @@ use click_router::{
     get_flow_router, init_flow_router,
     settings::Settings,
 };
+use lazy_static::lazy_static;
+
+lazy_static! {
+    /// Shared client used to proxy requests to the `pages` service (not-found,
+    /// blocked, and index pages) and any other `FlowRouterResult::Proxied`
+    /// target. Reused across requests so connections get pooled.
+    static ref PROXY_CLIENT: HyperClient = HyperClient::default();
+}
+
+/// Fetches `url` and returns its body/headers as-is; the caller overrides the
+/// status code with the one the flow router decided on (e.g. 404 for a
+/// not-found page served by `pages`, even though `pages` itself answers 200).
+async fn proxy_request(url: &http::Uri) -> anyhow::Result<Response> {
+    let proxied_request = HttpRequest::builder()
+        .method(http::Method::GET)
+        .uri(url.clone())
+        .body(Body::empty())?;
+
+    let response = PROXY_CLIENT
+        .execute(proxied_request, None)
+        .await
+        .map_err(|e| anyhow::anyhow!("proxy request to {} failed: {}", url, e))?;
+
+    Ok(response)
+}
 
 /// Command-line arguments for the Click Router application
 ///
@@ -162,11 +187,17 @@ async fn redirect_handler(
                     )
                         .into_response()
                 }
-                FlowRouterResult::Proxied(_url, _status_code) => {
-                    // TODO: Implement proxy support for Axum
-                    // For now, return a placeholder response
-                    (StatusCode::NOT_IMPLEMENTED, "Proxy not yet implemented").into_response()
-                }
+                FlowRouterResult::Proxied(url, status_code) => match proxy_request(&url).await {
+                    Ok(mut response) => {
+                        *response.status_mut() = status_code;
+                        response
+                    }
+                    Err(err) => {
+                        tracing::error!(error = %err, url = %url, "failed to proxy request");
+                        METRICS.requests_error.inc();
+                        (StatusCode::BAD_GATEWAY, "").into_response()
+                    }
+                },
                 FlowRouterResult::Redirect(url, redirect_type) => {
                     let status = match redirect_type {
                         RedirectType::Permanent => StatusCode::PERMANENT_REDIRECT,

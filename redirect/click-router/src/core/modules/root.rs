@@ -79,6 +79,7 @@ mod tests {
             index_url: "https://example.com".to_string(),
             not_found_url: "https://example.com/404".to_string(),
             blocked_url: "https://example.com/blocked".to_string(),
+            qr_images_base_url: None,
         };
         let module = RootModule::new(redirect.clone());
 
@@ -91,6 +92,7 @@ mod tests {
             index_url: "https://example.com".to_string(),
             not_found_url: "https://example.com/404".to_string(),
             blocked_url: "https://example.com/blocked".to_string(),
+            qr_images_base_url: None,
         };
         let module = RootModule::new(redirect);
         let cloned = module.clone();
