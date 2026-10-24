@@ -1,20 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  AreaChart,
-  Area,
   PieChart,
   Pie,
   Cell,
   CartesianGrid
 } from 'recharts';
 import {
-  TrendingUp,
   Users,
   MousePointerClick,
   Globe,
@@ -24,195 +22,29 @@ import {
   RefreshCw,
   BarChart3,
   Monitor,
-  Smartphone,
+  AlertTriangle,
+  CheckCircle2,
+  Ban,
+  ShieldAlert,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
-import { apiService, ClickAnalytics, DailyStatsDto, GeographicStatsDto, DeviceStatsDto, BrowserStatsDto, TrafficTypeStatsDto, RoutePerformanceDto } from '../services/api';
+import {
+  apiService,
+  ClickAnalytics,
+  TrafficTypeStatsDto,
+  RoutePerformanceDto,
+  RouteDto,
+  DomainDto,
+} from '../services/api';
 import { getCountryDisplayName } from '../utils/countries';
 import LoadingSpinner from './LoadingSpinner';
 import WorldMap from './WorldMap';
 import './DesignSystem.css';
 
+// Dashboard-specific widgets not covered by the shared DesignSystem.css
+// primitives (tooltip, pie legend, bar list, attention list, refresh badge).
 const dashboardStyles = `
-/* ===== DASHBOARD PAGE STYLES ===== */
-
-/* Page Header */
-.db-page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-}
-
-.db-page-title-section {
-  flex: 1;
-  min-width: 200px;
-}
-
-.db-page-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 0.25rem 0;
-  letter-spacing: -0.025em;
-}
-
-.db-page-subtitle {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.db-page-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-/* Stats Grid */
-.db-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-@media (max-width: 1400px) {
-  .db-stats-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 900px) {
-  .db-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .db-stats-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.db-stat-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-xl);
-  padding: 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  transition: all var(--transition-normal);
-}
-
-.db-stat-card:hover {
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-secondary);
-}
-
-.db-stat-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.db-stat-icon svg {
-  width: 22px;
-  height: 22px;
-  color: #fff;
-}
-
-.db-stat-icon.primary { background: var(--color-primary); }
-.db-stat-icon.success { background: var(--color-success); }
-.db-stat-icon.warning { background: var(--color-warning); }
-.db-stat-icon.error { background: var(--color-error); }
-.db-stat-icon.info { background: #8b5cf6; }
-
-.db-stat-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.db-stat-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
-  margin-bottom: 0.125rem;
-}
-
-.db-stat-label {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-/* Toolbar */
-.db-toolbar {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-xl);
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.db-toolbar-section {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-/* Date Range Buttons */
-.db-range-group {
-  display: inline-flex;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--bg-primary);
-}
-
-.db-range-btn {
-  padding: 0.5rem 0.875rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-family: inherit;
-}
-
-.db-range-btn:not(:last-child) {
-  border-right: 1px solid var(--border-secondary);
-}
-
-.db-range-btn:hover:not(.active) {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.db-range-btn.active {
-  background: var(--color-primary);
-  color: #ffffff;
-}
-
-/* Refreshing indicator */
 .db-refreshing {
   position: fixed;
   top: 70px;
@@ -230,71 +62,6 @@ const dashboardStyles = `
   gap: 0.5rem;
 }
 
-/* Section Grid */
-.db-section {
-  margin-bottom: 1.5rem;
-}
-
-.db-section-row {
-  display: grid;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.db-section-row.two-cols {
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.db-section-row.three-cols {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-@media (max-width: 1024px) {
-  .db-section-row.two-cols,
-  .db-section-row.three-cols {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Chart Card */
-.db-chart-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-}
-
-.db-chart-header {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border-primary);
-  background: var(--bg-secondary);
-}
-
-.db-chart-title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 0.25rem 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.db-chart-title svg {
-  color: var(--color-primary);
-}
-
-.db-chart-desc {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.db-chart-body {
-  padding: 1.25rem;
-}
-
-/* Tooltip */
 .db-tooltip {
   background: var(--bg-elevated);
   border: 1px solid var(--border-primary);
@@ -337,7 +104,6 @@ const dashboardStyles = `
   color: var(--text-primary);
 }
 
-/* Pie Legend */
 .db-pie-legend {
   display: flex;
   flex-wrap: wrap;
@@ -346,6 +112,7 @@ const dashboardStyles = `
   padding: 0.75rem 1rem;
   border-top: 1px solid var(--border-primary);
   background: var(--bg-secondary);
+  margin: var(--space-lg) calc(-1 * var(--space-lg)) calc(-1 * var(--space-lg));
 }
 
 .db-pie-legend-item {
@@ -370,7 +137,6 @@ const dashboardStyles = `
   max-width: 100px;
 }
 
-/* Country List */
 .db-country-list {
   display: flex;
   flex-direction: column;
@@ -443,147 +209,51 @@ const dashboardStyles = `
   text-align: right;
 }
 
-/* Table */
-.db-table-container {
-  overflow-x: auto;
+.db-attention-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-.db-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8125rem;
-}
-
-.db-table th {
-  text-align: left;
-  padding: 0.75rem 1rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-primary);
-  white-space: nowrap;
-}
-
-.db-table td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-primary);
-  vertical-align: middle;
-}
-
-.db-table tbody tr {
+.db-attention-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.5rem;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: inherit;
   transition: background var(--transition-fast);
 }
 
-.db-table tbody tr:hover {
-  background: var(--bg-secondary);
-}
-
-.db-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.db-table-route {
-  font-family: var(--font-family-mono);
-  font-size: 0.75rem;
-  color: var(--color-primary);
-}
-
-.db-table-value {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.db-table-success {
-  color: var(--color-success);
-}
-
-.db-table-error {
-  color: var(--color-error);
-}
-
-/* Empty State */
-.db-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem 2rem;
-  text-align: center;
-}
-
-.db-empty-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
+.db-attention-row:hover {
   background: var(--bg-tertiary);
+}
+
+.db-attention-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-attention-arrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.db-attention-more {
+  padding: 0.5rem 0.5rem 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1rem;
+  gap: 1rem;
 }
 
-.db-empty-icon svg {
-  width: 28px;
-  height: 28px;
-  color: var(--text-muted);
-}
-
-.db-empty p {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-/* Error State */
-.db-error {
-  background: var(--bg-elevated);
-  border: 1px solid var(--color-error);
-  border-radius: var(--radius-xl);
-  padding: 2rem;
-  text-align: center;
-  margin: 2rem 0;
-}
-
-.db-error-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-error);
-  margin: 0 0 0.5rem 0;
-}
-
-.db-error-message {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin: 0 0 1rem 0;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .db-page-header {
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .db-page-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .db-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .db-toolbar-section {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-/* Spin animation for refresh icon */
 @keyframes db-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -594,11 +264,14 @@ const dashboardStyles = `
 }
 `;
 
-interface DashboardStats {
+interface PeriodTotals {
   totalClicks: number;
   uniqueClicks: number;
   botClicks: number;
   humanClicks: number;
+}
+
+interface DashboardStats extends PeriodTotals {
   totalRoutes: number;
   activeRoutes: number;
 }
@@ -616,10 +289,48 @@ const CHART_COLORS = [
 
 const TRAFFIC_COLORS = ['var(--success-500)', 'var(--error-500)'];
 
+const isRouteBlocked = (status: string | undefined): boolean =>
+  (status || '').toLowerCase().startsWith('blocked');
+
 const formatAxisNumber = (value: number): string => {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
   return value.toString();
+};
+
+type ChangeModifier = 'positive' | 'negative' | 'neutral';
+
+const formatChange = (
+  current: number,
+  previous: number,
+  periodLabel: string,
+  invert = false
+): { text: string; mod: ChangeModifier } => {
+  if (previous === 0) {
+    if (current === 0) return { text: 'No activity yet', mod: 'neutral' };
+    return { text: `New vs prior ${periodLabel}`, mod: invert ? 'negative' : 'positive' };
+  }
+  const pct = ((current - previous) / previous) * 100;
+  if (Math.abs(pct) < 0.5) return { text: `Flat vs prior ${periodLabel}`, mod: 'neutral' };
+  const up = pct > 0;
+  const mod: ChangeModifier = invert ? (up ? 'negative' : 'positive') : (up ? 'positive' : 'negative');
+  return { text: `${up ? '+' : ''}${pct.toFixed(0)}% vs prior ${periodLabel}`, mod };
+};
+
+const ChangeIndicator: React.FC<{ current: number; previous: number; periodLabel: string; invert?: boolean }> = ({
+  current,
+  previous,
+  periodLabel,
+  invert,
+}) => {
+  const { text, mod } = formatChange(current, previous, periodLabel, invert);
+  return (
+    <div className={`stats-change ${mod}`}>
+      {mod === 'positive' && <ArrowUp size={12} />}
+      {mod === 'negative' && <ArrowDown size={12} />}
+      {text}
+    </div>
+  );
 };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -657,14 +368,26 @@ const PieLegend: React.FC<{ items: { name: string; color: string }[] }> = ({ ite
   </div>
 );
 
+const dateRanges = [
+  { value: '24h', label: '24H', periodLabel: '24h' },
+  { value: '7d', label: '7D', periodLabel: '7d' },
+  { value: '30d', label: '30D', periodLabel: '30d' },
+  { value: '90d', label: '90D', periodLabel: '90d' },
+];
+
 const Dashboard: React.FC = () => {
   const [analytics, setAnalytics] = useState<ClickAnalytics | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [prevTotals, setPrevTotals] = useState<PeriodTotals | null>(null);
   const [trafficTypeStats, setTrafficTypeStats] = useState<TrafficTypeStatsDto[]>([]);
   const [routePerformance, setRoutePerformance] = useState<RoutePerformanceDto[]>([]);
+  const [blockedRoutes, setBlockedRoutes] = useState<RouteDto[]>([]);
+  const [attentionDomains, setAttentionDomains] = useState<DomainDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState('7d');
+
+  const periodLabel = dateRanges.find((r) => r.value === dateRange)?.periodLabel || dateRange;
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -681,12 +404,28 @@ const Dashboard: React.FC = () => {
         case '90d': startDate.setDate(startDate.getDate() - 90); break;
       }
 
+      const periodMs = endDate.getTime() - startDate.getTime();
+      const prevEndDate = new Date(startDate.getTime());
+      const prevStartDate = new Date(startDate.getTime() - periodMs);
+
       const fromDate = startDate.toISOString().split('T')[0];
       const toDate = endDate.toISOString().split('T')[0];
+      const prevFromDate = prevStartDate.toISOString().split('T')[0];
+      const prevToDate = prevEndDate.toISOString().split('T')[0];
       const fromHour = startDate.toISOString().replace('T', ' ').substring(0, 13);
       const toHour = endDate.toISOString().replace('T', ' ').substring(0, 13);
 
-      const [dailyStats, geographicStats, deviceStats, browserStats, trafficStats, routePerf, routesResponse] = await Promise.all([
+      const [
+        dailyStats,
+        geographicStats,
+        deviceStats,
+        browserStats,
+        trafficStats,
+        routePerf,
+        routesResponse,
+        domainsResponse,
+        prevDailyStats,
+      ] = await Promise.all([
         apiService.clickstream.getDailyStats({ fromDate, toDate }),
         apiService.clickstream.getGeographicStats({ fromDate, toDate }),
         apiService.clickstream.getDeviceStats({ fromDate, toDate }),
@@ -694,14 +433,19 @@ const Dashboard: React.FC = () => {
         apiService.clickstream.getTrafficTypeStats({ fromHour, toHour }),
         apiService.clickstream.getRoutePerformance({ fromDate, toDate, limit: 10 }),
         apiService.routes.list({ page: 1, pageSize: 1000 }),
+        apiService.domains.list({ page: 1, pageSize: 100 }),
+        apiService.clickstream.getDailyStats({ fromDate: prevFromDate, toDate: prevToDate }),
       ]);
 
-      const totals = dailyStats.reduce((acc, stat) => ({
-        totalClicks: acc.totalClicks + stat.total_clicks,
-        uniqueClicks: acc.uniqueClicks + stat.unique_clicks,
-        botClicks: acc.botClicks + stat.bot_clicks,
-        humanClicks: acc.humanClicks + stat.human_clicks,
-      }), { totalClicks: 0, uniqueClicks: 0, botClicks: 0, humanClicks: 0 });
+      const sumTotals = (rows: { total_clicks: number; unique_clicks: number; bot_clicks: number; human_clicks: number }[]): PeriodTotals =>
+        rows.reduce((acc, stat) => ({
+          totalClicks: acc.totalClicks + stat.total_clicks,
+          uniqueClicks: acc.uniqueClicks + stat.unique_clicks,
+          botClicks: acc.botClicks + stat.bot_clicks,
+          humanClicks: acc.humanClicks + stat.human_clicks,
+        }), { totalClicks: 0, uniqueClicks: 0, botClicks: 0, humanClicks: 0 });
+
+      const totals = sumTotals(dailyStats);
 
       const analyticsData: ClickAnalytics = {
         total_clicks: totals.totalClicks,
@@ -727,8 +471,11 @@ const Dashboard: React.FC = () => {
       setAnalytics(analyticsData);
       setTrafficTypeStats(trafficStats);
       setRoutePerformance(routePerf);
+      setPrevTotals(sumTotals(prevDailyStats));
+      setBlockedRoutes(routesResponse.data.filter((route) => isRouteBlocked(route.status)));
+      setAttentionDomains(domainsResponse.data.filter((domain) => domain.verificationStatus !== 'Verified'));
 
-      const activeRoutes = routesResponse.data.filter((route: any) => route.status === 'Active').length;
+      const activeRoutes = routesResponse.data.filter((route) => route.status === 'Active').length;
 
       setStats({
         totalClicks: totals.totalClicks,
@@ -776,9 +523,9 @@ const Dashboard: React.FC = () => {
     return (
       <div className="container" style={{ paddingTop: '2rem' }}>
         <style>{dashboardStyles}</style>
-        <div className="db-error">
-          <h3 className="db-error-title">Error Loading Dashboard</h3>
-          <p className="db-error-message">{error}</p>
+        <div className="card" style={{ padding: '2rem', textAlign: 'center', borderColor: 'var(--color-error)' }}>
+          <h3 className="status-error" style={{ margin: '0 0 0.5rem 0' }}>Error Loading Dashboard</h3>
+          <p style={{ color: 'var(--text-secondary)', margin: '0 0 1rem 0' }}>{error}</p>
           <button className="btn btn-primary" onClick={fetchDashboardData}>
             <RefreshCw size={16} />
             Retry
@@ -807,12 +554,7 @@ const Dashboard: React.FC = () => {
     ];
   })();
 
-  const dateRanges = [
-    { value: '24h', label: '24H' },
-    { value: '7d', label: '7D' },
-    { value: '30d', label: '30D' },
-    { value: '90d', label: '90D' },
-  ];
+  const needsAttentionCount = blockedRoutes.length + attentionDomains.length;
 
   return (
     <>
@@ -827,12 +569,12 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* Page Header */}
-        <div className="db-page-header">
-          <div className="db-page-title-section">
-            <h1 className="db-page-title">Dashboard</h1>
-            <p className="db-page-subtitle">Overview of your link performance and analytics</p>
+        <div className="page-header">
+          <div className="page-title-section">
+            <h1 className="page-title">Dashboard</h1>
+            <p className="page-subtitle">Overview of your link performance and analytics</p>
           </div>
-          <div className="db-page-actions">
+          <div className="page-actions">
             <button
               className="btn btn-outline btn-sm"
               onClick={fetchDashboardData}
@@ -845,13 +587,13 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="db-toolbar">
-          <div className="db-toolbar-section">
-            <div className="db-range-group">
+        <div className="toolbar">
+          <div className="toolbar-section">
+            <div className="range-group">
               {dateRanges.map((r) => (
                 <button
                   key={r.value}
-                  className={`db-range-btn ${dateRange === r.value ? 'active' : ''}`}
+                  className={`range-btn ${dateRange === r.value ? 'active' : ''}`}
                   onClick={() => setDateRange(r.value)}
                 >
                   {r.label}
@@ -862,79 +604,144 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className="db-stats-grid">
-          <div className="db-stat-card">
-            <div className="db-stat-icon primary">
+        <div className="stats-grid">
+          <div className="stats-card">
+            <div className="stats-icon primary">
               <MousePointerClick />
             </div>
-            <div className="db-stat-content">
-              <div className="db-stat-value">{stats?.totalClicks.toLocaleString() || 0}</div>
-              <div className="db-stat-label">Total Clicks</div>
+            <div className="stats-content">
+              <div className="stats-value">{stats?.totalClicks.toLocaleString() || 0}</div>
+              <div className="stats-label">Total Clicks</div>
+              {stats && prevTotals && (
+                <ChangeIndicator current={stats.totalClicks} previous={prevTotals.totalClicks} periodLabel={periodLabel} />
+              )}
             </div>
           </div>
 
-          <div className="db-stat-card">
-            <div className="db-stat-icon success">
+          <div className="stats-card">
+            <div className="stats-icon success">
               <Users />
             </div>
-            <div className="db-stat-content">
-              <div className="db-stat-value">{stats?.uniqueClicks.toLocaleString() || 0}</div>
-              <div className="db-stat-label">Unique Clicks</div>
+            <div className="stats-content">
+              <div className="stats-value">{stats?.uniqueClicks.toLocaleString() || 0}</div>
+              <div className="stats-label">Unique Clicks</div>
+              {stats && prevTotals && (
+                <ChangeIndicator current={stats.uniqueClicks} previous={prevTotals.uniqueClicks} periodLabel={periodLabel} />
+              )}
             </div>
           </div>
 
-          <div className="db-stat-card">
-            <div className="db-stat-icon info">
+          <div className="stats-card">
+            <div className="stats-icon info">
               <Activity />
             </div>
-            <div className="db-stat-content">
-              <div className="db-stat-value">{stats?.humanClicks.toLocaleString() || 0}</div>
-              <div className="db-stat-label">Human ({humanRate}%)</div>
+            <div className="stats-content">
+              <div className="stats-value">{stats?.humanClicks.toLocaleString() || 0}</div>
+              <div className="stats-label">Human ({humanRate}%)</div>
+              {stats && prevTotals && (
+                <ChangeIndicator current={stats.humanClicks} previous={prevTotals.humanClicks} periodLabel={periodLabel} />
+              )}
             </div>
           </div>
 
-          <div className="db-stat-card">
-            <div className="db-stat-icon error">
+          <div className="stats-card">
+            <div className="stats-icon error">
               <Bot />
             </div>
-            <div className="db-stat-content">
-              <div className="db-stat-value">{stats?.botClicks.toLocaleString() || 0}</div>
-              <div className="db-stat-label">Bot ({botRate}%)</div>
+            <div className="stats-content">
+              <div className="stats-value">{stats?.botClicks.toLocaleString() || 0}</div>
+              <div className="stats-label">Bot ({botRate}%)</div>
+              {stats && prevTotals && (
+                <ChangeIndicator current={stats.botClicks} previous={prevTotals.botClicks} periodLabel={periodLabel} invert />
+              )}
             </div>
           </div>
 
-          <div className="db-stat-card">
-            <div className="db-stat-icon warning">
-              <TrendingUp />
+          <div className="stats-card">
+            <div className="stats-icon warning">
+              <Target />
             </div>
-            <div className="db-stat-content">
-              <div className="db-stat-value">{uniqueRate}%</div>
-              <div className="db-stat-label">Unique Rate</div>
+            <div className="stats-content">
+              <div className="stats-value">{uniqueRate}%</div>
+              <div className="stats-label">Unique Rate</div>
+              <div className="stats-change neutral">Share of clicks that are unique</div>
             </div>
           </div>
 
-          <div className="db-stat-card">
-            <div className="db-stat-icon primary">
+          <div className="stats-card">
+            <div className="stats-icon primary">
               <Globe />
             </div>
-            <div className="db-stat-content">
-              <div className="db-stat-value">{stats?.activeRoutes || 0}</div>
-              <div className="db-stat-label">Active Routes</div>
+            <div className="stats-content">
+              <div className="stats-value">{stats?.activeRoutes || 0}</div>
+              <div className="stats-label">Active Routes</div>
+              <div className="stats-change neutral">{stats?.totalRoutes || 0} total routes</div>
             </div>
           </div>
         </div>
 
+        {/* Needs Attention */}
+        <div className="section">
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3 className="chart-title">
+                <AlertTriangle size={16} />
+                Needs Attention
+              </h3>
+              <p className="chart-desc">Blocked routes and domains that aren't fully verified</p>
+            </div>
+            {needsAttentionCount === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">
+                  <CheckCircle2 />
+                </div>
+                <div className="empty-state-title">All clear</div>
+                <div className="empty-state-description">No blocked routes or unverified domains right now.</div>
+              </div>
+            ) : (
+              <div className="db-attention-list">
+                {blockedRoutes.slice(0, 5).map((route) => (
+                  <Link key={route.id} to="/routes" className="db-attention-row">
+                    <span className="badge badge-error">
+                      <Ban size={12} style={{ marginRight: 4 }} />
+                      Blocked
+                    </span>
+                    <span className="db-attention-label">{route.link}</span>
+                    <ArrowUp size={14} className="db-attention-arrow" style={{ transform: 'rotate(45deg)' }} />
+                  </Link>
+                ))}
+                {attentionDomains.slice(0, 5).map((domain) => (
+                  <Link key={domain.id} to="/domains" className="db-attention-row">
+                    <span className={`badge ${domain.verificationStatus === 'Failed' ? 'badge-error' : 'badge-warning'}`}>
+                      <ShieldAlert size={12} style={{ marginRight: 4 }} />
+                      {domain.verificationStatus}
+                    </span>
+                    <span className="db-attention-label">{domain.name}</span>
+                    <ArrowUp size={14} className="db-attention-arrow" style={{ transform: 'rotate(45deg)' }} />
+                  </Link>
+                ))}
+                {(blockedRoutes.length > 5 || attentionDomains.length > 5) && (
+                  <div className="db-attention-more">
+                    {blockedRoutes.length > 5 && <span>+{blockedRoutes.length - 5} more blocked route(s)</span>}
+                    {attentionDomains.length > 5 && <span>+{attentionDomains.length - 5} more domain(s)</span>}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Clicks Over Time - Full Width */}
-        <div className="db-section">
-          <div className="db-chart-card">
-            <div className="db-chart-header">
-              <h3 className="db-chart-title">
+        <div className="section">
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3 className="chart-title">
                 <BarChart3 size={16} />
                 Clicks Over Time
               </h3>
-              <p className="db-chart-desc">Daily click trends for the selected period</p>
+              <p className="chart-desc">Daily click trends for the selected period</p>
             </div>
-            <div className="db-chart-body" style={{ height: '300px' }}>
+            <div className="chart-body" style={{ height: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={analytics?.clicks_by_date || []}>
                   <defs>
@@ -977,16 +784,16 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Geographic Section */}
-        <div className="db-section-row two-cols">
-          <div className="db-chart-card">
-            <div className="db-chart-header">
-              <h3 className="db-chart-title">
+        <div className="section-row two-cols">
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3 className="chart-title">
                 <Globe size={16} />
                 Geographic Distribution
               </h3>
-              <p className="db-chart-desc">Hover to see details</p>
+              <p className="chart-desc">Hover to see details</p>
             </div>
-            <div className="db-chart-body" style={{ height: '300px' }}>
+            <div className="chart-body" style={{ height: '300px' }}>
               <WorldMap
                 data={(analytics?.clicks_by_country || []).map(country => {
                   const totalClicks = stats?.totalClicks || 1;
@@ -1001,15 +808,15 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="db-chart-card">
-            <div className="db-chart-header">
-              <h3 className="db-chart-title">
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3 className="chart-title">
                 <Globe size={16} />
                 Top Countries
               </h3>
-              <p className="db-chart-desc">By click volume</p>
+              <p className="chart-desc">By click volume</p>
             </div>
-            <div className="db-chart-body">
+            <div className="chart-body">
               {(analytics?.clicks_by_country || []).length > 0 ? (
                 <div className="db-country-list">
                   {(analytics?.clicks_by_country || []).map((country: any, index: number) => {
@@ -1034,8 +841,8 @@ const Dashboard: React.FC = () => {
                   })}
                 </div>
               ) : (
-                <div className="db-empty">
-                  <div className="db-empty-icon">
+                <div className="empty-state">
+                  <div className="empty-state-icon">
                     <Globe />
                   </div>
                   <p>No geographic data available</p>
@@ -1046,17 +853,17 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Distribution Section */}
-        <div className="db-section-row three-cols">
+        <div className="section-row three-cols">
           {/* Device Distribution */}
-          <div className="db-chart-card">
-            <div className="db-chart-header">
-              <h3 className="db-chart-title">
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3 className="chart-title">
                 <Monitor size={16} />
                 Devices
               </h3>
-              <p className="db-chart-desc">By device type</p>
+              <p className="chart-desc">By device type</p>
             </div>
-            <div className="db-chart-body" style={{ height: '200px' }}>
+            <div className="chart-body" style={{ height: '200px' }}>
               {(analytics?.clicks_by_device || []).length > 0 ? (
                 <>
                   <ResponsiveContainer width="100%" height="100%">
@@ -1088,8 +895,8 @@ const Dashboard: React.FC = () => {
                   />
                 </>
               ) : (
-                <div className="db-empty">
-                  <div className="db-empty-icon">
+                <div className="empty-state">
+                  <div className="empty-state-icon">
                     <Monitor />
                   </div>
                   <p>No device data</p>
@@ -1099,15 +906,15 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Browser Distribution */}
-          <div className="db-chart-card">
-            <div className="db-chart-header">
-              <h3 className="db-chart-title">
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3 className="chart-title">
                 <Globe size={16} />
                 Browsers
               </h3>
-              <p className="db-chart-desc">By browser</p>
+              <p className="chart-desc">By browser</p>
             </div>
-            <div className="db-chart-body" style={{ height: '200px' }}>
+            <div className="chart-body" style={{ height: '200px' }}>
               {(analytics?.clicks_by_browser || []).length > 0 ? (
                 <>
                   <ResponsiveContainer width="100%" height="100%">
@@ -1139,8 +946,8 @@ const Dashboard: React.FC = () => {
                   />
                 </>
               ) : (
-                <div className="db-empty">
-                  <div className="db-empty-icon">
+                <div className="empty-state">
+                  <div className="empty-state-icon">
                     <Globe />
                   </div>
                   <p>No browser data</p>
@@ -1150,15 +957,15 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Traffic Type */}
-          <div className="db-chart-card">
-            <div className="db-chart-header">
-              <h3 className="db-chart-title">
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3 className="chart-title">
                 <Activity size={16} />
                 Traffic Type
               </h3>
-              <p className="db-chart-desc">Bot vs Human</p>
+              <p className="chart-desc">Bot vs Human</p>
             </div>
-            <div className="db-chart-body" style={{ height: '200px' }}>
+            <div className="chart-body" style={{ height: '200px' }}>
               {trafficTypeStats.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -1182,8 +989,8 @@ const Dashboard: React.FC = () => {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="db-empty">
-                  <div className="db-empty-icon">
+                <div className="empty-state">
+                  <div className="empty-state-icon">
                     <Activity />
                   </div>
                   <p>No data available</p>
@@ -1202,57 +1009,56 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Top Performing Routes */}
-        <div className="db-section">
-          <div className="db-chart-card">
-            <div className="db-chart-header">
-              <h3 className="db-chart-title">
+        <div className="section">
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3 className="chart-title">
                 <Target size={16} />
                 Top Performing Routes
               </h3>
-              <p className="db-chart-desc">Routes ranked by total clicks</p>
+              <p className="chart-desc">Routes ranked by total clicks</p>
             </div>
-            <div className="db-table-container">
-              {routePerformance.length > 0 ? (
-                <table className="db-table">
-                  <thead>
-                    <tr>
-                      <th>Domain</th>
-                      <th>Route</th>
-                      <th>Clicks</th>
-                      <th>Unique</th>
-                      <th>Human</th>
-                      <th>Bot</th>
-                      <th>Countries</th>
-                      <th>Devices</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {routePerformance.slice(0, 5).map((route, index) => (
-                      <tr key={index}>
-                        <td>
-                          <span className="db-table-route">{route.route_domain_name ?? '—'}</span>
-                        </td>
-                        <td>
-                          <span className="db-table-route">{route.route_name ?? '—'}</span>
-                        </td>
-                        <td className="db-table-value">{route.total_clicks.toLocaleString()}</td>
-                        <td>{route.unique_visitors.toLocaleString()}</td>
-                        <td className="db-table-success">{route.human_clicks.toLocaleString()}</td>
-                        <td className="db-table-error">{route.bot_clicks.toLocaleString()}</td>
-                        <td>{route.countries_reached}</td>
-                        <td>{route.device_types}</td>
+            <div className="table-container">
+              <div className="table-wrapper">
+                {routePerformance.length > 0 ? (
+                  <table className="unified-table">
+                    <thead>
+                      <tr>
+                        <th>Domain</th>
+                        <th>Route</th>
+                        <th>Clicks</th>
+                        <th>Unique</th>
+                        <th>Human</th>
+                        <th>Bot</th>
+                        <th>Countries</th>
+                        <th>Devices</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="db-empty">
-                  <div className="db-empty-icon">
-                    <Target />
+                    </thead>
+                    <tbody>
+                      {routePerformance.slice(0, 5).map((route) => (
+                        <tr key={route.route_id}>
+                          <td className="table-cell-secondary">{route.route_domain_name ?? '—'}</td>
+                          <td className="table-cell-primary">{route.route_name ?? '—'}</td>
+                          <td className="table-metric-large">{route.total_clicks.toLocaleString()}</td>
+                          <td className="table-cell-text">{route.unique_visitors.toLocaleString()}</td>
+                          <td className="status-success">{route.human_clicks.toLocaleString()}</td>
+                          <td className="status-error">{route.bot_clicks.toLocaleString()}</td>
+                          <td className="table-cell-muted">{route.countries_reached}</td>
+                          <td className="table-cell-muted">{route.device_types}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="table-empty">
+                    <div className="table-empty-icon">
+                      <Target />
+                    </div>
+                    <div className="table-empty-title">No route performance data</div>
+                    <div className="table-empty-description">Nothing for the selected period yet.</div>
                   </div>
-                  <p>No route performance data for the selected period</p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
