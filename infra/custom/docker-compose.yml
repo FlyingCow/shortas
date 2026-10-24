@@ -1,7 +1,7 @@
 version: "3.8"
 include:
   - ../../redirect/docker-compose.yml
-  - ../../api/docker-compose.yml
+  - ../../management-api/docker-compose.yml
   - ../../ui/docker-compose.yml
 
 networks:
@@ -97,54 +97,54 @@ services:
       - shortas-net
 
   minio:
-    image: minio/minio:latest
+    image: rustfs/rustfs:latest
     container_name: shortas-minio
     restart: unless-stopped
     ports:
       - "9002:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    command: server /data --console-address ":9001"
+      RUSTFS_ACCESS_KEY: minioadmin
+      RUSTFS_SECRET_KEY: minioadmin
+      RUSTFS_CONSOLE_ENABLE: "true"
     volumes:
       - minio_data:/data
     networks:
       - shortas-net
 
   minio-setup:
-    image: minio/mc:latest
+    image: amazon/aws-cli:latest
     container_name: shortas-minio-setup
     depends_on:
       - minio
+    environment:
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://minio:9000
     entrypoint: >
       /bin/sh -c "
-        echo 'Waiting for MinIO to be ready...'
-        until mc alias set myminio http://minio:9000 minioadmin minioadmin; do
-          echo 'MinIO not ready, retrying in 2s...'
+        echo 'Waiting for RustFS to be ready...'
+        until aws s3 ls >/dev/null 2>&1; do
+          echo 'RustFS not ready, retrying in 2s...'
           sleep 2
         done
-        echo 'Creating clickhouse bucket...'
-        mc mb myminio/clickhouse --ignore-existing
-        echo 'Creating route-images bucket...'
-        mc mb myminio/route-images --ignore-existing
-        echo 'Creating loki bucket...'
-        mc mb myminio/loki --ignore-existing
-        echo 'Setting route-images bucket as public read...'
-        mc anonymous set download myminio/route-images
-        echo 'Configuring CORS for route-images bucket...'
-        cat > /tmp/cors.json << 'EOF'
-        {
-          \"CORSRules\": [{
-            \"AllowedHeaders\": [\"*\"],
-            \"AllowedMethods\": [\"GET\", \"PUT\", \"POST\", \"DELETE\"],
-            \"AllowedOrigins\": [\"*\"],
-            \"ExposeHeaders\": [\"ETag\", \"Content-Length\", \"Content-Type\"]
-          }]
+        create_bucket() {
+          aws s3api head-bucket --bucket \"\$1\" >/dev/null 2>&1 || aws s3 mb \"s3://\$1\"
         }
-        EOF
-        mc cors set myminio/route-images /tmp/cors.json
-        echo 'MinIO setup complete'
+        echo 'Creating clickhouse bucket...'
+        create_bucket clickhouse
+        echo 'Creating route-images bucket...'
+        create_bucket route-images
+        echo 'Creating loki bucket...'
+        create_bucket loki
+        echo 'Setting route-images bucket as public read...'
+        printf '%s' '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::route-images/*\"}]}' > /tmp/policy.json
+        aws s3api put-bucket-policy --bucket route-images --policy file:///tmp/policy.json
+        echo 'Configuring CORS for route-images bucket...'
+        printf '%s' '{\"CORSRules\":[{\"AllowedHeaders\":[\"*\"],\"AllowedMethods\":[\"GET\",\"PUT\",\"POST\",\"DELETE\"],\"AllowedOrigins\":[\"*\"],\"ExposeHeaders\":[\"ETag\",\"Content-Length\",\"Content-Type\"]}]}' > /tmp/cors.json
+        aws s3api put-bucket-cors --bucket route-images --cors-configuration file:///tmp/cors.json
+        echo 'RustFS setup complete'
       "
     networks:
       - shortas-net

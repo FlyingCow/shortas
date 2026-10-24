@@ -1,11 +1,5 @@
-use click_router::{
-    core::{
-        metrics::{FlowRouterMetrics, METRICS},
-        metrics_endpoint::create_metrics_router,
-    },
-    adapters::{RequestType, ResponseType},
-};
-use salvo::{prelude::*, Server};
+use click_router::core::metrics::METRICS;
+use axum::{routing::get, Router};
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -15,35 +9,38 @@ async fn main() {
     println!("🔍 Click Router Monitoring Example");
     println!("==================================");
     println!();
-    
+
     // Initialize tracing for better logging
     tracing_subscriber::fmt::init();
-    
+
     println!("📊 Available Monitoring Endpoints:");
     println!("   • GET /metrics       - Prometheus metrics (text format)");
     println!("   • GET /health        - Health check with basic metrics");
     println!("   • GET /metrics/info  - Detailed metrics information (JSON)");
     println!();
-    
+
     // Create metrics router
-    let metrics_router = create_metrics_router();
-    
+    let metrics_router = click_router::core::metrics_endpoint::create_metrics_router();
+
     // Start metrics server in background
-    let metrics_service = Service::new(metrics_router);
-    let metrics_server = Server::new(TcpListener::new("127.0.0.1:9090").bind().await);
-    
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:9090")
+        .await
+        .expect("failed to bind metrics server");
+
     println!("🚀 Starting metrics server on http://127.0.0.1:9090");
     println!("   Try these URLs:");
     println!("   • http://127.0.0.1:9090/health");
     println!("   • http://127.0.0.1:9090/metrics/info");
     println!("   • http://127.0.0.1:9090/metrics");
     println!();
-    
+
     // Start server in background
     tokio::spawn(async move {
-        metrics_server.serve(metrics_service).await;
+        axum::serve(listener, metrics_router)
+            .await
+            .expect("metrics server failed");
     });
-    
+
     // Give server time to start
     sleep(Duration::from_millis(100)).await;
     
@@ -174,24 +171,22 @@ fn display_current_metrics() {
 pub fn integrate_metrics_into_main_app() -> Router {
     // Your main application routes
     let app_router = Router::new()
-        .push(Router::with_path("/").get(hello_handler))
-        .push(Router::with_path("/redirect/{path}").get(redirect_handler));
-    
+        .route("/", get(hello_handler))
+        .route("/redirect/:path", get(redirect_handler));
+
     // Metrics routes (typically on a separate port or path)
-    let metrics_router = create_metrics_router();
-    
+    let metrics_router = click_router::core::metrics_endpoint::create_metrics_router();
+
     // Combine them or serve on different ports
     Router::new()
-        .push(Router::with_path("/api").push(app_router))
-        .push(Router::with_path("/monitoring").push(metrics_router))
+        .nest("/api", app_router)
+        .nest("/monitoring", metrics_router)
 }
 
-#[handler]
 async fn hello_handler() -> &'static str {
     "Hello from Click Router!"
 }
 
-#[handler]
 async fn redirect_handler() -> &'static str {
     // This would normally use the FlowRouter
     "Redirect logic would go here"

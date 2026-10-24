@@ -1,48 +1,57 @@
 import React from 'react';
 import './Features.css';
+import {
+  ZapIcon,
+  BarChartIcon,
+  LinkIcon,
+  ShieldIcon,
+  GlobeIcon,
+  CodeIcon,
+} from './Icons';
 
 const Features: React.FC = () => {
   const features = [
     {
-      icon: '⚡',
-      title: 'Lightning Fast',
-      description: 'Generate short URLs in milliseconds with our optimized infrastructure and global CDN.'
+      icon: <ZapIcon />,
+      title: 'Built for Speed',
+      description: 'A Rust and Tokio redirect engine with in-memory caching keeps the hot path fast, even under heavy traffic.'
     },
     {
-      icon: '📊',
-      title: 'Advanced Analytics',
-      description: 'Track clicks, geographic data, referrers, and device information with detailed insights.'
+      icon: <BarChartIcon />,
+      title: 'Real-Time Analytics',
+      description: 'Every click is enriched with geography, device, and browser data and streamed into ClickHouse for instant dashboards.'
     },
     {
-      icon: '🎯',
+      icon: <GlobeIcon />,
+      title: 'Conditional Routing',
+      description: 'Send visitors to different destinations based on country, device, browser, or OS - all from one short link.'
+    },
+    {
+      icon: <LinkIcon />,
       title: 'Custom Domains',
-      description: 'Use your own branded domain for professional-looking short links that build trust.'
+      description: 'Bring your own domain with automatic TLS certificates issued and renewed via Let’s Encrypt.'
     },
     {
-      icon: '🔒',
-      title: 'Enterprise Security',
-      description: 'Bank-level security with SSL encryption, password protection, and expiration dates.'
+      icon: <ShieldIcon />,
+      title: 'Safe by Default',
+      description: 'Destinations are checked against Google Safe Browsing on a schedule, with unsafe links blocked automatically.'
     },
     {
-      icon: '🌍',
-      title: 'Global Reach',
-      description: 'Worldwide infrastructure ensures fast redirects from anywhere on the planet.'
-    },
-    {
-      icon: '🔧',
+      icon: <CodeIcon />,
       title: 'Open Source',
-      description: 'Fully open-source project with comprehensive REST API. Contribute, customize, or self-host your own instance.'
+      description: 'MIT-licensed with a documented REST API. Self-host it, read the code, or contribute a feature back.'
     }
   ];
 
   return (
     <section id="features" className="features section">
       <div className="container">
-        <h2 className="section-title">Powerful Features</h2>
+        <span className="section-eyebrow">Features</span>
+        <h2 className="section-title">Everything a short link needs</h2>
         <p className="section-subtitle">
-          Everything you need to create, manage, and track your short links effectively
+          From the redirect path to the analytics pipeline, built as a set of focused Rust services.
         </p>
-        
+
         <div className="features-grid">
           {features.map((feature, index) => (
             <div key={index} className="feature-card">

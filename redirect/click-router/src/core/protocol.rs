@@ -1,4 +1,4 @@
-use crate::{adapters::RequestType, core::flow_router::RequestData};
+use crate::adapters::RequestType;
 
 use super::flow_router::Request;
 
@@ -90,6 +90,7 @@ impl ProtocolExtractor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::flow_router::RequestData;
 
     #[test]
     fn should_extract_proto_header_when_present() {

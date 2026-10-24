@@ -1,0 +1,44 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+
+[database]
+host = "shortas-api-postgres"
+port = 5432
+username = "shortas_user"
+password = "shortas_password"
+database = "shortas_dev_db"
+max_connections = 10
+
+[jwt]
+issuer = "http://localhost:8080/realms/shortas-dev"
+audience = "shortas-api"
+jwks_url = "http://keycloak:8080/realms/shortas-dev/protocol/openid-connect/certs"
+
+[click_router]
+base_url = "http://shortas-click-router-api:5810"
+timeout_ms = 5000
+
+[click_aggregator]
+base_url = "http://shortas-click-aggregator-api:5820"
+timeout_ms = 10000
+
+[elasticsearch]
+url = "http://shortas-api-elasticsearch:9200"
+routes_index = "routes"
+
+[minio]
+endpoint = "http://shortas-minio:9000"
+public_endpoint = "http://localhost:9003"
+region = "us-east-1"
+access_key = "minioadmin"
+secret_key = "minioadmin"
+bucket = "route-images"
+
+[rabbitmq]
+url = "amqp://guest:guest@shortas-rabbitmq:5672"
+domain_verification_queue = "domain-verification"
+route_status_queue = "route-status"
+
+[shared_domains]
+names = ["shortas.space"]

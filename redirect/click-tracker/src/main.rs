@@ -8,6 +8,7 @@ use clap::Parser;
 use click_tracker::{
     App, FluvioHitStream, KafkaHitStream, Settings,
     adapters::{
+        aws::user_settings_store::DynamoUserSettingsStore,
         mongodb::user_settings_store::MongodbUserSettingsStore,
         rabbitmq::consumer,
         ClickAggsRegistrarType, HitStreamSourceType, LocationDetectorType, SessionDetectorType,
@@ -67,15 +68,37 @@ async fn init_modules(settings: &Settings, token: CancellationToken) -> Vec<Clic
     ]
 }
 
+async fn load_aws_config(settings: &click_tracker::adapters::aws::settings::AWS) -> aws_config::SdkConfig {
+    let mut shared_config = aws_config::defaults(aws_config::BehaviorVersion::latest());
+
+    if settings.local {
+        let endpoint = settings
+            .localstack_endpoint
+            .clone()
+            .unwrap_or_else(|| "http://localhost:4566".to_string());
+        shared_config = shared_config.endpoint_url(endpoint);
+    }
+
+    shared_config.load().await
+}
+
 async fn init_user_settings_cache_for_rabbitmq(
     settings: &Settings,
+    run_mode: &str,
 ) -> Option<UserSettingsCacheType> {
     let _rmq = settings.rabbitmq.as_ref()?;
-    let store = MongodbUserSettingsStore::new(&settings.mongodb).await;
-    let cache = MokaUserSettingsCache::new(
-        click_tracker::adapters::UserSettingsStoreType::Mongodb(store),
-        settings.moka.user_settings_cache.clone(),
-    );
+
+    // AWS run modes (aws, aws-dev) use DynamoDB; everything else uses MongoDB.
+    let store_type = if run_mode.starts_with("aws") {
+        let aws_config = load_aws_config(&settings.aws).await;
+        let store = DynamoUserSettingsStore::new(&aws_config, settings.aws.dynamo.user_settings_table.clone());
+        click_tracker::adapters::UserSettingsStoreType::Dynamo(store)
+    } else {
+        let store = MongodbUserSettingsStore::new(&settings.mongodb).await;
+        click_tracker::adapters::UserSettingsStoreType::Mongodb(store)
+    };
+
+    let cache = MokaUserSettingsCache::new(store_type, settings.moka.user_settings_cache.clone());
     Some(UserSettingsCacheType::Moka(cache))
 }
 
@@ -101,7 +124,7 @@ async fn start(token: CancellationToken) -> Result<()> {
 
     if let (Some(rmq), Some(user_settings_cache)) = (
         settings.rabbitmq.as_ref(),
-        init_user_settings_cache_for_rabbitmq(&settings).await,
+        init_user_settings_cache_for_rabbitmq(&settings, args.run_mode.as_str()).await,
     ) {
         consumer::start_user_settings_cache_invalidation_consumer(rmq.clone(), user_settings_cache);
     } else if settings.rabbitmq.is_some() {

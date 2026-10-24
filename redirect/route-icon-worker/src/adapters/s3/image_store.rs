@@ -93,7 +93,7 @@ impl ImageStore {
             .send()
             .await
             .map_err(|e| {
-                error!("Failed to upload icon: {}", e);
+                error!("Failed to upload icon: {:?}", e);
                 anyhow::anyhow!("S3 upload failed: {}", e)
             })?;
 

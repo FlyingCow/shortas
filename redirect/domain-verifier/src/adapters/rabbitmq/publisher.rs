@@ -14,6 +14,8 @@ use crate::settings::RabbitMqSettings;
 #[derive(Clone)]
 pub struct RabbitMqPublisher {
     channel: Arc<RwLock<Option<Channel>>>,
+    // Kept alive alongside the channel: dropping the Connection closes it (and every channel on it).
+    connection: Arc<RwLock<Option<Connection>>>,
     settings: RabbitMqSettings,
 }
 
@@ -21,6 +23,7 @@ impl RabbitMqPublisher {
     pub async fn new(settings: &RabbitMqSettings) -> Result<Self> {
         let publisher = Self {
             channel: Arc::new(RwLock::new(None)),
+            connection: Arc::new(RwLock::new(None)),
             settings: settings.clone(),
         };
 
@@ -58,9 +61,11 @@ impl RabbitMqPublisher {
 
     async fn reconnect(&self) {
         match self.try_connect().await {
-            Ok(channel) => {
+            Ok((conn, channel)) => {
                 let mut ch = self.channel.write().await;
                 *ch = Some(channel);
+                let mut c = self.connection.write().await;
+                *c = Some(conn);
                 info!(
                     "RabbitMQ publisher connected, exchange: {}",
                     self.settings.domain_state_exchange
@@ -72,7 +77,7 @@ impl RabbitMqPublisher {
         }
     }
 
-    async fn try_connect(&self) -> Result<Channel> {
+    async fn try_connect(&self) -> Result<(Connection, Channel)> {
         let conn =
             Connection::connect(&self.settings.uri, ConnectionProperties::default()).await?;
         let channel = conn.create_channel().await?;
@@ -94,7 +99,7 @@ impl RabbitMqPublisher {
             )
             .await?;
 
-        Ok(channel)
+        Ok((conn, channel))
     }
 
     pub async fn publish_domain_state_changed(&self, message: &DomainStateChangedMessage) {

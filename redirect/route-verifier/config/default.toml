@@ -6,6 +6,14 @@ connection_string = "mongodb://root:example@mongo:27017/"
 database_name = "shortas"
 collection = "routes_to_verify"
 
+# Used only in aws/aws-dev run modes (see AppBuilder::with_aws). The real
+# table name is always injected by Terraform via APP__AWS__DYNAMO__ROUTES_TABLE.
+[aws]
+local = false
+
+[aws.dynamo]
+routes_table = "core-routes-to-verify-dev"
+
 [rabbitmq]
 uri = "amqp://guest:guest@rabbitmq:5672/%2f"
 route_status_exchange = "route.status.changed"

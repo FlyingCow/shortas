@@ -22,13 +22,13 @@ resource "aws_secretsmanager_secret" "rabbitmq" {
 resource "aws_secretsmanager_secret_version" "rabbitmq" {
   secret_id = aws_secretsmanager_secret.rabbitmq.id
   secret_string = jsonencode({
-    username          = var.admin_username
-    password          = random_password.rabbitmq.result
-    amqp_endpoint     = aws_mq_broker.main.instances[0].endpoints[0]
-    amqps_endpoint    = try(aws_mq_broker.main.instances[0].endpoints[1], "")
-    console_url       = aws_mq_broker.main.instances[0].console_url
-    broker_id         = aws_mq_broker.main.id
-    amqp_uri          = "amqps://${var.admin_username}:${random_password.rabbitmq.result}@${replace(try(aws_mq_broker.main.instances[0].endpoints[1], aws_mq_broker.main.instances[0].endpoints[0]), "amqps://", "")}/%2f"
+    username       = var.admin_username
+    password       = random_password.rabbitmq.result
+    amqp_endpoint  = aws_mq_broker.main.instances[0].endpoints[0]
+    amqps_endpoint = try(aws_mq_broker.main.instances[0].endpoints[1], "")
+    console_url    = aws_mq_broker.main.instances[0].console_url
+    broker_id      = aws_mq_broker.main.id
+    amqp_uri       = "amqps://${var.admin_username}:${random_password.rabbitmq.result}@${replace(try(aws_mq_broker.main.instances[0].endpoints[1], aws_mq_broker.main.instances[0].endpoints[0]), "amqps://", "")}/%2f"
   })
 
   depends_on = [aws_mq_broker.main]
@@ -56,7 +56,7 @@ resource "aws_mq_broker" "main" {
   security_groups = [var.security_group_id]
   subnet_ids      = var.deployment_mode == "CLUSTER_MULTI_AZ" ? var.subnet_ids : [var.subnet_ids[0]]
 
-  publicly_accessible = false
+  publicly_accessible        = false
   auto_minor_version_upgrade = true
 
   user {

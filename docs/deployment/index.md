@@ -8,97 +8,99 @@ permalink: /deployment/
 
 ## Docker Compose
 
-The recommended deployment method runs all services as Docker containers.
+The recommended deployment method runs all services as Docker containers, orchestrated from a single top-level compose file.
 
 ### Full Stack
 
 ```bash
-cd redirect
+cd infra/custom
 docker compose up -d
 ```
 
-This starts:
-- **Infrastructure**: MongoDB 7, ClickHouse, Redis 7, MinIO, Fluvio (SC + SPU), RabbitMQ, gglsbl-rest (Safe Browsing)
-- **Init containers**: MinIO bucket setup, Fluvio topic creation, ClickHouse migrations
-- **Application services**: click-router, click-router-api, click-tracker, click-aggregator, click-aggregator-api, route-verifier, route-icon-worker, domain-verifier, domains
+`infra/custom/docker-compose.yml` is the real entry point. It `include`s three other compose files and additionally defines a few shared services directly:
 
-### Management API
+- **Included — `redirect/docker-compose.yml`**: MongoDB, ClickHouse, Redis, MinIO topic setup, Fluvio (SC + SPU), gglsbl-rest (Safe Browsing), and all the redirect application services (click-router, click-router-api, click-tracker, click-aggregator, click-aggregator-api, route-verifier, route-icon-worker, domain-verifier, cert-bot, pages). This file itself includes `redirect/monitoring/docker-compose.yml` (Prometheus, Grafana, Loki).
+- **Included — `management-api/docker-compose.yml`**: a dedicated PostgreSQL instance, Elasticsearch, and the `management-api` container.
+- **Included — `ui/docker-compose.yml`**: the dashboard and landing page containers.
+- **Defined directly**: Keycloak (+ its own Postgres DB), HashiCorp Vault (dev mode), RabbitMQ, and MinIO/RustFS (+ bucket/CORS setup and an nginx reverse proxy in front of it for presigned-URL CORS handling).
+
+Init containers run automatically: MinIO bucket + CORS setup, Fluvio topic creation, ClickHouse migrations.
+
+### Running a Subset
+
+Each compose file can also be run on its own (they share the external `shortas-net` network once it exists):
 
 ```bash
-cd api
-docker compose up -d
+# Just the Rust redirect stack + monitoring
+cd redirect && docker compose up -d
+
+# Just the Management API + its Postgres/Elasticsearch
+cd management-api && docker compose up -d
+
+# Just the dashboard + landing page
+cd ui && docker compose up -d
 ```
-
-Starts the .NET API and its PostgreSQL database.
-
-### UI
-
-```bash
-cd ui
-docker compose up -d
-```
-
-Starts the dashboard and landing page. This compose file includes the redirect compose file via the `include` directive.
 
 ## Service Dependencies
 
 ```
-click-router         → mongo, redis, clickhouse, fluvio (topics), rabbitmq, domains
-click-router-api     → mongo, redis, rabbitmq
-click-tracker        → redis, fluvio (topics)
-click-aggregator     → clickhouse, fluvio (topics)
-click-aggregator-api → clickhouse (after migrations)
-route-verifier       → mongo, rabbitmq, gglsbl-rest
-route-icon-worker    → rabbitmq, minio
-domain-verifier      → mongo, rabbitmq
-domains              → (standalone)
-management-api       → postgresql, elasticsearch, click-router-api, click-aggregator-api
-dashboard            → management-api
+click-router         → mongo, redis, clickhouse, fluvio (topics), rabbitmq, pages
+click-router-api      → mongo, redis, rabbitmq
+click-tracker         → redis, fluvio (topics)
+click-aggregator      → clickhouse, fluvio (topics)
+click-aggregator-api  → clickhouse (after migrations)
+route-verifier         → mongo, click-router-api, rabbitmq, safe-browsing
+route-icon-worker      → rabbitmq, minio
+domain-verifier        → mongo, rabbitmq
+cert-bot               → mongo, click-router-api
+pages                  → (standalone, static)
+management-api         → postgres, elasticsearch, rabbitmq, minio, click-router-api, click-aggregator-api, keycloak
+dashboard              → management-api, keycloak, minio-nginx
 ```
 
 ## Environment Configuration
 
-### Rust Services
+### Rust Services (including Management API)
 
-Configuration is loaded from TOML files in each service's `config/` directory. The `APP_RUN_MODE` environment variable selects the profile:
+Configuration is loaded from TOML files in each service's `config/` directory, overridable by `APP__<SECTION>__<KEY>` environment variables. The `APP_RUN_MODE` environment variable selects the profile:
 
 - `development` — local defaults with debug logging
 - `production` — production-optimized settings
 
-Docker containers default to `APP_RUN_MODE=production`.
+Docker containers default to `APP_RUN_MODE=production` (except Management API's compose file, which sets `development` for its local setup).
 
-### Management API
+Example (Management API, from its `docker-compose.yml`):
 
-Configured via `appsettings.json` and environment variables:
-
-| Variable | Description |
-|----------|-------------|
-| `ConnectionStrings__DefaultConnection` | PostgreSQL connection string |
-| `Keycloak__Authority` | Keycloak realm URL |
-| `Keycloak__Audience` | JWT audience |
-| `ApiSettings__ClickRouterApi__BaseUrl` | Click Router API URL |
-| `ApiSettings__ClickAggregatorApi__BaseUrl` | Click Aggregator API URL |
+```bash
+APP__DATABASE__HOST=shortas-api-postgres
+APP__JWT__JWKS_URL=http://keycloak:8080/realms/shortas-dev/protocol/openid-connect/certs
+APP__CLICK_ROUTER__BASE_URL=http://shortas-click-router-api:5810
+APP__CLICK_AGGREGATOR__BASE_URL=http://shortas-click-aggregator-api:5820
+APP__MINIO__PUBLIC_ENDPOINT=http://localhost:9003
+APP__RABBITMQ__URL=amqp://guest:guest@shortas-rabbitmq:5672
+```
 
 ## Docker Images
 
 Multi-stage builds minimize image sizes:
 
-- **Rust services**: Built from the workspace Dockerfile, producing a Debian slim image with a non-root user
-- **.NET API**: Three-stage build (base, build/publish, runtime) targeting `mcr.microsoft.com/dotnet/aspnet:9.0`
-- **UI apps**: Node-based builds outputting static assets
+- **Rust services** (including `management-api`): built from the repo-root Dockerfile context, producing a Debian slim image with a non-root user
+- **UI apps**: Node-based builds outputting static assets served by nginx
+
+The legacy `api/` (ASP.NET Core) project has its own three-stage Dockerfile targeting `mcr.microsoft.com/dotnet/aspnet:9.0`, but it is not part of the active deployment.
 
 ## Health Checks
 
-All services expose health endpoints. Docker Compose healthchecks monitor service status automatically:
+Most services expose health endpoints, and Docker Compose healthchecks monitor them automatically:
 
 ```bash
-make ps    # Show service status and health
-make logs  # Tail service logs
+make ps    # Show redirect/ service status and health
+make logs  # Tail redirect/ service logs
 ```
 
 ## Networking
 
-All services share the `shortas-net` Docker bridge network. Inter-service communication uses container hostnames (e.g., `mongo`, `clickhouse`, `click-router-api`).
+All services share the `shortas-net` Docker bridge network (created by `infra/custom/docker-compose.yml`, consumed as `external: true` by the included files). Inter-service communication uses container hostnames (e.g., `mongo`, `clickhouse`, `shortas-click-router-api`, `keycloak`).
 
 ## AWS Deployment
 
@@ -148,7 +150,7 @@ cd ../scripts
 
 ### Environments
 
-Two environments are provided:
+Two environments are provided (17 Terraform modules power both):
 
 | Feature | Dev | Prod |
 |---------|-----|------|
@@ -173,21 +175,15 @@ Configure the dashboard with Cognito endpoints:
 
 ```bash
 REACT_APP_COGNITO_ISSUER_URL=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_xxxxxxxx
-REACT_APP_COGNITO_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
+REACT_APP_COGNITO_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-Configure the .NET API with `appsettings.Aws.json`:
+Configure the Management API via its `APP__JWT__*` environment variables (or `config/production.toml`):
 
-```json
-{
-  "Authentication": {
-    "Provider": "Cognito",
-    "Cognito": {
-      "UserPoolId": "${COGNITO_USER_POOL_ID}",
-      "Authority": "${COGNITO_ISSUER_URL}"
-    }
-  }
-}
+```bash
+APP__JWT__ISSUER=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_xxxxxxxx
+APP__JWT__AUDIENCE=shortas-api
+APP__JWT__JWKS_URL=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_xxxxxxxx/.well-known/jwks.json
 ```
 
 ### Monitoring

@@ -6,6 +6,14 @@ connection_string = "mongodb://root:example@mongo:27017/"
 database_name = "shortas"
 collection = "domains"
 
+# Used only in aws/aws-dev run modes (see AppBuilder::with_aws). The real
+# table name is always injected by Terraform via APP__AWS__DYNAMO__DOMAINS_TABLE.
+[aws]
+local = false
+
+[aws.dynamo]
+domains_table = "core-domains-dev"
+
 [rabbitmq]
 uri = "amqp://guest:guest@rabbitmq:5672/%2f"
 domain_state_exchange = "domain.state.changed"

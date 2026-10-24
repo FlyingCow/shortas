@@ -2,8 +2,8 @@
 
 # Random auth token
 resource "random_password" "redis_auth" {
-  length           = 32
-  special          = false # ElastiCache auth token has restrictions
+  length  = 32
+  special = false # ElastiCache auth token has restrictions
 }
 
 # Store credentials in Secrets Manager
@@ -79,9 +79,9 @@ resource "aws_elasticache_replication_group" "main" {
   multi_az_enabled           = var.num_cache_clusters > 1 && var.multi_az_enabled
 
   # Maintenance
-  maintenance_window       = "sun:05:00-sun:06:00"
-  snapshot_window          = "03:00-04:00"
-  snapshot_retention_limit = var.snapshot_retention_limit
+  maintenance_window         = "sun:05:00-sun:06:00"
+  snapshot_window            = "03:00-04:00"
+  snapshot_retention_limit   = var.snapshot_retention_limit
   auto_minor_version_upgrade = true
 
   # Apply changes immediately in dev, during maintenance window in prod

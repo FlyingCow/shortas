@@ -31,7 +31,7 @@ ALL_SERVICES=(
     "route-verifier"
     "route-icon-worker"
     "cert-bot"
-    "shortas-api"
+    "management-api"
     "dashboard"
     "landing"
     "pages"
@@ -86,35 +86,30 @@ build_service() {
 
     log_step "Building ${service}..."
 
-    # Determine Dockerfile location
+    # Every service's Dockerfile is self-contained (builds exactly one binary/app,
+    # no SERVICE build-arg) and its COPY paths are written relative to the repo
+    # root, so the build context is the repo root for all of them except the two
+    # Node/nginx frontends, which are self-contained within their own directory.
     local dockerfile=""
-    local context="${REDIRECT_DIR}"
+    local context="${PROJECT_ROOT}"
 
     case "${service}" in
-        click-router|click-tracker|click-aggregator|domain-verifier|route-verifier|route-icon-worker|cert-bot)
-            # Rust services - use the main Dockerfile with build args
-            dockerfile="${REDIRECT_DIR}/Dockerfile"
+        click-router|click-router-api|click-tracker|click-aggregator|click-aggregator-api|domain-verifier|route-verifier|route-icon-worker|cert-bot)
+            dockerfile="${REDIRECT_DIR}/${service}/Dockerfile"
             ;;
-        click-router-api|click-aggregator-api)
-            # Rust API services
-            dockerfile="${REDIRECT_DIR}/Dockerfile"
-            ;;
-        shortas-api)
-            # .NET API
-            dockerfile="${PROJECT_ROOT}/api/Dockerfile"
-            context="${PROJECT_ROOT}/api"
+        management-api)
+            dockerfile="${PROJECT_ROOT}/management-api/Dockerfile"
             ;;
         dashboard)
-            dockerfile="${PROJECT_ROOT}/dashboard/Dockerfile"
-            context="${PROJECT_ROOT}/dashboard"
+            dockerfile="${PROJECT_ROOT}/ui/dashboard/Dockerfile"
+            context="${PROJECT_ROOT}/ui/dashboard"
             ;;
         landing)
-            dockerfile="${PROJECT_ROOT}/landing/Dockerfile"
-            context="${PROJECT_ROOT}/landing"
+            dockerfile="${PROJECT_ROOT}/ui/landing/Dockerfile"
+            context="${PROJECT_ROOT}/ui/landing"
             ;;
         pages)
             dockerfile="${REDIRECT_DIR}/infra/pages/Dockerfile"
-            context="${REDIRECT_DIR}/infra/pages"
             ;;
         *)
             log_error "Unknown service: ${service}"
@@ -127,8 +122,6 @@ build_service() {
         -f "${dockerfile}" \
         -t "${full_image}:${tag}" \
         -t "${full_image}:latest" \
-        --build-arg SERVICE="${service}" \
-        --build-arg ENVIRONMENT="${ENVIRONMENT}" \
         "${context}"
 
     log_info "Built ${full_image}:${tag}"

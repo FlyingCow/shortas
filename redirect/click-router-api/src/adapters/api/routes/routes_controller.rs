@@ -957,32 +957,7 @@ pub async fn update_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
 
     let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
 
-    // Look up the existing route by route_id
-    let (existing, previous_dest) = match app_state.routes_store.get_route_by_route_id(&route_id).await {
-        Ok(Some(route)) => {
-            let prev_dest = route.dest.clone();
-            (route, prev_dest)
-        }
-        Ok(None) => {
-            let error_response =
-                ErrorPresenter::from_api_error(&ApiError::Route(RouteError::NotFound {
-                    switch: String::new(),
-                    domain: route_id.clone(),
-                    path: String::new(),
-                }));
-            res.status_code(error_response.status_code);
-            res.render(error_response);
-            return;
-        }
-        Err(e) => {
-            let error_response = ErrorPresenter::map_error(e);
-            res.status_code(error_response.status_code);
-            res.render(error_response);
-            return;
-        }
-    };
-
-    // Parse the update body
+    // Parse the body first (needed for both create and update)
     let route_dto: RouteDto = match req.parse_json().await {
         Ok(dto) => dto,
         Err(e) => {
@@ -998,24 +973,47 @@ pub async fn update_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
         }
     };
 
-    // Build the updated route, preserving switch/link and identity from the existing record
+    // Look up the existing route by route_id (upsert: create if not found)
+    let (existing, previous_dest, is_create) = match app_state.routes_store.get_route_by_route_id(&route_id).await {
+        Ok(Some(route)) => {
+            let prev_dest = route.dest.clone();
+            (Some(route), prev_dest, false)
+        }
+        Ok(None) => {
+            // Route doesn't exist - this will be a create (upsert)
+            (None, None, true)
+        }
+        Err(e) => {
+            let error_response = ErrorPresenter::map_error(e);
+            res.status_code(error_response.status_code);
+            res.render(error_response);
+            return;
+        }
+    };
+
+    // Build the route from DTO
     let mut route: Route = route_dto.into();
-    route.switch = existing.switch;
-    route.link = existing.link.clone();
-    // Preserve route_id and ownership so cache invalidation and redirect stats keep working
+
+    if let Some(existing) = existing {
+        // Update: preserve switch/link and identity from existing record
+        route.switch = existing.switch;
+        route.link = existing.link.clone();
+        if route.properties.owner_id.is_none() {
+            route.properties.owner_id = existing.properties.owner_id.clone();
+        }
+        if route.properties.creator_id.is_none() {
+            route.properties.creator_id = existing.properties.creator_id.clone();
+        }
+        if route.properties.workspace_id.is_none() {
+            route.properties.workspace_id = existing.properties.workspace_id.clone();
+        }
+        if route.properties.domain_id.is_none() {
+            route.properties.domain_id = existing.properties.domain_id.clone();
+        }
+    }
+
+    // Always set route_id from URL parameter
     route.properties.route_id = Some(route_id.clone());
-    if route.properties.owner_id.is_none() {
-        route.properties.owner_id = existing.properties.owner_id.clone();
-    }
-    if route.properties.creator_id.is_none() {
-        route.properties.creator_id = existing.properties.creator_id.clone();
-    }
-    if route.properties.workspace_id.is_none() {
-        route.properties.workspace_id = existing.properties.workspace_id.clone();
-    }
-    if route.properties.domain_id.is_none() {
-        route.properties.domain_id = existing.properties.domain_id.clone();
-    }
 
     let is_conditional = route.is_conditional();
 
@@ -1026,23 +1024,30 @@ pub async fn update_route_by_id(req: &mut Request, depot: &mut Depot, res: &mut 
         vec![route.clone()]
     };
 
-    // Update the route (or route family for conditional routes)
-    let update_result = if is_conditional {
+    // Create or update the route (or route family for conditional routes)
+    let store_result = if is_conditional {
         app_state.routes_store.store_route_family(&family).await
+    } else if is_create {
+        app_state.routes_store.store_route(&route).await
     } else {
         app_state.routes_store.update_route(&route).await
     };
 
-    match update_result {
+    match store_result {
         Ok(_) => {
             // Publish route changed with previous dest info
             if let Some(ref publisher) = app_state.rabbitmq_publisher {
-                let previous_dests: Vec<Option<String>> = family.iter().map(|_| previous_dest.clone()).collect();
-                publisher
-                    .publish_route_family_updated(&family, &previous_dests)
-                    .await;
+                if is_create {
+                    publisher.publish_route_family_changed(&family, ChangeAction::Created).await;
+                } else {
+                    let previous_dests: Vec<Option<String>> = family.iter().map(|_| previous_dest.clone()).collect();
+                    publisher
+                        .publish_route_family_updated(&family, &previous_dests)
+                        .await;
+                }
             }
-            res.status_code(StatusCode::OK);
+            let status = if is_create { StatusCode::CREATED } else { StatusCode::OK };
+            res.status_code(status);
             res.render(Json(RouteDto::from(route)));
         }
         Err(e) => {

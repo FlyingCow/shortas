@@ -1,0 +1,112 @@
+version: '3.8'
+
+networks:
+  shortas-net:
+    external: true
+
+services:
+  shortas-api-postgres:
+    image: postgres:15-alpine
+    container_name: shortas-api-postgres
+    environment:
+      POSTGRES_DB: shortas_dev_db
+      POSTGRES_USER: shortas_user
+      POSTGRES_PASSWORD: shortas_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shortas_user -d shortas_dev_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shortas-net
+
+  shortas-api-elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.16
+    container_name: shortas-api-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shortas-net
+
+  management-api:
+    build:
+      context: ..
+      dockerfile: management-api/Dockerfile
+    container_name: shortas-management-api
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+    environment:
+      - RUST_LOG=info
+      - APP_RUN_MODE=development
+      # Server settings
+      - APP__SERVER__HOST=0.0.0.0
+      - APP__SERVER__PORT=8080
+      # Database settings (PostgreSQL)
+      - APP__DATABASE__HOST=shortas-api-postgres
+      - APP__DATABASE__PORT=5432
+      - APP__DATABASE__USERNAME=shortas_user
+      - APP__DATABASE__PASSWORD=shortas_password
+      - APP__DATABASE__DATABASE=shortas_dev_db
+      - APP__DATABASE__MAX_CONNECTIONS=10
+      # JWT settings (Keycloak)
+      # Issuer must match token's iss claim (localhost from dashboard's perspective)
+      - APP__JWT__ISSUER=http://localhost:8080/realms/shortas-dev
+      - APP__JWT__AUDIENCE=shortas-api
+      # JWKS URL uses internal docker network name to fetch keys
+      - APP__JWT__JWKS_URL=http://keycloak:8080/realms/shortas-dev/protocol/openid-connect/certs
+      # Click Router API
+      - APP__CLICK_ROUTER__BASE_URL=http://shortas-click-router-api:5810
+      - APP__CLICK_ROUTER__TIMEOUT_MS=5000
+      # Click Aggregator API
+      - APP__CLICK_AGGREGATOR__BASE_URL=http://shortas-click-aggregator-api:5820
+      - APP__CLICK_AGGREGATOR__TIMEOUT_MS=10000
+      # Elasticsearch
+      - APP__ELASTICSEARCH__URL=http://shortas-api-elasticsearch:9200
+      - APP__ELASTICSEARCH__ROUTES_INDEX=routes
+      # MinIO
+      - APP__MINIO__ENDPOINT=http://shortas-minio:9000
+      - APP__MINIO__PUBLIC_ENDPOINT=http://localhost:9003
+      - APP__MINIO__REGION=us-east-1
+      - APP__MINIO__ACCESS_KEY=minioadmin
+      - APP__MINIO__SECRET_KEY=minioadmin
+      - APP__MINIO__BUCKET=route-images
+      # RabbitMQ
+      - APP__RABBITMQ__URL=amqp://guest:guest@shortas-rabbitmq:5672
+      - APP__RABBITMQ__DOMAIN_VERIFICATION_QUEUE=domain-verification
+      - APP__RABBITMQ__ROUTE_STATUS_QUEUE=route-status
+      # Shared domains (default: shortas.space)
+      # - APP__SHARED_DOMAINS__NAMES__0=shortas.space
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      shortas-api-postgres:
+        condition: service_healthy
+      shortas-api-elasticsearch:
+        condition: service_healthy
+    networks:
+      - shortas-net
+
+volumes:
+  postgres_data:
+  elasticsearch_data:

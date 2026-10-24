@@ -47,12 +47,12 @@ resource "aws_instance" "clickhouse" {
   }
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    environment           = var.environment
-    clickhouse_version    = var.clickhouse_version
-    clickhouse_password   = var.clickhouse_password
-    data_volume_device    = "/dev/xvdf"
-    s3_backup_bucket      = var.s3_backup_bucket
-    region                = var.region
+    environment         = var.environment
+    clickhouse_version  = var.clickhouse_version
+    clickhouse_password = var.clickhouse_password
+    data_volume_device  = "/dev/xvdf"
+    s3_backup_bucket    = var.s3_backup_bucket
+    region              = var.region
   }))
 
   monitoring = var.enable_detailed_monitoring

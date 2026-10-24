@@ -1,6 +1,8 @@
 use config::{Config, Environment, File};
 use serde_derive::Deserialize;
 
+use crate::adapters::aws::settings::AwsSettings;
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct AcmeSettings {
     pub directory_url: String,
@@ -92,6 +94,8 @@ pub struct Settings {
     pub acme: AcmeSettings,
     pub click_router_api: ClickRouterApiSettings,
     pub mongodb: MongodbSettings,
+    #[serde(default)]
+    pub aws: AwsSettings,
     pub rabbitmq: RabbitMqSettings,
     pub worker: WorkerSettings,
     pub renewal: RenewalSettings,

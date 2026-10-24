@@ -22,14 +22,14 @@ resource "aws_secretsmanager_secret" "rds" {
 resource "aws_secretsmanager_secret_version" "rds" {
   secret_id = aws_secretsmanager_secret.rds.id
   secret_string = jsonencode({
-    username             = var.master_username
-    password             = random_password.master.result
-    engine               = "postgres"
-    host                 = aws_rds_cluster.main.endpoint
-    port                 = aws_rds_cluster.main.port
-    dbname               = var.database_name
-    dbClusterIdentifier  = aws_rds_cluster.main.cluster_identifier
-    reader_endpoint      = aws_rds_cluster.main.reader_endpoint
+    username            = var.master_username
+    password            = random_password.master.result
+    engine              = "postgres"
+    host                = aws_rds_cluster.main.endpoint
+    port                = aws_rds_cluster.main.port
+    dbname              = var.database_name
+    dbClusterIdentifier = aws_rds_cluster.main.cluster_identifier
+    reader_endpoint     = aws_rds_cluster.main.reader_endpoint
   })
 
   depends_on = [aws_rds_cluster.main]
@@ -89,9 +89,9 @@ resource "aws_rds_cluster" "main" {
   vpc_security_group_ids          = [var.security_group_id]
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.main.name
 
-  storage_encrypted   = true
-  deletion_protection = var.environment == "prod"
-  skip_final_snapshot = var.environment != "prod"
+  storage_encrypted         = true
+  deletion_protection       = var.environment == "prod"
+  skip_final_snapshot       = var.environment != "prod"
   final_snapshot_identifier = var.environment == "prod" ? "${var.environment}-shortas-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
 
   backup_retention_period      = var.backup_retention_period
@@ -119,15 +119,15 @@ resource "aws_rds_cluster" "main" {
 resource "aws_rds_cluster_instance" "main" {
   count = var.instance_count
 
-  identifier           = "${var.environment}-shortas-aurora-${count.index + 1}"
-  cluster_identifier   = aws_rds_cluster.main.id
-  instance_class       = "db.serverless"
-  engine               = aws_rds_cluster.main.engine
-  engine_version       = aws_rds_cluster.main.engine_version
+  identifier              = "${var.environment}-shortas-aurora-${count.index + 1}"
+  cluster_identifier      = aws_rds_cluster.main.id
+  instance_class          = "db.serverless"
+  engine                  = aws_rds_cluster.main.engine
+  engine_version          = aws_rds_cluster.main.engine_version
   db_parameter_group_name = aws_db_parameter_group.main.name
 
-  publicly_accessible     = false
-  db_subnet_group_name    = var.db_subnet_group_name
+  publicly_accessible  = false
+  db_subnet_group_name = var.db_subnet_group_name
 
   performance_insights_enabled          = var.enable_performance_insights
   performance_insights_retention_period = var.enable_performance_insights ? 7 : null

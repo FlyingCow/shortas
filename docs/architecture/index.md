@@ -8,12 +8,12 @@ permalink: /architecture/
 
 ## High-Level Overview
 
-Shortas follows an event-driven microservices architecture. Three subsystems collaborate to deliver URL shortening, real-time analytics, and management:
+Shortas follows an event-driven microservices architecture. All services — including the Management API — are written in Rust on Salvo/Tokio, except the two React frontends:
 
 ```
 ┌────────────────┐     ┌──────────────────┐     ┌────────────────┐
 │  Dashboard UI  │────▶│  Management API   │────▶│   PostgreSQL   │
-│  React 18      │     │  ASP.NET Core 9   │     │                │
+│  React 18      │     │  Rust / Salvo      │     │                │
 └────────────────┘     └──────────────────┘     └────────────────┘
                               │    │
                               │    └──────────────┐
@@ -70,13 +70,15 @@ The entry point for all short URL requests. Built on Salvo (a custom fork) runni
 2. **Route lookup** — query MongoDB (with Moka in-memory cache)
 3. **Conditional evaluation** — if the route has conditional routing, evaluate expressions against request context (geo, device, browser, OS)
 4. **Registration** — emit a click event to `hit-stream-main`
-5. **Result building** — return a redirect response, QR code, proxy, or retarget HTML
+5. **Result building** — return a redirect, QR code, proxy, retarget HTML, paused/blocked/not-found page, `robots.txt`, or injected Open Graph tags, depending on route state
 
 **Conditional routing** allows routes to redirect to different destinations based on visitor attributes like country, device type, browser, or operating system. Conditions are evaluated using an expression engine that supports comparison operators and logical combinations.
 
+Click Router also serves QR codes for routes, answers ACME HTTP-01 challenges at `/.well-known/acme-challenge/{token}` (backed by Click Router API, used by Cert Bot), and falls back to the [Pages](#pages) service for branded not-found/blocked/paused responses.
+
 Each instance runs a RabbitMQ consumer that listens for cache invalidation messages and evicts stale entries from the Moka cache. If RabbitMQ is unavailable, caches degrade gracefully via TTL expiry.
 
-Supports TLS with dynamic certificate resolution via the Domains service.
+Supports TLS with certificates read directly from MongoDB — see [TLS Certificates](#tls-certificates) below.
 
 ### Click Tracker
 
@@ -95,11 +97,13 @@ Consumes from `click-aggs-main` and batch-inserts events into ClickHouse. ClickH
 
 ### Click Router API
 
-REST API for route management — creating, updating, and deleting short links. Supports lookup by composite key (`switch/domain/path`) and by route ID. Uses MongoDB for storage and Redis for caching. After successful writes, publishes cache invalidation messages to RabbitMQ so all Click Router instances can evict stale Moka cache entries. Includes OpenAPI documentation.
+Internal REST API for route, certificate, user-settings, and ACME challenge management, backed by MongoDB. Supports lookup by composite key (`switch/domain/path`) and by route ID, plus bulk operations. After successful writes it publishes cache invalidation messages to RabbitMQ so all Click Router instances evict stale Moka cache entries. Documented with OpenAPI at `/api-doc/openapi.json` (Swagger UI at `/swagger-ui`).
+
+This API is intended to be called only by other internal services (Management API, Cert Bot, Route Verifier) — JWT/validation middleware is not currently enabled on it, so it should not be exposed outside the private network.
 
 ### Click Aggregator API
 
-REST API for querying analytics data from ClickHouse. Supports time-range queries, geographic breakdowns, and device/browser distributions.
+REST API for querying analytics data from ClickHouse: time-range stats, daily/hourly breakdowns, geographic and device/browser distributions, route performance and top destinations, plus a **conversions** endpoint group (conversion rates, revenue, attribution, funnels, summary). Documented with OpenAPI/Swagger, same pattern as Click Router API.
 
 ### Route Verifier
 
@@ -108,9 +112,9 @@ Background worker that protects users from malicious destinations by checking ro
 **Verification flow:**
 
 1. **Route selection** — queries MongoDB for routes due for verification
-2. **Safe Browsing check** — validates destinations against local gglsbl-rest API
-3. **Status update** — blocks routes with unsafe URLs
-4. **Event publishing** — notifies downstream services via RabbitMQ
+2. **Safe Browsing check** — validates destinations against the local `gglsbl-rest` API
+3. **Status update** — updates the route's status via Click Router API (which persists to MongoDB and triggers the normal cache-invalidation flow)
+4. **Event publishing** — publishes `route.status.changed` to RabbitMQ so the Management API can sync its own view
 
 Routes have two statuses: `Active` (safe) or `Blocked` (unsafe URL detected). Blocked routes include the reason (e.g., "Safe Browsing: MALWARE").
 
@@ -121,7 +125,7 @@ Routes have two statuses: `Active` (safe) or `Blocked` (unsafe URL detected). Bl
 
 ### Route Icon Worker
 
-Background worker that automatically extracts favicons from route destination URLs. Listens to RabbitMQ for route creation/update events and stores icons in MinIO/S3 for display in the dashboard.
+Background worker that automatically extracts favicons from route destination URLs. Listens to RabbitMQ (`cache.invalidation.routes`) for route creation/update events and stores icons in MinIO/S3 for display in the dashboard.
 
 **Processing flow:**
 
@@ -132,127 +136,125 @@ Background worker that automatically extracts favicons from route destination UR
 
 ### Domain Verifier
 
-Background worker that verifies custom domain ownership through DNS record validation. Users add a TXT record to prove domain ownership before the domain can be used for short links.
+Background worker that verifies custom domain ownership through DNS record validation. Users add a TXT record to prove domain ownership before the domain can be used for short links. Publishes `domain.state.changed` once a domain's verification state changes.
 
 **Verification flow:**
 
 1. **Domain registration** — user adds a custom domain in the dashboard
 2. **Challenge generation** — system generates a unique TXT record value
-3. **DNS lookup** — worker periodically checks for the TXT record
-4. **Verification** — domain is marked as verified once the record is found
+3. **DNS lookup** — worker periodically checks for the TXT record via Hickory DNS
+4. **Verification** — domain is marked as verified once the record is found, and `domain.state.changed` is published
+
+### Cert Bot
+
+Background worker that automates TLS certificate issuance and renewal via Let's Encrypt (ACME), using `instant-acme`. It consumes `domain.state.changed` so newly-verified domains get a certificate automatically, serves ACME HTTP-01 challenges through Click Router API's `/v1/challenges/{domain}/{token}` endpoint (answered by Click Router at `/.well-known/acme-challenge/{token}`), and writes issued certificates back through Click Router API's `/v1/certificates/{domain}` endpoints. It also runs a renewal check on a daily interval.
+
+### Pages
+
+A small nginx service (`redirect/infra/pages`) that serves static, branded HTML for `/index`, `/not-found`, and `/blocked`. Click Router forwards visitors here (via configured URLs) when a short link doesn't exist or has been blocked, instead of showing a generic error. It has no relationship to domain resolution or TLS — that is handled by Click Router itself plus Cert Bot (see below).
 
 ### Management API
 
-ASP.NET Core 9 service providing workspace management, user settings, domain configuration, and certificate handling. Uses PostgreSQL via Entity Framework Core. Proxies route and analytics requests to the Rust APIs.
+Rust/Salvo service providing workspace management, domain configuration, certificate listing, user onboarding, and analytics proxying for the Dashboard. Uses PostgreSQL via SQLx. All `/api/v1/*` routes are protected by JWT authentication (validated against Keycloak/Cognito) and rate limiting, except health checks and the shared-domains lookup.
 
-Route changes are propagated to Elasticsearch in real time through an outbox pattern (see [Search Index Sync](#search-index-sync) below), enabling full-text search across route links, domain names, and destination URLs.
+**Endpoint groups:**
 
-### Domains Service
+| Group | Base path | Purpose |
+|-------|-----------|---------|
+| Routes | `/api/v1/routes` | CRUD, bulk operations, search, QR settings/uploads, unblock |
+| Domains | `/api/v1/domains` | Custom domain CRUD, DNS config, verification |
+| Workspaces | `/api/v1/workspaces` | Multi-tenant workspace & membership management |
+| Certificates | `/api/v1/certificates` | Certificate listing (issued by Cert Bot) |
+| Clickstream | `/api/v1/clickstream` | Analytics proxy to Click Aggregator API |
+| User | `/api/v1/user` | Profile, onboarding, initialization status |
 
-Resolves custom domains and serves TLS certificates for the Click Router.
+Route changes affecting search are reflected in Elasticsearch, which backs `GET /api/v1/routes/search`; `POST /api/v1/routes/search/reindex` is available to rebuild the index manually.
+
+## TLS Certificates
+
+There is no separate "domain resolver" service. Certificates live in MongoDB and are read directly by Click Router through a cached `CryptoStore`/`CryptoCache` abstraction (Moka-backed, with MongoDB and DynamoDB adapters) keyed by server name — no HTTP round-trip is needed on the TLS handshake path.
+
+```
+Domain Verifier ──▶ domain.state.changed (RabbitMQ)
+                            │
+                            ▼
+                         Cert Bot
+                            │
+          ┌─────────────────┴──────────────────┐
+          ▼                                     ▼
+  Click Router API                       Let's Encrypt (ACME)
+  /v1/challenges/{domain}/{token}        HTTP-01 challenge
+  (written by Cert Bot,                  answered by Click Router at
+   served by Click Router)               /.well-known/acme-challenge/{token}
+          │
+          ▼
+  Click Router API
+  /v1/certificates/{domain}
+  (issued cert written here, stored in MongoDB)
+          │
+          ▼
+  Click Router reads the cert directly from MongoDB
+  via its CryptoCache for TLS termination
+```
 
 ## Data Stores
 
 | Store | Purpose | Data |
 |-------|---------|------|
-| PostgreSQL | Management state | Workspaces, users, settings, domains, certificates |
-| MongoDB | Route data | Short URL mappings, routing policies, link metadata, routes to verify |
+| PostgreSQL | Management API state | Workspaces, users, settings, domains |
+| MongoDB | Route data | Short URL mappings, routing policies, link metadata, TLS certificates |
 | ClickHouse | Analytics | Click events, aggregated metrics, time-series data |
 | Elasticsearch | Route search | Full-text index of route links, domains, destinations |
 | Redis | Ephemeral state | Sessions, cache entries |
-| RabbitMQ | Messaging | Cache invalidation, route status changes |
-| MinIO | Object storage | ClickHouse data files, route icons |
+| RabbitMQ | Messaging | Cache invalidation, domain/route/certificate state changes |
+| MinIO | Object storage | ClickHouse data files, route icons, QR code assets |
 | gglsbl-rest | Safe Browsing | Local mirror of Google Safe Browsing threat lists |
+| Vault | Secrets (dev mode) | Provisioned for future use; not yet wired into any service |
 | Prometheus | Metrics | Time-series metrics from all services |
 | Loki | Logs | Aggregated warning/error logs from all services |
 
 ## Event Streaming
 
-Fluvio provides the event bus between services:
+Fluvio provides the event bus for the click pipeline:
 
 - **`hit-stream-main`** — raw click events from Click Router to Click Tracker
 - **`click-aggs-main`** — enriched events from Click Tracker to Click Aggregator
 
-## Cache Invalidation
+## RabbitMQ Topology
 
-RabbitMQ broadcasts cache invalidation events from Click Router API to all Click Router instances using fanout exchanges:
+All exchanges below are fanout exchanges; each consuming instance binds its own exclusive, auto-delete queue so cache invalidation is ephemeral — if RabbitMQ restarts, Moka cache TTLs provide eventual consistency.
 
-- **`cache.invalidation.routes`** — route create/update/delete events
-- **`cache.invalidation.user_settings`** — user settings change events
-
-Each Click Router instance binds an exclusive auto-delete queue to each exchange. Messages are non-persistent (delivery mode 1) since cache invalidation is ephemeral — if RabbitMQ restarts, the Moka cache TTL provides eventual consistency.
+| Exchange | Published by | Consumed by |
+|----------|--------------|-------------|
+| `cache.invalidation.routes` | Click Router API (on route writes) | Click Router (Moka), Route Icon Worker |
+| `cache.invalidation.user_settings` | Click Router API | Click Router (Moka) |
+| `cache.invalidation.certificates` | Cert Bot (after issuing/renewing a cert) | Click Router (certificate cache) |
+| `domain.state.changed` | Domain Verifier | Cert Bot, Management API |
+| `route.status.changed` | Route Verifier | Management API |
 
 ## Route Safety Verification
 
 The Route Verifier service protects users from malicious destinations using Google Safe Browsing data:
 
 ```
-Management API ──▶ MongoDB (routes_to_verify)
-                          │
-                          ▼
-                   route-verifier
-                          │
-                          ├──▶ gglsbl-rest (Safe Browsing lookup)
-                          │
-                          ▼
-                   RabbitMQ (route.status.changed)
-                    ╱                    ╲
-                   ▼                      ▼
-            Management API          click-router
-            (PostgreSQL sync)       (cache update)
+Route Verifier ──▶ MongoDB (routes due for recheck)
+       │
+       ├──▶ gglsbl-rest (Safe Browsing lookup)
+       │
+       ▼
+Click Router API (status update)
+       │                      ╲
+       ▼                       ▼
+cache.invalidation.routes   route.status.changed
+       │                              │
+       ▼                              ▼
+  Click Router                  Management API
+ (cache update)                (PostgreSQL sync)
 ```
-
-**Event flow:**
-
-1. Management API writes route with destinations to `routes_to_verify` collection
-2. Route Verifier periodically checks destinations against Safe Browsing
-3. If unsafe, publishes `RouteStatusChanged` event to RabbitMQ
-4. Management API consumes event, updates PostgreSQL, syncs to click-router via outbox
-5. Click Router receives status update and blocks redirects for unsafe routes
-
-**RabbitMQ exchange:** `route.status.changed` (fanout)
-
-## Search Index Sync
-
-Elasticsearch provides full-text search over routes. The Management API keeps the index in sync using the transactional outbox pattern:
-
-```
-Route CRUD operation
-        │
-        ▼
-┌──────────────────────────┐
-│  PostgreSQL transaction   │
-│  1. Write route data      │
-│  2. Insert outbox message │
-└──────────────────────────┘
-        │
-        ▼
-  OutboxProcessorService
-  (background worker)
-        │
-        ▼
-┌──────────────────────────┐
-│  Elasticsearch            │
-│  Index / Delete document  │
-└──────────────────────────┘
-```
-
-**Outbox event types:**
-
-| Event | Trigger |
-|-------|---------|
-| `RouteSearchIndex` | Route created or updated |
-| `RouteSearchDelete` | Route deleted |
-| `RouteSearchBulkIndex` | Bulk route create/update |
-| `RouteSearchBulkDelete` | Bulk route delete |
-
-The outbox message is written in the same database transaction as the route change, guaranteeing at-least-once delivery to Elasticsearch. The `OutboxProcessorService` polls for pending messages and applies them. If Elasticsearch is temporarily unreachable, messages remain in the outbox and are retried on the next polling cycle.
-
-A manual reindex endpoint (`POST /api/v1/routes/search/reindex`) is available for initial index population or recovery after index corruption.
 
 ## Authentication
 
-Keycloak handles user authentication. The Management API validates JWTs issued by Keycloak, and the Dashboard integrates via `keycloak-js`.
+Keycloak handles user authentication locally (AWS Cognito in production). The Management API validates JWTs issued by Keycloak/Cognito, and the Dashboard integrates via `keycloak-js`.
 
 ## Monitoring & Observability
 
@@ -268,7 +270,7 @@ Shortas includes a comprehensive monitoring stack for metrics collection and log
 
 ### Metrics Collection
 
-All Rust services expose Prometheus metrics endpoints. Prometheus scrapes these endpoints and stores time-series data for:
+All Rust services, including the Management API, expose Prometheus metrics endpoints. Prometheus scrapes these endpoints and stores time-series data for:
 
 - Request counts and latencies
 - Error rates
@@ -278,35 +280,19 @@ All Rust services expose Prometheus metrics endpoints. Prometheus scrapes these 
 
 ### Log Aggregation
 
-All services send Warning and Error level logs to Grafana Loki for centralized log management:
+Every service — including the Management API — is a Rust/Tokio process using `tracing` + `tracing-subscriber`, with `tracing-loki` shipping Warning/Error logs to Grafana Loki with service labels:
 
 ```
-┌─────────────────┐     ┌─────────────────┐
-│  Rust Services  │────▶│      Loki       │
-│ (tracing-loki)  │     │  (port 3100)    │
-└─────────────────┘     └────────┬────────┘
-                                 │
-┌─────────────────┐              │
-│   .NET API      │──────────────┤
-│ (Serilog.Loki)  │              │
-└─────────────────┘              │
-                                 ▼
-                        ┌─────────────────┐
-                        │    Grafana      │
-                        │  (port 3001)    │
-                        └─────────────────┘
+┌─────────────────┐
+│  Rust Services   │
+│ (incl. mgmt-api) │────▶ Loki (port 3100) ────▶ Grafana (port 3001)
+│ tracing-loki     │
+└─────────────────┘
 ```
-
-**Rust services** use `tracing-loki` to send structured logs directly to Loki with service labels.
-
-**The .NET API** uses `Serilog.Sinks.Grafana.Loki` for log shipping.
 
 ### Log Levels
 
-Services are configured to send only Warning and Error level logs to Loki to minimize noise:
-
-- `RUST_LOG=warn` for Rust services
-- `restrictedToMinimumLevel: Warning` for .NET API
+Services are configured to send only Warning and Error level logs to Loki to minimize noise, via `RUST_LOG=warn`.
 
 ### Querying Logs
 

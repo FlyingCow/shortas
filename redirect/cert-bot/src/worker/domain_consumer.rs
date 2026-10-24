@@ -4,8 +4,8 @@ use std::sync::Arc;
 use tracing::{error, info, warn};
 
 use crate::adapters::click_router_api::ClickRouterApiClient;
-use crate::adapters::mongodb::MongodbOrderStore;
 use crate::adapters::rabbitmq::{ConsumerConfig, DomainStateChangedMessage, RabbitMqConsumer};
+use crate::adapters::OrderStoreType;
 use crate::core::OrderStore;
 use crate::model::CertificateOrder;
 use crate::settings::Settings;
@@ -14,14 +14,14 @@ use crate::settings::Settings;
 /// for newly verified domains
 pub struct DomainConsumer {
     settings: Settings,
-    order_store: Arc<MongodbOrderStore>,
+    order_store: OrderStoreType,
     api_client: Arc<ClickRouterApiClient>,
 }
 
 impl DomainConsumer {
     pub fn new(
         settings: Settings,
-        order_store: Arc<MongodbOrderStore>,
+        order_store: OrderStoreType,
         api_client: Arc<ClickRouterApiClient>,
     ) -> Self {
         Self {
@@ -62,7 +62,7 @@ impl DomainConsumer {
 
 struct DomainMessageHandler {
     settings: Settings,
-    order_store: Arc<MongodbOrderStore>,
+    order_store: OrderStoreType,
     api_client: Arc<ClickRouterApiClient>,
 }
 

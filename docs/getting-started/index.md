@@ -10,11 +10,12 @@ permalink: /getting-started/
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Rust | stable | Redirect services |
-| .NET SDK | 9.0 | Management API |
+| Rust | stable | Redirect services and Management API |
 | Node.js | >= 18 | Dashboard and landing page |
 | Docker | latest | Infrastructure services |
 | Docker Compose | v2 | Service orchestration |
+
+The `.NET 9 SDK` is only needed if you want to build the legacy `api/` project (superseded by `management-api/`, kept for reference).
 
 ## Clone the Repository
 
@@ -27,17 +28,22 @@ The `--recurse-submodules` flag pulls the Salvo web framework fork and the UA pa
 
 ## Option 1: Docker Compose (Recommended)
 
-Start the entire stack with a single command:
+Start the entire stack with a single command, from the top-level orchestrator:
 
 ```bash
-cd redirect
+cd infra/custom
 docker compose up -d
 ```
 
-This brings up:
-- Infrastructure: MongoDB, ClickHouse, Redis, MinIO, Fluvio, RabbitMQ, gglsbl-rest (Safe Browsing)
-- Application services: click-router, click-router-api, click-tracker, click-aggregator, click-aggregator-api, route-verifier, route-icon-worker, domain-verifier, domains
-- ClickHouse migrations (runs automatically)
+This file `include`s the Rust redirect stack, the Management API stack, and the UI stack, and directly starts a few shared pieces of infrastructure. In total it brings up:
+
+- **Shared infra**: Keycloak (+ its Postgres DB), Vault (dev mode), RabbitMQ, MinIO/RustFS (+ bucket setup + nginx CORS proxy)
+- **Redirect infra**: MongoDB, ClickHouse, Redis, Fluvio (SC + SPU), gglsbl-rest (Safe Browsing), Prometheus/Grafana/Loki
+- **Redirect services**: click-router, click-router-api, click-tracker, click-aggregator, click-aggregator-api, route-verifier, route-icon-worker, domain-verifier, cert-bot, pages
+- **Management API infra + service**: its own Postgres, Elasticsearch, and the `management-api` container
+- **UI**: dashboard, landing
+
+ClickHouse and topic/bucket setup run automatically as init containers.
 
 ## Option 2: Local Development
 
@@ -47,7 +53,7 @@ This brings up:
 make up
 ```
 
-This runs all infrastructure and application services in Docker containers.
+This runs the redirect workspace's infrastructure and application services in Docker containers (see [Deployment](/deployment/) for what's not covered here, like Keycloak/Vault/Management API — start those via `infra/custom` instead if you need them).
 
 ### 2. Build Rust Services
 
@@ -55,14 +61,13 @@ This runs all infrastructure and application services in Docker containers.
 make build
 ```
 
-### 3. Build & Run the Management API
+### 3. Run the Management API
 
 ```bash
-make build-api
-cd api && dotnet run
+cargo run -p management-api
 ```
 
-The API starts on port 5050 with Swagger UI at `http://localhost:5050/swagger`.
+The API starts on port 8080 by default (`config/default.toml`); the Docker Compose setup maps it to host port 8090.
 
 ### 4. Build & Run the Dashboard
 
@@ -77,18 +82,25 @@ The dashboard opens at `http://localhost:3000`.
 
 | Service | Port |
 |---------|------|
-| Click Router | 5800 |
-| Click Router API | 8081 |
-| Click Aggregator API | 8082 |
-| Domains | 5801 |
-| Management API | 5050 |
+| Click Router | 5800 (HTTP), 4433 (TLS) |
+| Click Router API | 5810 |
+| Click Aggregator API | 5820 |
+| Domain Verifier | 5830 |
+| Route Verifier | 5831 |
+| Pages (static branded pages) | 5801 |
+| Management API | 8090 (host) / 8080 (container) |
 | Dashboard | 3000 |
-| Landing Page | 3001 |
+| Landing Page | 3002 |
+| Keycloak | 8080 |
+| Vault | 8200 |
 | MongoDB | 27017 |
-| ClickHouse (HTTP) | 8123 |
+| PostgreSQL (Management API) | 5433 |
+| Elasticsearch | 9200 |
+| ClickHouse (HTTP / native) | 8123 / 9000 |
 | Redis | 6379 |
-| MinIO (API) | 9002 |
-| MinIO (Console) | 9001 |
+| MinIO / RustFS (API) | 9002 |
+| MinIO / RustFS (Console) | 9001 |
+| MinIO nginx proxy (CORS) | 9003 |
 | RabbitMQ | 5672 |
 | RabbitMQ (Management) | 15672 |
 

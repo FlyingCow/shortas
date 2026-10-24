@@ -8,6 +8,9 @@ description = "Let's Encrypt certificate automation bot using HTTP-01 challenge"
 # ACME client for Let's Encrypt
 instant-acme.workspace = true
 
+# TLS crypto provider (must be installed explicitly at startup, see main.rs)
+rustls.workspace = true
+
 # Async runtime
 tokio.workspace = true
 

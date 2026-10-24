@@ -1,8 +1,8 @@
 resource "aws_dynamodb_table" "core-routes-table" {
-  name           = "core-routes-${var.stage}"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "link"
-  range_key      = "switch"
+  name         = "core-routes-${var.stage}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "link"
+  range_key    = "switch"
 
   attribute {
     name = "link"
@@ -26,9 +26,9 @@ resource "aws_dynamodb_table" "core-routes-table" {
 }
 
 resource "aws_dynamodb_table" "core-routes-encryption-table" {
-  name           = "core-routes-encryption-${var.stage}"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "hostname"
+  name         = "core-routes-encryption-${var.stage}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "hostname"
 
   attribute {
     name = "hostname"
@@ -47,9 +47,9 @@ resource "aws_dynamodb_table" "core-routes-encryption-table" {
 }
 
 resource "aws_dynamodb_table" "core-routes-hostname-mapping-table" {
-  name           = "core-routes-hostname-mapping-${var.stage}"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "hostname"
+  name         = "core-routes-hostname-mapping-${var.stage}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "hostname"
 
   attribute {
     name = "hostname"
@@ -68,9 +68,9 @@ resource "aws_dynamodb_table" "core-routes-hostname-mapping-table" {
 }
 
 resource "aws_dynamodb_table" "core-user-settings-table" {
-  name           = "core-user-settings-${var.stage}"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "user_id"
+  name         = "core-user-settings-${var.stage}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "user_id"
 
   attribute {
     name = "user_id"

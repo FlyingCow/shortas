@@ -37,11 +37,9 @@ DEPLOYMENT_ORDER=(
     "route-icon-worker"
     "cert-bot"
     # API and frontend
-    "shortas-api"
+    "management-api"
     "dashboard"
     "landing"
-    # Auth
-    "keycloak"
 )
 
 usage() {

@@ -68,8 +68,8 @@ resource "aws_efs_file_system" "fluvio" {
   creation_token = "${var.environment}-shortas-fluvio-efs"
   encrypted      = true
 
-  performance_mode                = "generalPurpose"
-  throughput_mode                 = "bursting"
+  performance_mode = "generalPurpose"
+  throughput_mode  = "bursting"
 
   lifecycle_policy {
     transition_to_ia = "AFTER_30_DAYS"

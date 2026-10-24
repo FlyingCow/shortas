@@ -33,10 +33,9 @@ resource "aws_ecs_service" "services" {
     registry_arn = aws_service_discovery_service.services[each.value.name].arn
   }
 
-  deployment_configuration {
-    maximum_percent         = 200
-    minimum_healthy_percent = 100
-  }
+  # AWS provider v5.x moved these out of the (now removed) deployment_configuration block.
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
 
   deployment_circuit_breaker {
     enable   = true
@@ -84,7 +83,10 @@ resource "aws_ecs_task_definition" "services" {
       environment = concat(
         [
           { name = "APP_ENVIRONMENT", value = var.environment },
-          { name = "RUN_MODE", value = var.environment == "prod" ? "production" : "development" },
+          # Selects each service's config/aws.toml or config/aws-dev.toml profile
+          # (see redirect/*/config/ and management-api/config/) - NOT "RUN_MODE",
+          # the config loader's env binding is specifically APP_RUN_MODE.
+          { name = "APP_RUN_MODE", value = var.app_run_mode },
           { name = "AWS_REGION", value = var.region },
         ],
         each.value.environment_variables
