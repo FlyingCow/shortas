@@ -6,6 +6,7 @@ import {
   NumericCondition,
   ConditionRouteDto,
 } from '../services/api';
+import Dropdown from './Dropdown';
 import './DesignSystem.css';
 import './PolicyEditor.css';
 import './ConditionsEditor.css';
@@ -299,31 +300,29 @@ const ConditionRulesEditor: React.FC<ConditionRulesEditorProps> = ({ condition, 
     return (
       <div key={String(field)} className="ce-rule-row">
         <span className="ce-rule-type">{label}</span>
-        <select
-          className="ce-rule-op"
+        <Dropdown
+          compact
+          style={{ flexShrink: 0, minWidth: 100 }}
           value={op}
-          onChange={e => {
-            const k = e.target.value as keyof StringCondition;
+          onChange={v => {
+            const k = v as keyof StringCondition;
             if (k === 'eq') updateStringCondition(field, 'eq', '');
             if (k === 'in') updateStringCondition(field, 'in', []);
             if (k === 'starts') updateStringCondition(field, 'starts', '');
             if (k === 'ends') updateStringCondition(field, 'ends', '');
           }}
-        >
-          {stringOperators.map(o => (
-            <option key={o.key} value={o.key}>{o.label}</option>
-          ))}
-        </select>
+          options={stringOperators.map(o => ({ value: o.key, label: o.label }))}
+        />
         {op === 'eq' && (
           hasOptions ? (
-            <select
-              className="ce-rule-value"
-              value={cond.eq}
-              onChange={e => updateStringCondition(field, 'eq', e.target.value)}
-            >
-              <option value="">Select…</option>
-              {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
+            <Dropdown
+              compact
+              style={{ flexShrink: 0, minWidth: 120 }}
+              value={cond.eq ?? ''}
+              onChange={v => updateStringCondition(field, 'eq', v)}
+              placeholder="Select…"
+              options={options.map(opt => ({ value: opt, label: opt }))}
+            />
           ) : (
             <input
               type="text"
@@ -343,15 +342,14 @@ const ConditionRulesEditor: React.FC<ConditionRulesEditorProps> = ({ condition, 
               </span>
             ))}
             {hasOptions ? (
-              <select
-                className="ce-rule-value"
+              <Dropdown
+                compact
                 style={{ maxWidth: 140 }}
                 value=""
-                onChange={e => e.target.value && updateStringCondition(field, 'in', [...(cond.in || []), e.target.value])}
-              >
-                <option value="">+ Add</option>
-                {options.filter(o => !cond.in?.includes(o)).map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
+                onChange={v => v && updateStringCondition(field, 'in', [...(cond.in || []), v])}
+                placeholder="+ Add"
+                options={options.filter(o => !cond.in?.includes(o)).map(o => ({ value: o, label: o }))}
+              />
             ) : (
               <input
                 type="text"
@@ -391,32 +389,38 @@ const ConditionRulesEditor: React.FC<ConditionRulesEditorProps> = ({ condition, 
     return (
       <div key={field} className="ce-rule-row">
         <span className="ce-rule-type">{label}</span>
-        <select
-          className="ce-rule-op"
+        <Dropdown
+          compact
+          style={{ flexShrink: 0, minWidth: 100 }}
           value={op}
-          onChange={e => {
-            const k = e.target.value as keyof NumericCondition;
+          onChange={v => {
+            const k = v as keyof NumericCondition;
             if (k === 'eq') updateNumericCondition(field, 'eq', isRnd ? 0 : isMonth ? 1 : isDayOfWeek ? 0 : 1);
             if (k === 'gt') updateNumericCondition(field, 'gt', 0);
             if (k === 'lt') updateNumericCondition(field, 'lt', 0);
             if (k === 'in') updateNumericCondition(field, 'in', []);
           }}
-        >
-          {numericOperators.map(o => (
-            <option key={o.key} value={o.key}>{o.label}</option>
-          ))}
-        </select>
+          options={numericOperators.map(o => ({ value: o.key, label: o.label }))}
+        />
         {op === 'eq' && (
           isMonth ? (
-            <select className="ce-rule-value" value={cond.eq} onChange={e => updateNumericCondition(field, 'eq', parseInt(e.target.value))}>
-              <option value="">Month…</option>
-              {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-            </select>
+            <Dropdown
+              compact
+              style={{ flexShrink: 0, minWidth: 120 }}
+              value={String(cond.eq)}
+              onChange={v => updateNumericCondition(field, 'eq', parseInt(v))}
+              placeholder="Month…"
+              options={MONTHS.map((m, i) => ({ value: String(i + 1), label: m }))}
+            />
           ) : isDayOfWeek ? (
-            <select className="ce-rule-value" value={cond.eq} onChange={e => updateNumericCondition(field, 'eq', parseInt(e.target.value))}>
-              <option value="">Day…</option>
-              {DAYS_OF_WEEK.map((d, i) => <option key={i} value={i}>{d}</option>)}
-            </select>
+            <Dropdown
+              compact
+              style={{ flexShrink: 0, minWidth: 120 }}
+              value={String(cond.eq)}
+              onChange={v => updateNumericCondition(field, 'eq', parseInt(v))}
+              placeholder="Day…"
+              options={DAYS_OF_WEEK.map((d, i) => ({ value: String(i), label: d }))}
+            />
           ) : (
             <input
               type="number"
@@ -463,21 +467,19 @@ const ConditionRulesEditor: React.FC<ConditionRulesEditorProps> = ({ condition, 
     return (
       <div key="date" className="ce-rule-row">
         <span className="ce-rule-type">Date</span>
-        <select
-          className="ce-rule-op"
+        <Dropdown
+          compact
+          style={{ flexShrink: 0, minWidth: 100 }}
           value={op}
-          onChange={e => {
-            const k = e.target.value as 'eq' | 'gt' | 'lt' | 'in';
+          onChange={v => {
+            const k = v as 'eq' | 'gt' | 'lt' | 'in';
             if (k === 'eq') updateDateCondition('eq', '');
             if (k === 'gt') updateDateCondition('gt', '');
             if (k === 'lt') updateDateCondition('lt', '');
             if (k === 'in') updateDateCondition('in', []);
           }}
-        >
-          {dateOperators.map(o => (
-            <option key={o.key} value={o.key}>{o.label}</option>
-          ))}
-        </select>
+          options={dateOperators.map(o => ({ value: o.key, label: o.label }))}
+        />
         {(op === 'eq' || op === 'gt' || op === 'lt') && (
           <input
             type="date"
@@ -538,16 +540,13 @@ const ConditionRulesEditor: React.FC<ConditionRulesEditorProps> = ({ condition, 
       </div>
       {Object.keys(condition).length === 0 && <p className="ce-no-rules">No rules. Add one below.</p>}
       <div className="ce-add-rule-wrap">
-        <select
-          className="ce-add-rule"
+        <Dropdown
+          compact
           value=""
-          onChange={e => e.target.value && addConditionType(e.target.value)}
-        >
-          <option value="">+ Add rule</option>
-          {ruleTypes.filter(({ key }) => !(key in condition)).map(({ key, label }) => (
-            <option key={key} value={key}>{label}</option>
-          ))}
-        </select>
+          onChange={v => v && addConditionType(v)}
+          placeholder="+ Add rule"
+          options={ruleTypes.filter(({ key }) => !(key in condition)).map(({ key, label }) => ({ value: key, label }))}
+        />
       </div>
     </div>
   );

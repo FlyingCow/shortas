@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Shuffle, Link2, Globe, ChevronRight, ArrowRightLeft, GitBranch, Tag, Settings } from 'lucide-react';
 import { RouteDto, RoutingPolicy, DomainDto, ConditionRouteDto, ConditionalRouting, apiService } from '../services/api';
 import { ConditionsEditor } from './ConditionsEditor';
+import Dropdown from './Dropdown';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import './DesignSystem.css';
 import './RouteForm.css';
@@ -62,9 +63,10 @@ const cleanCondition = (condition: any): any => {
 
 const cleanPolicy = (policy: any): any => {
   if (!policy || policy === 'Basic' || policy === 'Mirroring') return policy;
-  if (typeof policy === 'object' && 'Conditional' in policy) {
+  if (typeof policy === 'object' && policy.type === 'Conditional') {
     return {
-      Conditional: (policy.Conditional || []).map((cond: any) => ({
+      type: 'Conditional',
+      conditions: (policy.conditions || []).map((cond: any) => ({
         key: cond.key,
         condition: cleanCondition(cond.condition),
       })),
@@ -76,10 +78,10 @@ const cleanPolicy = (policy: any): any => {
 // Parse existing conditional policy into conditions array.
 // Destinations are stored inline in the policy (single-route model).
 const parseConditionsFromPolicy = (policy?: RoutingPolicy): ConditionRouteDto[] => {
-  if (!policy || typeof policy !== 'object' || !('Conditional' in policy)) {
+  if (!policy || typeof policy !== 'object' || policy.type !== 'Conditional') {
     return [];
   }
-  return (policy.Conditional || []).map((routing: ConditionalRouting) => ({
+  return (policy.conditions || []).map((routing: ConditionalRouting) => ({
     dest: routing.dest || '',
     condition: routing.condition,
   }));
@@ -353,9 +355,6 @@ const RouteForm: React.FC<RouteFormProps> = ({
   const fieldClass = (field: string) =>
     touched[field] && errors[field] ? 'rf-input rf-input-error' : 'rf-input';
 
-  const selectClass = (field: string) =>
-    touched[field] && errors[field] ? 'rf-select rf-input-error' : 'rf-select';
-
   return (
     <form
       ref={formRef}
@@ -394,19 +393,14 @@ const RouteForm: React.FC<RouteFormProps> = ({
             {showWorkspace && (
               <div className="rf-control-group">
                 <label className="rf-control-label">Workspace</label>
-                <select
-                  className="rf-select"
+                <Dropdown
+                  block
                   value={formData.properties?.workspaceId || ''}
-                  onChange={(e) => handlePropertyChange('workspaceId', e.target.value)}
+                  onChange={(v) => handlePropertyChange('workspaceId', v)}
                   disabled={saving || isEdit || singleWorkspace}
-                >
-                  <option value="">Select a workspace...</option>
-                  {(workspaces || []).map((ws: any) => (
-                    <option key={ws.id} value={ws.id}>
-                      {ws.name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select a workspace..."
+                  options={(workspaces || []).map((ws: any) => ({ value: ws.id, label: ws.name }))}
+                />
                 <span className="rf-helper">
                   {isEdit
                     ? 'Workspace cannot be changed after creation'
@@ -419,23 +413,19 @@ const RouteForm: React.FC<RouteFormProps> = ({
               <label className="rf-control-label">
                 Domain<span className="rf-required">*</span>
               </label>
-              <select
-                className={selectClass('domainId')}
+              <Dropdown
+                block
                 value={formData.domainId || ''}
-                onChange={(e) => {
-                  handleChange('domainId', e.target.value);
-                  handlePropertyChange('domainId', e.target.value);
+                onChange={(v) => {
+                  handleChange('domainId', v);
+                  handlePropertyChange('domainId', v);
+                  handleBlur('domainId');
                 }}
-                onBlur={() => handleBlur('domainId')}
                 disabled={saving || isEdit || singleDomain}
-              >
-                <option value="">Select a domain...</option>
-                {availableDomains.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}{d.isShared ? ' (Shared)' : ''}
-                  </option>
-                ))}
-              </select>
+                error={Boolean(touched.domainId && errors.domainId)}
+                placeholder="Select a domain..."
+                options={availableDomains.map((d) => ({ value: d.id, label: `${d.name}${d.isShared ? ' (Shared)' : ''}` }))}
+              />
               {fieldError('domainId') || (
                 <span className="rf-helper">
                   {isEdit

@@ -137,12 +137,15 @@ export interface FileRouting {
   mime_type?: string;
 }
 
+// Wire shape matches management-api's RoutingPolicyDto, an internally
+// tagged enum (`#[serde(tag = "type")]`) — the discriminant lives in a
+// `type` field, not as the sole object key.
 export type RoutingPolicy =
   | 'Basic'
   | 'Mirroring'
-  | { Conditional: ConditionalRouting[] }
-  | { Challenge: ChallengeRouting }
-  | { File: FileRouting };
+  | { type: 'Conditional'; conditions: ConditionalRouting[] }
+  | { type: 'Challenge'; challenge?: ChallengeRouting }
+  | { type: 'File'; file?: FileRouting };
 
 // API Types
 export interface RouteDto {

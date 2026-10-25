@@ -33,6 +33,7 @@ import { useWorkspace } from '../contexts/WorkspaceContext';
 import { getRouteImagesBaseUrl } from '../config/runtimeEnv';
 import { getCountryDisplayName } from '../utils/countries';
 import LoadingSpinner from './LoadingSpinner';
+import Dropdown from './Dropdown';
 import WorldMap from './WorldMap';
 import RouteForm from './RouteForm';
 import QRCodeDesigner from './QRCodeDesigner';
@@ -732,7 +733,7 @@ const PieLegend: React.FC<{ items: { name: string; color: string }[] }> = ({ ite
 );
 
 const RoutesWithSidebar: React.FC = () => {
-  const { workspaces, currentWorkspaceId, setCurrentWorkspaceId } = useWorkspace();
+  const { workspaces, currentWorkspaceId } = useWorkspace();
   const [routes, setRoutes] = useState<RouteDto[]>([]);
   const [domains, setDomains] = useState<DomainDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -777,6 +778,13 @@ const RoutesWithSidebar: React.FC = () => {
 
   useEffect(() => {
     fetchRoutes();
+    // The previously selected/edited route may no longer be in the
+    // workspace-filtered list — clear its detail/analytics panel rather
+    // than leaving stale stats on screen for a route that's gone.
+    setSelectedRoute(null);
+    setIsEditing(false);
+    setEditingRoute(null);
+    setAnalytics(null);
   }, [currentWorkspaceId]);
 
   // Debounced Elasticsearch search
@@ -1046,10 +1054,8 @@ const RoutesWithSidebar: React.FC = () => {
   const getPolicyType = (policy?: RoutingPolicy): string => {
     if (!policy || policy === 'Basic') return 'Basic';
     if (policy === 'Mirroring') return 'Mirroring';
-    if (typeof policy === 'object') {
-      if ('Conditional' in policy) return 'Conditional';
-      if ('Challenge' in policy) return 'Challenge';
-      if ('File' in policy) return 'File';
+    if (typeof policy === 'object' && 'type' in policy) {
+      return policy.type;
     }
     return 'Basic';
   };
@@ -1150,29 +1156,17 @@ const RoutesWithSidebar: React.FC = () => {
             </div>
 
             <div className="rs-filter-row">
-              <select
-                className="rs-filter-select"
+              <Dropdown
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="blocked">Blocked</option>
-              </select>
-
-              <select
-                className="rs-filter-select"
-                value={currentWorkspaceId ?? 'all'}
-                onChange={(e) => setCurrentWorkspaceId(e.target.value === 'all' ? null : e.target.value)}
-              >
-                <option value="all">All Workspaces</option>
-                {workspaces.map((workspace) => (
-                  <option key={workspace.id} value={workspace.id}>
-                    {workspace.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setStatusFilter}
+                options={[
+                  { value: 'all', label: 'All Status' },
+                  { value: 'active', label: 'Active' },
+                  { value: 'inactive', label: 'Inactive' },
+                  { value: 'blocked', label: 'Blocked' },
+                ]}
+                block
+              />
             </div>
           </div>
 

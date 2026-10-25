@@ -12,16 +12,18 @@ import {
   Globe,
   Briefcase,
   ChevronDown,
-  Check,
   Keyboard
 } from 'lucide-react';
 import { logout, getUserInfo } from '../config/keycloak';
 import { useTheme } from '../contexts/ThemeContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import DevelopmentBanner from './DevelopmentBanner';
+import Dropdown from './Dropdown';
 import Footer from './Footer';
 import Logo from './Logo';
 import './DesignSystem.css';
+
+const ALL_WORKSPACES = '__all__';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -34,13 +36,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { theme, toggleTheme } = useTheme();
   const { workspaces, currentWorkspaceId, setCurrentWorkspaceId } = useWorkspace();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const workspaceMenuRef = useRef<HTMLDivElement>(null);
-  const currentWorkspaceName = currentWorkspaceId === null
-    ? 'All Workspaces'
-    : workspaces.find((ws) => ws.id === currentWorkspaceId)?.name || 'Workspace';
+  const workspaceOptions = [
+    { value: ALL_WORKSPACES, label: 'All Workspaces' },
+    ...workspaces.map((ws) => ({ value: ws.id, label: ws.name })),
+  ];
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -59,14 +60,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return 'Dashboard';
   };
 
-  // Close dropdowns when clicking outside
+  // Close the user dropdown when clicking outside (the workspace switcher
+  // manages its own open/close via the shared Dropdown component).
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setIsUserMenuOpen(false);
-      }
-      if (workspaceMenuRef.current && !workspaceMenuRef.current.contains(event.target as Node)) {
-        setIsWorkspaceMenuOpen(false);
       }
     };
 
@@ -94,8 +93,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           e.preventDefault();
         } else if (isUserMenuOpen) {
           setIsUserMenuOpen(false);
-        } else if (isWorkspaceMenuOpen) {
-          setIsWorkspaceMenuOpen(false);
         }
         return;
       }
@@ -123,7 +120,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [navigate, isUserMenuOpen, isWorkspaceMenuOpen, showShortcutHelp, navigation]);
+  }, [navigate, isUserMenuOpen, showShortcutHelp, navigation]);
 
   return (
     <>
@@ -191,80 +188,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <span className="topbar-title">{getCurrentPageTitle()}</span>
 
               {/* Workspace switcher */}
-              <div ref={workspaceMenuRef} style={{ position: 'relative', marginLeft: '1rem' }}>
-                <button
-                  className="btn btn-outline btn-sm"
-                  onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                >
-                  <Briefcase size={14} />
-                  <span>{currentWorkspaceName}</span>
-                  <ChevronDown size={14} />
-                </button>
-
-                {isWorkspaceMenuOpen && (
-                  <div style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 0.5rem)',
-                    left: 0,
-                    backgroundColor: 'var(--bg-secondary)',
-                    border: '1px solid var(--border-primary)',
-                    borderRadius: '4px',
-                    boxShadow: 'var(--shadow-md)',
-                    minWidth: '220px',
-                    maxHeight: '320px',
-                    overflowY: 'auto',
-                    zIndex: 1000,
-                  }}>
-                    <button
-                      onClick={() => { setCurrentWorkspaceId(null); setIsWorkspaceMenuOpen(false); }}
-                      style={{
-                        width: '100%',
-                        padding: '0.625rem 1rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '0.75rem',
-                        border: 'none',
-                        borderBottom: '1px solid var(--border-primary)',
-                        backgroundColor: 'transparent',
-                        color: 'var(--text-primary)',
-                        cursor: 'pointer',
-                        fontSize: '0.875rem',
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <span>All Workspaces</span>
-                      {currentWorkspaceId === null && <Check size={14} />}
-                    </button>
-                    {workspaces.map((ws) => (
-                      <button
-                        key={ws.id}
-                        onClick={() => { setCurrentWorkspaceId(ws.id); setIsWorkspaceMenuOpen(false); }}
-                        style={{
-                          width: '100%',
-                          padding: '0.625rem 1rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '0.75rem',
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          color: 'var(--text-primary)',
-                          cursor: 'pointer',
-                          fontSize: '0.875rem',
-                          textAlign: 'left',
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws.name}</span>
-                        {currentWorkspaceId === ws.id && <Check size={14} />}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div style={{ marginLeft: '1rem' }}>
+                <Dropdown
+                  icon={<Briefcase size={14} />}
+                  value={currentWorkspaceId ?? ALL_WORKSPACES}
+                  options={workspaceOptions}
+                  onChange={(v) => setCurrentWorkspaceId(v === ALL_WORKSPACES ? null : v)}
+                />
               </div>
             </div>
             <div className="topbar-right">

@@ -1082,6 +1082,115 @@ body {
   }
 }
 
+/* ===== APP-SELECT (styled select replacement) ===== */
+/* Single source of truth for the "button trigger + floating menu" select
+   style used app-wide (introduced from the topbar workspace switcher).
+   Deliberately NOT named .dropdown* — this app imports bootstrap.min.css
+   globally (src/index.tsx), and Bootstrap's own .dropdown-menu ships
+   `display: none` (meant to be toggled by its JS via a `.show` class).
+   Reusing that class name silently kept every menu hidden with zero
+   console error. There's also a pre-existing "DROPDOWN OVERRIDES" block
+   further down in this file fighting Bootstrap's `.dropdown*` with
+   !important — another sign those names are already contested. */
+.app-select {
+  position: relative;
+  display: inline-flex;
+}
+
+.app-select.app-select-block {
+  display: flex;
+  width: 100%;
+}
+
+.app-select-trigger {
+  justify-content: space-between;
+  white-space: nowrap;
+}
+
+.app-select.app-select-block .app-select-trigger {
+  width: 100%;
+}
+
+.app-select-trigger.app-select-error {
+  border-color: var(--color-error);
+}
+
+.app-select-trigger-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  text-align: left;
+}
+
+.app-select-trigger-label.app-select-placeholder {
+  color: var(--text-muted);
+}
+
+.app-select-chevron {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: transform var(--transition-fast);
+}
+
+.app-select-chevron.app-select-chevron-open {
+  transform: rotate(180deg);
+}
+
+/* Positioning (position/top/bottom/left/right/min-width) is computed in JS
+   from the trigger's getBoundingClientRect() and applied inline — the menu
+   is portaled to document.body (see Dropdown.tsx) so it's never clipped by
+   a scrollable/overflow-constrained ancestor. This rule only carries the
+   visual styling. */
+.app-select-menu {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  width: max-content;
+  max-width: 320px;
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: var(--z-dropdown);
+  padding: 2px;
+}
+
+.app-select-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.app-select-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.app-select-item.app-select-item-active {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.app-select-item svg {
+  flex-shrink: 0;
+}
+
+.app-select-empty {
+  padding: 0.5rem 0.75rem;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
 /* ===== FORMS ===== */
 .form-group {
   margin-bottom: var(--space-md);

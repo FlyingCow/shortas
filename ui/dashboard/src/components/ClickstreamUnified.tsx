@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { apiService, ClickStreamEvent } from '../services/api';
 import { useWorkspace } from '../contexts/WorkspaceContext';
+import Dropdown from './Dropdown';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
@@ -492,17 +493,16 @@ const Clickstream: React.FC = () => {
               ))}
             </div>
 
-            <select
-              className="form-select form-select-sm"
-              style={{ minWidth: 130 }}
+            <Dropdown
               value={filters.device}
-              onChange={(e) => setFilters(prev => ({ ...prev, device: e.target.value }))}
-            >
-              <option value="all">All Devices</option>
-              <option value="desktop">Desktop</option>
-              <option value="mobile">Mobile</option>
-              <option value="tablet">Tablet</option>
-            </select>
+              onChange={(v) => setFilters(prev => ({ ...prev, device: v }))}
+              options={[
+                { value: 'all', label: 'All Devices' },
+                { value: 'desktop', label: 'Desktop' },
+                { value: 'mobile', label: 'Mobile' },
+                { value: 'tablet', label: 'Tablet' },
+              ]}
+            />
           </div>
 
           <div className="toolbar-section">

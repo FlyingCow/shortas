@@ -3,6 +3,7 @@ import { Plus, Edit, Trash2, Search, Briefcase, Calendar, Shield, X, Users, User
 import { apiService, WorkspaceDto, CreateWorkspaceDto, UserWorkspaceDto } from '../services/api';
 import { useAlert } from '../contexts/AlertContext';
 import { getUserInfo } from '../config/keycloak';
+import Dropdown from './Dropdown';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
@@ -440,15 +441,14 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, curre
                     </div>
                     {canManage ? (
                       <>
-                        <select
-                          className="form-select form-select-sm wm-role-select"
-                          style={{ width: 'auto' }}
+                        <Dropdown
+                          compact
+                          align="right"
                           value={member.role}
                           disabled={isBusy}
-                          onChange={(e) => handleRoleChange(member, e.target.value)}
-                        >
-                          {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                        </select>
+                          onChange={(v) => handleRoleChange(member, v)}
+                          options={ROLE_OPTIONS.map((r) => ({ value: r, label: r }))}
+                        />
                         <button
                           className="ws-action-btn danger"
                           title="Remove member"
@@ -480,15 +480,13 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, curre
                   disabled={adding}
                 />
               </div>
-              <select
-                className="form-select form-select-sm"
-                style={{ width: 'auto' }}
+              <Dropdown
+                compact
                 value={newRole}
-                onChange={(e) => setNewRole(e.target.value)}
+                onChange={setNewRole}
                 disabled={adding}
-              >
-                {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
+                options={ROLE_OPTIONS.map((r) => ({ value: r, label: r }))}
+              />
               <button className="btn btn-primary btn-sm" onClick={handleAdd} disabled={adding || !newUserId.trim()}>
                 <UserPlus size={14} />
                 Add
