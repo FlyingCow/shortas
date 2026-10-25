@@ -211,6 +211,7 @@ impl ClickAggregatorClient {
     pub async fn get_daily_stats(
         &self,
         owner_id: Option<&str>,
+        workspace_id: Option<&str>,
         route_id: Option<&str>,
         from_date: Option<NaiveDate>,
         to_date: Option<NaiveDate>,
@@ -220,6 +221,9 @@ impl ClickAggregatorClient {
 
         if let Some(id) = owner_id {
             params.push(format!("owner_id={}", id));
+        }
+        if let Some(id) = workspace_id {
+            params.push(format!("workspace_id={}", id));
         }
         if let Some(id) = route_id {
             params.push(format!("route_id={}", id));
@@ -244,6 +248,7 @@ impl ClickAggregatorClient {
     pub async fn get_hourly_stats(
         &self,
         owner_id: Option<&str>,
+        workspace_id: Option<&str>,
         route_id: Option<&str>,
         from_hour: Option<DateTime<Utc>>,
         to_hour: Option<DateTime<Utc>>,
@@ -253,6 +258,9 @@ impl ClickAggregatorClient {
 
         if let Some(id) = owner_id {
             params.push(format!("owner_id={}", id));
+        }
+        if let Some(id) = workspace_id {
+            params.push(format!("workspace_id={}", id));
         }
         if let Some(id) = route_id {
             params.push(format!("route_id={}", id));
@@ -277,6 +285,7 @@ impl ClickAggregatorClient {
     pub async fn get_geographic_stats(
         &self,
         owner_id: Option<&str>,
+        workspace_id: Option<&str>,
         route_id: Option<&str>,
         from_date: Option<NaiveDate>,
         to_date: Option<NaiveDate>,
@@ -286,6 +295,9 @@ impl ClickAggregatorClient {
 
         if let Some(id) = owner_id {
             params.push(format!("owner_id={}", id));
+        }
+        if let Some(id) = workspace_id {
+            params.push(format!("workspace_id={}", id));
         }
         if let Some(id) = route_id {
             params.push(format!("route_id={}", id));
@@ -310,6 +322,7 @@ impl ClickAggregatorClient {
     pub async fn get_device_stats(
         &self,
         owner_id: Option<&str>,
+        workspace_id: Option<&str>,
         route_id: Option<&str>,
         from_date: Option<NaiveDate>,
         to_date: Option<NaiveDate>,
@@ -319,6 +332,9 @@ impl ClickAggregatorClient {
 
         if let Some(id) = owner_id {
             params.push(format!("owner_id={}", id));
+        }
+        if let Some(id) = workspace_id {
+            params.push(format!("workspace_id={}", id));
         }
         if let Some(id) = route_id {
             params.push(format!("route_id={}", id));
@@ -343,6 +359,7 @@ impl ClickAggregatorClient {
     pub async fn get_browser_stats(
         &self,
         owner_id: Option<&str>,
+        workspace_id: Option<&str>,
         route_id: Option<&str>,
         from_date: Option<NaiveDate>,
         to_date: Option<NaiveDate>,
@@ -352,6 +369,9 @@ impl ClickAggregatorClient {
 
         if let Some(id) = owner_id {
             params.push(format!("owner_id={}", id));
+        }
+        if let Some(id) = workspace_id {
+            params.push(format!("workspace_id={}", id));
         }
         if let Some(id) = route_id {
             params.push(format!("route_id={}", id));
@@ -376,6 +396,7 @@ impl ClickAggregatorClient {
     pub async fn get_route_performance(
         &self,
         owner_id: Option<&str>,
+        workspace_id: Option<&str>,
         from_date: Option<NaiveDate>,
         to_date: Option<NaiveDate>,
         limit: Option<u32>,
@@ -385,6 +406,9 @@ impl ClickAggregatorClient {
 
         if let Some(id) = owner_id {
             params.push(format!("owner_id={}", id));
+        }
+        if let Some(id) = workspace_id {
+            params.push(format!("workspace_id={}", id));
         }
         if let Some(d) = from_date {
             params.push(format!("from_date={}", d.format("%Y-%m-%d")));
@@ -409,6 +433,7 @@ impl ClickAggregatorClient {
     pub async fn get_top_destinations(
         &self,
         owner_id: Option<&str>,
+        workspace_id: Option<&str>,
         route_id: Option<&str>,
         from_date: Option<NaiveDate>,
         to_date: Option<NaiveDate>,
@@ -419,6 +444,9 @@ impl ClickAggregatorClient {
 
         if let Some(id) = owner_id {
             params.push(format!("owner_id={}", id));
+        }
+        if let Some(id) = workspace_id {
+            params.push(format!("workspace_id={}", id));
         }
         if let Some(id) = route_id {
             params.push(format!("route_id={}", id));
@@ -446,6 +474,7 @@ impl ClickAggregatorClient {
     pub async fn get_traffic_type_stats(
         &self,
         owner_id: Option<&str>,
+        workspace_id: Option<&str>,
         route_id: Option<&str>,
         from_hour: Option<DateTime<Utc>>,
         to_hour: Option<DateTime<Utc>>,
@@ -455,6 +484,9 @@ impl ClickAggregatorClient {
 
         if let Some(id) = owner_id {
             params.push(format!("owner_id={}", id));
+        }
+        if let Some(id) = workspace_id {
+            params.push(format!("workspace_id={}", id));
         }
         if let Some(id) = route_id {
             params.push(format!("route_id={}", id));
@@ -539,7 +571,7 @@ impl ClickAggregatorClient {
         let to_date = to.map(|dt| dt.date_naive());
 
         let daily_stats = self
-            .get_daily_stats(None, Some(route_id), from_date, to_date)
+            .get_daily_stats(None, None, Some(route_id), from_date, to_date)
             .await?;
 
         let total_clicks: i64 = daily_stats.iter().map(|s| s.total_clicks).sum();
@@ -564,7 +596,7 @@ impl ClickAggregatorClient {
         match interval {
             "hour" => {
                 let hourly = self
-                    .get_hourly_stats(None, Some(route_id), Some(from), Some(to))
+                    .get_hourly_stats(None, None, Some(route_id), Some(from), Some(to))
                     .await?;
                 Ok(hourly
                     .into_iter()
@@ -578,6 +610,7 @@ impl ClickAggregatorClient {
             _ => {
                 let daily = self
                     .get_daily_stats(
+                        None,
                         None,
                         Some(route_id),
                         Some(from.date_naive()),
@@ -608,7 +641,7 @@ impl ClickAggregatorClient {
         let to_date = to.map(|dt| dt.date_naive());
 
         let geo_stats = self
-            .get_geographic_stats(None, Some(route_id), from_date, to_date)
+            .get_geographic_stats(None, None, Some(route_id), from_date, to_date)
             .await?;
 
         let total: i64 = geo_stats.iter().map(|g| g.total_clicks).sum();
@@ -643,7 +676,7 @@ impl ClickAggregatorClient {
         let to_date = to.map(|dt| dt.date_naive());
 
         let device_stats = self
-            .get_device_stats(None, Some(route_id), from_date, to_date)
+            .get_device_stats(None, None, Some(route_id), from_date, to_date)
             .await?;
 
         let total: i64 = device_stats.iter().map(|d| d.total_clicks).sum();
@@ -672,7 +705,7 @@ impl ClickAggregatorClient {
         let to_date = to.map(|dt| dt.date_naive());
 
         let browser_stats = self
-            .get_browser_stats(None, Some(route_id), from_date, to_date)
+            .get_browser_stats(None, None, Some(route_id), from_date, to_date)
             .await?;
 
         let total: i64 = browser_stats.iter().map(|b| b.total_clicks).sum();
@@ -722,7 +755,7 @@ impl ClickAggregatorClient {
     /// Get top routes for workspace (legacy method).
     pub async fn get_workspace_top_routes(
         &self,
-        _workspace_id: &str,
+        workspace_id: &str,
         from: Option<DateTime<Utc>>,
         to: Option<DateTime<Utc>>,
         limit: Option<i32>,
@@ -731,7 +764,7 @@ impl ClickAggregatorClient {
         let to_date = to.map(|dt| dt.date_naive());
 
         let performance = self
-            .get_route_performance(None, from_date, to_date, limit.map(|l| l as u32))
+            .get_route_performance(None, Some(workspace_id), from_date, to_date, limit.map(|l| l as u32))
             .await?;
 
         Ok(performance

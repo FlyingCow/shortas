@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { apiService, ClickStreamEvent } from '../services/api';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
@@ -133,6 +134,7 @@ interface ClickstreamFilters {
 }
 
 const Clickstream: React.FC = () => {
+  const { currentWorkspaceId } = useWorkspace();
   const [events, setEvents] = useState<ClickEvent[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<ClickEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -218,6 +220,7 @@ const Clickstream: React.FC = () => {
       const params = {
         startDate,
         endDate,
+        workspaceId: currentWorkspaceId ?? undefined,
       };
 
       const [rawEvents, rawStats] = await Promise.all([
@@ -239,7 +242,7 @@ const Clickstream: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [getDateRange]);
+  }, [getDateRange, currentWorkspaceId]);
 
   const refreshData = useCallback(async () => {
     if (!isLive) return;
@@ -249,6 +252,7 @@ const Clickstream: React.FC = () => {
       const params = {
         startDate,
         endDate,
+        workspaceId: currentWorkspaceId ?? undefined,
       };
 
       const [rawEvents, rawStats] = await Promise.all([
@@ -267,7 +271,7 @@ const Clickstream: React.FC = () => {
     } catch (err) {
       console.error('Error refreshing clickstream data:', err);
     }
-  }, [isLive, getDateRange]);
+  }, [isLive, getDateRange, currentWorkspaceId]);
 
   const applyFilters = useCallback(() => {
     let filtered = events;

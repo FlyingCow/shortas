@@ -298,8 +298,9 @@ services:
       dockerfile: redirect/click-aggregator-api/Dockerfile
     container_name: shortas-click-aggregator-api
     restart: unless-stopped
-    ports:
-      - "5820:5820"
+    # Internal-only: reached by management-api over shortas-net at
+    # http://shortas-click-aggregator-api:5820. Not exposed to the host —
+    # this service has no auth of its own.
     environment:
       - RUST_LOG=warn
       - LOKI_URL=http://shortas-loki:3100

@@ -9,6 +9,7 @@ use uuid::Uuid;
 use crate::domain::entities::{ApiError, OutboxMessage, Result, Route, RouteStatus};
 use crate::domain::traits::{
     DomainRepository, OutboxRepository, PaginatedResult, RouteFilters, RouteRepository,
+    WorkspaceRepository,
 };
 use crate::infrastructure::http_clients::ClickRouterClient;
 
@@ -26,6 +27,7 @@ pub struct RouteService {
     domain_repo: Arc<dyn DomainRepository>,
     outbox_repo: Arc<dyn OutboxRepository>,
     click_router: Arc<ClickRouterClient>,
+    workspace_repo: Arc<dyn WorkspaceRepository>,
 }
 
 impl RouteService {
@@ -34,12 +36,14 @@ impl RouteService {
         domain_repo: Arc<dyn DomainRepository>,
         outbox_repo: Arc<dyn OutboxRepository>,
         click_router: Arc<ClickRouterClient>,
+        workspace_repo: Arc<dyn WorkspaceRepository>,
     ) -> Self {
         Self {
             route_repo,
             domain_repo,
             outbox_repo,
             click_router,
+            workspace_repo,
         }
     }
 
@@ -85,6 +89,21 @@ impl RouteService {
         let mut filters = filters;
         if filters.owner_id.is_none() {
             filters.owner_id = Some(user_id.to_string());
+        }
+
+        // Don't trust a client-supplied workspace_id filter without checking
+        // the caller actually belongs to that workspace.
+        if let Some(workspace_id) = &filters.workspace_id {
+            let workspace_uuid = Uuid::parse_str(workspace_id)
+                .map_err(|_| ApiError::validation("Invalid workspace ID"))?;
+            let has_access = self
+                .workspace_repo
+                .user_has_access(workspace_uuid, user_id)
+                .await
+                .unwrap_or(false);
+            if !has_access {
+                return Err(ApiError::forbidden());
+            }
         }
 
         self.route_repo.list(page, page_size, filters).await

@@ -14,6 +14,7 @@ use crate::core::clickstream_store::ClickStreamStore;
     description = "Retrieve daily click statistics with optional filtering",
     parameters(
         ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
+        ("workspace_id" = Option<String>, Query, description = "Filter by workspace ID"),
         ("route_id" = Option<String>, Query, description = "Filter by route ID"),
         ("from_date" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
         ("to_date" = Option<String>, Query, description = "End date (YYYY-MM-DD)")
@@ -40,12 +41,14 @@ pub async fn get_daily_stats(
     };
 
     let owner_id = req.query::<String>("owner_id");
+    let workspace_id = req.query::<String>("workspace_id");
     let route_id = req.query::<String>("route_id");
     let from_date = req.query::<String>("from_date");
     let to_date = req.query::<String>("to_date");
 
     match app_state.clickstream_store.get_daily_stats(
         owner_id.as_deref(),
+        workspace_id.as_deref(),
         route_id.as_deref(),
         from_date.as_deref(),
         to_date.as_deref()
@@ -66,6 +69,7 @@ pub async fn get_daily_stats(
     description = "Retrieve hourly click statistics with optional filtering",
     parameters(
         ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
+        ("workspace_id" = Option<String>, Query, description = "Filter by workspace ID"),
         ("route_id" = Option<String>, Query, description = "Filter by route ID"),
         ("from_hour" = Option<String>, Query, description = "Start hour (YYYY-MM-DD HH:MM:SS)"),
         ("to_hour" = Option<String>, Query, description = "End hour (YYYY-MM-DD HH:MM:SS)")
@@ -92,12 +96,14 @@ pub async fn get_hourly_stats(
     };
 
     let owner_id = req.query::<String>("owner_id");
+    let workspace_id = req.query::<String>("workspace_id");
     let route_id = req.query::<String>("route_id");
     let from_hour = req.query::<String>("from_hour");
     let to_hour = req.query::<String>("to_hour");
 
     match app_state.clickstream_store.get_hourly_stats(
         owner_id.as_deref(),
+        workspace_id.as_deref(),
         route_id.as_deref(),
         from_hour.as_deref(),
         to_hour.as_deref()
@@ -118,6 +124,7 @@ pub async fn get_hourly_stats(
     description = "Retrieve click statistics by geographic location",
     parameters(
         ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
+        ("workspace_id" = Option<String>, Query, description = "Filter by workspace ID"),
         ("route_id" = Option<String>, Query, description = "Filter by route ID"),
         ("from_date" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
         ("to_date" = Option<String>, Query, description = "End date (YYYY-MM-DD)")
@@ -144,12 +151,14 @@ pub async fn get_geographic_stats(
     };
 
     let owner_id = req.query::<String>("owner_id");
+    let workspace_id = req.query::<String>("workspace_id");
     let route_id = req.query::<String>("route_id");
     let from_date = req.query::<String>("from_date");
     let to_date = req.query::<String>("to_date");
 
     match app_state.clickstream_store.get_geographic_stats(
         owner_id.as_deref(),
+        workspace_id.as_deref(),
         route_id.as_deref(),
         from_date.as_deref(),
         to_date.as_deref()
@@ -170,6 +179,7 @@ pub async fn get_geographic_stats(
     description = "Retrieve click statistics by device type",
     parameters(
         ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
+        ("workspace_id" = Option<String>, Query, description = "Filter by workspace ID"),
         ("route_id" = Option<String>, Query, description = "Filter by route ID"),
         ("from_date" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
         ("to_date" = Option<String>, Query, description = "End date (YYYY-MM-DD)")
@@ -196,12 +206,14 @@ pub async fn get_device_stats(
     };
 
     let owner_id = req.query::<String>("owner_id");
+    let workspace_id = req.query::<String>("workspace_id");
     let route_id = req.query::<String>("route_id");
     let from_date = req.query::<String>("from_date");
     let to_date = req.query::<String>("to_date");
 
     match app_state.clickstream_store.get_device_stats(
         owner_id.as_deref(),
+        workspace_id.as_deref(),
         route_id.as_deref(),
         from_date.as_deref(),
         to_date.as_deref()
@@ -222,6 +234,7 @@ pub async fn get_device_stats(
     description = "Retrieve click statistics by browser/user agent",
     parameters(
         ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
+        ("workspace_id" = Option<String>, Query, description = "Filter by workspace ID"),
         ("route_id" = Option<String>, Query, description = "Filter by route ID"),
         ("from_date" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
         ("to_date" = Option<String>, Query, description = "End date (YYYY-MM-DD)")
@@ -248,12 +261,14 @@ pub async fn get_browser_stats(
     };
 
     let owner_id = req.query::<String>("owner_id");
+    let workspace_id = req.query::<String>("workspace_id");
     let route_id = req.query::<String>("route_id");
     let from_date = req.query::<String>("from_date");
     let to_date = req.query::<String>("to_date");
 
     match app_state.clickstream_store.get_browser_stats(
         owner_id.as_deref(),
+        workspace_id.as_deref(),
         route_id.as_deref(),
         from_date.as_deref(),
         to_date.as_deref()
@@ -274,6 +289,7 @@ pub async fn get_browser_stats(
     description = "Retrieve performance metrics for routes",
     parameters(
         ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
+        ("workspace_id" = Option<String>, Query, description = "Filter by workspace ID"),
         ("from_date" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
         ("to_date" = Option<String>, Query, description = "End date (YYYY-MM-DD)"),
         ("limit" = Option<u32>, Query, description = "Maximum number of results (default: 50)")
@@ -300,12 +316,14 @@ pub async fn get_route_performance(
     };
 
     let owner_id = req.query::<String>("owner_id");
+    let workspace_id = req.query::<String>("workspace_id");
     let from_date = req.query::<String>("from_date");
     let to_date = req.query::<String>("to_date");
     let limit = req.query::<u32>("limit");
 
     match app_state.clickstream_store.get_route_performance(
         owner_id.as_deref(),
+        workspace_id.as_deref(),
         from_date.as_deref(),
         to_date.as_deref(),
         limit
@@ -326,6 +344,7 @@ pub async fn get_route_performance(
     description = "Retrieve most clicked destination URLs",
     parameters(
         ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
+        ("workspace_id" = Option<String>, Query, description = "Filter by workspace ID"),
         ("route_id" = Option<String>, Query, description = "Filter by route ID"),
         ("from_date" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
         ("to_date" = Option<String>, Query, description = "End date (YYYY-MM-DD)"),
@@ -353,6 +372,7 @@ pub async fn get_top_destinations(
     };
 
     let owner_id = req.query::<String>("owner_id");
+    let workspace_id = req.query::<String>("workspace_id");
     let route_id = req.query::<String>("route_id");
     let from_date = req.query::<String>("from_date");
     let to_date = req.query::<String>("to_date");
@@ -360,6 +380,7 @@ pub async fn get_top_destinations(
 
     match app_state.clickstream_store.get_top_destinations(
         owner_id.as_deref(),
+        workspace_id.as_deref(),
         route_id.as_deref(),
         from_date.as_deref(),
         to_date.as_deref(),
@@ -381,6 +402,7 @@ pub async fn get_top_destinations(
     description = "Retrieve bot vs human traffic breakdown",
     parameters(
         ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
+        ("workspace_id" = Option<String>, Query, description = "Filter by workspace ID"),
         ("route_id" = Option<String>, Query, description = "Filter by route ID"),
         ("from_hour" = Option<String>, Query, description = "Start hour (YYYY-MM-DD HH:MM:SS)"),
         ("to_hour" = Option<String>, Query, description = "End hour (YYYY-MM-DD HH:MM:SS)")
@@ -407,12 +429,14 @@ pub async fn get_traffic_type_stats(
     };
 
     let owner_id = req.query::<String>("owner_id");
+    let workspace_id = req.query::<String>("workspace_id");
     let route_id = req.query::<String>("route_id");
     let from_hour = req.query::<String>("from_hour");
     let to_hour = req.query::<String>("to_hour");
 
     match app_state.clickstream_store.get_traffic_type_stats(
         owner_id.as_deref(),
+        workspace_id.as_deref(),
         route_id.as_deref(),
         from_hour.as_deref(),
         to_hour.as_deref()

@@ -428,19 +428,15 @@ const Dashboard: React.FC = () => {
         domainsResponse,
         prevDailyStats,
       ] = await Promise.all([
-        apiService.clickstream.getDailyStats({ fromDate, toDate }),
-        apiService.clickstream.getGeographicStats({ fromDate, toDate }),
-        apiService.clickstream.getDeviceStats({ fromDate, toDate }),
-        apiService.clickstream.getBrowserStats({ fromDate, toDate }),
-        apiService.clickstream.getTrafficTypeStats({ fromHour, toHour }),
-        // Note: the clickstream endpoints below have no workspaceId param,
-        // so the click/traffic charts stay global regardless of the
-        // selected workspace. Only the route-derived stats (active/blocked
-        // route counts, Needs Attention) can be scoped today.
-        apiService.clickstream.getRoutePerformance({ fromDate, toDate, limit: 10 }),
+        apiService.clickstream.getDailyStats({ fromDate, toDate, workspaceId: currentWorkspaceId ?? undefined }),
+        apiService.clickstream.getGeographicStats({ fromDate, toDate, workspaceId: currentWorkspaceId ?? undefined }),
+        apiService.clickstream.getDeviceStats({ fromDate, toDate, workspaceId: currentWorkspaceId ?? undefined }),
+        apiService.clickstream.getBrowserStats({ fromDate, toDate, workspaceId: currentWorkspaceId ?? undefined }),
+        apiService.clickstream.getTrafficTypeStats({ fromHour, toHour, workspaceId: currentWorkspaceId ?? undefined }),
+        apiService.clickstream.getRoutePerformance({ fromDate, toDate, limit: 10, workspaceId: currentWorkspaceId ?? undefined }),
         apiService.routes.list({ page: 1, pageSize: 1000, workspaceId: currentWorkspaceId ?? undefined }),
         apiService.domains.list({ page: 1, pageSize: 100 }),
-        apiService.clickstream.getDailyStats({ fromDate: prevFromDate, toDate: prevToDate }),
+        apiService.clickstream.getDailyStats({ fromDate: prevFromDate, toDate: prevToDate, workspaceId: currentWorkspaceId ?? undefined }),
       ]);
 
       const sumTotals = (rows: { total_clicks: number; unique_clicks: number; bot_clicks: number; human_clicks: number }[]): PeriodTotals =>
