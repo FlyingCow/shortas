@@ -52,10 +52,10 @@ pub fn routes_controller() -> Router {
     tags("Routes"),
     parameters(
         ("page" = Option<i32>, Query, description = "Page number (default: 1)"),
-        ("page_size" = Option<i32>, Query, description = "Page size (default: 20, max: 100)"),
+        ("pageSize" = Option<i32>, Query, description = "Page size (default: 20, max: 100)"),
         ("search" = Option<String>, Query, description = "Search query"),
         ("status" = Option<String>, Query, description = "Filter by status"),
-        ("workspace_id" = Option<String>, Query, description = "Filter by workspace ID")
+        ("workspaceId" = Option<String>, Query, description = "Filter by workspace ID")
     ),
     responses(
         (status_code = 200, description = "Routes list", body = PaginatedRoutesDto)
@@ -79,10 +79,10 @@ pub async fn list_routes(req: &mut Request, depot: &mut Depot, res: &mut Respons
     };
 
     let page: i32 = req.query("page").unwrap_or(1);
-    let page_size: i32 = req.query("page_size").unwrap_or(20).min(100);
+    let page_size: i32 = req.query("pageSize").unwrap_or(20).min(100);
     let search: Option<String> = req.query("search");
     let status: Option<String> = req.query("status");
-    let workspace_id: Option<String> = req.query("workspace_id");
+    let workspace_id: Option<String> = req.query("workspaceId");
 
     let filters = RouteFilters {
         search,
@@ -667,8 +667,8 @@ pub async fn suggest_link(req: &mut Request, depot: &mut Depot, res: &mut Respon
     parameters(
         ("q" = String, Query, description = "Search query"),
         ("page" = Option<i32>, Query, description = "Page number"),
-        ("page_size" = Option<i32>, Query, description = "Page size"),
-        ("workspace_id" = Option<String>, Query, description = "Filter by workspace")
+        ("pageSize" = Option<i32>, Query, description = "Page size"),
+        ("workspaceId" = Option<String>, Query, description = "Filter by workspace")
     ),
     responses(
         (status_code = 200, description = "Search results", body = PaginatedRoutesDto)
@@ -693,8 +693,8 @@ pub async fn search_routes(req: &mut Request, depot: &mut Depot, res: &mut Respo
 
     let query: String = req.query("q").unwrap_or_default();
     let page: i32 = req.query("page").unwrap_or(1);
-    let page_size: i32 = req.query("page_size").unwrap_or(20).min(100);
-    let workspace_id: Option<String> = req.query("workspace_id");
+    let page_size: i32 = req.query("pageSize").unwrap_or(20).min(100);
+    let workspace_id: Option<String> = req.query("workspaceId");
 
     if query.is_empty() {
         render_error(res, ApiError::validation("Search query is required"));
