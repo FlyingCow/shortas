@@ -29,6 +29,7 @@ import {
 } from 'recharts';
 import { apiService, RouteDto, RoutingPolicy, DomainDto, RouteSearchResult } from '../services/api';
 import { useAlert } from '../contexts/AlertContext';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import { getRouteImagesBaseUrl } from '../config/runtimeEnv';
 import { getCountryDisplayName } from '../utils/countries';
 import LoadingSpinner from './LoadingSpinner';
@@ -731,14 +732,13 @@ const PieLegend: React.FC<{ items: { name: string; color: string }[] }> = ({ ite
 );
 
 const RoutesWithSidebar: React.FC = () => {
+  const { workspaces, currentWorkspaceId, setCurrentWorkspaceId } = useWorkspace();
   const [routes, setRoutes] = useState<RouteDto[]>([]);
   const [domains, setDomains] = useState<DomainDto[]>([]);
-  const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [workspaceFilter, setWorkspaceFilter] = useState('all');
   const [selectedRoute, setSelectedRoute] = useState<RouteDto | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingRoute, setEditingRoute] = useState<RouteDto | null>(null);
@@ -757,7 +757,6 @@ const RoutesWithSidebar: React.FC = () => {
   useEffect(() => {
     fetchRoutes();
     fetchDomains();
-    fetchWorkspaces();
   }, []);
 
   const scheduleIconRefresh = useCallback(() => {
@@ -778,7 +777,7 @@ const RoutesWithSidebar: React.FC = () => {
 
   useEffect(() => {
     fetchRoutes();
-  }, [workspaceFilter]);
+  }, [currentWorkspaceId]);
 
   // Debounced Elasticsearch search
   useEffect(() => {
@@ -795,12 +794,11 @@ const RoutesWithSidebar: React.FC = () => {
     setSearchLoading(true);
     searchDebounceRef.current = setTimeout(async () => {
       try {
-        const wsId = workspaceFilter !== 'all' ? workspaceFilter : undefined;
         const response = await apiService.routes.search({
           q: searchTerm.trim(),
           page: 1,
           pageSize: 100,
-          workspaceId: wsId,
+          workspaceId: currentWorkspaceId ?? undefined,
         });
         // Map search results to RouteDto-compatible objects
         const mapped: RouteDto[] = response.data.map((r: RouteSearchResult) => ({
@@ -831,15 +829,15 @@ const RoutesWithSidebar: React.FC = () => {
         clearTimeout(searchDebounceRef.current);
       }
     };
-  }, [searchTerm, workspaceFilter]);
+  }, [searchTerm, currentWorkspaceId]);
 
   const fetchRoutes = async () => {
     try {
       setLoading(true);
       setError(null);
       const params: any = { page: 1, pageSize: 100 };
-      if (workspaceFilter && workspaceFilter !== 'all') {
-        params.workspaceId = workspaceFilter;
+      if (currentWorkspaceId) {
+        params.workspaceId = currentWorkspaceId;
       }
       const response = await apiService.routes.list(params);
       setRoutes(response.data);
@@ -862,15 +860,6 @@ const RoutesWithSidebar: React.FC = () => {
       setDomains(combined);
     } catch (err: any) {
       console.error('Failed to fetch domains:', err);
-    }
-  };
-
-  const fetchWorkspaces = async () => {
-    try {
-      const data = await apiService.workspaces.list();
-      setWorkspaces(data);
-    } catch (err: any) {
-      console.error('Failed to fetch workspaces:', err);
     }
   };
 
@@ -1174,8 +1163,8 @@ const RoutesWithSidebar: React.FC = () => {
 
               <select
                 className="rs-filter-select"
-                value={workspaceFilter}
-                onChange={(e) => setWorkspaceFilter(e.target.value)}
+                value={currentWorkspaceId ?? 'all'}
+                onChange={(e) => setCurrentWorkspaceId(e.target.value === 'all' ? null : e.target.value)}
               >
                 <option value="all">All Workspaces</option>
                 {workspaces.map((workspace) => (

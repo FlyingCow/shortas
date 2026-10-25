@@ -409,12 +409,12 @@ export interface WorkspaceDto {
   id: string;
   name: string;
   description: string;
-  type: string;  // "System" or "User"
-  createdAt: string;
-  updatedAt: string;
-  userRole?: string;
-  members?: UserWorkspaceDto[];
-  isSystem?: boolean;
+  workspaceType: string;  // "System" or "User"
+  isSystem: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  memberCount?: number;
+  routeCount?: number;
 }
 
 export interface UserWorkspaceDto {
@@ -422,7 +422,9 @@ export interface UserWorkspaceDto {
   userId: string;
   workspaceId: string;
   role: string;
-  joinedAt: string;
+  isOwner: boolean;
+  isAdmin: boolean;
+  joinedAt?: string;
 }
 
 export interface CreateWorkspaceDto {
@@ -821,10 +823,11 @@ export const apiService = {
             id: '00000000-0000-0000-0000-000000000000',
             name: 'My Workspace',
             description: 'Default workspace for organizing your routes',
-            type: 'User',
+            workspaceType: 'User',
+            isSystem: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            userRole: 'Owner',
+            memberCount: 1,
           },
           userSettings: mockUserSettings,
           message: 'User initialization completed successfully',

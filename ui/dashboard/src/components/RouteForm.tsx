@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Shuffle, Link2, Globe, ChevronRight, ArrowRightLeft, GitBranch, Tag, Settings } from 'lucide-react';
 import { RouteDto, RoutingPolicy, DomainDto, ConditionRouteDto, ConditionalRouting, apiService } from '../services/api';
 import { ConditionsEditor } from './ConditionsEditor';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import './DesignSystem.css';
 import './RouteForm.css';
 
@@ -107,6 +108,7 @@ const RouteForm: React.FC<RouteFormProps> = ({
   showWorkspace,
 }) => {
   const isEdit = !!route;
+  const { currentWorkspaceId } = useWorkspace();
 
   // Only allow creating routes on verified domains
   // For edit mode, include the current domain even if it became unverified
@@ -175,10 +177,18 @@ const RouteForm: React.FC<RouteFormProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verifiedDomains, singleDomain]);
 
-  // Auto-select workspace when there is exactly one available and creating a new route
+  // Default the workspace when creating a new route: prefer whichever
+  // workspace is currently selected app-wide, falling back to the only
+  // workspace available if there's just one.
   const singleWorkspace = !isEdit && (workspaces || []).length === 1;
   useEffect(() => {
-    if (singleWorkspace && !formData.properties?.workspaceId) {
+    if (isEdit || formData.properties?.workspaceId) return;
+    if (currentWorkspaceId && (workspaces || []).some((ws: any) => ws.id === currentWorkspaceId)) {
+      setFormData((prev) => ({
+        ...prev,
+        properties: { ...prev.properties, workspaceId: currentWorkspaceId } as any,
+      }));
+    } else if (singleWorkspace) {
       const wsId = workspaces![0].id;
       setFormData((prev) => ({
         ...prev,
@@ -186,7 +196,7 @@ const RouteForm: React.FC<RouteFormProps> = ({
       }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaces, singleWorkspace]);
+  }, [workspaces, singleWorkspace, currentWorkspaceId]);
 
   // Escape key handler
   useEffect(() => {

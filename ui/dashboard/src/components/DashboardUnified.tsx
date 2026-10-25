@@ -38,6 +38,7 @@ import {
   DomainDto,
 } from '../services/api';
 import { getCountryDisplayName } from '../utils/countries';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import LoadingSpinner from './LoadingSpinner';
 import WorldMap from './WorldMap';
 import './DesignSystem.css';
@@ -376,6 +377,7 @@ const dateRanges = [
 ];
 
 const Dashboard: React.FC = () => {
+  const { currentWorkspaceId } = useWorkspace();
   const [analytics, setAnalytics] = useState<ClickAnalytics | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [prevTotals, setPrevTotals] = useState<PeriodTotals | null>(null);
@@ -431,8 +433,12 @@ const Dashboard: React.FC = () => {
         apiService.clickstream.getDeviceStats({ fromDate, toDate }),
         apiService.clickstream.getBrowserStats({ fromDate, toDate }),
         apiService.clickstream.getTrafficTypeStats({ fromHour, toHour }),
+        // Note: the clickstream endpoints below have no workspaceId param,
+        // so the click/traffic charts stay global regardless of the
+        // selected workspace. Only the route-derived stats (active/blocked
+        // route counts, Needs Attention) can be scoped today.
         apiService.clickstream.getRoutePerformance({ fromDate, toDate, limit: 10 }),
-        apiService.routes.list({ page: 1, pageSize: 1000 }),
+        apiService.routes.list({ page: 1, pageSize: 1000, workspaceId: currentWorkspaceId ?? undefined }),
         apiService.domains.list({ page: 1, pageSize: 100 }),
         apiService.clickstream.getDailyStats({ fromDate: prevFromDate, toDate: prevToDate }),
       ]);
@@ -492,7 +498,7 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, currentWorkspaceId]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -521,7 +527,7 @@ const Dashboard: React.FC = () => {
 
   if (error && !analytics) {
     return (
-      <div className="container" style={{ paddingTop: '2rem' }}>
+      <div className="container">
         <style>{dashboardStyles}</style>
         <div className="card" style={{ padding: '2rem', textAlign: 'center', borderColor: 'var(--color-error)' }}>
           <h3 className="status-error" style={{ margin: '0 0 0.5rem 0' }}>Error Loading Dashboard</h3>
@@ -559,7 +565,7 @@ const Dashboard: React.FC = () => {
   return (
     <>
       <style>{dashboardStyles}</style>
-      <div className="container" style={{ paddingTop: '1.5rem', paddingBottom: '2rem' }}>
+      <div className="container">
         {/* Refreshing indicator */}
         {loading && analytics && (
           <div className="db-refreshing">

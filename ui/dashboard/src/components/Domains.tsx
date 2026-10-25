@@ -635,7 +635,7 @@ const Domains: React.FC = () => {
 
   if (error) {
     return (
-      <div className="container" style={{ paddingTop: '1.5rem' }}>
+      <div className="container">
         <div className="alert alert-error">
           <h3>Error Loading Domains</h3>
           <p>{error}</p>
@@ -648,7 +648,7 @@ const Domains: React.FC = () => {
   return (
     <>
       <style>{domainStyles}</style>
-      <div className="container" style={{ paddingTop: '1.5rem', paddingBottom: '2rem' }}>
+      <div className="container">
         {/* Page Header */}
         <div className="page-header">
           <div className="page-title-section">

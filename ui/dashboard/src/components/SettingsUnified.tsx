@@ -73,7 +73,7 @@ const Settings: React.FC = () => {
   return (
     <>
       <style>{securityStyles}</style>
-      <div className="container" style={{ paddingTop: '1.5rem', maxWidth: '560px' }}>
+      <div className="container" style={{ maxWidth: '560px' }}>
         {/* Appearance */}
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <div className="card-header">

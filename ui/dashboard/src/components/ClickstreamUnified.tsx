@@ -380,7 +380,7 @@ const Clickstream: React.FC = () => {
 
   if (error) {
     return (
-      <div className="container" style={{ paddingTop: '2rem' }}>
+      <div className="container">
         <style>{clickstreamStyles}</style>
         <div className="card" style={{ padding: '2rem', textAlign: 'center', borderColor: 'var(--color-error)' }}>
           <h3 className="status-error" style={{ margin: '0 0 0.5rem 0' }}>Error Loading Clickstream</h3>
@@ -404,7 +404,7 @@ const Clickstream: React.FC = () => {
   return (
     <>
       <style>{clickstreamStyles}</style>
-      <div className="container" style={{ paddingTop: '1.5rem', paddingBottom: '2rem' }}>
+      <div className="container">
         {/* Page Header */}
         <div className="page-header">
           <div className="page-title-section">

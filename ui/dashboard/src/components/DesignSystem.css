@@ -357,7 +357,7 @@ body {
 .container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 var(--space-md);
+  padding: var(--space-lg) var(--space-md) var(--space-xl);
 }
 
 .page-header {
@@ -2596,6 +2596,22 @@ body {
 }
 
 /* ===== LOADING STATES ===== */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-2xl);
+  min-height: 300px;
+  color: var(--text-muted);
+}
+
+.loading-message {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
 .loading-spinner {
   display: inline-block;
   width: 20px;
