@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Activity,
-  Globe,
   Clock,
   Monitor,
   Smartphone,
@@ -14,52 +13,17 @@ import {
   Users,
   MousePointerClick,
   X,
-  ChevronDown,
 } from 'lucide-react';
 import { apiService, ClickStreamEvent } from '../services/api';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import Dropdown from './Dropdown';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
+// Clickstream-specific widgets with no shared DesignSystem.css equivalent:
+// the live/paused pulse indicator, the card-header split layout (title +
+// right-aligned meta text), and the truncated destination-URL cell.
 const clickstreamStyles = `
-/* ===== CLICKSTREAM PAGE STYLES ===== */
-
-/* Page Header */
-.cs-page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-}
-
-.cs-page-title-section {
-  flex: 1;
-  min-width: 200px;
-}
-
-.cs-page-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 0.25rem 0;
-  letter-spacing: -0.025em;
-}
-
-.cs-page-subtitle {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.cs-page-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-/* Live Indicator */
 .cs-live-badge {
   display: inline-flex;
   align-items: center;
@@ -100,209 +64,29 @@ const clickstreamStyles = `
   50% { opacity: 0.5; transform: scale(0.85); }
 }
 
-/* Stats Grid - Enhanced */
-.cs-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-@media (max-width: 1200px) {
-  .cs-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .cs-stats-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.cs-stat-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-xl);
-  padding: 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  transition: all var(--transition-normal);
-}
-
-.cs-stat-card:hover {
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-secondary);
-}
-
-.cs-stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.cs-stat-icon svg {
-  width: 24px;
-  height: 24px;
-  color: #fff;
-}
-
-.cs-stat-icon.primary { background: var(--color-primary); }
-.cs-stat-icon.success { background: var(--color-success); }
-.cs-stat-icon.warning { background: var(--color-warning); }
-.cs-stat-icon.info { background: #8b5cf6; }
-
-.cs-stat-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.cs-stat-value {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
-  margin-bottom: 0.125rem;
-}
-
-.cs-stat-label {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-/* Toolbar */
-.cs-toolbar {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-xl);
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.5rem;
+.cs-events-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
+  margin-bottom: var(--space-lg);
 }
 
-.cs-toolbar-section {
+.cs-events-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  gap: 0.375rem;
+  white-space: nowrap;
 }
 
-/* Date Range Buttons */
-.cs-range-group {
-  display: inline-flex;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-lg);
+.cs-cell-url {
+  max-width: 220px;
   overflow: hidden;
-  background: var(--bg-primary);
-}
-
-.cs-range-btn {
-  padding: 0.5rem 0.875rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-family: inherit;
-}
-
-.cs-range-btn:not(:last-child) {
-  border-right: 1px solid var(--border-secondary);
-}
-
-.cs-range-btn:hover:not(.active) {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.cs-range-btn.active {
-  background: var(--color-primary);
-  color: #ffffff;
-}
-
-/* Filter Controls */
-.cs-filter-select {
-  padding: 0.5rem 2.25rem 0.5rem 0.75rem;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-md);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  background-color: var(--bg-primary);
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 0.5rem center;
-  background-repeat: no-repeat;
-  background-size: 1rem;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  appearance: none;
-  -webkit-appearance: none;
-  min-width: 130px;
-}
-
-.cs-filter-select:hover {
-  border-color: var(--color-primary);
-  background-color: var(--bg-elevated);
-}
-
-.cs-filter-select:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
-}
-
-.cs-search-box {
-  position: relative;
-  min-width: 240px;
-}
-
-.cs-search-box input {
-  width: 100%;
-  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-md);
-  font-size: 0.8125rem;
-  color: var(--text-primary);
-  background: var(--bg-primary);
-  transition: all var(--transition-fast);
-}
-
-.cs-search-box input::placeholder {
-  color: var(--text-muted);
-}
-
-.cs-search-box input:hover {
-  border-color: var(--color-primary);
-  background-color: var(--bg-elevated);
-}
-
-.cs-search-box input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
-}
-
-.cs-search-icon {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  pointer-events: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cs-clear-btn {
@@ -324,299 +108,6 @@ const clickstreamStyles = `
 .cs-clear-btn:hover {
   color: var(--text-primary);
   background: var(--bg-tertiary);
-}
-
-/* Events Table Card */
-.cs-events-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-}
-
-.cs-events-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border-primary);
-  background: var(--bg-secondary);
-}
-
-.cs-events-title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.cs-events-count {
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.125rem 0.5rem;
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border-radius: var(--radius-2xl);
-}
-
-.cs-events-meta {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-/* Table Styles */
-.cs-table-container {
-  overflow-x: auto;
-}
-
-.cs-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8125rem;
-}
-
-.cs-table th {
-  text-align: left;
-  padding: 0.75rem 1rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-primary);
-  white-space: nowrap;
-}
-
-.cs-table td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-primary);
-  vertical-align: middle;
-}
-
-.cs-table tbody tr {
-  transition: background var(--transition-fast);
-}
-
-.cs-table tbody tr:hover {
-  background: var(--bg-secondary);
-}
-
-.cs-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.cs-table tbody tr.is-bot {
-  opacity: 0.6;
-}
-
-/* Cell Styles */
-.cs-cell-time {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.cs-cell-time svg {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.cs-cell-route {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.cs-cell-domain {
-  color: var(--text-secondary);
-}
-
-.cs-cell-url {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-secondary);
-}
-
-.cs-cell-location {
-  line-height: 1.4;
-}
-
-.cs-location-city {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.cs-location-country {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-}
-
-.cs-cell-device {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.cs-cell-device svg {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.cs-cell-browser {
-  line-height: 1.4;
-}
-
-.cs-browser-name {
-  color: var(--text-primary);
-}
-
-.cs-browser-os {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-}
-
-.cs-cell-ip {
-  font-family: var(--font-family-mono);
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-/* Badges */
-.cs-badges {
-  display: flex;
-  gap: 0.25rem;
-  flex-wrap: wrap;
-}
-
-.cs-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.125rem 0.5rem;
-  border-radius: var(--radius-2xl);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.cs-badge-new {
-  background: rgba(34, 197, 94, 0.1);
-  color: var(--color-success);
-}
-
-.cs-badge-returning {
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
-}
-
-.cs-badge-bot {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--color-warning);
-}
-
-/* Empty State */
-.cs-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  text-align: center;
-}
-
-.cs-empty-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--bg-tertiary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1.25rem;
-}
-
-.cs-empty-icon svg {
-  width: 32px;
-  height: 32px;
-  color: var(--text-muted);
-}
-
-.cs-empty-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 0.5rem 0;
-}
-
-.cs-empty-description {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  max-width: 320px;
-  margin: 0;
-}
-
-/* Error State */
-.cs-error {
-  background: var(--bg-elevated);
-  border: 1px solid var(--color-error);
-  border-radius: var(--radius-xl);
-  padding: 2rem;
-  text-align: center;
-  margin: 2rem 0;
-}
-
-.cs-error-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-error);
-  margin: 0 0 0.5rem 0;
-}
-
-.cs-error-message {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin: 0 0 1rem 0;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .cs-page-header {
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .cs-page-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .cs-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .cs-toolbar-section {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .cs-search-box {
-    min-width: 100%;
-  }
-
-  .cs-filter-select {
-    flex: 1;
-  }
 }
 `;
 
@@ -644,6 +135,7 @@ interface ClickstreamFilters {
 }
 
 const Clickstream: React.FC = () => {
+  const { currentWorkspaceId } = useWorkspace();
   const [events, setEvents] = useState<ClickEvent[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<ClickEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -729,6 +221,7 @@ const Clickstream: React.FC = () => {
       const params = {
         startDate,
         endDate,
+        workspaceId: currentWorkspaceId ?? undefined,
       };
 
       const [rawEvents, rawStats] = await Promise.all([
@@ -750,7 +243,7 @@ const Clickstream: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [getDateRange]);
+  }, [getDateRange, currentWorkspaceId]);
 
   const refreshData = useCallback(async () => {
     if (!isLive) return;
@@ -760,6 +253,7 @@ const Clickstream: React.FC = () => {
       const params = {
         startDate,
         endDate,
+        workspaceId: currentWorkspaceId ?? undefined,
       };
 
       const [rawEvents, rawStats] = await Promise.all([
@@ -778,7 +272,7 @@ const Clickstream: React.FC = () => {
     } catch (err) {
       console.error('Error refreshing clickstream data:', err);
     }
-  }, [isLive, getDateRange]);
+  }, [isLive, getDateRange, currentWorkspaceId]);
 
   const applyFilters = useCallback(() => {
     let filtered = events;
@@ -891,10 +385,11 @@ const Clickstream: React.FC = () => {
 
   if (error) {
     return (
-      <div className="container" style={{ paddingTop: '2rem' }}>
-        <div className="cs-error">
-          <h3 className="cs-error-title">Error Loading Clickstream</h3>
-          <p className="cs-error-message">{error}</p>
+      <div className="container">
+        <style>{clickstreamStyles}</style>
+        <div className="card" style={{ padding: '2rem', textAlign: 'center', borderColor: 'var(--color-error)' }}>
+          <h3 className="status-error" style={{ margin: '0 0 0.5rem 0' }}>Error Loading Clickstream</h3>
+          <p style={{ color: 'var(--text-secondary)', margin: '0 0 1rem 0' }}>{error}</p>
           <button className="btn btn-primary" onClick={fetchInitialData}>
             <RotateCcw size={16} />
             Retry
@@ -914,14 +409,14 @@ const Clickstream: React.FC = () => {
   return (
     <>
       <style>{clickstreamStyles}</style>
-      <div className="container" style={{ paddingTop: '1.5rem', paddingBottom: '2rem' }}>
+      <div className="container">
         {/* Page Header */}
-        <div className="cs-page-header">
-          <div className="cs-page-title-section">
-            <h1 className="cs-page-title">Clickstream</h1>
-            <p className="cs-page-subtitle">Real-time monitoring of link clicks and visitor activity</p>
+        <div className="page-header">
+          <div className="page-title-section">
+            <h1 className="page-title">Clickstream</h1>
+            <p className="page-subtitle">Real-time monitoring of link clicks and visitor activity</p>
           </div>
-          <div className="cs-page-actions">
+          <div className="page-actions">
             <div className={`cs-live-badge ${isLive ? 'live' : 'paused'}`}>
               <span className="cs-live-dot" />
               {isLive ? 'Live' : 'Paused'}
@@ -941,56 +436,56 @@ const Clickstream: React.FC = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className="cs-stats-grid">
-          <div className="cs-stat-card">
-            <div className="cs-stat-icon primary">
+        <div className="stats-grid">
+          <div className="stats-card">
+            <div className="stats-icon primary">
               <MousePointerClick />
             </div>
-            <div className="cs-stat-content">
-              <div className="cs-stat-value">{stats.totalClicks.toLocaleString()}</div>
-              <div className="cs-stat-label">Total Clicks</div>
+            <div className="stats-content">
+              <div className="stats-value">{stats.totalClicks.toLocaleString()}</div>
+              <div className="stats-label">Total Clicks</div>
             </div>
           </div>
 
-          <div className="cs-stat-card">
-            <div className="cs-stat-icon success">
+          <div className="stats-card">
+            <div className="stats-icon success">
               <Users />
             </div>
-            <div className="cs-stat-content">
-              <div className="cs-stat-value">{stats.uniqueClicks.toLocaleString()}</div>
-              <div className="cs-stat-label">Unique Visitors</div>
+            <div className="stats-content">
+              <div className="stats-value">{stats.uniqueClicks.toLocaleString()}</div>
+              <div className="stats-label">Unique Visitors</div>
             </div>
           </div>
 
-          <div className="cs-stat-card">
-            <div className="cs-stat-icon warning">
+          <div className="stats-card">
+            <div className="stats-icon warning">
               <Bot />
             </div>
-            <div className="cs-stat-content">
-              <div className="cs-stat-value">{stats.botClicks.toLocaleString()}</div>
-              <div className="cs-stat-label">Bot Clicks</div>
+            <div className="stats-content">
+              <div className="stats-value">{stats.botClicks.toLocaleString()}</div>
+              <div className="stats-label">Bot Clicks</div>
             </div>
           </div>
 
-          <div className="cs-stat-card">
-            <div className="cs-stat-icon info">
+          <div className="stats-card">
+            <div className="stats-icon info">
               <Activity />
             </div>
-            <div className="cs-stat-content">
-              <div className="cs-stat-value">{filteredEvents.length.toLocaleString()}</div>
-              <div className="cs-stat-label">Showing</div>
+            <div className="stats-content">
+              <div className="stats-value">{filteredEvents.length.toLocaleString()}</div>
+              <div className="stats-label">Showing</div>
             </div>
           </div>
         </div>
 
         {/* Toolbar */}
-        <div className="cs-toolbar">
-          <div className="cs-toolbar-section">
-            <div className="cs-range-group">
+        <div className="toolbar">
+          <div className="toolbar-section">
+            <div className="range-group">
               {dateRanges.map((r) => (
                 <button
                   key={r.value}
-                  className={`cs-range-btn ${dateRange === r.value ? 'active' : ''}`}
+                  className={`range-btn ${dateRange === r.value ? 'active' : ''}`}
                   onClick={() => setDateRange(r.value)}
                 >
                   {r.label}
@@ -998,21 +493,21 @@ const Clickstream: React.FC = () => {
               ))}
             </div>
 
-            <select
-              className="cs-filter-select"
+            <Dropdown
               value={filters.device}
-              onChange={(e) => setFilters(prev => ({ ...prev, device: e.target.value }))}
-            >
-              <option value="all">All Devices</option>
-              <option value="desktop">Desktop</option>
-              <option value="mobile">Mobile</option>
-              <option value="tablet">Tablet</option>
-            </select>
+              onChange={(v) => setFilters(prev => ({ ...prev, device: v }))}
+              options={[
+                { value: 'all', label: 'All Devices' },
+                { value: 'desktop', label: 'Desktop' },
+                { value: 'mobile', label: 'Mobile' },
+                { value: 'tablet', label: 'Tablet' },
+              ]}
+            />
           </div>
 
-          <div className="cs-toolbar-section">
-            <div className="cs-search-box">
-              <Search size={16} className="cs-search-icon" />
+          <div className="toolbar-section">
+            <div className="search-box" style={{ minWidth: 240, marginBottom: 0 }}>
+              <Search size={16} />
               <input
                 type="text"
                 placeholder="Search routes, URLs, locations..."
@@ -1038,11 +533,11 @@ const Clickstream: React.FC = () => {
         </div>
 
         {/* Events Table */}
-        <div className="cs-events-card">
+        <div className="chart-card">
           <div className="cs-events-header">
-            <h3 className="cs-events-title">
+            <h3 className="chart-title">
               Click Events
-              <span className="cs-events-count">{filteredEvents.length}</span>
+              <span className="badge badge-secondary">{filteredEvents.length}</span>
             </h3>
             <div className="cs-events-meta">
               <Clock size={12} />
@@ -1050,99 +545,93 @@ const Clickstream: React.FC = () => {
             </div>
           </div>
 
-          <div className="cs-table-container">
-            {filteredEvents.length > 0 ? (
-              <table className="cs-table">
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Domain</th>
-                    <th>Route</th>
-                    <th>Destination</th>
-                    <th>Location</th>
-                    <th>Device</th>
-                    <th>Browser / OS</th>
-                    <th>IP Address</th>
-                    <th>Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredEvents.map((event) => (
-                    <tr key={event.id} className={event.isBot ? 'is-bot' : ''}>
-                      <td>
-                        <div className="cs-cell-time">
-                          <Clock size={14} />
-                          {formatTimestamp(event.timestamp)}
-                        </div>
-                      </td>
-                      <td>
-                        <span className="sa-table-route">{event.routeDomainName || '—'}</span>
-                      </td>
-                      <td>
-                        <span className="sa-table-route">{event.routeName || '—'}</span>
-                      </td>
-                      <td>
-                        <div className="cs-cell-url" title={event.url}>
-                          {event.url || '—'}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="cs-cell-location">
-                          <div className="cs-location-city">{event.city}</div>
-                          <div className="cs-location-country">{event.country}</div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="cs-cell-device">
-                          {getDeviceIcon(event.device)}
-                          <span>{event.device}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="cs-cell-browser">
-                          <div className="cs-browser-name">{event.browser}</div>
-                          <div className="cs-browser-os">{event.os}</div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="cs-cell-ip">{event.ip}</span>
-                      </td>
-                      <td>
-                        <div className="cs-badges">
-                          <span className={`cs-badge ${event.userType === 'new' ? 'cs-badge-new' : 'cs-badge-returning'}`}>
-                            {event.userType}
-                          </span>
-                          {event.isBot && (
-                            <span className="cs-badge cs-badge-bot">bot</span>
-                          )}
-                        </div>
-                      </td>
+          <div className="table-container">
+            <div className="table-wrapper">
+              {filteredEvents.length > 0 ? (
+                <table className="unified-table">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Domain</th>
+                      <th>Route</th>
+                      <th>Destination</th>
+                      <th>Location</th>
+                      <th>Device</th>
+                      <th>Browser / OS</th>
+                      <th>IP Address</th>
+                      <th>Type</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="cs-empty">
-                <div className="cs-empty-icon">
-                  <Activity />
+                  </thead>
+                  <tbody>
+                    {filteredEvents.map((event) => (
+                      <tr key={event.id} style={event.isBot ? { opacity: 0.6 } : undefined}>
+                        <td>
+                          <div className="table-cell-content">
+                            <Clock size={14} className="table-cell-icon" />
+                            <span className="table-cell-text">{formatTimestamp(event.timestamp)}</span>
+                          </div>
+                        </td>
+                        <td className="table-cell-secondary">{event.routeDomainName || '—'}</td>
+                        <td className="table-cell-primary">{event.routeName || '—'}</td>
+                        <td>
+                          <div className="table-cell-secondary cs-cell-url" title={event.url}>
+                            {event.url || '—'}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="table-location-city">{event.city}</div>
+                          <div className="table-location-country">{event.country}</div>
+                        </td>
+                        <td>
+                          <div className="table-cell-content">
+                            <span className="table-cell-icon">{getDeviceIcon(event.device)}</span>
+                            <span className="table-cell-text">{event.device}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="table-device-name">{event.browser}</div>
+                          <div className="table-device">{event.os}</div>
+                        </td>
+                        <td className="table-cell-muted" style={{ fontFamily: 'var(--font-family-mono)', fontSize: '0.75rem' }}>
+                          {event.ip}
+                        </td>
+                        <td>
+                          <div className="table-action-buttons">
+                            <span className={`badge ${event.userType === 'new' ? 'badge-success' : 'badge-secondary'}`}>
+                              {event.userType}
+                            </span>
+                            {event.isBot && (
+                              <span className="badge badge-warning">bot</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="table-empty">
+                  <div className="table-empty-icon">
+                    <Activity />
+                  </div>
+                  <div className="table-empty-title">No events found</div>
+                  <p className="table-empty-description">
+                    {hasActiveFilters
+                      ? 'No events match your current filters. Try adjusting your search criteria.'
+                      : 'No click events have been recorded in this time period.'}
+                  </p>
+                  {hasActiveFilters && (
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={clearFilters}
+                      style={{ marginTop: '1rem' }}
+                    >
+                      Clear Filters
+                    </button>
+                  )}
                 </div>
-                <h3 className="cs-empty-title">No events found</h3>
-                <p className="cs-empty-description">
-                  {hasActiveFilters
-                    ? 'No events match your current filters. Try adjusting your search criteria.'
-                    : 'No click events have been recorded in this time period.'}
-                </p>
-                {hasActiveFilters && (
-                  <button
-                    className="btn btn-outline btn-sm"
-                    onClick={clearFilters}
-                    style={{ marginTop: '1rem' }}
-                  >
-                    Clear Filters
-                  </button>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

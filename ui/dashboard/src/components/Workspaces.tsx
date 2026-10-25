@@ -1,82 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, Briefcase, Calendar, Shield, X } from 'lucide-react';
-import { apiService, WorkspaceDto, CreateWorkspaceDto } from '../services/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Edit, Trash2, Search, Briefcase, Calendar, Shield, X, Users, UserPlus, UserMinus } from 'lucide-react';
+import { apiService, WorkspaceDto, CreateWorkspaceDto, UserWorkspaceDto } from '../services/api';
 import { useAlert } from '../contexts/AlertContext';
+import { getUserInfo } from '../config/keycloak';
+import Dropdown from './Dropdown';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
+// Workspace-specific widgets with no shared DesignSystem.css equivalent —
+// everything else (page header, toolbar, search box, card, badge, modal,
+// form fields, empty state) uses the canonical classes directly.
 const workspaceStyles = `
-.ws-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-  margin-bottom: 1.25rem;
-}
-
-.ws-search {
-  position: relative;
-  flex: 1;
-  max-width: 360px;
-}
-
-.ws-search svg {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
-.ws-search input {
-  width: 100%;
-  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-md);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.ws-search input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
-}
-
-.ws-search input::placeholder {
-  color: var(--text-muted);
-}
-
-.ws-count {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-  margin-left: auto;
-}
-
-/* Cards grid */
 .ws-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 0.75rem;
-}
-
-.ws-card {
-  display: flex;
-  flex-direction: column;
-  padding: 1.25rem;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-lg);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.ws-card:hover {
-  border-color: var(--border-secondary);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  gap: 1rem;
+  align-items: start;
 }
 
 .ws-card-top {
@@ -87,8 +26,8 @@ const workspaceStyles = `
 }
 
 .ws-icon {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -97,12 +36,12 @@ const workspaceStyles = `
 }
 
 .ws-icon-user {
-  background: var(--primary-50, rgba(59, 130, 246, 0.08));
+  background: var(--color-primary-light);
   color: var(--color-primary);
 }
 
 .ws-icon-system {
-  background: rgba(139, 92, 246, 0.08);
+  background: rgba(139, 92, 246, 0.12);
   color: #8b5cf6;
 }
 
@@ -111,36 +50,20 @@ const workspaceStyles = `
   min-width: 0;
 }
 
+.ws-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.3rem;
+}
+
 .ws-name {
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 0.25rem 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.ws-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.625rem;
-  font-weight: 600;
-  padding: 0.125rem 0.375rem;
-  border-radius: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  flex-shrink: 0;
-}
-
-.ws-badge-system {
-  background: rgba(139, 92, 246, 0.1);
-  color: #8b5cf6;
-}
-
-.ws-badge-role {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.3;
 }
 
 .ws-desc {
@@ -152,28 +75,58 @@ const workspaceStyles = `
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  min-height: 2.25em;
 }
 
 .ws-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: auto;
+  gap: 0.75rem;
+  margin-top: 0.875rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border-primary);
+}
+
+.ws-meta-group {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .ws-meta {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  font-size: 0.6875rem;
+  gap: 0.3rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.ws-meta-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.ws-meta-btn:hover {
+  color: var(--color-primary);
 }
 
 .ws-actions {
   display: flex;
   gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .ws-action-btn {
@@ -188,6 +141,7 @@ const workspaceStyles = `
   color: var(--text-muted);
   cursor: pointer;
   transition: all var(--transition-fast);
+  flex-shrink: 0;
 }
 
 .ws-action-btn:hover {
@@ -200,159 +154,74 @@ const workspaceStyles = `
   color: var(--color-error);
 }
 
-/* Empty state */
-.ws-empty {
-  grid-column: 1 / -1;
+/* Members modal */
+.wm-list {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  text-align: center;
+  gap: 0.5rem;
+  max-height: 340px;
+  overflow-y: auto;
 }
 
-.ws-empty-icon {
-  width: 56px;
-  height: 56px;
+.wm-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: var(--bg-tertiary);
-  border-radius: 50%;
-  color: var(--text-muted);
-  margin-bottom: 1rem;
-}
-
-.ws-empty h3 {
-  margin: 0 0 0.375rem 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.ws-empty p {
-  margin: 0 0 1.25rem 0;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  max-width: 320px;
-}
-
-/* Modal */
-.ws-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-}
-
-.ws-modal {
-  background: var(--bg-elevated);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
-  width: 100%;
-  max-width: 460px;
-  overflow: hidden;
-}
-
-.ws-modal-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border-primary);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.ws-modal-header h2 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.ws-modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.ws-modal-close:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.ws-modal-body {
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.ws-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.ws-field label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.ws-field input,
-.ws-field textarea {
-  padding: 0.625rem 0.75rem;
-  border: 1px solid var(--border-secondary);
+  gap: 0.75rem;
+  padding: 0.5rem;
   border-radius: var(--radius-md);
-  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+}
+
+.wm-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.wm-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.wm-id {
+  font-family: var(--font-family-mono);
+  font-size: 0.75rem;
   color: var(--text-primary);
-  font-size: 0.875rem;
-  font-family: inherit;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-  resize: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
-.ws-field input:focus,
-.ws-field textarea:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
-}
-
-.ws-field input::placeholder,
-.ws-field textarea::placeholder {
+.wm-joined {
+  font-size: 0.6875rem;
   color: var(--text-muted);
 }
 
-.ws-field input:disabled,
-.ws-field textarea:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.wm-role-select {
+  font-size: 0.75rem;
 }
 
-.ws-modal-footer {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border-primary);
+.wm-add-row {
   display: flex;
   gap: 0.5rem;
-  justify-content: flex-end;
+  align-items: flex-end;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-primary);
 }
 `;
 
-/* ---------- Modal component ---------- */
+/* ---------- Workspace create/edit modal ---------- */
 interface WorkspaceModalProps {
   show: boolean;
   workspace?: WorkspaceDto;
@@ -398,18 +267,19 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
   if (!show) return null;
 
   return (
-    <div className="ws-modal-overlay" onClick={() => !saving && onClose()}>
-      <div className="ws-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="ws-modal-header">
-          <h2>{workspace ? 'Edit Workspace' : 'Create Workspace'}</h2>
-          <button className="ws-modal-close" onClick={() => !saving && onClose()}>
+    <div className="modal-overlay" onClick={() => !saving && onClose()}>
+      <div className="modal" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>{workspace ? 'Edit Workspace' : 'Create Workspace'}</h3>
+          <button className="btn btn-outline btn-icon btn-sm" onClick={() => !saving && onClose()}>
             <X size={16} />
           </button>
         </div>
-        <div className="ws-modal-body">
-          <div className="ws-field">
-            <label>Name</label>
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">Name</label>
             <input
+              className="form-control"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -419,18 +289,20 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
               disabled={saving}
             />
           </div>
-          <div className="ws-field">
-            <label>Description (optional)</label>
+          <div className="form-group">
+            <label className="form-label">Description (optional)</label>
             <textarea
+              className="form-control"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What is this workspace for?"
               rows={3}
               disabled={saving}
+              style={{ resize: 'vertical' }}
             />
           </div>
         </div>
-        <div className="ws-modal-footer">
+        <div className="modal-footer">
           <button className="btn btn-outline btn-sm" onClick={onClose} disabled={saving}>Cancel</button>
           <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={saving || !name.trim()}>
             {saving ? 'Saving...' : workspace ? 'Save Changes' : 'Create Workspace'}
@@ -441,31 +313,241 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
   );
 };
 
+/* ---------- Members modal ---------- */
+interface MembersModalProps {
+  workspace: WorkspaceDto;
+  canManage: boolean;
+  currentUserId?: string;
+  onClose: () => void;
+  onMemberCountChange: (workspaceId: string, count: number) => void;
+}
+
+const ROLE_OPTIONS = ['Owner', 'Admin', 'Member'];
+
+const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, currentUserId, onClose, onMemberCountChange }) => {
+  const { showToast, showConfirm } = useAlert();
+  const [members, setMembers] = useState<UserWorkspaceDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busyUserId, setBusyUserId] = useState<string | null>(null);
+  const [newUserId, setNewUserId] = useState('');
+  const [newRole, setNewRole] = useState('Member');
+  const [adding, setAdding] = useState(false);
+
+  const loadMembers = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.workspaces.getMembers(workspace.id);
+      setMembers(data);
+      onMemberCountChange(workspace.id, data.length);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load members');
+    } finally {
+      setLoading(false);
+    }
+  }, [workspace.id, onMemberCountChange]);
+
+  useEffect(() => { loadMembers(); }, [loadMembers]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const handleRoleChange = async (member: UserWorkspaceDto, role: string) => {
+    setBusyUserId(member.userId);
+    try {
+      await apiService.workspaces.updateMemberRole(workspace.id, member.userId, role);
+      await loadMembers();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Failed to update role', 'error');
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  const handleRemove = async (member: UserWorkspaceDto) => {
+    const confirmed = await showConfirm(
+      `Remove this member from "${workspace.name}"?`,
+      'Remove member',
+      { confirmLabel: 'Remove', variant: 'danger' }
+    );
+    if (!confirmed) return;
+    setBusyUserId(member.userId);
+    try {
+      await apiService.workspaces.removeMember(workspace.id, member.userId);
+      await loadMembers();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Failed to remove member', 'error');
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  const handleAdd = async () => {
+    if (!newUserId.trim()) return;
+    setAdding(true);
+    try {
+      await apiService.workspaces.addMember(workspace.id, newUserId.trim(), newRole);
+      setNewUserId('');
+      setNewRole('Member');
+      await loadMembers();
+      showToast('Member added', 'success');
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Failed to add member', 'error');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const formatDate = (iso?: string) =>
+    iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Members — {workspace.name}</h3>
+          <button className="btn btn-outline btn-icon btn-sm" onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+        <div className="modal-body">
+          {loading ? (
+            <LoadingSpinner message="Loading members..." />
+          ) : error ? (
+            <div className="alert alert-error">{error}</div>
+          ) : members.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon"><Users size={24} /></div>
+              <div className="empty-state-title">No members</div>
+              <div className="empty-state-description">This workspace has no members yet.</div>
+            </div>
+          ) : (
+            <div className="wm-list">
+              {members.map((member) => {
+                const isSelf = currentUserId && member.userId === currentUserId;
+                const isBusy = busyUserId === member.userId;
+                return (
+                  <div key={member.userId} className="wm-row">
+                    <div className="wm-avatar">{(member.userId || '?').slice(0, 2)}</div>
+                    <div className="wm-info">
+                      <span className="wm-id" title={member.userId}>
+                        {member.userId}{isSelf ? ' (You)' : ''}
+                      </span>
+                      <span className="wm-joined">Joined {formatDate(member.joinedAt)}</span>
+                    </div>
+                    {canManage ? (
+                      <>
+                        <Dropdown
+                          compact
+                          align="right"
+                          value={member.role}
+                          disabled={isBusy}
+                          onChange={(v) => handleRoleChange(member, v)}
+                          options={ROLE_OPTIONS.map((r) => ({ value: r, label: r }))}
+                        />
+                        <button
+                          className="ws-action-btn danger"
+                          title="Remove member"
+                          disabled={isBusy}
+                          onClick={() => handleRemove(member)}
+                        >
+                          <UserMinus size={14} />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="badge badge-secondary">{member.role}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {canManage && (
+            <div className="wm-add-row">
+              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                <label className="form-label">Add member by user ID</label>
+                <input
+                  className="form-control"
+                  value={newUserId}
+                  onChange={(e) => setNewUserId(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                  placeholder="User ID"
+                  disabled={adding}
+                />
+              </div>
+              <Dropdown
+                compact
+                value={newRole}
+                onChange={setNewRole}
+                disabled={adding}
+                options={ROLE_OPTIONS.map((r) => ({ value: r, label: r }))}
+              />
+              <button className="btn btn-primary btn-sm" onClick={handleAdd} disabled={adding || !newUserId.trim()}>
+                <UserPlus size={14} />
+                Add
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-outline btn-sm" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ---------- Main component ---------- */
 const Workspaces: React.FC = () => {
   const { showToast, showConfirm } = useAlert();
+  const currentUserId = getUserInfo()?.sub;
   const [workspaces, setWorkspaces] = useState<WorkspaceDto[]>([]);
+  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
+  const [myMemberships, setMyMemberships] = useState<Record<string, UserWorkspaceDto | undefined>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingWorkspace, setEditingWorkspace] = useState<WorkspaceDto | undefined>();
+  const [membersWorkspace, setMembersWorkspace] = useState<WorkspaceDto | undefined>();
 
-  useEffect(() => { loadWorkspaces(); }, []);
-
-  const loadWorkspaces = async () => {
+  const loadWorkspaces = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await apiService.workspaces.list();
       setWorkspaces(data);
+
+      // The list endpoint doesn't say what role the current user holds in
+      // each workspace, so derive it from the member list we fetch anyway
+      // (also used for the member-count badge).
+      const results = await Promise.all(
+        data.map((ws) =>
+          apiService.workspaces.getMembers(ws.id)
+            .then((members) => ({
+              id: ws.id,
+              count: members.length,
+              mine: members.find((m) => m.userId === currentUserId),
+            }))
+            .catch(() => ({ id: ws.id, count: 0, mine: undefined }))
+        )
+      );
+      setMemberCounts(Object.fromEntries(results.map((r) => [r.id, r.count])));
+      setMyMemberships(Object.fromEntries(results.map((r) => [r.id, r.mine])));
     } catch (err: any) {
       console.error('Failed to load workspaces:', err);
       setError(err.response?.data?.message || 'Failed to load workspaces');
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUserId]);
+
+  useEffect(() => { loadWorkspaces(); }, [loadWorkspaces]);
 
   const handleCreate = () => { setEditingWorkspace(undefined); setShowModal(true); };
   const handleEdit = (ws: WorkspaceDto) => { setEditingWorkspace(ws); setShowModal(true); };
@@ -494,36 +576,50 @@ const Workspaces: React.FC = () => {
     }
   };
 
+  const handleMemberCountChange = useCallback((workspaceId: string, count: number) => {
+    setMemberCounts((prev) => ({ ...prev, [workspaceId]: count }));
+  }, []);
+
   const filtered = workspaces.filter((ws) =>
     ws.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ws.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const formatDate = (iso?: string) =>
+    iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) return <LoadingSpinner message="Loading workspaces..." />;
 
   return (
     <>
       <style>{workspaceStyles}</style>
       <div className="container">
-        {/* Toolbar */}
-        <div className="ws-toolbar">
-          <div className="ws-search">
-            <Search size={15} />
-            <input
-              type="text"
-              placeholder="Search workspaces..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        <div className="page-header">
+          <div className="page-title-section">
+            <h1 className="page-title">Workspaces</h1>
+            <p className="page-subtitle">Organize your routes and collaborate with your team</p>
           </div>
-          <span className="ws-count">{filtered.length} workspace{filtered.length !== 1 ? 's' : ''}</span>
-          <button className="btn btn-primary btn-sm" onClick={handleCreate}>
-            <Plus size={16} />
-            Create Workspace
-          </button>
+          <div className="page-actions">
+            <button className="btn btn-primary btn-sm" onClick={handleCreate}>
+              <Plus size={16} />
+              Create Workspace
+            </button>
+          </div>
+        </div>
+
+        <div className="toolbar">
+          <div className="toolbar-section">
+            <div className="search-box" style={{ marginBottom: 0 }}>
+              <Search size={15} />
+              <input
+                type="text"
+                placeholder="Search workspaces..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+          <span className="text-sm text-muted">{filtered.length} workspace{filtered.length !== 1 ? 's' : ''}</span>
         </div>
 
         {error && (
@@ -533,16 +629,16 @@ const Workspaces: React.FC = () => {
         {/* Cards */}
         <div className="ws-grid">
           {filtered.length === 0 ? (
-            <div className="ws-empty">
-              <div className="ws-empty-icon">
+            <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+              <div className="empty-state-icon">
                 <Briefcase size={24} />
               </div>
-              <h3>{searchTerm ? 'No matches' : 'No workspaces yet'}</h3>
-              <p>
+              <div className="empty-state-title">{searchTerm ? 'No matches' : 'No workspaces yet'}</div>
+              <div className="empty-state-description" style={{ maxWidth: 320, margin: '0 auto 1.25rem' }}>
                 {searchTerm
                   ? 'Try a different search term.'
                   : 'Create a workspace to organize your routes and collaborate with your team.'}
-              </p>
+              </div>
               {!searchTerm && (
                 <button className="btn btn-primary btn-sm" onClick={handleCreate}>
                   <Plus size={16} />
@@ -552,30 +648,38 @@ const Workspaces: React.FC = () => {
             </div>
           ) : (
             filtered.map((ws) => {
-              const isSystem = ws.type === 'System';
-              const canEdit = !isSystem && (ws.userRole === 'Owner' || ws.userRole === 'Admin');
-              const canDelete = !isSystem && ws.userRole === 'Owner';
+              const isSystem = ws.isSystem;
+              const myMembership = myMemberships[ws.id];
+              const canEdit = !isSystem && (myMembership?.isOwner || myMembership?.isAdmin);
+              const canDelete = !isSystem && myMembership?.isOwner;
+              const memberCount = memberCounts[ws.id];
 
               return (
-                <div key={ws.id} className="ws-card">
+                <div key={ws.id} className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column' }}>
                   <div className="ws-card-top">
                     <div className={`ws-icon ${isSystem ? 'ws-icon-system' : 'ws-icon-user'}`}>
                       {isSystem ? <Shield size={18} /> : <Briefcase size={18} />}
                     </div>
                     <div className="ws-info">
-                      <h3 className="ws-name">
-                        {ws.name}
-                        {isSystem && <span className="ws-badge ws-badge-system">System</span>}
-                        {ws.userRole && <span className="ws-badge ws-badge-role">{ws.userRole}</span>}
-                      </h3>
-                      {ws.description && <p className="ws-desc">{ws.description}</p>}
+                      <div className="ws-name-row">
+                        <h3 className="ws-name">{ws.name}</h3>
+                        {isSystem && <span className="badge badge-primary">System</span>}
+                        {myMembership?.role && <span className="badge badge-secondary">{myMembership.role}</span>}
+                      </div>
+                      <p className="ws-desc">{ws.description || 'No description.'}</p>
                     </div>
                   </div>
 
                   <div className="ws-footer">
-                    <div className="ws-meta">
-                      <Calendar size={12} />
-                      {formatDate(ws.createdAt)}
+                    <div className="ws-meta-group">
+                      <span className="ws-meta">
+                        <Calendar size={12} />
+                        {formatDate(ws.createdAt)}
+                      </span>
+                      <button className="ws-meta-btn" onClick={() => setMembersWorkspace(ws)}>
+                        <Users size={12} />
+                        {memberCount ?? '—'} member{memberCount === 1 ? '' : 's'}
+                      </button>
                     </div>
                     <div className="ws-actions">
                       {canEdit && (
@@ -603,6 +707,16 @@ const Workspaces: React.FC = () => {
         onClose={() => { setShowModal(false); setEditingWorkspace(undefined); }}
         onSave={handleSave}
       />
+
+      {membersWorkspace && (
+        <MembersModal
+          workspace={membersWorkspace}
+          canManage={!!(myMemberships[membersWorkspace.id]?.isOwner || myMemberships[membersWorkspace.id]?.isAdmin)}
+          currentUserId={currentUserId}
+          onClose={() => setMembersWorkspace(undefined)}
+          onMemberCountChange={handleMemberCountChange}
+        />
+      )}
     </>
   );
 };

@@ -5,6 +5,7 @@ import { useMockData } from './config/development';
 import { apiService } from './services/api';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AlertProvider, useAlert } from './contexts/AlertContext';
+import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import Dashboard from './components/DashboardUnified';
 import RoutesPage from './components/RoutesWithSidebar';
 import Domains from './components/Domains';
@@ -169,18 +170,20 @@ function AppContent() {
           ) : state.needsInitialization ? (
             <Navigate to="/setup" replace />
           ) : (
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/routes" element={<RoutesPage />} />
-                <Route path="/domains" element={<Domains />} />
-                <Route path="/workspaces" element={<Workspaces />} />
-                <Route path="/clickstream" element={<Clickstream />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
-            </Layout>
+            <WorkspaceProvider>
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/routes" element={<RoutesPage />} />
+                  <Route path="/domains" element={<Domains />} />
+                  <Route path="/workspaces" element={<Workspaces />} />
+                  <Route path="/clickstream" element={<Clickstream />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </Layout>
+            </WorkspaceProvider>
           )
         } />
       </Routes>

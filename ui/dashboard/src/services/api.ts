@@ -137,12 +137,15 @@ export interface FileRouting {
   mime_type?: string;
 }
 
+// Wire shape matches management-api's RoutingPolicyDto, an internally
+// tagged enum (`#[serde(tag = "type")]`) — the discriminant lives in a
+// `type` field, not as the sole object key.
 export type RoutingPolicy =
   | 'Basic'
   | 'Mirroring'
-  | { Conditional: ConditionalRouting[] }
-  | { Challenge: ChallengeRouting }
-  | { File: FileRouting };
+  | { type: 'Conditional'; conditions: ConditionalRouting[] }
+  | { type: 'Challenge'; challenge?: ChallengeRouting }
+  | { type: 'File'; file?: FileRouting };
 
 // API Types
 export interface RouteDto {
@@ -409,12 +412,12 @@ export interface WorkspaceDto {
   id: string;
   name: string;
   description: string;
-  type: string;  // "System" or "User"
-  createdAt: string;
-  updatedAt: string;
-  userRole?: string;
-  members?: UserWorkspaceDto[];
-  isSystem?: boolean;
+  workspaceType: string;  // "System" or "User"
+  isSystem: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  memberCount?: number;
+  routeCount?: number;
 }
 
 export interface UserWorkspaceDto {
@@ -422,7 +425,9 @@ export interface UserWorkspaceDto {
   userId: string;
   workspaceId: string;
   role: string;
-  joinedAt: string;
+  isOwner: boolean;
+  isAdmin: boolean;
+  joinedAt?: string;
 }
 
 export interface CreateWorkspaceDto {
@@ -619,7 +624,7 @@ export const apiService = {
 
   // ClickStream API
   clickstream: {
-    getAll: async (params?: { routeId?: string; startDate?: string; endDate?: string }): Promise<ClickStreamEvent[]> => {
+    getAll: async (params?: { routeId?: string; workspaceId?: string; startDate?: string; endDate?: string }): Promise<ClickStreamEvent[]> => {
       const response = await routerApi.get('/clickstream', { params });
       return response.data;
     },
@@ -629,48 +634,48 @@ export const apiService = {
       return response.data;
     },
 
-    getStats: async (params?: { routeId?: string; startDate?: string; endDate?: string }): Promise<ClickStreamStats> => {
+    getStats: async (params?: { routeId?: string; workspaceId?: string; startDate?: string; endDate?: string }): Promise<ClickStreamStats> => {
       const response = await routerApi.get('/clickstream/stats', { params });
       return response.data;
     },
 
     // Materialized view statistics endpoints
-    getDailyStats: async (params?: { routeId?: string; fromDate?: string; toDate?: string }): Promise<DailyStatsDto[]> => {
+    getDailyStats: async (params?: { routeId?: string; workspaceId?: string; fromDate?: string; toDate?: string }): Promise<DailyStatsDto[]> => {
       const response = await routerApi.get('/clickstream/stats/daily', { params });
       return response.data;
     },
 
-    getHourlyStats: async (params?: { routeId?: string; fromHour?: string; toHour?: string }): Promise<HourlyStatsDto[]> => {
+    getHourlyStats: async (params?: { routeId?: string; workspaceId?: string; fromHour?: string; toHour?: string }): Promise<HourlyStatsDto[]> => {
       const response = await routerApi.get('/clickstream/stats/hourly', { params });
       return response.data;
     },
 
-    getGeographicStats: async (params?: { routeId?: string; fromDate?: string; toDate?: string }): Promise<GeographicStatsDto[]> => {
+    getGeographicStats: async (params?: { routeId?: string; workspaceId?: string; fromDate?: string; toDate?: string }): Promise<GeographicStatsDto[]> => {
       const response = await routerApi.get('/clickstream/stats/geographic', { params });
       return response.data;
     },
 
-    getDeviceStats: async (params?: { routeId?: string; fromDate?: string; toDate?: string }): Promise<DeviceStatsDto[]> => {
+    getDeviceStats: async (params?: { routeId?: string; workspaceId?: string; fromDate?: string; toDate?: string }): Promise<DeviceStatsDto[]> => {
       const response = await routerApi.get('/clickstream/stats/devices', { params });
       return response.data;
     },
 
-    getBrowserStats: async (params?: { routeId?: string; fromDate?: string; toDate?: string }): Promise<BrowserStatsDto[]> => {
+    getBrowserStats: async (params?: { routeId?: string; workspaceId?: string; fromDate?: string; toDate?: string }): Promise<BrowserStatsDto[]> => {
       const response = await routerApi.get('/clickstream/stats/browsers', { params });
       return response.data;
     },
 
-    getRoutePerformance: async (params?: { fromDate?: string; toDate?: string; limit?: number }): Promise<RoutePerformanceDto[]> => {
+    getRoutePerformance: async (params?: { workspaceId?: string; fromDate?: string; toDate?: string; limit?: number }): Promise<RoutePerformanceDto[]> => {
       const response = await routerApi.get('/clickstream/stats/route-performance', { params });
       return response.data;
     },
 
-    getTopDestinations: async (params?: { routeId?: string; fromDate?: string; toDate?: string; limit?: number }): Promise<TopDestinationDto[]> => {
+    getTopDestinations: async (params?: { routeId?: string; workspaceId?: string; fromDate?: string; toDate?: string; limit?: number }): Promise<TopDestinationDto[]> => {
       const response = await routerApi.get('/clickstream/stats/top-destinations', { params });
       return response.data;
     },
 
-    getTrafficTypeStats: async (params?: { routeId?: string; fromHour?: string; toHour?: string }): Promise<TrafficTypeStatsDto[]> => {
+    getTrafficTypeStats: async (params?: { routeId?: string; workspaceId?: string; fromHour?: string; toHour?: string }): Promise<TrafficTypeStatsDto[]> => {
       const response = await routerApi.get('/clickstream/stats/traffic-types', { params });
       return response.data;
     },
@@ -821,10 +826,11 @@ export const apiService = {
             id: '00000000-0000-0000-0000-000000000000',
             name: 'My Workspace',
             description: 'Default workspace for organizing your routes',
-            type: 'User',
+            workspaceType: 'User',
+            isSystem: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            userRole: 'Owner',
+            memberCount: 1,
           },
           userSettings: mockUserSettings,
           message: 'User initialization completed successfully',

@@ -46,9 +46,34 @@ pub struct ClickStreamEventDto {
     pub is_bot: Option<bool>,
 }
 
-use crate::presentation::middleware::{render_error, render_success, DepotExt};
+use crate::presentation::middleware::{render_error, render_success, AppState, DepotExt, UserExt};
 
 use super::cors_preflight;
+
+/// Validate that the caller is a member of the given workspace before
+/// trusting it as a filter. Returns `Ok(None)` when no workspace_id was
+/// supplied, `Ok(Some(id))` when the caller is a verified member, or a
+/// validation/forbidden error otherwise — never silently drops or ignores
+/// an invalid/unauthorized workspace_id.
+async fn validate_workspace_id(
+    app_state: &AppState,
+    workspace_id: Option<&str>,
+    user_id: &str,
+) -> std::result::Result<Option<String>, ApiError> {
+    let Some(wid) = workspace_id else {
+        return Ok(None);
+    };
+    let uuid = Uuid::parse_str(wid).map_err(|_| ApiError::validation("Invalid workspace ID"))?;
+    let has_access = app_state
+        .workspace_repo
+        .user_has_access(uuid, user_id)
+        .await
+        .unwrap_or(false);
+    if !has_access {
+        return Err(ApiError::forbidden());
+    }
+    Ok(Some(wid.to_string()))
+}
 
 /// Build clickstream controller router.
 pub fn clickstream_controller() -> Router {
@@ -152,10 +177,9 @@ pub fn clickstream_controller() -> Router {
     description = "Get raw click events with optional filtering",
     tags("ClickStream"),
     parameters(
-        ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
-        ("creator_id" = Option<String>, Query, description = "Filter by creator ID"),
+        ("creatorId" = Option<String>, Query, description = "Filter by creator ID"),
         ("routeId" = Option<String>, Query, description = "Filter by route ID"),
-        ("workspace_id" = Option<String>, Query, description = "Filter by workspace ID"),
+        ("workspaceId" = Option<String>, Query, description = "Filter by workspace ID (must be a workspace you belong to)"),
         ("startDate" = Option<String>, Query, description = "Start date (ISO 8601)"),
         ("endDate" = Option<String>, Query, description = "End date (ISO 8601)"),
         ("limit" = Option<u32>, Query, description = "Maximum results (default: 100)"),
@@ -174,10 +198,24 @@ pub async fn get_clickstream(req: &mut Request, depot: &mut Depot, res: &mut Res
         }
     };
 
-    let owner_id: Option<String> = req.query("owner_id");
-    let creator_id: Option<String> = req.query("creator_id");
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+
+    let creator_id: Option<String> = req.query("creatorId");
     let route_id: Option<String> = req.query("routeId");
-    let workspace_id: Option<String> = req.query("workspace_id");
+    let workspace_id_param: Option<String> = req.query("workspaceId");
+    let workspace_id = match validate_workspace_id(app_state, workspace_id_param.as_deref(), &user_id).await {
+        Ok(wid) => wid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
     let from: Option<DateTime<Utc>> = req
         .query::<String>("startDate")
         .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
@@ -192,7 +230,7 @@ pub async fn get_clickstream(req: &mut Request, depot: &mut Depot, res: &mut Res
     let data = match app_state
         .click_aggregator
         .get_clickstream(
-            owner_id.as_deref(),
+            Some(user_id.as_str()),
             creator_id.as_deref(),
             route_id.as_deref(),
             workspace_id.as_deref(),
@@ -321,8 +359,8 @@ pub struct CombinedStats {
     description = "Get aggregated click statistics for a date range",
     tags("ClickStream"),
     parameters(
-        ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
-        ("route_id" = Option<String>, Query, description = "Filter by route ID"),
+        ("routeId" = Option<String>, Query, description = "Filter by route ID"),
+        ("workspaceId" = Option<String>, Query, description = "Filter by workspace ID (must be a workspace you belong to)"),
         ("startDate" = Option<String>, Query, description = "Start date (ISO 8601)"),
         ("endDate" = Option<String>, Query, description = "End date (ISO 8601)")
     ),
@@ -339,8 +377,24 @@ pub async fn get_stats(req: &mut Request, depot: &mut Depot, res: &mut Response)
         }
     };
 
-    let owner_id: Option<String> = req.query("owner_id");
-    let route_id: Option<String> = req.query("route_id");
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+    let owner_id = Some(user_id.as_str());
+
+    let route_id: Option<String> = req.query("routeId");
+    let workspace_id_param: Option<String> = req.query("workspaceId");
+    let workspace_id = match validate_workspace_id(app_state, workspace_id_param.as_deref(), &user_id).await {
+        Ok(wid) => wid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
     let start_date: Option<NaiveDate> = req
         .query::<String>("startDate")
         .and_then(|s| {
@@ -362,19 +416,22 @@ pub async fn get_stats(req: &mut Request, depot: &mut Depot, res: &mut Response)
     // Fetch all data concurrently
     let (daily_result, geo_result, device_result) = tokio::join!(
         app_state.click_aggregator.get_daily_stats(
-            owner_id.as_deref(),
+            owner_id,
+            workspace_id.as_deref(),
             route_id.as_deref(),
             start_date,
             end_date
         ),
         app_state.click_aggregator.get_geographic_stats(
-            owner_id.as_deref(),
+            owner_id,
+            workspace_id.as_deref(),
             route_id.as_deref(),
             start_date,
             end_date
         ),
         app_state.click_aggregator.get_device_stats(
-            owner_id.as_deref(),
+            owner_id,
+            workspace_id.as_deref(),
             route_id.as_deref(),
             start_date,
             end_date
@@ -447,10 +504,10 @@ pub async fn get_stats(req: &mut Request, depot: &mut Depot, res: &mut Response)
     description = "Get daily aggregated click statistics",
     tags("ClickStream"),
     parameters(
-        ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
-        ("route_id" = Option<String>, Query, description = "Filter by route ID"),
-        ("from_date" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
-        ("to_date" = Option<String>, Query, description = "End date (YYYY-MM-DD)")
+        ("workspaceId" = Option<String>, Query, description = "Filter by workspace ID (must be a workspace you belong to)"),
+        ("routeId" = Option<String>, Query, description = "Filter by route ID"),
+        ("fromDate" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
+        ("toDate" = Option<String>, Query, description = "End date (YYYY-MM-DD)")
     ),
     responses(
         (status_code = 200, description = "Daily statistics", body = Vec<DailyStats>)
@@ -465,18 +522,32 @@ pub async fn get_daily_stats(req: &mut Request, depot: &mut Depot, res: &mut Res
         }
     };
 
-    let owner_id: Option<String> = req.query("owner_id");
-    let route_id: Option<String> = req.query("route_id");
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+    let workspace_id_param: Option<String> = req.query("workspaceId");
+    let workspace_id = match validate_workspace_id(app_state, workspace_id_param.as_deref(), &user_id).await {
+        Ok(wid) => wid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+    let route_id: Option<String> = req.query("routeId");
     let from_date: Option<NaiveDate> = req
-        .query::<String>("from_date")
+        .query::<String>("fromDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
     let to_date: Option<NaiveDate> = req
-        .query::<String>("to_date")
+        .query::<String>("toDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
 
     match app_state
         .click_aggregator
-        .get_daily_stats(owner_id.as_deref(), route_id.as_deref(), from_date, to_date)
+        .get_daily_stats(Some(user_id.as_str()), workspace_id.as_deref(), route_id.as_deref(), from_date, to_date)
         .await
     {
         Ok(stats) => render_success(res, stats),
@@ -491,10 +562,10 @@ pub async fn get_daily_stats(req: &mut Request, depot: &mut Depot, res: &mut Res
     description = "Get hourly aggregated click statistics",
     tags("ClickStream"),
     parameters(
-        ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
-        ("route_id" = Option<String>, Query, description = "Filter by route ID"),
-        ("from_hour" = Option<String>, Query, description = "Start hour (ISO 8601)"),
-        ("to_hour" = Option<String>, Query, description = "End hour (ISO 8601)")
+        ("workspaceId" = Option<String>, Query, description = "Filter by workspace ID (must be a workspace you belong to)"),
+        ("routeId" = Option<String>, Query, description = "Filter by route ID"),
+        ("fromHour" = Option<String>, Query, description = "Start hour (ISO 8601)"),
+        ("toHour" = Option<String>, Query, description = "End hour (ISO 8601)")
     ),
     responses(
         (status_code = 200, description = "Hourly statistics", body = Vec<HourlyStats>)
@@ -509,20 +580,34 @@ pub async fn get_hourly_stats(req: &mut Request, depot: &mut Depot, res: &mut Re
         }
     };
 
-    let owner_id: Option<String> = req.query("owner_id");
-    let route_id: Option<String> = req.query("route_id");
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+    let workspace_id_param: Option<String> = req.query("workspaceId");
+    let workspace_id = match validate_workspace_id(app_state, workspace_id_param.as_deref(), &user_id).await {
+        Ok(wid) => wid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+    let route_id: Option<String> = req.query("routeId");
     let from_hour: Option<DateTime<Utc>> = req
-        .query::<String>("from_hour")
+        .query::<String>("fromHour")
         .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
         .map(|dt| dt.with_timezone(&Utc));
     let to_hour: Option<DateTime<Utc>> = req
-        .query::<String>("to_hour")
+        .query::<String>("toHour")
         .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
         .map(|dt| dt.with_timezone(&Utc));
 
     match app_state
         .click_aggregator
-        .get_hourly_stats(owner_id.as_deref(), route_id.as_deref(), from_hour, to_hour)
+        .get_hourly_stats(Some(user_id.as_str()), workspace_id.as_deref(), route_id.as_deref(), from_hour, to_hour)
         .await
     {
         Ok(stats) => render_success(res, stats),
@@ -537,10 +622,10 @@ pub async fn get_hourly_stats(req: &mut Request, depot: &mut Depot, res: &mut Re
     description = "Get click statistics by geographic location",
     tags("ClickStream"),
     parameters(
-        ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
-        ("route_id" = Option<String>, Query, description = "Filter by route ID"),
-        ("from_date" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
-        ("to_date" = Option<String>, Query, description = "End date (YYYY-MM-DD)")
+        ("workspaceId" = Option<String>, Query, description = "Filter by workspace ID (must be a workspace you belong to)"),
+        ("routeId" = Option<String>, Query, description = "Filter by route ID"),
+        ("fromDate" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
+        ("toDate" = Option<String>, Query, description = "End date (YYYY-MM-DD)")
     ),
     responses(
         (status_code = 200, description = "Geographic statistics", body = Vec<GeographicStats>)
@@ -555,18 +640,32 @@ pub async fn get_geographic_stats(req: &mut Request, depot: &mut Depot, res: &mu
         }
     };
 
-    let owner_id: Option<String> = req.query("owner_id");
-    let route_id: Option<String> = req.query("route_id");
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+    let workspace_id_param: Option<String> = req.query("workspaceId");
+    let workspace_id = match validate_workspace_id(app_state, workspace_id_param.as_deref(), &user_id).await {
+        Ok(wid) => wid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+    let route_id: Option<String> = req.query("routeId");
     let from_date: Option<NaiveDate> = req
-        .query::<String>("from_date")
+        .query::<String>("fromDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
     let to_date: Option<NaiveDate> = req
-        .query::<String>("to_date")
+        .query::<String>("toDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
 
     match app_state
         .click_aggregator
-        .get_geographic_stats(owner_id.as_deref(), route_id.as_deref(), from_date, to_date)
+        .get_geographic_stats(Some(user_id.as_str()), workspace_id.as_deref(), route_id.as_deref(), from_date, to_date)
         .await
     {
         Ok(stats) => render_success(res, stats),
@@ -581,10 +680,10 @@ pub async fn get_geographic_stats(req: &mut Request, depot: &mut Depot, res: &mu
     description = "Get click statistics by device type",
     tags("ClickStream"),
     parameters(
-        ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
-        ("route_id" = Option<String>, Query, description = "Filter by route ID"),
-        ("from_date" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
-        ("to_date" = Option<String>, Query, description = "End date (YYYY-MM-DD)")
+        ("workspaceId" = Option<String>, Query, description = "Filter by workspace ID (must be a workspace you belong to)"),
+        ("routeId" = Option<String>, Query, description = "Filter by route ID"),
+        ("fromDate" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
+        ("toDate" = Option<String>, Query, description = "End date (YYYY-MM-DD)")
     ),
     responses(
         (status_code = 200, description = "Device statistics", body = Vec<DeviceStats>)
@@ -599,18 +698,32 @@ pub async fn get_device_stats(req: &mut Request, depot: &mut Depot, res: &mut Re
         }
     };
 
-    let owner_id: Option<String> = req.query("owner_id");
-    let route_id: Option<String> = req.query("route_id");
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+    let workspace_id_param: Option<String> = req.query("workspaceId");
+    let workspace_id = match validate_workspace_id(app_state, workspace_id_param.as_deref(), &user_id).await {
+        Ok(wid) => wid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+    let route_id: Option<String> = req.query("routeId");
     let from_date: Option<NaiveDate> = req
-        .query::<String>("from_date")
+        .query::<String>("fromDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
     let to_date: Option<NaiveDate> = req
-        .query::<String>("to_date")
+        .query::<String>("toDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
 
     match app_state
         .click_aggregator
-        .get_device_stats(owner_id.as_deref(), route_id.as_deref(), from_date, to_date)
+        .get_device_stats(Some(user_id.as_str()), workspace_id.as_deref(), route_id.as_deref(), from_date, to_date)
         .await
     {
         Ok(stats) => render_success(res, stats),
@@ -625,10 +738,10 @@ pub async fn get_device_stats(req: &mut Request, depot: &mut Depot, res: &mut Re
     description = "Get click statistics by browser/user agent",
     tags("ClickStream"),
     parameters(
-        ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
-        ("route_id" = Option<String>, Query, description = "Filter by route ID"),
-        ("from_date" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
-        ("to_date" = Option<String>, Query, description = "End date (YYYY-MM-DD)")
+        ("workspaceId" = Option<String>, Query, description = "Filter by workspace ID (must be a workspace you belong to)"),
+        ("routeId" = Option<String>, Query, description = "Filter by route ID"),
+        ("fromDate" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
+        ("toDate" = Option<String>, Query, description = "End date (YYYY-MM-DD)")
     ),
     responses(
         (status_code = 200, description = "Browser statistics", body = Vec<BrowserStats>)
@@ -643,18 +756,32 @@ pub async fn get_browser_stats(req: &mut Request, depot: &mut Depot, res: &mut R
         }
     };
 
-    let owner_id: Option<String> = req.query("owner_id");
-    let route_id: Option<String> = req.query("route_id");
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+    let workspace_id_param: Option<String> = req.query("workspaceId");
+    let workspace_id = match validate_workspace_id(app_state, workspace_id_param.as_deref(), &user_id).await {
+        Ok(wid) => wid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+    let route_id: Option<String> = req.query("routeId");
     let from_date: Option<NaiveDate> = req
-        .query::<String>("from_date")
+        .query::<String>("fromDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
     let to_date: Option<NaiveDate> = req
-        .query::<String>("to_date")
+        .query::<String>("toDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
 
     match app_state
         .click_aggregator
-        .get_browser_stats(owner_id.as_deref(), route_id.as_deref(), from_date, to_date)
+        .get_browser_stats(Some(user_id.as_str()), workspace_id.as_deref(), route_id.as_deref(), from_date, to_date)
         .await
     {
         Ok(stats) => render_success(res, stats),
@@ -669,9 +796,9 @@ pub async fn get_browser_stats(req: &mut Request, depot: &mut Depot, res: &mut R
     description = "Get performance metrics for routes",
     tags("ClickStream"),
     parameters(
-        ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
-        ("from_date" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
-        ("to_date" = Option<String>, Query, description = "End date (YYYY-MM-DD)"),
+        ("workspaceId" = Option<String>, Query, description = "Filter by workspace ID (must be a workspace you belong to)"),
+        ("fromDate" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
+        ("toDate" = Option<String>, Query, description = "End date (YYYY-MM-DD)"),
         ("limit" = Option<u32>, Query, description = "Maximum results (default: 50)")
     ),
     responses(
@@ -687,18 +814,32 @@ pub async fn get_route_performance(req: &mut Request, depot: &mut Depot, res: &m
         }
     };
 
-    let owner_id: Option<String> = req.query("owner_id");
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+    let workspace_id_param: Option<String> = req.query("workspaceId");
+    let workspace_id = match validate_workspace_id(app_state, workspace_id_param.as_deref(), &user_id).await {
+        Ok(wid) => wid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
     let from_date: Option<NaiveDate> = req
-        .query::<String>("from_date")
+        .query::<String>("fromDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
     let to_date: Option<NaiveDate> = req
-        .query::<String>("to_date")
+        .query::<String>("toDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
     let limit: Option<u32> = req.query("limit");
 
     match app_state
         .click_aggregator
-        .get_route_performance(owner_id.as_deref(), from_date, to_date, limit)
+        .get_route_performance(Some(user_id.as_str()), workspace_id.as_deref(), from_date, to_date, limit)
         .await
     {
         Ok(stats) => render_success(res, stats),
@@ -713,10 +854,10 @@ pub async fn get_route_performance(req: &mut Request, depot: &mut Depot, res: &m
     description = "Get most clicked destination URLs",
     tags("ClickStream"),
     parameters(
-        ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
-        ("route_id" = Option<String>, Query, description = "Filter by route ID"),
-        ("from_date" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
-        ("to_date" = Option<String>, Query, description = "End date (YYYY-MM-DD)"),
+        ("workspaceId" = Option<String>, Query, description = "Filter by workspace ID (must be a workspace you belong to)"),
+        ("routeId" = Option<String>, Query, description = "Filter by route ID"),
+        ("fromDate" = Option<String>, Query, description = "Start date (YYYY-MM-DD)"),
+        ("toDate" = Option<String>, Query, description = "End date (YYYY-MM-DD)"),
         ("limit" = Option<u32>, Query, description = "Maximum results (default: 20)")
     ),
     responses(
@@ -732,20 +873,35 @@ pub async fn get_top_destinations(req: &mut Request, depot: &mut Depot, res: &mu
         }
     };
 
-    let owner_id: Option<String> = req.query("owner_id");
-    let route_id: Option<String> = req.query("route_id");
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+    let workspace_id_param: Option<String> = req.query("workspaceId");
+    let workspace_id = match validate_workspace_id(app_state, workspace_id_param.as_deref(), &user_id).await {
+        Ok(wid) => wid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+    let route_id: Option<String> = req.query("routeId");
     let from_date: Option<NaiveDate> = req
-        .query::<String>("from_date")
+        .query::<String>("fromDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
     let to_date: Option<NaiveDate> = req
-        .query::<String>("to_date")
+        .query::<String>("toDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
     let limit: Option<u32> = req.query("limit");
 
     match app_state
         .click_aggregator
         .get_top_destinations(
-            owner_id.as_deref(),
+            Some(user_id.as_str()),
+            workspace_id.as_deref(),
             route_id.as_deref(),
             from_date,
             to_date,
@@ -765,10 +921,10 @@ pub async fn get_top_destinations(req: &mut Request, depot: &mut Depot, res: &mu
     description = "Get bot vs human traffic breakdown",
     tags("ClickStream"),
     parameters(
-        ("owner_id" = Option<String>, Query, description = "Filter by owner ID"),
-        ("route_id" = Option<String>, Query, description = "Filter by route ID"),
-        ("from_hour" = Option<String>, Query, description = "Start hour (ISO 8601)"),
-        ("to_hour" = Option<String>, Query, description = "End hour (ISO 8601)")
+        ("workspaceId" = Option<String>, Query, description = "Filter by workspace ID (must be a workspace you belong to)"),
+        ("routeId" = Option<String>, Query, description = "Filter by route ID"),
+        ("fromHour" = Option<String>, Query, description = "Start hour (ISO 8601)"),
+        ("toHour" = Option<String>, Query, description = "End hour (ISO 8601)")
     ),
     responses(
         (status_code = 200, description = "Traffic type statistics", body = Vec<TrafficTypeStats>)
@@ -783,20 +939,34 @@ pub async fn get_traffic_type_stats(req: &mut Request, depot: &mut Depot, res: &
         }
     };
 
-    let owner_id: Option<String> = req.query("owner_id");
-    let route_id: Option<String> = req.query("route_id");
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+    let workspace_id_param: Option<String> = req.query("workspaceId");
+    let workspace_id = match validate_workspace_id(app_state, workspace_id_param.as_deref(), &user_id).await {
+        Ok(wid) => wid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+    let route_id: Option<String> = req.query("routeId");
     let from_hour: Option<DateTime<Utc>> = req
-        .query::<String>("from_hour")
+        .query::<String>("fromHour")
         .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
         .map(|dt| dt.with_timezone(&Utc));
     let to_hour: Option<DateTime<Utc>> = req
-        .query::<String>("to_hour")
+        .query::<String>("toHour")
         .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
         .map(|dt| dt.with_timezone(&Utc));
 
     match app_state
         .click_aggregator
-        .get_traffic_type_stats(owner_id.as_deref(), route_id.as_deref(), from_hour, to_hour)
+        .get_traffic_type_stats(Some(user_id.as_str()), workspace_id.as_deref(), route_id.as_deref(), from_hour, to_hour)
         .await
     {
         Ok(stats) => render_success(res, stats),

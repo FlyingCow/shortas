@@ -16,10 +16,14 @@ import {
 } from 'lucide-react';
 import { logout, getUserInfo } from '../config/keycloak';
 import { useTheme } from '../contexts/ThemeContext';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import DevelopmentBanner from './DevelopmentBanner';
+import Dropdown from './Dropdown';
 import Footer from './Footer';
 import Logo from './Logo';
 import './DesignSystem.css';
+
+const ALL_WORKSPACES = '__all__';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -30,9 +34,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const userInfo = getUserInfo();
   const { theme, toggleTheme } = useTheme();
+  const { workspaces, currentWorkspaceId, setCurrentWorkspaceId } = useWorkspace();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const workspaceOptions = [
+    { value: ALL_WORKSPACES, label: 'All Workspaces' },
+    ...workspaces.map((ws) => ({ value: ws.id, label: ws.name })),
+  ];
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -51,7 +60,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return 'Dashboard';
   };
 
-  // Close dropdown when clicking outside
+  // Close the user dropdown when clicking outside (the workspace switcher
+  // manages its own open/close via the shared Dropdown component).
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
@@ -176,6 +186,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <header className="app-topbar">
             <div className="topbar-left">
               <span className="topbar-title">{getCurrentPageTitle()}</span>
+
+              {/* Workspace switcher */}
+              <div style={{ marginLeft: '1rem' }}>
+                <Dropdown
+                  icon={<Briefcase size={14} />}
+                  value={currentWorkspaceId ?? ALL_WORKSPACES}
+                  options={workspaceOptions}
+                  onChange={(v) => setCurrentWorkspaceId(v === ALL_WORKSPACES ? null : v)}
+                />
+              </div>
             </div>
             <div className="topbar-right">
               {/* User Dropdown */}

@@ -8,6 +8,7 @@ use crate::domain::entities::{UserWorkspace, Workspace};
 
 /// Workspace response DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct WorkspaceDto {
     pub id: String,
     pub name: String,
@@ -86,6 +87,7 @@ impl UpdateWorkspaceDto {
 
 /// Workspace member DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct WorkspaceMemberDto {
     pub id: String,
     pub user_id: String,
@@ -113,6 +115,7 @@ impl WorkspaceMemberDto {
 
 /// Add member request DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct AddMemberDto {
     pub user_id: String,
     #[serde(default = "default_role")]

@@ -62,6 +62,7 @@ impl AppState {
             domain_repo.clone(),
             outbox_repo.clone(),
             click_router.clone(),
+            workspace_repo.clone(),
         ));
 
         Ok(Self {

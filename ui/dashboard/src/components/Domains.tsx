@@ -1,62 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Search, Globe, X, ExternalLink, Copy, Check, RefreshCw, AlertCircle, CheckCircle, Clock, ChevronDown, ChevronUp, Info, Settings } from 'lucide-react';
-import { apiService, DomainDto, CreateDomainDto, DnsConfigDto, DomainVerificationStatus } from '../services/api';
+import { apiService, DomainDto, DnsConfigDto, DomainVerificationStatus } from '../services/api';
 import { useAlert } from '../contexts/AlertContext';
 import LoadingSpinner from './LoadingSpinner';
 import './DesignSystem.css';
 
+// Domain-page-specific widgets with no shared DesignSystem.css equivalent
+// (the domain row layout, the DNS instructions panel, the setup steps list).
 const domainStyles = `
-.dom-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-  margin-bottom: 1.25rem;
-}
-
-.dom-search {
-  position: relative;
-  flex: 1;
-  max-width: 360px;
-}
-
-.dom-search svg {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
-.dom-search input {
-  width: 100%;
-  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-md);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.dom-search input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
-}
-
-.dom-search input::placeholder {
-  color: var(--text-muted);
-}
-
-.dom-count {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-  margin-left: auto;
-}
-
 .dom-list {
   display: flex;
   flex-direction: column;
@@ -75,7 +26,7 @@ const domainStyles = `
 
 .dom-item:hover {
   border-color: var(--border-secondary);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
 }
 
 .dom-item-main {
@@ -91,7 +42,7 @@ const domainStyles = `
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--primary-50, rgba(59, 130, 246, 0.08));
+  background: var(--color-primary-light);
   border-radius: var(--radius-md);
   color: var(--color-primary);
   flex-shrink: 0;
@@ -122,37 +73,13 @@ const domainStyles = `
 .dom-id {
   font-size: 0.6875rem;
   color: var(--text-muted);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-family-mono);
 }
 
-/* Status badges */
-.dom-status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.125rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.625rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.dom-status-verified {
-  background: rgba(34, 197, 94, 0.1);
-  color: #16a34a;
-}
-
-.dom-status-pending {
-  background: rgba(234, 179, 8, 0.1);
-  color: #ca8a04;
-}
-
-.dom-status-failed {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
+.dom-verification-reason {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  margin-top: 0.125rem;
 }
 
 .dom-actions {
@@ -182,7 +109,7 @@ const domainStyles = `
 }
 
 .dom-action-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--color-error-light);
   color: var(--color-error);
 }
 
@@ -196,10 +123,10 @@ const domainStyles = `
 }
 
 .dom-action-btn.spinning svg {
-  animation: spin 1s linear infinite;
+  animation: dom-spin 1s linear infinite;
 }
 
-@keyframes spin {
+@keyframes dom-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
@@ -263,7 +190,7 @@ const domainStyles = `
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-family-mono);
   font-size: 0.75rem;
 }
 
@@ -320,86 +247,7 @@ const domainStyles = `
   margin-top: 1px;
 }
 
-.dom-verification-reason {
-  font-size: 0.6875rem;
-  color: var(--text-muted);
-  margin-top: 0.125rem;
-}
-
-/* Empty state */
-.dom-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  text-align: center;
-}
-
-.dom-empty-icon {
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-tertiary);
-  border-radius: 50%;
-  color: var(--text-muted);
-  margin-bottom: 1rem;
-}
-
-.dom-empty h3 {
-  margin: 0 0 0.375rem 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.dom-empty p {
-  margin: 0 0 1.25rem 0;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  max-width: 320px;
-}
-
-/* Modal */
-.dom-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-}
-
-.dom-modal {
-  background: var(--bg-elevated);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
-  width: 100%;
-  max-width: 520px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.dom-modal-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border-primary);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.dom-modal-header h2 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
+/* Modal chrome not covered by the shared .modal system */
 .dom-modal-close {
   display: flex;
   align-items: center;
@@ -412,6 +260,7 @@ const domainStyles = `
   color: var(--text-muted);
   cursor: pointer;
   transition: all var(--transition-fast);
+  flex-shrink: 0;
 }
 
 .dom-modal-close:hover {
@@ -419,56 +268,7 @@ const domainStyles = `
   color: var(--text-primary);
 }
 
-.dom-modal-body {
-  padding: 1.5rem;
-}
-
-.dom-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.dom-field label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.dom-field input {
-  padding: 0.625rem 0.75rem;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-md);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.dom-field input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
-}
-
-.dom-field input::placeholder {
-  color: var(--text-muted);
-}
-
-.dom-field .dom-hint {
-  font-size: 0.6875rem;
-  color: var(--text-muted);
-}
-
-.dom-modal-footer {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border-primary);
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
-
-/* DNS Setup in modal */
+/* DNS Setup steps (shown inside the Add Domain modal) */
 .dom-setup-info {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
@@ -500,7 +300,7 @@ const domainStyles = `
   align-items: center;
   justify-content: center;
   background: var(--color-primary);
-  color: white;
+  color: var(--text-inverse);
   border-radius: 50%;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -521,16 +321,13 @@ const domainStyles = `
   background: var(--bg-tertiary);
   padding: 0.125rem 0.375rem;
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-family-mono);
   font-size: 0.75rem;
   color: var(--text-primary);
 }
 
 /* Custom Pages Modal */
 .dom-custom-pages-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
   margin-bottom: 1rem;
 }
 
@@ -539,43 +336,9 @@ const domainStyles = `
 }
 
 .dom-custom-pages-field label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 0.375rem;
-}
-
-.dom-custom-pages-field label .label-hint {
-  font-weight: 400;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-}
-
-.dom-custom-pages-field input {
-  padding: 0.625rem 0.75rem;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-md);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.dom-custom-pages-field input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
-}
-
-.dom-custom-pages-field input::placeholder {
-  color: var(--text-muted);
-}
-
-.dom-custom-pages-field .field-hint {
-  font-size: 0.6875rem;
-  color: var(--text-muted);
 }
 
 .dom-custom-pages-info {
@@ -826,23 +589,23 @@ const Domains: React.FC = () => {
     switch (status) {
       case 'Verified':
         return (
-          <span className="dom-status-badge dom-status-verified">
-            <CheckCircle size={10} />
+          <span className="badge badge-success">
+            <CheckCircle size={10} style={{ marginRight: 4 }} />
             Verified
           </span>
         );
       case 'Failed':
         return (
-          <span className="dom-status-badge dom-status-failed">
-            <AlertCircle size={10} />
+          <span className="badge badge-error">
+            <AlertCircle size={10} style={{ marginRight: 4 }} />
             Failed
           </span>
         );
       case 'Pending':
       default:
         return (
-          <span className="dom-status-badge dom-status-pending">
-            <Clock size={10} />
+          <span className="badge badge-warning">
+            <Clock size={10} style={{ marginRight: 4 }} />
             Pending
           </span>
         );
@@ -872,7 +635,7 @@ const Domains: React.FC = () => {
 
   if (error) {
     return (
-      <div className="container" style={{ paddingTop: '1.5rem' }}>
+      <div className="container">
         <div className="alert alert-error">
           <h3>Error Loading Domains</h3>
           <p>{error}</p>
@@ -886,22 +649,36 @@ const Domains: React.FC = () => {
     <>
       <style>{domainStyles}</style>
       <div className="container">
-        {/* Toolbar */}
-        <div className="dom-toolbar">
-          <div className="dom-search">
-            <Search size={15} />
-            <input
-              type="text"
-              placeholder="Search domains..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        {/* Page Header */}
+        <div className="page-header">
+          <div className="page-title-section">
+            <h1 className="page-title">Domains</h1>
+            <p className="page-subtitle">Connect and verify custom domains for your short links</p>
           </div>
-          <span className="dom-count">{filteredDomains.length} domain{filteredDomains.length !== 1 ? 's' : ''}</span>
-          <button className="btn btn-primary btn-sm" onClick={handleCreate}>
-            <Plus size={16} />
-            Add Domain
-          </button>
+          <div className="page-actions">
+            <button className="btn btn-primary btn-sm" onClick={handleCreate}>
+              <Plus size={16} />
+              Add Domain
+            </button>
+          </div>
+        </div>
+
+        {/* Toolbar */}
+        <div className="toolbar">
+          <div className="toolbar-section">
+            <div className="search-box" style={{ flex: 1, maxWidth: 360, marginBottom: 0 }}>
+              <Search size={15} />
+              <input
+                type="text"
+                placeholder="Search domains..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <span className="text-sm text-muted" style={{ whiteSpace: 'nowrap' }}>
+              {filteredDomains.length} domain{filteredDomains.length !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
 
         {/* Domain list */}
@@ -1085,18 +862,18 @@ const Domains: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="dom-empty">
-            <div className="dom-empty-icon">
+          <div className="empty-state">
+            <div className="empty-state-icon">
               <Globe size={24} />
             </div>
-            <h3>{searchTerm ? 'No matches' : 'No domains yet'}</h3>
-            <p>
+            <div className="empty-state-title">{searchTerm ? 'No matches' : 'No domains yet'}</div>
+            <div className="empty-state-description">
               {searchTerm
                 ? 'Try a different search term.'
                 : 'Add your first custom domain to start creating short links.'}
-            </p>
+            </div>
             {!searchTerm && (
-              <button className="btn btn-primary btn-sm" onClick={handleCreate}>
+              <button className="btn btn-primary btn-sm" style={{ marginTop: '1.25rem' }} onClick={handleCreate}>
                 <Plus size={16} />
                 Add Domain
               </button>
@@ -1106,19 +883,20 @@ const Domains: React.FC = () => {
 
         {/* Create modal */}
         {showModal && (
-          <div className="dom-modal-overlay" onClick={() => !saving && setShowModal(false)}>
-            <div className="dom-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="dom-modal-header">
-                <h2>Add Domain</h2>
+          <div className="modal-overlay" onClick={() => !saving && setShowModal(false)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Add Domain</h3>
                 <button className="dom-modal-close" onClick={() => !saving && setShowModal(false)}>
                   <X size={16} />
                 </button>
               </div>
-              <div className="dom-modal-body">
-                <div className="dom-field">
-                  <label>Domain name</label>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Domain name</label>
                   <input
                     type="text"
+                    className="form-control"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value.toLowerCase())}
                     onKeyDown={(e) => e.key === 'Enter' && handleSave()}
@@ -1126,7 +904,7 @@ const Domains: React.FC = () => {
                     autoFocus
                     disabled={saving}
                   />
-                  <span className="dom-hint">Enter the fully qualified domain name. It will be lowercased automatically.</span>
+                  <span className="text-xs text-muted">Enter the fully qualified domain name. It will be lowercased automatically.</span>
                 </div>
 
                 {/* DNS Setup Instructions */}
@@ -1154,7 +932,7 @@ const Domains: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <div className="dom-modal-footer">
+              <div className="modal-footer">
                 <button className="btn btn-outline btn-sm" onClick={() => setShowModal(false)} disabled={saving}>
                   Cancel
                 </button>
@@ -1168,10 +946,10 @@ const Domains: React.FC = () => {
 
         {/* Custom Pages Modal */}
         {showCustomPagesModal && selectedDomainForCustomPages && (
-          <div className="dom-modal-overlay" onClick={() => { if (!savingCustomPages) { setShowCustomPagesModal(false); setSelectedDomainForCustomPages(null); } }}>
-            <div className="dom-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="dom-modal-header">
-                <h2>Custom Pages for {selectedDomainForCustomPages.name}</h2>
+          <div className="modal-overlay" onClick={() => { if (!savingCustomPages) { setShowCustomPagesModal(false); setSelectedDomainForCustomPages(null); } }}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Custom Pages for {selectedDomainForCustomPages.name}</h3>
                 <button
                   className="dom-modal-close"
                   onClick={() => { if (!savingCustomPages) { setShowCustomPagesModal(false); setSelectedDomainForCustomPages(null); } }}
@@ -1179,52 +957,54 @@ const Domains: React.FC = () => {
                   <X size={16} />
                 </button>
               </div>
-              <div className="dom-modal-body">
+              <div className="modal-body">
                 {loadingCustomPages ? (
                   <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                     Loading custom page settings...
                   </div>
                 ) : (
                   <>
-                    <div className="dom-custom-pages-field">
-                      <label>
+                    <div className="dom-custom-pages-field form-group">
+                      <label className="form-label">
                         Custom Index Page
-                        <span className="label-hint">(optional)</span>
+                        <span className="text-xs text-muted">(optional)</span>
                       </label>
                       <input
                         type="url"
+                        className="form-control"
                         value={customPagesState.indexUrl}
                         onChange={(e) => setCustomPagesState(prev => ({ ...prev, indexUrl: e.target.value }))}
                         placeholder="https://example.com/welcome"
                         disabled={savingCustomPages}
                       />
-                      <span className="field-hint">
+                      <span className="text-xs text-muted">
                         Users visiting the root of this domain will be redirected to this URL.
                       </span>
                       {customPagesState.indexUrl && !isValidUrl(customPagesState.indexUrl) && (
-                        <span className="field-hint" style={{ color: 'var(--color-error)' }}>
+                        <span className="text-xs status-error" style={{ display: 'block' }}>
                           Please enter a valid URL.
                         </span>
                       )}
                     </div>
 
-                    <div className="dom-custom-pages-field">
-                      <label>
+                    <div className="dom-custom-pages-field form-group">
+                      <label className="form-label">
                         Custom 404 Page
-                        <span className="label-hint">(optional)</span>
+                        <span className="text-xs text-muted">(optional)</span>
                       </label>
                       <input
                         type="url"
+                        className="form-control"
                         value={customPagesState.notFoundUrl}
                         onChange={(e) => setCustomPagesState(prev => ({ ...prev, notFoundUrl: e.target.value }))}
                         placeholder="https://example.com/not-found"
                         disabled={savingCustomPages}
                       />
-                      <span className="field-hint">
+                      <span className="text-xs text-muted">
                         Users visiting non-existent paths on this domain will be redirected to this URL.
                       </span>
                       {customPagesState.notFoundUrl && !isValidUrl(customPagesState.notFoundUrl) && (
-                        <span className="field-hint" style={{ color: 'var(--color-error)' }}>
+                        <span className="text-xs status-error" style={{ display: 'block' }}>
                           Please enter a valid URL.
                         </span>
                       )}
@@ -1239,7 +1019,7 @@ const Domains: React.FC = () => {
                   </>
                 )}
               </div>
-              <div className="dom-modal-footer">
+              <div className="modal-footer">
                 <button
                   className="btn btn-outline btn-sm"
                   onClick={() => { setShowCustomPagesModal(false); setSelectedDomainForCustomPages(null); }}

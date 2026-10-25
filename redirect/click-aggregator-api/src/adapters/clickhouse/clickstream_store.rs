@@ -152,6 +152,14 @@ struct CountRow {
     count: u64,
 }
 
+/// Escape a value before interpolating it into a ClickHouse string literal.
+/// This HTTP interface doesn't support real parameter binding, so this is a
+/// defense-in-depth escape (doubles backslashes and single quotes) applied
+/// to every user-supplied value before it's placed inside `'...'`.
+fn escape_sql_string(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('\'', "\\'")
+}
+
 /// ClickHouse implementation of ClickStreamStore
 #[derive(Clone)]
 pub struct ClickHouseClickStreamStore {
@@ -179,19 +187,19 @@ impl ClickHouseClickStreamStore {
         let mut conditions = Vec::new();
 
         if let Some(owner_id) = &query.owner_id {
-            conditions.push(format!("owner_id = '{}'", owner_id));
+            conditions.push(format!("owner_id = '{}'", escape_sql_string(owner_id)));
         }
 
         if let Some(creator_id) = &query.creator_id {
-            conditions.push(format!("creator_id = '{}'", creator_id));
+            conditions.push(format!("creator_id = '{}'", escape_sql_string(creator_id)));
         }
 
         if let Some(route_id) = &query.route_id {
-            conditions.push(format!("route_id = '{}'", route_id));
+            conditions.push(format!("route_id = '{}'", escape_sql_string(route_id)));
         }
 
         if let Some(workspace_id) = &query.workspace_id {
-            conditions.push(format!("workspace_id = '{}'", workspace_id));
+            conditions.push(format!("workspace_id = '{}'", escape_sql_string(workspace_id)));
         }
 
         if let Some(created_from) = &query.created_from {
@@ -341,21 +349,24 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
         Ok(result.count)
     }
 
-    async fn get_daily_stats(&self, owner_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::DailyStatsDto>> {
+    async fn get_daily_stats(&self, owner_id: Option<&str>, workspace_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::DailyStatsDto>> {
         use crate::dto::clickstream_dto::DailyStatsDto;
 
         let mut conditions = Vec::new();
         if let Some(oid) = owner_id {
-            conditions.push(format!("owner_id = '{}'", oid));
+            conditions.push(format!("owner_id = '{}'", escape_sql_string(oid)));
+        }
+        if let Some(wid) = workspace_id {
+            conditions.push(format!("workspace_id = '{}'", escape_sql_string(wid)));
         }
         if let Some(rid) = route_id {
-            conditions.push(format!("route_id = '{}'", rid));
+            conditions.push(format!("route_id = '{}'", escape_sql_string(rid)));
         }
         if let Some(fd) = from_date {
-            conditions.push(format!("date >= '{}'", fd));
+            conditions.push(format!("date >= '{}'", escape_sql_string(fd)));
         }
         if let Some(td) = to_date {
-            conditions.push(format!("date <= '{}'", td));
+            conditions.push(format!("date <= '{}'", escape_sql_string(td)));
         }
 
         let where_clause = if conditions.is_empty() {
@@ -391,21 +402,24 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
         Ok(stats)
     }
 
-    async fn get_hourly_stats(&self, owner_id: Option<&str>, route_id: Option<&str>, from_hour: Option<&str>, to_hour: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::HourlyStatsDto>> {
+    async fn get_hourly_stats(&self, owner_id: Option<&str>, workspace_id: Option<&str>, route_id: Option<&str>, from_hour: Option<&str>, to_hour: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::HourlyStatsDto>> {
         use crate::dto::clickstream_dto::HourlyStatsDto;
 
         let mut conditions = Vec::new();
         if let Some(oid) = owner_id {
-            conditions.push(format!("owner_id = '{}'", oid));
+            conditions.push(format!("owner_id = '{}'", escape_sql_string(oid)));
+        }
+        if let Some(wid) = workspace_id {
+            conditions.push(format!("workspace_id = '{}'", escape_sql_string(wid)));
         }
         if let Some(rid) = route_id {
-            conditions.push(format!("route_id = '{}'", rid));
+            conditions.push(format!("route_id = '{}'", escape_sql_string(rid)));
         }
         if let Some(fh) = from_hour {
-            conditions.push(format!("hour >= '{}'", fh));
+            conditions.push(format!("hour >= '{}'", escape_sql_string(fh)));
         }
         if let Some(th) = to_hour {
-            conditions.push(format!("hour <= '{}'", th));
+            conditions.push(format!("hour <= '{}'", escape_sql_string(th)));
         }
 
         let where_clause = if conditions.is_empty() {
@@ -441,21 +455,24 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
         Ok(stats)
     }
 
-    async fn get_geographic_stats(&self, owner_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::GeographicStatsDto>> {
+    async fn get_geographic_stats(&self, owner_id: Option<&str>, workspace_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::GeographicStatsDto>> {
         use crate::dto::clickstream_dto::GeographicStatsDto;
 
         let mut conditions = Vec::new();
         if let Some(oid) = owner_id {
-            conditions.push(format!("owner_id = '{}'", oid));
+            conditions.push(format!("owner_id = '{}'", escape_sql_string(oid)));
+        }
+        if let Some(wid) = workspace_id {
+            conditions.push(format!("workspace_id = '{}'", escape_sql_string(wid)));
         }
         if let Some(rid) = route_id {
-            conditions.push(format!("route_id = '{}'", rid));
+            conditions.push(format!("route_id = '{}'", escape_sql_string(rid)));
         }
         if let Some(fd) = from_date {
-            conditions.push(format!("date >= '{}'", fd));
+            conditions.push(format!("date >= '{}'", escape_sql_string(fd)));
         }
         if let Some(td) = to_date {
-            conditions.push(format!("date <= '{}'", td));
+            conditions.push(format!("date <= '{}'", escape_sql_string(td)));
         }
 
         let where_clause = if conditions.is_empty() {
@@ -511,21 +528,24 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
         Ok(stats)
     }
 
-    async fn get_device_stats(&self, owner_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::DeviceStatsDto>> {
+    async fn get_device_stats(&self, owner_id: Option<&str>, workspace_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::DeviceStatsDto>> {
         use crate::dto::clickstream_dto::DeviceStatsDto;
 
         let mut conditions = Vec::new();
         if let Some(oid) = owner_id {
-            conditions.push(format!("owner_id = '{}'", oid));
+            conditions.push(format!("owner_id = '{}'", escape_sql_string(oid)));
+        }
+        if let Some(wid) = workspace_id {
+            conditions.push(format!("workspace_id = '{}'", escape_sql_string(wid)));
         }
         if let Some(rid) = route_id {
-            conditions.push(format!("route_id = '{}'", rid));
+            conditions.push(format!("route_id = '{}'", escape_sql_string(rid)));
         }
         if let Some(fd) = from_date {
-            conditions.push(format!("date >= '{}'", fd));
+            conditions.push(format!("date >= '{}'", escape_sql_string(fd)));
         }
         if let Some(td) = to_date {
-            conditions.push(format!("date <= '{}'", td));
+            conditions.push(format!("date <= '{}'", escape_sql_string(td)));
         }
 
         let where_clause = if conditions.is_empty() {
@@ -561,21 +581,24 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
         Ok(stats)
     }
 
-    async fn get_browser_stats(&self, owner_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::BrowserStatsDto>> {
+    async fn get_browser_stats(&self, owner_id: Option<&str>, workspace_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::BrowserStatsDto>> {
         use crate::dto::clickstream_dto::BrowserStatsDto;
 
         let mut conditions = Vec::new();
         if let Some(oid) = owner_id {
-            conditions.push(format!("owner_id = '{}'", oid));
+            conditions.push(format!("owner_id = '{}'", escape_sql_string(oid)));
+        }
+        if let Some(wid) = workspace_id {
+            conditions.push(format!("workspace_id = '{}'", escape_sql_string(wid)));
         }
         if let Some(rid) = route_id {
-            conditions.push(format!("route_id = '{}'", rid));
+            conditions.push(format!("route_id = '{}'", escape_sql_string(rid)));
         }
         if let Some(fd) = from_date {
-            conditions.push(format!("date >= '{}'", fd));
+            conditions.push(format!("date >= '{}'", escape_sql_string(fd)));
         }
         if let Some(td) = to_date {
-            conditions.push(format!("date <= '{}'", td));
+            conditions.push(format!("date <= '{}'", escape_sql_string(td)));
         }
 
         let where_clause = if conditions.is_empty() {
@@ -626,18 +649,21 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
         Ok(stats)
     }
 
-    async fn get_route_performance(&self, owner_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>, limit: Option<u32>) -> Result<Vec<crate::dto::clickstream_dto::RoutePerformanceDto>> {
+    async fn get_route_performance(&self, owner_id: Option<&str>, workspace_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>, limit: Option<u32>) -> Result<Vec<crate::dto::clickstream_dto::RoutePerformanceDto>> {
         use crate::dto::clickstream_dto::RoutePerformanceDto;
 
         let mut conditions = Vec::new();
         if let Some(oid) = owner_id {
-            conditions.push(format!("owner_id = '{}'", oid));
+            conditions.push(format!("owner_id = '{}'", escape_sql_string(oid)));
+        }
+        if let Some(wid) = workspace_id {
+            conditions.push(format!("workspace_id = '{}'", escape_sql_string(wid)));
         }
         if let Some(fd) = from_date {
-            conditions.push(format!("date >= '{}'", fd));
+            conditions.push(format!("date >= '{}'", escape_sql_string(fd)));
         }
         if let Some(td) = to_date {
-            conditions.push(format!("date <= '{}'", td));
+            conditions.push(format!("date <= '{}'", escape_sql_string(td)));
         }
 
         let where_clause = if conditions.is_empty() {
@@ -677,21 +703,24 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
         Ok(stats)
     }
 
-    async fn get_top_destinations(&self, owner_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>, limit: Option<u32>) -> Result<Vec<crate::dto::clickstream_dto::TopDestinationDto>> {
+    async fn get_top_destinations(&self, owner_id: Option<&str>, workspace_id: Option<&str>, route_id: Option<&str>, from_date: Option<&str>, to_date: Option<&str>, limit: Option<u32>) -> Result<Vec<crate::dto::clickstream_dto::TopDestinationDto>> {
         use crate::dto::clickstream_dto::TopDestinationDto;
 
         let mut conditions = Vec::new();
         if let Some(oid) = owner_id {
-            conditions.push(format!("owner_id = '{}'", oid));
+            conditions.push(format!("owner_id = '{}'", escape_sql_string(oid)));
+        }
+        if let Some(wid) = workspace_id {
+            conditions.push(format!("workspace_id = '{}'", escape_sql_string(wid)));
         }
         if let Some(rid) = route_id {
-            conditions.push(format!("route_id = '{}'", rid));
+            conditions.push(format!("route_id = '{}'", escape_sql_string(rid)));
         }
         if let Some(fd) = from_date {
-            conditions.push(format!("date >= '{}'", fd));
+            conditions.push(format!("date >= '{}'", escape_sql_string(fd)));
         }
         if let Some(td) = to_date {
-            conditions.push(format!("date <= '{}'", td));
+            conditions.push(format!("date <= '{}'", escape_sql_string(td)));
         }
 
         let where_clause = if conditions.is_empty() {
@@ -729,21 +758,24 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
         Ok(stats)
     }
 
-    async fn get_traffic_type_stats(&self, owner_id: Option<&str>, route_id: Option<&str>, from_hour: Option<&str>, to_hour: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::TrafficTypeStatsDto>> {
+    async fn get_traffic_type_stats(&self, owner_id: Option<&str>, workspace_id: Option<&str>, route_id: Option<&str>, from_hour: Option<&str>, to_hour: Option<&str>) -> Result<Vec<crate::dto::clickstream_dto::TrafficTypeStatsDto>> {
         use crate::dto::clickstream_dto::TrafficTypeStatsDto;
 
         let mut conditions = Vec::new();
         if let Some(oid) = owner_id {
-            conditions.push(format!("owner_id = '{}'", oid));
+            conditions.push(format!("owner_id = '{}'", escape_sql_string(oid)));
+        }
+        if let Some(wid) = workspace_id {
+            conditions.push(format!("workspace_id = '{}'", escape_sql_string(wid)));
         }
         if let Some(rid) = route_id {
-            conditions.push(format!("route_id = '{}'", rid));
+            conditions.push(format!("route_id = '{}'", escape_sql_string(rid)));
         }
         if let Some(fh) = from_hour {
-            conditions.push(format!("hour >= '{}'", fh));
+            conditions.push(format!("hour >= '{}'", escape_sql_string(fh)));
         }
         if let Some(th) = to_hour {
-            conditions.push(format!("hour <= '{}'", th));
+            conditions.push(format!("hour <= '{}'", escape_sql_string(th)));
         }
 
         let where_clause = if conditions.is_empty() {
