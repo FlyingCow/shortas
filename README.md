@@ -56,6 +56,8 @@ Shortas is composed of multiple subsystems working together:
 
 **Click Router** handles incoming short URL requests, performs redirects (including conditional routing based on geo, device, or browser), serves QR codes and ACME challenge responses, and emits click events to Fluvio. **Click Tracker** consumes raw events, enriches them with geolocation (MaxMind), user-agent parsing, and session tracking (Redis), then publishes aggregated events. **Click Aggregator** consumes aggregated events and stores them in ClickHouse for analytics. Additional workers handle route safety verification (Safe Browsing), favicon scraping, domain ownership verification, and TLS certificate issuance. Each Rust service has a companion REST API for management and querying, and the **Management API** (also Rust/Salvo) is the single backend the Dashboard talks to, proxying route and analytics calls to the internal Click Router API and Click Aggregator API.
 
+Actions in the Management API (currently workspace invitations) deliver notifications asynchronously: a transactional outbox message is published to RabbitMQ, and a separate **Notification Worker** service renders Handlebars templates stored in S3/MinIO and delivers to the in-app notification center (PostgreSQL) and/or email (SES/SMTP) — see [Architecture](https://shortas.work/architecture/#notification-worker) for the full pipeline.
+
 > **Note:** `api/` is the previous ASP.NET Core / C# implementation of the Management API. It has been superseded by the Rust service in `management-api/` and is kept only for reference — it is no longer part of the active stack or CI.
 
 ## Tech Stack
@@ -70,6 +72,7 @@ Shortas is composed of multiple subsystems working together:
 | Cache / sessions | Redis 7 |
 | Analytics store | ClickHouse (MinIO-backed) |
 | Object storage | MinIO (RustFS) |
+| Notification templates | Handlebars (rendered from S3/MinIO by Notification Worker) |
 | Route safety | gglsbl-rest (Google Safe Browsing) |
 | Dashboard | React 18, TypeScript, Bootstrap 5 |
 | Landing page | React 19, TypeScript |
@@ -148,6 +151,8 @@ See [infra/aws/terraform/README.md](infra/aws/terraform/README.md) for detailed 
 ```
 shortas/
 ├── management-api/         Management API (Rust/Salvo) - workspaces, routes, domains, certs
+├── notification-worker/    Renders & delivers notifications (RabbitMQ consumer, depends on management-api as a library)
+├── notification-templates/ Handlebars templates + metadata per notification type, synced to S3 on deploy
 ├── api/                     Legacy ASP.NET Core management API (superseded, kept for reference)
 ├── redirect/                Rust microservices workspace
 │   ├── click-router/        URL redirect handler
@@ -171,7 +176,7 @@ shortas/
 │   └── docker-compose.yml   Dashboard + landing page
 ├── salvo/                   Salvo web framework fork (git submodule)
 ├── docs/                    Jekyll documentation site
-├── Cargo.toml                Root workspace (management-api, redirect/shortas-common)
+├── Cargo.toml                Root workspace (management-api, notification-worker, redirect/shortas-common)
 └── Makefile                  Root build orchestration
 ```
 
@@ -190,6 +195,7 @@ shortas/
 | cert-bot | - | Let's Encrypt certificate automation |
 | pages | 5801 | Static branded not-found/blocked/index pages |
 | management-api | 8090 | Workspace, route, domain & user management |
+| notification-worker | - | Renders & delivers notifications (RabbitMQ consumer) |
 | dashboard | 3000 | Admin UI |
 | landing | 3002 | Marketing site |
 | keycloak | 8080 | Local authentication |
@@ -220,12 +226,15 @@ make up / down        Start/stop redirect/ docker compose stack
 make logs / ps        Tail logs / show service status
 ```
 
-`management-api` is not yet wired into the Makefile — build/test/run it directly from the repo root:
+`management-api` and `notification-worker` are not yet wired into the Makefile — build/test/run them directly from the repo root:
 
 ```bash
 cargo build -p management-api
 cargo test -p management-api
 cargo run -p management-api
+
+cargo build -p notification-worker
+cargo run -p notification-worker
 ```
 
 ## Documentation

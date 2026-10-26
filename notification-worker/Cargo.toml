@@ -1,0 +1,40 @@
+[package]
+name = "notification-worker"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+
+[[bin]]
+name = "notification-worker"
+path = "src/main.rs"
+
+[dependencies]
+# Reuses management-api's domain entities, repositories, email sender,
+# S3 template store, and settings loader instead of duplicating them.
+management-api = { path = "../management-api" }
+
+tokio.workspace = true
+tokio-util.workspace = true
+futures.workspace = true
+
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+
+config.workspace = true
+clap.workspace = true
+dotenv.workspace = true
+
+sqlx.workspace = true
+lapin.workspace = true
+uuid.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+handlebars.workspace = true

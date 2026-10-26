@@ -4,6 +4,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::notification_event::{NotificationEvent, NotificationRecipient};
+
 /// Outbox message status.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OutboxStatus {
@@ -44,10 +46,9 @@ pub enum OutboxMessageType {
     VerifyDomain,
     /// Check route against Safe Browsing.
     CheckRouteSafety,
-    /// Send notification.
-    SendNotification,
-    /// Send a workspace invitation email.
-    SendInviteEmail,
+    /// Publish a notification event to RabbitMQ for the notification-worker
+    /// to render (from its S3 template set) and deliver.
+    PublishNotificationEvent,
 }
 
 impl OutboxMessageType {
@@ -57,8 +58,7 @@ impl OutboxMessageType {
             OutboxMessageType::DeleteRouteIndex => "DeleteRouteIndex",
             OutboxMessageType::VerifyDomain => "VerifyDomain",
             OutboxMessageType::CheckRouteSafety => "CheckRouteSafety",
-            OutboxMessageType::SendNotification => "SendNotification",
-            OutboxMessageType::SendInviteEmail => "SendInviteEmail",
+            OutboxMessageType::PublishNotificationEvent => "PublishNotificationEvent",
         }
     }
 
@@ -68,8 +68,7 @@ impl OutboxMessageType {
             "DeleteRouteIndex" => Some(OutboxMessageType::DeleteRouteIndex),
             "VerifyDomain" => Some(OutboxMessageType::VerifyDomain),
             "CheckRouteSafety" => Some(OutboxMessageType::CheckRouteSafety),
-            "SendNotification" => Some(OutboxMessageType::SendNotification),
-            "SendInviteEmail" => Some(OutboxMessageType::SendInviteEmail),
+            "PublishNotificationEvent" => Some(OutboxMessageType::PublishNotificationEvent),
             _ => None,
         }
     }
@@ -139,40 +138,28 @@ impl OutboxMessage {
         )
     }
 
-    /// Create a message to deliver an in-app notification.
-    pub fn send_notification(
-        user_id: &str,
-        notification_type: &str,
-        payload: serde_json::Value,
-    ) -> Self {
+    /// Create a message to publish a notification event. `idempotency_key`
+    /// is set to this outbox message's own id if not already set on `event`.
+    pub fn publish_notification_event(event: NotificationEvent) -> Self {
         Self::new(
-            OutboxMessageType::SendNotification,
-            serde_json::json!({
-                "user_id": user_id,
-                "notification_type": notification_type,
-                "payload": payload,
-            }),
+            OutboxMessageType::PublishNotificationEvent,
+            serde_json::to_value(&event).expect("NotificationEvent always serializes"),
         )
     }
 
-    /// Create a message to send a workspace invitation email.
-    pub fn send_invite_email(
-        to_email: &str,
-        token: &str,
-        workspace_name: &str,
-        inviter_name: &str,
-        role: &str,
+    /// Convenience constructor: builds the `NotificationEvent` for you,
+    /// stamping its `idempotency_key` with a fresh id shared with this
+    /// outbox message.
+    pub fn notify(
+        notification_id: impl Into<String>,
+        recipient: NotificationRecipient,
+        context: serde_json::Value,
     ) -> Self {
-        Self::new(
-            OutboxMessageType::SendInviteEmail,
-            serde_json::json!({
-                "to_email": to_email,
-                "token": token,
-                "workspace_name": workspace_name,
-                "inviter_name": inviter_name,
-                "role": role,
-            }),
-        )
+        let id = Uuid::new_v4();
+        let event = NotificationEvent::new(notification_id, recipient, context, id);
+        let mut msg = Self::publish_notification_event(event);
+        msg.id = id;
+        msg
     }
 
     /// Mark the message as processing.
@@ -231,5 +218,18 @@ mod tests {
         msg.mark_failed("Error 3".to_string());
         assert!(!msg.can_retry());
         assert!(matches!(msg.status, OutboxStatus::Failed));
+    }
+
+    #[test]
+    fn test_notify_shares_id_with_idempotency_key() {
+        let msg = OutboxMessage::notify(
+            "workspace.invite_created",
+            NotificationRecipient { user_id: None, email: Some("a@b.com".to_string()) },
+            serde_json::json!({}),
+        );
+
+        assert!(matches!(msg.message_type, OutboxMessageType::PublishNotificationEvent));
+        assert_eq!(msg.payload["notification_id"], "workspace.invite_created");
+        assert_eq!(msg.payload["idempotency_key"], msg.id.to_string());
     }
 }

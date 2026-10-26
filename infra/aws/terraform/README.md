@@ -71,7 +71,9 @@ terraform/
 │   │   ├── outputs.tf          Output values
 │   │   ├── terraform.tfvars    Variable values
 │   │   └── backend.tf          S3 backend config
-│   └── prod/                   Production environment
+│   ├── prod/                   Production environment
+│   │   └── ...
+│   └── budget/                 Cost-minimized demo/presentation environment (spin up, tear down)
 │       └── ...
 ├── modules/
 │   ├── vpc/                    VPC, subnets, NAT, endpoints

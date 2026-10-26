@@ -509,6 +509,8 @@ export interface NotificationDto {
   id: string;
   type: string;
   payload: Record<string, any>;
+  /** Rendered from the notification's in_app template. Absent for notifications created before templating existed. */
+  renderedText?: string;
   status: 'Unread' | 'Read' | 'Actioned';
   createdAt: string;
   readAt?: string;

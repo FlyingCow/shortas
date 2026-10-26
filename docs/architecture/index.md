@@ -173,7 +173,24 @@ Rust/Salvo service providing workspace management (including email-based member 
 
 Route changes affecting search are reflected in Elasticsearch, which backs `GET /api/v1/routes/search`; `POST /api/v1/routes/search/reindex` is available to rebuild the index manually.
 
-**Workspace roles & invitations:** every workspace member has a role of **Owner** (the creator; exactly one per workspace, never reassigned or removed), **Admin** (manages members and invitations), or **Member**. Inviting a user by email creates a `WorkspaceInvitation` with a random token (only its hash is stored, 7-day TTL); accepting it — either via the emailed link or from the in-app notification — creates the membership and marks the invitation accepted. Invite emails and in-app notifications are both delivered asynchronously through the same transactional outbox used for Elasticsearch indexing and Safe Browsing checks (`SendInviteEmail` / `SendNotification` outbox message types), rather than sent inline from the request handler.
+**Workspace roles & invitations:** every workspace member has a role of **Owner** (the creator; exactly one per workspace, never reassigned or removed), **Admin** (manages members and invitations), or **Member**. Inviting a user by email creates a `WorkspaceInvitation` with a random token (only its hash is stored, 7-day TTL); accepting it — either via the emailed link or from the in-app notification — creates the membership, marks the invitation accepted, and marks the originating notification `Actioned` so it stops reappearing in the bell. Both the invite email and the in-app notification are delivered through the generic notification pipeline (see below) via a single `PublishNotificationEvent` outbox message, rather than sent inline from the request handler.
+
+### Notification Worker
+
+A separate Rust/Tokio binary that renders and delivers the notifications any Management API action triggers — currently the workspace-invite flow, but built to be generic to future notification types. It has no HTTP endpoints; it only consumes from RabbitMQ, and depends on `management-api` as a library (reusing its `Notification`/`User` repositories, `EmailSender`, and S3 client) rather than duplicating domain code.
+
+**Pipeline:**
+
+1. **Event creation** — an action handler (e.g. `POST /api/v1/workspaces/{id}/invitations`) builds a `NotificationEvent` (`notification_id` template key, `recipient` { `user_id`, `email` }, `context` JSON) and writes it as a `PublishNotificationEvent` outbox message in the same DB transaction as the business action.
+2. **Publish** — the same transactional Outbox processor that handles Elasticsearch indexing and Safe Browsing checks publishes the event onto the `notifications` topic exchange (routing key = `notification_id`).
+3. **Template fetch** — Notification Worker fetches `notification-templates/<notification_id>/{metadata.json, email.subject.hbs, email.body.hbs, in_app.hbs}` from the same S3/MinIO bucket Management API already uses for QR codes/favicons, cached in-memory via Moka.
+4. **Validation** — the event's `context` is checked against `metadata.json`'s `required_context`; a missing key fails fast instead of rendering a half-empty template.
+5. **Render & deliver** — Handlebars renders each channel `metadata.json` declares:
+   - `in_app` → writes a `Notification` row (PostgreSQL) with the rendered text, shown in the dashboard's notification bell
+   - `email` → renders subject + HTML body, sent via the same `EmailSender` (SES/SMTP) Management API uses
+6. **Retry / dead-letter** — a failed delivery is nacked (no requeue) and dead-lettered into a retry queue with a TTL-based delay, looping back onto the main exchange; after `notifications_max_retries` redeliveries it's routed to a dead queue instead of retrying forever.
+
+**Notification templates** live in the repo under `notification-templates/<notification_id>/` and are synced to S3 as part of deploy (see [Deployment](/deployment/)) — so adding a notification type is a template PR, not a Rust or frontend change. `metadata.json` declares `channels` (`email`, `in_app`) and `required_context`; `email.subject.hbs`/`email.body.hbs` render the email, `in_app.hbs` renders the bell's display text.
 
 ## TLS Certificates
 
@@ -211,8 +228,8 @@ Domain Verifier ──▶ domain.state.changed (RabbitMQ)
 | ClickHouse | Analytics | Click events, aggregated metrics, time-series data |
 | Elasticsearch | Route search | Full-text index of route links, domains, destinations |
 | Redis | Ephemeral state | Sessions, cache entries |
-| RabbitMQ | Messaging | Cache invalidation, domain/route/certificate state changes |
-| MinIO | Object storage | ClickHouse data files, route icons, QR code assets |
+| RabbitMQ | Messaging | Cache invalidation, domain/route/certificate state changes, notification delivery events |
+| MinIO | Object storage | ClickHouse data files, route icons, QR code assets, notification templates |
 | gglsbl-rest | Safe Browsing | Local mirror of Google Safe Browsing threat lists |
 | Vault | Secrets (dev mode) | Provisioned for future use; not yet wired into any service |
 | Prometheus | Metrics | Time-series metrics from all services |
@@ -227,7 +244,9 @@ Fluvio provides the event bus for the click pipeline:
 
 ## RabbitMQ Topology
 
-All exchanges below are fanout exchanges; each consuming instance binds its own exclusive, auto-delete queue so cache invalidation is ephemeral — if RabbitMQ restarts, Moka cache TTLs provide eventual consistency.
+Two different patterns, by use case.
+
+**Cache/state-change exchanges** are all fanout; each consuming instance binds its own exclusive, auto-delete queue, making them fire-and-forget — if RabbitMQ restarts, Moka cache TTLs provide eventual consistency, so nothing is lost that matters.
 
 | Exchange | Published by | Consumed by |
 |----------|--------------|-------------|
@@ -236,6 +255,32 @@ All exchanges below are fanout exchanges; each consuming instance binds its own 
 | `cache.invalidation.certificates` | Cert Bot (after issuing/renewing a cert) | Click Router (certificate cache) |
 | `domain.state.changed` | Domain Verifier | Cert Bot, Management API |
 | `route.status.changed` | Route Verifier | Management API |
+
+**Notification delivery** is durable and at-least-once with explicit retry/dead-letter handling instead — a dropped notification isn't something a TTL can paper over.
+
+```
+Management API (Outbox) ──▶ "notifications" (durable topic exchange, routing key = notification_id)
+                                    │
+                                    ▼
+                           notifications (main queue)
+                                    │
+                     ┌──────────────┴──────────────┐
+                success (ack)                  failure (nack, no requeue)
+                     │                              │
+                     ▼                              ▼
+             Notification Worker          notifications.retry (TTL-delayed)
+            delivers in_app/email                   │
+                                                      ▼
+                                       back onto "notifications" exchange
+                                      (after notifications_max_retries
+                                       redeliveries → notifications.dead)
+```
+
+| Queue | Purpose |
+|-------|---------|
+| `notifications` | Main queue, consumed by Notification Worker |
+| `notifications.retry` | Holds failed messages for `notifications_retry_delay_ms`, then dead-letters back onto the main exchange |
+| `notifications.dead` | Terminal queue after `notifications_max_retries` redeliveries — needs manual inspection |
 
 ## Route Safety Verification
 

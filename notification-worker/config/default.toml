@@ -1,0 +1,27 @@
+[database]
+host = "localhost"
+port = 5432
+username = "postgres"
+password = "postgres"
+database = "shortas"
+max_connections = 5
+
+# endpoint/access_key/secret_key are intentionally NOT set here - see
+# management-api/config/default.toml for why.
+[minio]
+region = "us-east-1"
+bucket = "shortas"
+
+[rabbitmq]
+url = "amqp://localhost:5672"
+domain_verification_queue = "domain-verification"
+route_status_queue = "route-status"
+notifications_exchange = "notifications"
+notifications_queue = "notifications"
+notifications_retry_queue = "notifications.retry"
+notifications_dead_queue = "notifications.dead"
+notifications_retry_delay_ms = 30000
+notifications_max_retries = 5
+
+[email]
+dashboard_base_url = "https://app.shortas.space"

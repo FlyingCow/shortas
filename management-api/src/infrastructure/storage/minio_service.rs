@@ -213,4 +213,23 @@ impl MinioService {
         let result = self.client.list_buckets().send().await;
         Ok(result.is_ok())
     }
+
+    /// Fetch an object's body server-side as UTF-8 text (e.g. a notification
+    /// template file), `None` if it doesn't exist.
+    pub async fn get_object_text(&self, key: &str) -> anyhow::Result<Option<String>> {
+        let result = self.client.get_object().bucket(&self.bucket).key(key).send().await;
+
+        let output = match result {
+            Ok(output) => output,
+            Err(aws_sdk_s3::error::SdkError::ServiceError(e))
+                if e.err().is_no_such_key() =>
+            {
+                return Ok(None)
+            }
+            Err(e) => return Err(e.into()),
+        };
+
+        let bytes = output.body.collect().await?.into_bytes();
+        Ok(Some(String::from_utf8(bytes.to_vec())?))
+    }
 }

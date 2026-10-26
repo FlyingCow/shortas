@@ -45,6 +45,7 @@ locals {
     "route-icon-worker",
     "cert-bot",
     "management-api",
+    "notification-worker",
     "dashboard",
     "landing",
     "pages",
@@ -444,6 +445,28 @@ module "ecs" {
         { name = "APP__CLICK_ROUTER__BASE_URL", value = "http://click-router-api.${local.environment}.shortas.local:5810" },
         { name = "APP__CLICK_AGGREGATOR__BASE_URL", value = "http://click-aggregator-api.${local.environment}.shortas.local:5820" },
         { name = "APP__ELASTICSEARCH__URL", value = module.opensearch.url },
+        { name = "APP__MINIO__BUCKET", value = module.s3.route_images_bucket_name },
+        { name = "APP__MINIO__REGION", value = var.region },
+      ]
+      secrets = [
+        { name = "APP__DATABASE__HOST", valueFrom = "${module.rds.secret_arn}:host::" },
+        { name = "APP__DATABASE__PORT", valueFrom = "${module.rds.secret_arn}:port::" },
+        { name = "APP__DATABASE__USERNAME", valueFrom = "${module.rds.secret_arn}:username::" },
+        { name = "APP__DATABASE__PASSWORD", valueFrom = "${module.rds.secret_arn}:password::" },
+        { name = "APP__DATABASE__DATABASE", valueFrom = "${module.rds.secret_arn}:dbname::" },
+        { name = "APP__RABBITMQ__URL", valueFrom = "${module.amazon_mq.secret_arn}:amqp_uri::" },
+      ]
+    },
+    {
+      # Renders notification templates (S3) and delivers them (Postgres
+      # in-app rows + SES email) for events management-api publishes to
+      # the "notifications" exchange. No ALB target group - pure consumer.
+      name          = "notification-worker"
+      cpu           = 256
+      memory        = 512
+      desired_count = 1
+      environment_variables = [
+        { name = "APP__DATABASE__MAX_CONNECTIONS", value = "5" },
         { name = "APP__MINIO__BUCKET", value = module.s3.route_images_bucket_name },
         { name = "APP__MINIO__REGION", value = var.region },
       ]

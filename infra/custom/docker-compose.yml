@@ -149,6 +149,28 @@ services:
     networks:
       - shortas-net
 
+  notification-templates-sync:
+    image: amazon/aws-cli:latest
+    container_name: shortas-notification-templates-sync
+    depends_on:
+      minio-setup:
+        condition: service_completed_successfully
+    environment:
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://minio:9000
+    volumes:
+      - ../../notification-templates:/templates:ro
+    entrypoint: >
+      /bin/sh -c "
+        echo 'Syncing notification templates to s3://route-images/notification-templates/...'
+        aws s3 sync /templates s3://route-images/notification-templates/ --delete
+        echo 'Notification templates sync complete'
+      "
+    networks:
+      - shortas-net
+
   minio-nginx:
     image: nginx:alpine
     container_name: shortas-minio-nginx

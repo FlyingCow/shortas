@@ -85,7 +85,7 @@ Every member has a role: **Owner** (the creator, exactly one per workspace, neve
 
 #### Invitations
 
-Invite-by-email flow for adding members without knowing their user ID up front. An Admin/Owner invites by email; a single-use token (only its hash is persisted, 7-day TTL) is emailed via the transactional outbox, and if the invitee already has an account, an in-app notification is created too. The invitee accepts either from the emailed link (`by-token`, works pre-login) or from the in-app notification center.
+Invite-by-email flow for adding members without knowing their user ID up front. An Admin/Owner invites by email; a single-use token (only its hash is persisted, 7-day TTL) is emailed through the notification pipeline (see [Notifications](#notifications) below), and if the invitee already has an account, an in-app notification is created too. The invitee accepts either from the emailed link (`by-token`, works pre-login) or from the in-app notification center.
 
 | Method | Path | Description | Auth |
 |--------|------|--------------|------|
@@ -99,12 +99,28 @@ Invite-by-email flow for adding members without knowing their user ID up front. 
 
 ### Notifications
 
-In-app notification center; currently used for workspace invite alerts.
+In-app notification center; currently used for workspace invite alerts. Notifications are produced asynchronously by the [Notification Worker](/architecture/#notification-worker) from Handlebars templates stored in S3 — `renderedText` in the response below is the pre-rendered display string (e.g. `"Max invited you to join \"Acme\" as User"`); it's absent on any notification created before server-side rendering existed, in which case the dashboard falls back to a hardcoded per-type formatter.
 
 | Method | Path | Description |
 |--------|------|--------------|
 | GET | `/api/v1/notifications` | List the current user's notifications, newest first (up to 50) |
 | POST | `/api/v1/notifications/{id}/read` | Mark a notification as read |
+
+Response shape (`NotificationDto`, camelCase on the wire):
+
+```json
+{
+  "id": "381a20e2-549c-4be3-9d58-8f923195ec5d",
+  "type": "workspace.invite_created",
+  "payload": { "invitation_id": "...", "workspace_name": "Acme", "role": "Member", "...": "..." },
+  "renderedText": "Max invited you to join \"Acme\" as User",
+  "status": "Unread",
+  "createdAt": "2026-10-26T18:56:34.648846Z",
+  "readAt": null
+}
+```
+
+`type` is the notification's template key (`notification_id` in the pipeline, e.g. `workspace.invite_created`) — not a fixed enum, since new notification types are added as templates rather than code. `payload` is the raw render context, kept around for client-side actions (e.g. the Accept/Decline buttons reading `payload.invitation_id`) independently of the rendered text.
 
 ### Users
 

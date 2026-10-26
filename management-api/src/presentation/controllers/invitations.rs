@@ -6,7 +6,9 @@ use uuid::Uuid;
 use crate::application::dto::{
     CreateInvitationDto, InvitationDto, InvitationPreviewDto, WorkspaceMemberDto,
 };
-use crate::domain::entities::{ApiError, OutboxMessage, UserWorkspace, WorkspaceInvitation};
+use crate::domain::entities::{
+    ApiError, NotificationRecipient, OutboxMessage, UserWorkspace, WorkspaceInvitation,
+};
 use crate::presentation::middleware::{
     render_created, render_error, render_no_content, render_success, DepotExt, UserExt,
 };
@@ -186,23 +188,32 @@ pub async fn create_invitation(req: &mut Request, depot: &mut Depot, res: &mut R
         .and_then(|p| p.name.clone().or_else(|| p.email.clone()))
         .unwrap_or_else(|| "Someone".to_string());
 
-    let email_msg = OutboxMessage::send_invite_email(&email, &raw_token, &workspace.name, &inviter_name, &dto.role);
-    let _ = app_state.outbox_repo.create(&email_msg).await;
+    let invite_url = format!(
+        "{}/invite/{}",
+        app_state.settings.email.dashboard_base_url.trim_end_matches('/'),
+        raw_token
+    );
+    // The in-app notification shows "User" for the Member role (matches the
+    // dashboard's own terminology); email keeps the raw role name.
+    let role_label = if dto.role == "Member" { "User" } else { dto.role.as_str() };
 
-    if let Some(invited_user_id) = invited_user_id {
-        let notification_msg = OutboxMessage::send_notification(
-            &invited_user_id,
-            "WorkspaceInvite",
-            serde_json::json!({
-                "invitation_id": created.id,
-                "workspace_id": workspace_id,
-                "workspace_name": workspace.name,
-                "role": dto.role,
-                "inviter_name": inviter_name,
-            }),
-        );
-        let _ = app_state.outbox_repo.create(&notification_msg).await;
-    }
+    let notify_msg = OutboxMessage::notify(
+        "workspace.invite_created",
+        NotificationRecipient {
+            user_id: invited_user_id,
+            email: Some(email.clone()),
+        },
+        serde_json::json!({
+            "invitation_id": created.id,
+            "workspace_id": workspace_id,
+            "workspace_name": workspace.name,
+            "role": dto.role,
+            "role_label": role_label,
+            "inviter_name": inviter_name,
+            "invite_url": invite_url,
+        }),
+    );
+    let _ = app_state.outbox_repo.create(&notify_msg).await;
 
     render_created(res, InvitationDto::from_entity(created));
 }
@@ -445,6 +456,7 @@ async fn accept_invitation_internal(
         if let Err(e) = app_state.invitation_repo.mark_accepted(invitation.id).await {
             tracing::warn!("Failed to mark already-member invitation {} accepted: {}", invitation.id, e);
         }
+        let _ = app_state.notification_repo.mark_actioned_by_invitation(invitation.id).await;
         render_error(res, ApiError::conflict("You're already a member of this workspace"));
         return;
     }
@@ -461,6 +473,7 @@ async fn accept_invitation_internal(
     if let Err(e) = app_state.invitation_repo.mark_accepted(invitation.id).await {
         tracing::warn!("Membership created but failed to mark invitation {} accepted: {}", invitation.id, e);
     }
+    let _ = app_state.notification_repo.mark_actioned_by_invitation(invitation.id).await;
 
     render_success(res, WorkspaceMemberDto::from_entity(created));
 }
@@ -580,7 +593,10 @@ pub async fn decline_invitation(req: &mut Request, depot: &mut Depot, res: &mut 
     }
 
     match app_state.invitation_repo.mark_declined(id).await {
-        Ok(()) => render_no_content(res),
+        Ok(()) => {
+            let _ = app_state.notification_repo.mark_actioned_by_invitation(id).await;
+            render_no_content(res)
+        }
         Err(e) => render_error(res, e),
     }
 }
