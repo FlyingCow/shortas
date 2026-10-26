@@ -260,4 +260,16 @@ impl WorkspaceRepository for PgWorkspaceRepository {
 
         Ok(row.try_get::<bool, _>("exists").unwrap_or(false))
     }
+
+    async fn get_owner_user_id(&self, workspace_id: Uuid) -> Result<Option<String>> {
+        let row = sqlx::query(
+            "SELECT user_id FROM user_workspaces WHERE workspace_id = $1 AND role = 'Owner' LIMIT 1",
+        )
+        .bind(workspace_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(row.and_then(|r| r.try_get::<String, _>("user_id").ok()))
+    }
 }

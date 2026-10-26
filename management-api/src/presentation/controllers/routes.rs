@@ -88,7 +88,9 @@ pub async fn list_routes(req: &mut Request, depot: &mut Depot, res: &mut Respons
         search,
         status,
         workspace_id,
-        owner_id: Some(user_id.clone()),
+        // owner_id intentionally left unset here - RouteService::list defaults
+        // it to the caller only when there's no workspace context, so that a
+        // workspace-scoped query can show routes owned by other members.
         ..Default::default()
     };
 
@@ -701,9 +703,35 @@ pub async fn search_routes(req: &mut Request, depot: &mut Depot, res: &mut Respo
         return;
     }
 
+    // Same rule as list_routes: a workspace-scoped search shows routes from
+    // any member of that workspace (e.g. the owner's), not just the caller's
+    // own - but only once we've confirmed the caller actually belongs to it.
+    let owner_filter: Option<&str> = match &workspace_id {
+        Some(wid) => {
+            let workspace_uuid = match Uuid::parse_str(wid) {
+                Ok(id) => id,
+                Err(_) => {
+                    render_error(res, ApiError::validation("Invalid workspace ID"));
+                    return;
+                }
+            };
+            let has_access = app_state
+                .workspace_repo
+                .user_has_access(workspace_uuid, &user_id)
+                .await
+                .unwrap_or(false);
+            if !has_access {
+                render_error(res, ApiError::forbidden());
+                return;
+            }
+            None
+        }
+        None => Some(user_id.as_str()),
+    };
+
     match app_state
         .search_service
-        .search(&query, Some(&user_id), workspace_id.as_deref(), page, page_size)
+        .search(&query, owner_filter, workspace_id.as_deref(), page, page_size)
         .await
     {
         Ok(result) => {

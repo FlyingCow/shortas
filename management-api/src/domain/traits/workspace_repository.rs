@@ -55,4 +55,7 @@ pub trait WorkspaceRepository: Send + Sync {
 
     /// Check if user has access to workspace.
     async fn user_has_access(&self, workspace_id: Uuid, user_id: &str) -> Result<bool>;
+
+    /// Get the user ID of the workspace's owner, if any.
+    async fn get_owner_user_id(&self, workspace_id: Uuid) -> Result<Option<String>>;
 }

@@ -24,9 +24,13 @@ pub struct RateLimitConfig {
 impl Default for RateLimitConfig {
     fn default() -> Self {
         Self {
-            max_requests: 100,
+            // A single dashboard page load alone fires ~10 parallel requests
+            // (clickstream stats, routes, domains), and the notification bell
+            // adds one more on every page. The old burst of 20 left almost no
+            // headroom for a second tab, a quick re-navigation, or retries.
+            max_requests: 300,
             window_seconds: 60,
-            burst: 20,
+            burst: 60,
         }
     }
 }

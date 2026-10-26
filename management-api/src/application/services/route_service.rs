@@ -85,11 +85,7 @@ impl RouteService {
         page_size: i32,
         filters: RouteFilters,
     ) -> Result<PaginatedResult<Route>> {
-        // Ensure user can only see their own routes (unless admin)
         let mut filters = filters;
-        if filters.owner_id.is_none() {
-            filters.owner_id = Some(user_id.to_string());
-        }
 
         // Don't trust a client-supplied workspace_id filter without checking
         // the caller actually belongs to that workspace.
@@ -104,6 +100,12 @@ impl RouteService {
             if !has_access {
                 return Err(ApiError::forbidden());
             }
+            // Inside a shared workspace, routes can belong to any member
+            // (e.g. the owner, when an admin created them) - membership
+            // above is the access check, not per-route ownership.
+        } else if filters.owner_id.is_none() {
+            // No workspace context: default to the caller's own routes.
+            filters.owner_id = Some(user_id.to_string());
         }
 
         self.route_repo.list(page, page_size, filters).await
@@ -122,9 +124,19 @@ impl RouteService {
             .await?
             .ok_or_else(|| ApiError::not_found("Domain", &domain_id.to_string()))?;
 
-        if !domain.can_use(user_id) {
+        // If this route is being created inside a shared workspace, it belongs
+        // to the workspace owner's account (so it uses the owner's domains and
+        // shows up under their quota/billing) even when an admin member — not
+        // the owner — is the one creating it. The admin is still recorded as
+        // the creator.
+        let effective_owner_id = self.resolve_route_owner(&route, user_id).await?;
+
+        if !domain.can_use(&effective_owner_id) {
             return Err(ApiError::forbidden());
         }
+
+        route.properties.owner_id = Some(effective_owner_id);
+        route.properties.creator_id = Some(user_id.to_string());
 
         // Generate link if not provided
         if route.link.is_empty() {
@@ -226,22 +238,28 @@ impl RouteService {
     }
 
     /// Bulk create routes.
-    pub async fn bulk_create(&self, routes: Vec<Route>, user_id: &str) -> Result<Vec<Route>> {
-        // Validate all routes
-        for route in &routes {
-            if let Some(domain_id) = route.domain_id {
-                let domain = self
-                    .domain_repo
-                    .get_by_id(domain_id)
-                    .await?
-                    .ok_or_else(|| ApiError::not_found("Domain", &domain_id.to_string()))?;
-
-                if !domain.can_use(user_id) {
-                    return Err(ApiError::forbidden());
-                }
-            } else {
+    pub async fn bulk_create(&self, mut routes: Vec<Route>, user_id: &str) -> Result<Vec<Route>> {
+        // Validate all routes and resolve each one's effective owner (see
+        // `resolve_route_owner` - same shared-workspace rules as `create`).
+        for route in &mut routes {
+            let Some(domain_id) = route.domain_id else {
                 return Err(ApiError::required("domain_id"));
+            };
+
+            let domain = self
+                .domain_repo
+                .get_by_id(domain_id)
+                .await?
+                .ok_or_else(|| ApiError::not_found("Domain", &domain_id.to_string()))?;
+
+            let effective_owner_id = self.resolve_route_owner(route, user_id).await?;
+
+            if !domain.can_use(&effective_owner_id) {
+                return Err(ApiError::forbidden());
             }
+
+            route.properties.owner_id = Some(effective_owner_id);
+            route.properties.creator_id = Some(user_id.to_string());
         }
 
         // Create all routes
@@ -497,6 +515,44 @@ impl RouteService {
             Ok(Some(membership)) => membership.is_admin(),
             _ => false,
         }
+    }
+
+    /// Determine who a new route should belong to, and that the caller is
+    /// actually allowed to create one in the given context.
+    ///
+    /// - No workspace on the route: the caller owns it, as before.
+    /// - Workspace given, caller is its owner: unchanged, caller owns it.
+    /// - Workspace given, caller is an admin member (not owner): the route
+    ///   belongs to the workspace owner's account instead — `create()` still
+    ///   records the caller as `creator_id` separately.
+    /// - Workspace given, caller has no admin membership: forbidden. This
+    ///   also closes a gap where any caller could previously tag a new route
+    ///   with an arbitrary `workspace_id` with no membership check at all.
+    async fn resolve_route_owner(&self, route: &Route, user_id: &str) -> Result<String> {
+        let Some(workspace_id) = route.properties.workspace_id.as_deref() else {
+            return Ok(user_id.to_string());
+        };
+        let workspace_uuid = Uuid::parse_str(workspace_id)
+            .map_err(|_| ApiError::validation("Invalid workspace ID"))?;
+
+        let membership = self
+            .workspace_repo
+            .get_membership(workspace_uuid, user_id)
+            .await?
+            .ok_or_else(ApiError::forbidden)?;
+
+        if !membership.is_admin() {
+            return Err(ApiError::forbidden());
+        }
+        if membership.is_owner() {
+            return Ok(user_id.to_string());
+        }
+
+        Ok(self
+            .workspace_repo
+            .get_owner_user_id(workspace_uuid)
+            .await?
+            .unwrap_or_else(|| user_id.to_string()))
     }
 
     /// Propagate route to click-router.
