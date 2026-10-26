@@ -44,6 +44,15 @@ services:
     networks:
       - shortas-net
 
+  shortas-mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: shortas-mailhog
+    ports:
+      - "8025:8025" # Web UI - view sent invite emails at http://localhost:8025
+      - "1025:1025" # SMTP
+    networks:
+      - shortas-net
+
   management-api:
     build:
       context: ..
@@ -91,6 +100,12 @@ services:
       - APP__RABBITMQ__URL=amqp://guest:guest@shortas-rabbitmq:5672
       - APP__RABBITMQ__DOMAIN_VERIFICATION_QUEUE=domain-verification
       - APP__RABBITMQ__ROUTE_STATUS_QUEUE=route-status
+      # Email (MailHog catch-all in dev - view sent mail at http://localhost:8025)
+      - APP__EMAIL__PROVIDER=smtp
+      - APP__EMAIL__SMTP_HOST=shortas-mailhog
+      - APP__EMAIL__SMTP_PORT=1025
+      - APP__EMAIL__FROM_ADDRESS=no-reply@shortas.space
+      - APP__EMAIL__DASHBOARD_BASE_URL=http://localhost:3000
       # Shared domains (default: shortas.space)
       # - APP__SHARED_DOMAINS__NAMES__0=shortas.space
     healthcheck:
@@ -104,6 +119,8 @@ services:
         condition: service_healthy
       shortas-api-elasticsearch:
         condition: service_healthy
+      shortas-mailhog:
+        condition: service_started
     networks:
       - shortas-net
 

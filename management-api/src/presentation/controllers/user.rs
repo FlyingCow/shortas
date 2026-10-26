@@ -72,8 +72,11 @@ pub async fn initialize_user(depot: &mut Depot, res: &mut Response) {
 
     let user_email = depot.user_email().ok();
 
-    // Check if user already has workspaces
-    let workspaces = match app_state.workspace_repo.list_by_user(&user_id).await {
+    // Check if the user already has their own System workspace - NOT just
+    // any workspace, since being a member of a workspace shared with them
+    // (e.g. just having accepted an invite) must not be mistaken for having
+    // been initialized: they still need their own personal workspace.
+    let existing_system_workspace = match app_state.workspace_repo.get_system_workspace(&user_id).await {
         Ok(ws) => ws,
         Err(e) => {
             render_error(res, e);
@@ -81,10 +84,9 @@ pub async fn initialize_user(depot: &mut Depot, res: &mut Response) {
         }
     };
 
-    let workspace = if !workspaces.is_empty() {
-        // User already has a workspace
-        tracing::info!("User {} already has workspace {}", user_id, workspaces[0].id);
-        workspaces.into_iter().next().unwrap()
+    let workspace = if let Some(ws) = existing_system_workspace {
+        tracing::info!("User {} already has system workspace {}", user_id, ws.id);
+        ws
     } else {
         // Create default workspace as System type
         match app_state.workspace_repo.create_system_workspace(&user_id).await {
@@ -155,11 +157,14 @@ pub async fn get_initialization_status(depot: &mut Depot, res: &mut Response) {
 
     tracing::info!("Checking initialization status for user {}", user_id);
 
-    // Check if user has any workspaces
-    let has_workspaces = match app_state.workspace_repo.list_by_user(&user_id).await {
-        Ok(ws) => !ws.is_empty(),
+    // Check specifically for the user's own System workspace - not just any
+    // workspace membership, since accepting an invite to someone else's
+    // shared workspace must not look like "already initialized" and skip
+    // creating their personal workspace.
+    let has_workspaces = match app_state.workspace_repo.get_system_workspace(&user_id).await {
+        Ok(ws) => ws.is_some(),
         Err(e) => {
-            tracing::error!("Error checking workspaces for user {}: {:?}", user_id, e);
+            tracing::error!("Error checking system workspace for user {}: {:?}", user_id, e);
             false
         }
     };

@@ -4,7 +4,14 @@ use salvo::oapi::ToSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::domain::entities::{UserWorkspace, Workspace};
+use crate::domain::entities::{ApiError, UserWorkspace, Workspace};
+
+/// Matches the `workspaces.name VARCHAR(255)` column - caught here with a
+/// clear message instead of as a raw truncation error from Postgres.
+const WORKSPACE_NAME_MAX_LEN: usize = 255;
+/// `description` is unbounded TEXT in the database, but still capped for
+/// sane UI rendering and to avoid unbounded payloads.
+const WORKSPACE_DESCRIPTION_MAX_LEN: usize = 2000;
 
 /// Workspace response DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -23,6 +30,11 @@ pub struct WorkspaceDto {
     pub member_count: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub route_count: Option<i64>,
+    /// The current caller's role in this workspace ("Owner", "Admin", or
+    /// "Member") - lets the UI group "my workspaces" vs "shared with me"
+    /// without an extra per-workspace members fetch.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_role: Option<String>,
 }
 
 impl WorkspaceDto {
@@ -38,12 +50,18 @@ impl WorkspaceDto {
             updated_at: workspace.updated_at.map(|dt| dt.to_rfc3339()),
             member_count: None,
             route_count: None,
+            user_role: None,
         }
     }
 
     pub fn with_counts(mut self, member_count: i32, route_count: i64) -> Self {
         self.member_count = Some(member_count);
         self.route_count = Some(route_count);
+        self
+    }
+
+    pub fn with_user_role(mut self, role: Option<String>) -> Self {
+        self.user_role = role;
         self
     }
 }
@@ -57,11 +75,40 @@ pub struct CreateWorkspaceDto {
 }
 
 impl CreateWorkspaceDto {
+    pub fn validate(&self) -> Result<(), ApiError> {
+        validate_name(&self.name)?;
+        validate_description(&self.description)?;
+        Ok(())
+    }
+
     pub fn to_entity(self) -> Workspace {
         let mut workspace = Workspace::new(self.name, "User".to_string());
         workspace.description = self.description;
         workspace
     }
+}
+
+fn validate_name(name: &str) -> Result<(), ApiError> {
+    if name.trim().is_empty() {
+        return Err(ApiError::required("name"));
+    }
+    if name.len() > WORKSPACE_NAME_MAX_LEN {
+        return Err(ApiError::validation(format!(
+            "Name must be {} characters or fewer",
+            WORKSPACE_NAME_MAX_LEN
+        )));
+    }
+    Ok(())
+}
+
+fn validate_description(description: &str) -> Result<(), ApiError> {
+    if description.len() > WORKSPACE_DESCRIPTION_MAX_LEN {
+        return Err(ApiError::validation(format!(
+            "Description must be {} characters or fewer",
+            WORKSPACE_DESCRIPTION_MAX_LEN
+        )));
+    }
+    Ok(())
 }
 
 /// Workspace update request DTO.
@@ -74,6 +121,16 @@ pub struct UpdateWorkspaceDto {
 }
 
 impl UpdateWorkspaceDto {
+    pub fn validate(&self) -> Result<(), ApiError> {
+        if let Some(name) = &self.name {
+            validate_name(name)?;
+        }
+        if let Some(description) = &self.description {
+            validate_description(description)?;
+        }
+        Ok(())
+    }
+
     pub fn apply_to(self, mut workspace: Workspace) -> Workspace {
         if let Some(name) = self.name {
             workspace.name = name;
@@ -97,6 +154,12 @@ pub struct WorkspaceMemberDto {
     pub is_admin: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub joined_at: Option<String>,
+    /// The member's email, resolved from the local user directory - falls
+    /// back to the raw user ID client-side if this user was never seen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 impl WorkspaceMemberDto {
@@ -109,7 +172,15 @@ impl WorkspaceMemberDto {
             is_owner: membership.is_owner(),
             is_admin: membership.is_admin(),
             joined_at: membership.joined_at.map(|dt| dt.to_rfc3339()),
+            email: None,
+            name: None,
         }
+    }
+
+    pub fn with_user_info(mut self, email: Option<String>, name: Option<String>) -> Self {
+        self.email = email;
+        self.name = name;
+        self
     }
 }
 

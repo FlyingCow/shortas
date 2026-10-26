@@ -46,6 +46,8 @@ pub enum OutboxMessageType {
     CheckRouteSafety,
     /// Send notification.
     SendNotification,
+    /// Send a workspace invitation email.
+    SendInviteEmail,
 }
 
 impl OutboxMessageType {
@@ -56,6 +58,7 @@ impl OutboxMessageType {
             OutboxMessageType::VerifyDomain => "VerifyDomain",
             OutboxMessageType::CheckRouteSafety => "CheckRouteSafety",
             OutboxMessageType::SendNotification => "SendNotification",
+            OutboxMessageType::SendInviteEmail => "SendInviteEmail",
         }
     }
 
@@ -66,6 +69,7 @@ impl OutboxMessageType {
             "VerifyDomain" => Some(OutboxMessageType::VerifyDomain),
             "CheckRouteSafety" => Some(OutboxMessageType::CheckRouteSafety),
             "SendNotification" => Some(OutboxMessageType::SendNotification),
+            "SendInviteEmail" => Some(OutboxMessageType::SendInviteEmail),
             _ => None,
         }
     }
@@ -132,6 +136,42 @@ impl OutboxMessage {
         Self::new(
             OutboxMessageType::CheckRouteSafety,
             serde_json::json!({ "route_id": route_id, "url": url }),
+        )
+    }
+
+    /// Create a message to deliver an in-app notification.
+    pub fn send_notification(
+        user_id: &str,
+        notification_type: &str,
+        payload: serde_json::Value,
+    ) -> Self {
+        Self::new(
+            OutboxMessageType::SendNotification,
+            serde_json::json!({
+                "user_id": user_id,
+                "notification_type": notification_type,
+                "payload": payload,
+            }),
+        )
+    }
+
+    /// Create a message to send a workspace invitation email.
+    pub fn send_invite_email(
+        to_email: &str,
+        token: &str,
+        workspace_name: &str,
+        inviter_name: &str,
+        role: &str,
+    ) -> Self {
+        Self::new(
+            OutboxMessageType::SendInviteEmail,
+            serde_json::json!({
+                "to_email": to_email,
+                "token": token,
+                "workspace_name": workspace_name,
+                "inviter_name": inviter_name,
+                "role": role,
+            }),
         )
     }
 

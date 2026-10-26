@@ -53,6 +53,10 @@ elasticsearch.workspace = true
 aws-sdk-s3.workspace = true
 aws-config.workspace = true
 
+# Email (SES in prod)
+aws-sdk-sesv2.workspace = true
+lettre.workspace = true
+
 # Messaging
 lapin.workspace = true
 
@@ -70,3 +74,4 @@ tracing-subscriber.workspace = true
 
 # Security
 jsonwebtoken.workspace = true
+sha2.workspace = true

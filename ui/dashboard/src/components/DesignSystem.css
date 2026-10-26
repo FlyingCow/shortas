@@ -1151,7 +1151,11 @@ body {
   max-width: 320px;
   max-height: 320px;
   overflow-y: auto;
-  z-index: var(--z-dropdown);
+  /* Popover level, not --z-dropdown: this menu is portaled specifically so
+     it isn't clipped by ancestors, which must also hold for a modal
+     (--z-modal: 1050) — a dropdown opened inside a modal needs to render
+     above it, not behind it. */
+  z-index: var(--z-popover);
   padding: 2px;
 }
 
@@ -1189,6 +1193,21 @@ body {
   padding: 0.5rem 0.75rem;
   font-size: var(--font-size-sm);
   color: var(--text-muted);
+}
+
+.app-select-group-header {
+  padding: 0.4rem 0.75rem 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+.app-select-group-header:not(:first-child) {
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--border-primary);
+  padding-top: 0.5rem;
 }
 
 /* ===== FORMS ===== */
@@ -2895,7 +2914,11 @@ body {
   .container {
     padding: 0 var(--space-sm);
   }
-  
+
+  .app-topbar {
+    padding: 0 var(--space-sm);
+  }
+
   .stats-grid {
     grid-template-columns: 1fr;
     gap: var(--space-md);
@@ -4495,7 +4518,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-lg);
+  /* Match .container's horizontal padding so the topbar's content lines up
+     with the page title below it, left and right. */
+  padding: 0 var(--space-md);
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
@@ -4506,12 +4531,6 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-}
-
-.topbar-title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
 }
 
 .topbar-right {

@@ -18,6 +18,8 @@ pub struct Settings {
     pub rabbitmq: RabbitMqSettings,
     #[serde(default)]
     pub shared_domains: SharedDomainsSettings,
+    #[serde(default)]
+    pub email: EmailSettings,
 }
 
 /// Shared domains settings.
@@ -185,6 +187,51 @@ pub struct RabbitMqSettings {
     pub route_status_queue: String,
 }
 
+/// Email sending settings. "smtp" talks to a local relay (MailHog in dev);
+/// "ses" uses AWS SES via the ECS task's IAM role.
+#[derive(Debug, Clone, Deserialize)]
+pub struct EmailSettings {
+    #[serde(default = "default_email_provider")]
+    pub provider: String,
+    #[serde(default)]
+    pub smtp_host: String,
+    #[serde(default)]
+    pub smtp_port: u16,
+    #[serde(default)]
+    pub ses_region: String,
+    #[serde(default = "default_from_address")]
+    pub from_address: String,
+    #[serde(default = "default_dashboard_base_url")]
+    pub dashboard_base_url: String,
+}
+
+fn default_email_provider() -> String {
+    // Prod-safe default: real deployments use SES via the ECS task's IAM role.
+    // Local dev overrides this to "smtp" (MailHog) in development.toml.
+    "ses".to_string()
+}
+
+fn default_from_address() -> String {
+    "no-reply@shortas.space".to_string()
+}
+
+fn default_dashboard_base_url() -> String {
+    "http://localhost:3000".to_string()
+}
+
+impl Default for EmailSettings {
+    fn default() -> Self {
+        Self {
+            provider: default_email_provider(),
+            smtp_host: "localhost".to_string(),
+            smtp_port: 1025,
+            ses_region: "us-east-1".to_string(),
+            from_address: default_from_address(),
+            dashboard_base_url: default_dashboard_base_url(),
+        }
+    }
+}
+
 impl Default for RabbitMqSettings {
     fn default() -> Self {
         Self {
@@ -244,6 +291,7 @@ impl Default for Settings {
             minio: MinioSettings::default(),
             rabbitmq: RabbitMqSettings::default(),
             shared_domains: SharedDomainsSettings::default(),
+            email: EmailSettings::default(),
         }
     }
 }

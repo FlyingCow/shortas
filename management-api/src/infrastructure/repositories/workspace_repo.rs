@@ -190,7 +190,17 @@ impl WorkspaceRepository for PgWorkspaceRepository {
         .bind(Utc::now())
         .execute(&self.pool)
         .await
-        .map_err(|e| ApiError::internal(e.to_string()))?;
+        .map_err(|e| {
+            // SQLSTATE 23505 = unique_violation - the (user_id, workspace_id)
+            // uniqueness check in the controller is still subject to a race,
+            // so surface the DB's own guard as a clean conflict instead of a
+            // raw constraint-violation message under a 500.
+            if e.as_database_error().and_then(|db| db.code()).as_deref() == Some("23505") {
+                ApiError::conflict("This user is already a member of the workspace")
+            } else {
+                ApiError::internal(e.to_string())
+            }
+        })?;
 
         self.get_membership(membership.workspace_id, &membership.user_id)
             .await?
@@ -259,5 +269,27 @@ impl WorkspaceRepository for PgWorkspaceRepository {
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
         Ok(row.try_get::<bool, _>("exists").unwrap_or(false))
+    }
+
+    async fn get_owner_user_id(&self, workspace_id: Uuid) -> Result<Option<String>> {
+        let row = sqlx::query(
+            "SELECT user_id FROM user_workspaces WHERE workspace_id = $1 AND role = 'Owner' LIMIT 1",
+        )
+        .bind(workspace_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(row.and_then(|r| r.try_get::<String, _>("user_id").ok()))
+    }
+
+    async fn list_memberships_by_user(&self, user_id: &str) -> Result<Vec<UserWorkspace>> {
+        let rows = sqlx::query("SELECT * FROM user_workspaces WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(rows.iter().filter_map(|r| Self::map_membership_row(r).ok()).collect())
     }
 }

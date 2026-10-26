@@ -27,6 +27,19 @@ impl UserProfile {
     }
 }
 
+/// Local shadow record of a known user, used for email search when inviting
+/// someone to a workspace. Populated from validated JWTs, not a source of truth
+/// for authentication (Keycloak remains that).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct User {
+    /// Keycloak user ID (sub claim).
+    pub id: String,
+    pub email: String,
+    pub name: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
 /// User initialization/onboarding state.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserOnboarding {

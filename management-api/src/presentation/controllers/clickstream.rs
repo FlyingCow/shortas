@@ -75,6 +75,65 @@ async fn validate_workspace_id(
     Ok(Some(wid.to_string()))
 }
 
+/// The owner_id filter to pass to click-aggregator. ClickHouse ANDs
+/// owner_id and workspace_id (and route_id, when given) together, so pinning
+/// owner_id to the caller is only correct when nothing more specific already
+/// scopes the query - a route created in a shared workspace by an admin (or
+/// just viewed by any member) is stored with the workspace *owner's* id as
+/// owner_id (see RouteService::resolve_route_owner), not the viewing
+/// member's, so ANDing owner_id=caller on top would silently zero out that
+/// route's stats for everyone but its owner.
+///
+/// - `route_id` given: the caller must have read access to that specific
+///   route (owner, or a member of its workspace - any role, matching
+///   `RouteService::validate_read_access`); once confirmed, route_id alone
+///   scopes the query, so no owner_id filter is added.
+/// - `workspace_id` given (already membership-validated by the caller):
+///   no owner_id filter - show every member's routes in that workspace.
+/// - Neither given: scope to the caller's own routes, as before.
+async fn resolve_owner_filter<'a>(
+    app_state: &AppState,
+    user_id: &'a str,
+    route_id: Option<&str>,
+    workspace_id: &Option<String>,
+) -> std::result::Result<Option<&'a str>, ApiError> {
+    if let Some(rid) = route_id {
+        let route_uuid = Uuid::parse_str(rid).map_err(|_| ApiError::validation("Invalid route ID"))?;
+        let route = app_state
+            .route_repo
+            .get_by_id(route_uuid)
+            .await?
+            .ok_or_else(|| ApiError::not_found("Route", rid))?;
+
+        let has_access = if route.properties.owner_id.as_deref() == Some(user_id) {
+            true
+        } else if let Some(wid) = route.properties.workspace_id.as_deref() {
+            match Uuid::parse_str(wid) {
+                Ok(workspace_uuid) => app_state
+                    .workspace_repo
+                    .user_has_access(workspace_uuid, user_id)
+                    .await
+                    .unwrap_or(false),
+                Err(_) => false,
+            }
+        } else {
+            false
+        };
+
+        if !has_access {
+            return Err(ApiError::forbidden());
+        }
+
+        return Ok(None);
+    }
+
+    if workspace_id.is_some() {
+        return Ok(None);
+    }
+
+    Ok(Some(user_id))
+}
+
 /// Build clickstream controller router.
 pub fn clickstream_controller() -> Router {
     Router::with_path("clickstream")
@@ -227,10 +286,18 @@ pub async fn get_clickstream(req: &mut Request, depot: &mut Depot, res: &mut Res
     let limit: Option<u32> = req.query("limit");
     let offset: Option<u32> = req.query("offset");
 
+    let owner_id = match resolve_owner_filter(app_state, &user_id, route_id.as_deref(), &workspace_id).await {
+        Ok(oid) => oid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
     let data = match app_state
         .click_aggregator
         .get_clickstream(
-            Some(user_id.as_str()),
+            owner_id,
             creator_id.as_deref(),
             route_id.as_deref(),
             workspace_id.as_deref(),
@@ -384,8 +451,6 @@ pub async fn get_stats(req: &mut Request, depot: &mut Depot, res: &mut Response)
             return;
         }
     };
-    let owner_id = Some(user_id.as_str());
-
     let route_id: Option<String> = req.query("routeId");
     let workspace_id_param: Option<String> = req.query("workspaceId");
     let workspace_id = match validate_workspace_id(app_state, workspace_id_param.as_deref(), &user_id).await {
@@ -395,6 +460,14 @@ pub async fn get_stats(req: &mut Request, depot: &mut Depot, res: &mut Response)
             return;
         }
     };
+    let owner_id = match resolve_owner_filter(app_state, &user_id, route_id.as_deref(), &workspace_id).await {
+        Ok(oid) => oid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
     let start_date: Option<NaiveDate> = req
         .query::<String>("startDate")
         .and_then(|s| {
@@ -545,9 +618,17 @@ pub async fn get_daily_stats(req: &mut Request, depot: &mut Depot, res: &mut Res
         .query::<String>("toDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
 
+    let owner_id = match resolve_owner_filter(app_state, &user_id, route_id.as_deref(), &workspace_id).await {
+        Ok(oid) => oid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
     match app_state
         .click_aggregator
-        .get_daily_stats(Some(user_id.as_str()), workspace_id.as_deref(), route_id.as_deref(), from_date, to_date)
+        .get_daily_stats(owner_id, workspace_id.as_deref(), route_id.as_deref(), from_date, to_date)
         .await
     {
         Ok(stats) => render_success(res, stats),
@@ -605,9 +686,17 @@ pub async fn get_hourly_stats(req: &mut Request, depot: &mut Depot, res: &mut Re
         .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
         .map(|dt| dt.with_timezone(&Utc));
 
+    let owner_id = match resolve_owner_filter(app_state, &user_id, route_id.as_deref(), &workspace_id).await {
+        Ok(oid) => oid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
     match app_state
         .click_aggregator
-        .get_hourly_stats(Some(user_id.as_str()), workspace_id.as_deref(), route_id.as_deref(), from_hour, to_hour)
+        .get_hourly_stats(owner_id, workspace_id.as_deref(), route_id.as_deref(), from_hour, to_hour)
         .await
     {
         Ok(stats) => render_success(res, stats),
@@ -663,9 +752,17 @@ pub async fn get_geographic_stats(req: &mut Request, depot: &mut Depot, res: &mu
         .query::<String>("toDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
 
+    let owner_id = match resolve_owner_filter(app_state, &user_id, route_id.as_deref(), &workspace_id).await {
+        Ok(oid) => oid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
     match app_state
         .click_aggregator
-        .get_geographic_stats(Some(user_id.as_str()), workspace_id.as_deref(), route_id.as_deref(), from_date, to_date)
+        .get_geographic_stats(owner_id, workspace_id.as_deref(), route_id.as_deref(), from_date, to_date)
         .await
     {
         Ok(stats) => render_success(res, stats),
@@ -721,9 +818,17 @@ pub async fn get_device_stats(req: &mut Request, depot: &mut Depot, res: &mut Re
         .query::<String>("toDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
 
+    let owner_id = match resolve_owner_filter(app_state, &user_id, route_id.as_deref(), &workspace_id).await {
+        Ok(oid) => oid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
     match app_state
         .click_aggregator
-        .get_device_stats(Some(user_id.as_str()), workspace_id.as_deref(), route_id.as_deref(), from_date, to_date)
+        .get_device_stats(owner_id, workspace_id.as_deref(), route_id.as_deref(), from_date, to_date)
         .await
     {
         Ok(stats) => render_success(res, stats),
@@ -779,9 +884,17 @@ pub async fn get_browser_stats(req: &mut Request, depot: &mut Depot, res: &mut R
         .query::<String>("toDate")
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
 
+    let owner_id = match resolve_owner_filter(app_state, &user_id, route_id.as_deref(), &workspace_id).await {
+        Ok(oid) => oid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
     match app_state
         .click_aggregator
-        .get_browser_stats(Some(user_id.as_str()), workspace_id.as_deref(), route_id.as_deref(), from_date, to_date)
+        .get_browser_stats(owner_id, workspace_id.as_deref(), route_id.as_deref(), from_date, to_date)
         .await
     {
         Ok(stats) => render_success(res, stats),
@@ -837,9 +950,17 @@ pub async fn get_route_performance(req: &mut Request, depot: &mut Depot, res: &m
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
     let limit: Option<u32> = req.query("limit");
 
+    let owner_id = match resolve_owner_filter(app_state, &user_id, None, &workspace_id).await {
+        Ok(oid) => oid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
     match app_state
         .click_aggregator
-        .get_route_performance(Some(user_id.as_str()), workspace_id.as_deref(), from_date, to_date, limit)
+        .get_route_performance(owner_id, workspace_id.as_deref(), from_date, to_date, limit)
         .await
     {
         Ok(stats) => render_success(res, stats),
@@ -897,10 +1018,18 @@ pub async fn get_top_destinations(req: &mut Request, depot: &mut Depot, res: &mu
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
     let limit: Option<u32> = req.query("limit");
 
+    let owner_id = match resolve_owner_filter(app_state, &user_id, route_id.as_deref(), &workspace_id).await {
+        Ok(oid) => oid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
     match app_state
         .click_aggregator
         .get_top_destinations(
-            Some(user_id.as_str()),
+            owner_id,
             workspace_id.as_deref(),
             route_id.as_deref(),
             from_date,
@@ -964,9 +1093,17 @@ pub async fn get_traffic_type_stats(req: &mut Request, depot: &mut Depot, res: &
         .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
         .map(|dt| dt.with_timezone(&Utc));
 
+    let owner_id = match resolve_owner_filter(app_state, &user_id, route_id.as_deref(), &workspace_id).await {
+        Ok(oid) => oid,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
     match app_state
         .click_aggregator
-        .get_traffic_type_stats(Some(user_id.as_str()), workspace_id.as_deref(), route_id.as_deref(), from_hour, to_hour)
+        .get_traffic_type_stats(owner_id, workspace_id.as_deref(), route_id.as_deref(), from_hour, to_hour)
         .await
     {
         Ok(stats) => render_success(res, stats),

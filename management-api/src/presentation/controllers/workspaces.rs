@@ -14,6 +14,20 @@ use crate::presentation::middleware::{
 
 use super::cors_preflight;
 
+/// Validate that a role being assigned to a member is one of the roles
+/// that can actually be assigned this way ("Owner" is set only at workspace
+/// creation and never reassigned). Also guards against garbage/oversized
+/// role strings hitting the `role VARCHAR(50)` column as a raw DB error.
+fn validate_assignable_role(role: &str) -> Result<(), ApiError> {
+    if role == "Admin" || role == "Member" {
+        Ok(())
+    } else if role == "Owner" {
+        Err(ApiError::validation("Ownership cannot be assigned this way"))
+    } else {
+        Err(ApiError::validation("Role must be 'Admin' or 'Member'"))
+    }
+}
+
 /// Build workspaces controller router.
 pub fn workspaces_controller() -> Router {
     Router::with_path("workspaces")
@@ -70,6 +84,15 @@ pub async fn list_workspaces(depot: &mut Depot, res: &mut Response) {
 
     match app_state.workspace_repo.list_by_user(&user_id).await {
         Ok(workspaces) => {
+            let role_by_workspace: std::collections::HashMap<uuid::Uuid, String> = app_state
+                .workspace_repo
+                .list_memberships_by_user(&user_id)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|m| (m.workspace_id, m.role))
+                .collect();
+
             let mut dtos = Vec::new();
             for ws in workspaces {
                 let member_count = app_state
@@ -83,7 +106,12 @@ pub async fn list_workspaces(depot: &mut Depot, res: &mut Response) {
                     .count_by_workspace(ws.id)
                     .await
                     .unwrap_or(0);
-                dtos.push(WorkspaceDto::from_entity(ws).with_counts(member_count, route_count));
+                let user_role = role_by_workspace.get(&ws.id).cloned();
+                dtos.push(
+                    WorkspaceDto::from_entity(ws)
+                        .with_counts(member_count, route_count)
+                        .with_user_role(user_role),
+                );
             }
             render_success(res, dtos);
         }
@@ -192,6 +220,11 @@ pub async fn create_workspace(req: &mut Request, depot: &mut Depot, res: &mut Re
         }
     };
 
+    if let Err(e) = dto.validate() {
+        render_error(res, e);
+        return;
+    }
+
     let workspace = dto.to_entity();
 
     match app_state.workspace_repo.create(&workspace).await {
@@ -271,6 +304,11 @@ pub async fn update_workspace(req: &mut Request, depot: &mut Depot, res: &mut Re
             return;
         }
     };
+
+    if let Err(e) = dto.validate() {
+        render_error(res, e);
+        return;
+    }
 
     let workspace = match app_state.workspace_repo.get_by_id(id).await {
         Ok(Some(ws)) => ws,
@@ -414,17 +452,36 @@ pub async fn list_members(req: &mut Request, depot: &mut Depot, res: &mut Respon
         }
     };
 
-    if !app_state.workspace_repo.user_has_access(id, &user_id).await.unwrap_or(false) {
-        render_error(res, ApiError::forbidden());
-        return;
-    }
+    let caller_membership = match app_state.workspace_repo.get_membership(id, &user_id).await {
+        Ok(Some(m)) => m,
+        _ => {
+            render_error(res, ApiError::forbidden());
+            return;
+        }
+    };
 
     match app_state.workspace_repo.list_members(id).await {
         Ok(members) => {
-            let dtos: Vec<WorkspaceMemberDto> = members
-                .into_iter()
-                .map(WorkspaceMemberDto::from_entity)
-                .collect();
+            // A plain member (not Owner/Admin) only sees the workspace
+            // owner and themselves, not the full roster.
+            let visible_members: Vec<_> = if caller_membership.is_admin() {
+                members
+            } else {
+                members
+                    .into_iter()
+                    .filter(|m| m.is_owner() || m.user_id == user_id)
+                    .collect()
+            };
+
+            let mut dtos = Vec::with_capacity(visible_members.len());
+            for member in visible_members {
+                let user_info = app_state.user_repo.get_by_id(&member.user_id).await.ok().flatten();
+                let (email, name) = match user_info {
+                    Some(u) => (Some(u.email), u.name),
+                    None => (None, None),
+                };
+                dtos.push(WorkspaceMemberDto::from_entity(member).with_user_info(email, name));
+            }
             render_success(res, dtos);
         }
         Err(e) => render_error(res, e),
@@ -492,6 +549,25 @@ pub async fn add_member(req: &mut Request, depot: &mut Depot, res: &mut Response
             return;
         }
     };
+
+    if let Err(e) = validate_assignable_role(&dto.role) {
+        render_error(res, e);
+        return;
+    }
+
+    if dto.user_id.trim().is_empty() {
+        render_error(res, ApiError::required("userId"));
+        return;
+    }
+    if dto.user_id.len() > 255 {
+        render_error(res, ApiError::validation("Invalid user ID"));
+        return;
+    }
+
+    if app_state.workspace_repo.user_has_access(id, &dto.user_id).await.unwrap_or(false) {
+        render_error(res, ApiError::conflict("This user is already a member of the workspace"));
+        return;
+    }
 
     let new_member = dto.to_entity(id);
 
@@ -565,6 +641,28 @@ pub async fn update_member_role(req: &mut Request, depot: &mut Depot, res: &mut 
             return;
         }
     };
+
+    if let Err(e) = validate_assignable_role(&dto.role) {
+        render_error(res, e);
+        return;
+    }
+
+    let target_membership = match app_state.workspace_repo.get_membership(id, &target_user_id).await {
+        Ok(Some(m)) => m,
+        Ok(None) => {
+            render_error(res, ApiError::not_found("Member", &target_user_id));
+            return;
+        }
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
+    if target_membership.is_owner() {
+        render_error(res, ApiError::validation("The workspace owner's role cannot be changed"));
+        return;
+    }
 
     match app_state
         .workspace_repo

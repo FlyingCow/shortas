@@ -21,9 +21,8 @@ import DevelopmentBanner from './DevelopmentBanner';
 import Dropdown from './Dropdown';
 import Footer from './Footer';
 import Logo from './Logo';
+import NotificationBell from './NotificationBell';
 import './DesignSystem.css';
-
-const ALL_WORKSPACES = '__all__';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -38,9 +37,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const sharedRoleLabel = (role?: string) => (role === 'Member' ? 'User' : role);
+  const myWorkspaces = workspaces.filter((ws) => ws.userRole !== 'Admin' && ws.userRole !== 'Member');
+  const sharedWorkspaces = workspaces.filter((ws) => ws.userRole === 'Admin' || ws.userRole === 'Member');
   const workspaceOptions = [
-    { value: ALL_WORKSPACES, label: 'All Workspaces' },
-    ...workspaces.map((ws) => ({ value: ws.id, label: ws.name })),
+    ...myWorkspaces.map((ws) => ({ value: ws.id, label: ws.name, group: 'My Workspaces' })),
+    ...sharedWorkspaces.map((ws) => ({
+      value: ws.id,
+      label: `${ws.name} (${sharedRoleLabel(ws.userRole)})`,
+      group: 'Shared with Me',
+    })),
   ];
 
   const navigation = [
@@ -52,13 +58,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   ];
 
   const isActive = (path: string) => location.pathname === path;
-
-  const getCurrentPageTitle = () => {
-    const match = navigation.find((item) => isActive(item.href));
-    if (match) return match.name;
-    if (location.pathname.startsWith('/settings')) return 'Settings';
-    return 'Dashboard';
-  };
 
   // Close the user dropdown when clicking outside (the workspace switcher
   // manages its own open/close via the shared Dropdown component).
@@ -185,19 +184,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           {/* Top bar */}
           <header className="app-topbar">
             <div className="topbar-left">
-              <span className="topbar-title">{getCurrentPageTitle()}</span>
-
               {/* Workspace switcher */}
-              <div style={{ marginLeft: '1rem' }}>
+              <div>
                 <Dropdown
                   icon={<Briefcase size={14} />}
-                  value={currentWorkspaceId ?? ALL_WORKSPACES}
+                  value={currentWorkspaceId ?? ''}
                   options={workspaceOptions}
-                  onChange={(v) => setCurrentWorkspaceId(v === ALL_WORKSPACES ? null : v)}
+                  onChange={setCurrentWorkspaceId}
                 />
               </div>
             </div>
-            <div className="topbar-right">
+            <div className="topbar-right" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <NotificationBell />
+
               {/* User Dropdown */}
               <div ref={userMenuRef} style={{ position: 'relative' }}>
                 <button

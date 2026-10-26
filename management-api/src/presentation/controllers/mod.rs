@@ -4,16 +4,22 @@ pub mod certificates;
 pub mod clickstream;
 pub mod domains;
 pub mod health;
+pub mod invitations;
+pub mod notifications;
 pub mod routes;
 pub mod user;
+pub mod users;
 pub mod workspaces;
 
 pub use certificates::*;
 pub use clickstream::*;
 pub use domains::*;
 pub use health::*;
+pub use invitations::*;
+pub use notifications::*;
 pub use routes::*;
 pub use user::*;
+pub use users::*;
 pub use workspaces::*;
 
 use salvo::http::header::{self, HeaderValue};
@@ -49,7 +55,9 @@ pub fn api_routes(jwt_settings: JwtSettings) -> Router {
         .push(with_options(Router::with_path("health/ready").get(health::readiness_check)))
         .push(with_options(Router::with_path("health/live").get(health::liveness_check)))
         // Public API routes (no auth required) - matches C# [AllowAnonymous]
-        .push(with_options(Router::with_path("api/v1/domains/shared").get(domains::list_shared_domains)));
+        .push(with_options(Router::with_path("api/v1/domains/shared").get(domains::list_shared_domains)))
+        // Public invitation preview, used by the unauthenticated email-link landing page.
+        .push(Router::with_path("api/v1").push(invitations::invitations_public_controller()));
 
     // Protected routes (auth required) - mounted at /api/v1
     let protected_routes = Router::with_path("api/v1")
@@ -58,6 +66,10 @@ pub fn api_routes(jwt_settings: JwtSettings) -> Router {
         .push(routes::routes_controller())
         .push(domains::domains_controller())
         .push(workspaces::workspaces_controller())
+        .push(Router::with_path("workspaces/{id}").push(invitations::workspace_invitations_controller()))
+        .push(invitations::invitations_controller())
+        .push(users::users_controller())
+        .push(notifications::notifications_controller())
         .push(certificates::certificates_controller())
         .push(clickstream::clickstream_controller())
         .push(user::user_controller());

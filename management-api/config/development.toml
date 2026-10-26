@@ -42,3 +42,9 @@ route_status_queue = "route-status"
 
 [shared_domains]
 names = ["shortas.space"]
+
+[email]
+provider = "smtp"
+smtp_host = "shortas-mailhog"
+smtp_port = 1025
+dashboard_base_url = "http://localhost:3000"

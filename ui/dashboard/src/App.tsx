@@ -17,6 +17,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import LoggedOut from './components/LoggedOut';
 import KeycloakError from './components/KeycloakError';
 import InitializationWizard from './components/InitializationWizard';
+import InviteAccept from './components/InviteAccept';
 import './App.css';
 import './components/DesignSystem.css';
 
@@ -150,6 +151,7 @@ function AppContent() {
         <Routes>
         {/* Public Routes */}
         <Route path="/logged-out" element={<LoggedOut onLogin={() => keycloak.login(keycloakLoginOptions)} />} />
+        <Route path="/invite/:token" element={<InviteAccept authenticated={state.authenticated} />} />
 
         {/* Setup Wizard - Protected but outside Layout */}
         <Route path="/setup" element={

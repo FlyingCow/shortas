@@ -5,6 +5,9 @@ import { ChevronDown, Check } from 'lucide-react';
 export interface DropdownOption {
   value: string;
   label: string;
+  /** Section header to render above this option when it differs from the
+   * previous option's group (options must already be sorted by group). */
+  group?: string;
 }
 
 interface DropdownProps {
@@ -154,20 +157,25 @@ const Dropdown: React.FC<DropdownProps> = ({
       {options.length === 0 ? (
         <div className="app-select-empty">{emptyMessage}</div>
       ) : (
-        options.map((opt) => (
-          <button
-            type="button"
-            key={opt.value}
-            className={`app-select-item ${opt.value === value ? 'app-select-item-active' : ''}`}
-            onClick={() => {
-              onChange(opt.value);
-              setOpen(false);
-            }}
-          >
-            <span>{opt.label}</span>
-            {opt.value === value && <Check size={14} />}
-          </button>
-        ))
+        options.map((opt, i) => {
+          const showGroupHeader = opt.group && opt.group !== options[i - 1]?.group;
+          return (
+            <React.Fragment key={opt.value}>
+              {showGroupHeader && <div className="app-select-group-header">{opt.group}</div>}
+              <button
+                type="button"
+                className={`app-select-item ${opt.value === value ? 'app-select-item-active' : ''}`}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+              >
+                <span>{opt.label}</span>
+                {opt.value === value && <Check size={14} />}
+              </button>
+            </React.Fragment>
+          );
+        })
       )}
     </div>,
     document.body
