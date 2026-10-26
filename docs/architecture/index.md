@@ -155,7 +155,7 @@ A small nginx service (`redirect/infra/pages`) that serves static, branded HTML 
 
 ### Management API
 
-Rust/Salvo service providing workspace management, domain configuration, certificate listing, user onboarding, and analytics proxying for the Dashboard. Uses PostgreSQL via SQLx. All `/api/v1/*` routes are protected by JWT authentication (validated against Keycloak/Cognito) and rate limiting, except health checks and the shared-domains lookup.
+Rust/Salvo service providing workspace management (including email-based member invitations), domain configuration, certificate listing, user onboarding, and analytics proxying for the Dashboard. Uses PostgreSQL via SQLx. All `/api/v1/*` routes are protected by JWT authentication (validated against Keycloak/Cognito) and rate limiting, except health checks, the shared-domains lookup, and the invitation-by-token preview.
 
 **Endpoint groups:**
 
@@ -164,11 +164,16 @@ Rust/Salvo service providing workspace management, domain configuration, certifi
 | Routes | `/api/v1/routes` | CRUD, bulk operations, search, QR settings/uploads, unblock |
 | Domains | `/api/v1/domains` | Custom domain CRUD, DNS config, verification |
 | Workspaces | `/api/v1/workspaces` | Multi-tenant workspace & membership management |
+| Invitations | `/api/v1/workspaces/{id}/invitations`, `/api/v1/invitations` | Email-based member invitations: create/list/revoke (workspace-scoped, Admin+), accept/decline, and a public by-token preview |
+| Notifications | `/api/v1/notifications` | In-app notification center (e.g. workspace invite alerts) |
+| Users | `/api/v1/users` | Email-prefix search backing the invite-by-email typeahead |
 | Certificates | `/api/v1/certificates` | Certificate listing (issued by Cert Bot) |
 | Clickstream | `/api/v1/clickstream` | Analytics proxy to Click Aggregator API |
 | User | `/api/v1/user` | Profile, onboarding, initialization status |
 
 Route changes affecting search are reflected in Elasticsearch, which backs `GET /api/v1/routes/search`; `POST /api/v1/routes/search/reindex` is available to rebuild the index manually.
+
+**Workspace roles & invitations:** every workspace member has a role of **Owner** (the creator; exactly one per workspace, never reassigned or removed), **Admin** (manages members and invitations), or **Member**. Inviting a user by email creates a `WorkspaceInvitation` with a random token (only its hash is stored, 7-day TTL); accepting it — either via the emailed link or from the in-app notification — creates the membership and marks the invitation accepted. Invite emails and in-app notifications are both delivered asynchronously through the same transactional outbox used for Elasticsearch indexing and Safe Browsing checks (`SendInviteEmail` / `SendNotification` outbox message types), rather than sent inline from the request handler.
 
 ## TLS Certificates
 

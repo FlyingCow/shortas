@@ -69,17 +69,48 @@ Authentication: JWT bearer tokens issued by Keycloak (local) / AWS Cognito (prod
 
 ### Workspaces
 
+Every member has a role: **Owner** (the creator, exactly one per workspace, never reassigned or removed), **Admin**, or **Member**. Actions below are self- or Owner-only except where noted.
+
 | Method | Path | Description |
 |--------|------|--------------|
 | GET | `/api/v1/workspaces` | List user workspaces |
-| POST | `/api/v1/workspaces` | Create a workspace |
+| POST | `/api/v1/workspaces` | Create a workspace (creator becomes Owner) |
 | GET | `/api/v1/workspaces/{id}` | Get a workspace |
-| PUT | `/api/v1/workspaces/{id}` | Update a workspace |
-| DELETE | `/api/v1/workspaces/{id}` | Delete a workspace |
-| GET | `/api/v1/workspaces/{id}/members` | List workspace members |
-| POST | `/api/v1/workspaces/{id}/members` | Add a member |
-| PUT | `/api/v1/workspaces/{id}/members/{user_id}` | Update a member's role |
-| DELETE | `/api/v1/workspaces/{id}/members/{user_id}` | Remove a member |
+| PUT | `/api/v1/workspaces/{id}` | Update a workspace (Admin+) |
+| DELETE | `/api/v1/workspaces/{id}` | Delete a workspace (Owner only) |
+| GET | `/api/v1/workspaces/{id}/members` | List workspace members (non-admins only see the owner and themselves) |
+| POST | `/api/v1/workspaces/{id}/members` | Add a member directly by user ID (Admin+) |
+| PUT | `/api/v1/workspaces/{id}/members/{user_id}` | Update a member's role (Owner only) |
+| DELETE | `/api/v1/workspaces/{id}/members/{user_id}` | Remove a member (Admin+) |
+
+#### Invitations
+
+Invite-by-email flow for adding members without knowing their user ID up front. An Admin/Owner invites by email; a single-use token (only its hash is persisted, 7-day TTL) is emailed via the transactional outbox, and if the invitee already has an account, an in-app notification is created too. The invitee accepts either from the emailed link (`by-token`, works pre-login) or from the in-app notification center.
+
+| Method | Path | Description | Auth |
+|--------|------|--------------|------|
+| GET | `/api/v1/workspaces/{id}/invitations` | List pending invitations for a workspace | Admin+ |
+| POST | `/api/v1/workspaces/{id}/invitations` | Invite a user by email | Admin+ |
+| DELETE | `/api/v1/workspaces/{id}/invitations/{invitation_id}` | Revoke a pending invitation | Admin+ |
+| GET | `/api/v1/invitations/by-token/{token}` | Preview an invitation (workspace, inviter, role, status) by its raw token | Public |
+| POST | `/api/v1/invitations/by-token/{token}/accept` | Accept an invitation via the emailed link | Authenticated |
+| POST | `/api/v1/invitations/{id}/accept` | Accept an invitation (e.g. from the notification center) | Authenticated |
+| POST | `/api/v1/invitations/{id}/decline` | Decline an invitation | Authenticated |
+
+### Notifications
+
+In-app notification center; currently used for workspace invite alerts.
+
+| Method | Path | Description |
+|--------|------|--------------|
+| GET | `/api/v1/notifications` | List the current user's notifications, newest first (up to 50) |
+| POST | `/api/v1/notifications/{id}/read` | Mark a notification as read |
+
+### Users
+
+| Method | Path | Description |
+|--------|------|--------------|
+| GET | `/api/v1/users/search?q={query}` | Search known users by email prefix/substring (workspace invite typeahead); requires 2+ characters |
 
 ### Certificates
 
