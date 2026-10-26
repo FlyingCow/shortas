@@ -118,6 +118,10 @@ pub async fn create_invitation(req: &mut Request, depot: &mut Depot, res: &mut R
         render_error(res, ApiError::validation("A valid email is required"));
         return;
     }
+    if email.len() > 255 {
+        render_error(res, ApiError::validation("Email must be 255 characters or fewer"));
+        return;
+    }
     if dto.role != "Admin" && dto.role != "Member" {
         render_error(res, invalid_role_error(&dto.role));
         return;
@@ -426,6 +430,22 @@ async fn accept_invitation_internal(
     let id_matches = invitation.invited_user_id.as_deref() == Some(user_id.as_str());
     if !email_matches && !id_matches {
         render_error(res, ApiError::forbidden());
+        return;
+    }
+
+    if app_state
+        .workspace_repo
+        .user_has_access(invitation.workspace_id, &user_id)
+        .await
+        .unwrap_or(false)
+    {
+        // Already a member (e.g. added another way, or this invite was
+        // accepted once already from another tab) - don't error, just
+        // finish marking the invitation itself as accepted.
+        if let Err(e) = app_state.invitation_repo.mark_accepted(invitation.id).await {
+            tracing::warn!("Failed to mark already-member invitation {} accepted: {}", invitation.id, e);
+        }
+        render_error(res, ApiError::conflict("You're already a member of this workspace"));
         return;
     }
 

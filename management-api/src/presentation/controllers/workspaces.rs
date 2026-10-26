@@ -14,6 +14,20 @@ use crate::presentation::middleware::{
 
 use super::cors_preflight;
 
+/// Validate that a role being assigned to a member is one of the roles
+/// that can actually be assigned this way ("Owner" is set only at workspace
+/// creation and never reassigned). Also guards against garbage/oversized
+/// role strings hitting the `role VARCHAR(50)` column as a raw DB error.
+fn validate_assignable_role(role: &str) -> Result<(), ApiError> {
+    if role == "Admin" || role == "Member" {
+        Ok(())
+    } else if role == "Owner" {
+        Err(ApiError::validation("Ownership cannot be assigned this way"))
+    } else {
+        Err(ApiError::validation("Role must be 'Admin' or 'Member'"))
+    }
+}
+
 /// Build workspaces controller router.
 pub fn workspaces_controller() -> Router {
     Router::with_path("workspaces")
@@ -206,6 +220,11 @@ pub async fn create_workspace(req: &mut Request, depot: &mut Depot, res: &mut Re
         }
     };
 
+    if let Err(e) = dto.validate() {
+        render_error(res, e);
+        return;
+    }
+
     let workspace = dto.to_entity();
 
     match app_state.workspace_repo.create(&workspace).await {
@@ -285,6 +304,11 @@ pub async fn update_workspace(req: &mut Request, depot: &mut Depot, res: &mut Re
             return;
         }
     };
+
+    if let Err(e) = dto.validate() {
+        render_error(res, e);
+        return;
+    }
 
     let workspace = match app_state.workspace_repo.get_by_id(id).await {
         Ok(Some(ws)) => ws,
@@ -526,8 +550,22 @@ pub async fn add_member(req: &mut Request, depot: &mut Depot, res: &mut Response
         }
     };
 
-    if dto.role == "Owner" {
-        render_error(res, ApiError::validation("Ownership cannot be assigned this way"));
+    if let Err(e) = validate_assignable_role(&dto.role) {
+        render_error(res, e);
+        return;
+    }
+
+    if dto.user_id.trim().is_empty() {
+        render_error(res, ApiError::required("userId"));
+        return;
+    }
+    if dto.user_id.len() > 255 {
+        render_error(res, ApiError::validation("Invalid user ID"));
+        return;
+    }
+
+    if app_state.workspace_repo.user_has_access(id, &dto.user_id).await.unwrap_or(false) {
+        render_error(res, ApiError::conflict("This user is already a member of the workspace"));
         return;
     }
 
@@ -604,8 +642,8 @@ pub async fn update_member_role(req: &mut Request, depot: &mut Depot, res: &mut 
         }
     };
 
-    if dto.role == "Owner" {
-        render_error(res, ApiError::validation("Ownership cannot be assigned this way"));
+    if let Err(e) = validate_assignable_role(&dto.role) {
+        render_error(res, e);
         return;
     }
 

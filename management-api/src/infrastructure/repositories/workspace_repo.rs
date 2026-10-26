@@ -190,7 +190,17 @@ impl WorkspaceRepository for PgWorkspaceRepository {
         .bind(Utc::now())
         .execute(&self.pool)
         .await
-        .map_err(|e| ApiError::internal(e.to_string()))?;
+        .map_err(|e| {
+            // SQLSTATE 23505 = unique_violation - the (user_id, workspace_id)
+            // uniqueness check in the controller is still subject to a race,
+            // so surface the DB's own guard as a clean conflict instead of a
+            // raw constraint-violation message under a 500.
+            if e.as_database_error().and_then(|db| db.code()).as_deref() == Some("23505") {
+                ApiError::conflict("This user is already a member of the workspace")
+            } else {
+                ApiError::internal(e.to_string())
+            }
+        })?;
 
         self.get_membership(membership.workspace_id, &membership.user_id)
             .await?

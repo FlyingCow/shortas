@@ -4,7 +4,14 @@ use salvo::oapi::ToSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::domain::entities::{UserWorkspace, Workspace};
+use crate::domain::entities::{ApiError, UserWorkspace, Workspace};
+
+/// Matches the `workspaces.name VARCHAR(255)` column - caught here with a
+/// clear message instead of as a raw truncation error from Postgres.
+const WORKSPACE_NAME_MAX_LEN: usize = 255;
+/// `description` is unbounded TEXT in the database, but still capped for
+/// sane UI rendering and to avoid unbounded payloads.
+const WORKSPACE_DESCRIPTION_MAX_LEN: usize = 2000;
 
 /// Workspace response DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -68,11 +75,40 @@ pub struct CreateWorkspaceDto {
 }
 
 impl CreateWorkspaceDto {
+    pub fn validate(&self) -> Result<(), ApiError> {
+        validate_name(&self.name)?;
+        validate_description(&self.description)?;
+        Ok(())
+    }
+
     pub fn to_entity(self) -> Workspace {
         let mut workspace = Workspace::new(self.name, "User".to_string());
         workspace.description = self.description;
         workspace
     }
+}
+
+fn validate_name(name: &str) -> Result<(), ApiError> {
+    if name.trim().is_empty() {
+        return Err(ApiError::required("name"));
+    }
+    if name.len() > WORKSPACE_NAME_MAX_LEN {
+        return Err(ApiError::validation(format!(
+            "Name must be {} characters or fewer",
+            WORKSPACE_NAME_MAX_LEN
+        )));
+    }
+    Ok(())
+}
+
+fn validate_description(description: &str) -> Result<(), ApiError> {
+    if description.len() > WORKSPACE_DESCRIPTION_MAX_LEN {
+        return Err(ApiError::validation(format!(
+            "Description must be {} characters or fewer",
+            WORKSPACE_DESCRIPTION_MAX_LEN
+        )));
+    }
+    Ok(())
 }
 
 /// Workspace update request DTO.
@@ -85,6 +121,16 @@ pub struct UpdateWorkspaceDto {
 }
 
 impl UpdateWorkspaceDto {
+    pub fn validate(&self) -> Result<(), ApiError> {
+        if let Some(name) = &self.name {
+            validate_name(name)?;
+        }
+        if let Some(description) = &self.description {
+            validate_description(description)?;
+        }
+        Ok(())
+    }
+
     pub fn apply_to(self, mut workspace: Workspace) -> Workspace {
         if let Some(name) = self.name {
             workspace.name = name;

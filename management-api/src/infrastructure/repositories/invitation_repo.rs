@@ -82,7 +82,17 @@ impl InvitationRepository for PgInvitationRepository {
         .bind(invitation.created_at)
         .execute(&self.pool)
         .await
-        .map_err(|e| ApiError::internal(e.to_string()))?;
+        .map_err(|e| {
+            // SQLSTATE 23505 = unique_violation - closes the race between the
+            // controller's "already a pending invite?" pre-check and this
+            // insert, so a double-submit reads as a clean conflict, not a
+            // raw constraint-violation message under a 500.
+            if e.as_database_error().and_then(|db| db.code()).as_deref() == Some("23505") {
+                ApiError::conflict("There is already a pending invitation for this email")
+            } else {
+                ApiError::internal(e.to_string())
+            }
+        })?;
 
         self.get_by_id(invitation.id)
             .await?

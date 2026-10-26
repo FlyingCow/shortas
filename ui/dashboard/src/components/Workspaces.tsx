@@ -18,6 +18,19 @@ import './DesignSystem.css';
 // everything else (page header, toolbar, search box, card, badge, modal,
 // form fields, empty state) uses the canonical classes directly.
 const workspaceStyles = `
+.ws-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.75rem;
+}
+
+.ws-section-title:not(:first-child) {
+  margin-top: 1.75rem;
+}
+
 .ws-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -346,13 +359,25 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
   }, [show, saving, onClose]);
 
   const handleSubmit = async () => {
-    if (!name.trim()) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      showToast('Name is required', 'error');
+      return;
+    }
+    if (trimmedName.length > 255) {
+      showToast('Name must be 255 characters or fewer', 'error');
+      return;
+    }
+    if (description.trim().length > 2000) {
+      showToast('Description must be 2000 characters or fewer', 'error');
+      return;
+    }
     setSaving(true);
     try {
       await onSave({ name: name.trim(), description: description.trim() });
       onClose();
-    } catch {
-      showToast('Failed to save workspace. Please try again.', 'error');
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Failed to save workspace. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -381,6 +406,7 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
               placeholder="Marketing, Engineering, ..."
               autoFocus
               disabled={saving}
+              maxLength={255}
             />
           </div>
           <div className="form-group">
@@ -393,12 +419,13 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
               rows={3}
               disabled={saving}
               style={{ resize: 'vertical' }}
+              maxLength={2000}
             />
           </div>
         </div>
         <div className="modal-footer">
           <button className="btn btn-outline btn-sm" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={saving || !name.trim()}>
+          <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={saving}>
             {saving ? 'Saving...' : workspace ? 'Save Changes' : 'Create Workspace'}
           </button>
         </div>
@@ -534,6 +561,10 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, isOwn
     if (!email) return;
     if (!isValidEmail(email)) {
       showToast('Enter a valid email address', 'error');
+      return;
+    }
+    if (email.length > 255) {
+      showToast('Email must be 255 characters or fewer', 'error');
       return;
     }
     setInviting(true);
@@ -683,6 +714,7 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, isOwn
                   placeholder="name@company.com"
                   disabled={inviting}
                   aria-invalid={inviteEmailHasError}
+                  maxLength={255}
                 />
                 {inviteEmailHasError && <span className="wm-error-hint">Enter a valid email address</span>}
                 {showSuggestions && suggestions.length > 0 && (
@@ -812,9 +844,62 @@ const Workspaces: React.FC = () => {
     ws.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ws.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  const myWorkspaces = filtered.filter((ws) => ws.userRole !== 'Admin' && ws.userRole !== 'Member');
+  const sharedWorkspaces = filtered.filter((ws) => ws.userRole === 'Admin' || ws.userRole === 'Member');
 
   const formatDate = (iso?: string) =>
     iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
+
+  const renderCard = (ws: WorkspaceDto) => {
+    const isSystem = ws.isSystem;
+    const myMembership = myMemberships[ws.id];
+    const canEdit = !isSystem && (myMembership?.isOwner || myMembership?.isAdmin);
+    const canDelete = !isSystem && myMembership?.isOwner;
+    const memberCount = memberCounts[ws.id];
+
+    return (
+      <div key={ws.id} className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div className="ws-card-top">
+          <div className={`ws-icon ${isSystem ? 'ws-icon-system' : 'ws-icon-user'}`}>
+            {isSystem ? <Shield size={18} /> : <Briefcase size={18} />}
+          </div>
+          <div className="ws-info">
+            <div className="ws-name-row">
+              <h3 className="ws-name">{ws.name}</h3>
+              {isSystem && <span className="badge badge-primary">System</span>}
+              {myMembership?.role && <span className="badge badge-secondary">{roleLabel(myMembership.role)}</span>}
+            </div>
+            <p className="ws-desc">{ws.description || 'No description.'}</p>
+          </div>
+        </div>
+
+        <div className="ws-footer">
+          <div className="ws-meta-group">
+            <span className="ws-meta">
+              <Calendar size={12} />
+              {formatDate(ws.createdAt)}
+            </span>
+            <button className="ws-meta-btn" onClick={() => setMembersWorkspace(ws)}>
+              <Users size={12} />
+              {memberCount ?? '—'} member{memberCount === 1 ? '' : 's'}
+            </button>
+          </div>
+          <div className="ws-actions">
+            {canEdit && (
+              <button className="ws-action-btn" onClick={() => handleEdit(ws)} title="Edit">
+                <Edit size={14} />
+              </button>
+            )}
+            {canDelete && (
+              <button className="ws-action-btn danger" onClick={() => handleDelete(ws)} title="Delete">
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (loading) return <LoadingSpinner message="Loading workspaces..." />;
 
@@ -857,8 +942,8 @@ const Workspaces: React.FC = () => {
         )}
 
         {/* Cards */}
-        <div className="ws-grid">
-          {filtered.length === 0 ? (
+        {filtered.length === 0 ? (
+          <div className="ws-grid">
             <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
               <div className="empty-state-icon">
                 <Briefcase size={24} />
@@ -876,59 +961,23 @@ const Workspaces: React.FC = () => {
                 </button>
               )}
             </div>
-          ) : (
-            filtered.map((ws) => {
-              const isSystem = ws.isSystem;
-              const myMembership = myMemberships[ws.id];
-              const canEdit = !isSystem && (myMembership?.isOwner || myMembership?.isAdmin);
-              const canDelete = !isSystem && myMembership?.isOwner;
-              const memberCount = memberCounts[ws.id];
-
-              return (
-                <div key={ws.id} className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
-                  <div className="ws-card-top">
-                    <div className={`ws-icon ${isSystem ? 'ws-icon-system' : 'ws-icon-user'}`}>
-                      {isSystem ? <Shield size={18} /> : <Briefcase size={18} />}
-                    </div>
-                    <div className="ws-info">
-                      <div className="ws-name-row">
-                        <h3 className="ws-name">{ws.name}</h3>
-                        {isSystem && <span className="badge badge-primary">System</span>}
-                        {myMembership?.role && <span className="badge badge-secondary">{roleLabel(myMembership.role)}</span>}
-                      </div>
-                      <p className="ws-desc">{ws.description || 'No description.'}</p>
-                    </div>
-                  </div>
-
-                  <div className="ws-footer">
-                    <div className="ws-meta-group">
-                      <span className="ws-meta">
-                        <Calendar size={12} />
-                        {formatDate(ws.createdAt)}
-                      </span>
-                      <button className="ws-meta-btn" onClick={() => setMembersWorkspace(ws)}>
-                        <Users size={12} />
-                        {memberCount ?? '—'} member{memberCount === 1 ? '' : 's'}
-                      </button>
-                    </div>
-                    <div className="ws-actions">
-                      {canEdit && (
-                        <button className="ws-action-btn" onClick={() => handleEdit(ws)} title="Edit">
-                          <Edit size={14} />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button className="ws-action-btn danger" onClick={() => handleDelete(ws)} title="Delete">
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            {myWorkspaces.length > 0 && (
+              <>
+                <h2 className="ws-section-title">My Workspaces</h2>
+                <div className="ws-grid">{myWorkspaces.map(renderCard)}</div>
+              </>
+            )}
+            {sharedWorkspaces.length > 0 && (
+              <>
+                <h2 className="ws-section-title">Shared with Me</h2>
+                <div className="ws-grid">{sharedWorkspaces.map(renderCard)}</div>
+              </>
+            )}
+          </>
+        )}
       </div>
 
       <WorkspaceModal
