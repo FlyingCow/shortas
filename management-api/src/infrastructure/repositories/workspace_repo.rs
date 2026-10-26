@@ -272,4 +272,14 @@ impl WorkspaceRepository for PgWorkspaceRepository {
 
         Ok(row.and_then(|r| r.try_get::<String, _>("user_id").ok()))
     }
+
+    async fn list_memberships_by_user(&self, user_id: &str) -> Result<Vec<UserWorkspace>> {
+        let rows = sqlx::query("SELECT * FROM user_workspaces WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(rows.iter().filter_map(|r| Self::map_membership_row(r).ok()).collect())
+    }
 }

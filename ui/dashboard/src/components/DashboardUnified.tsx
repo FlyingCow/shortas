@@ -574,11 +574,7 @@ const Dashboard: React.FC = () => {
         <div className="page-header">
           <div className="page-title-section">
             <h1 className="page-title">Dashboard</h1>
-            <p className="page-subtitle">
-              {currentWorkspaceId
-                ? 'Overview of your link performance and analytics'
-                : "Overview of links you own directly. Shared workspaces you've joined as a member (not owner) aren't included here — pick that workspace from the switcher above to see its stats."}
-            </p>
+            <p className="page-subtitle">Overview of your link performance and analytics</p>
           </div>
           <div className="page-actions">
             <button

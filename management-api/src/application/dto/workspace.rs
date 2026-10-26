@@ -23,6 +23,11 @@ pub struct WorkspaceDto {
     pub member_count: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub route_count: Option<i64>,
+    /// The current caller's role in this workspace ("Owner", "Admin", or
+    /// "Member") - lets the UI group "my workspaces" vs "shared with me"
+    /// without an extra per-workspace members fetch.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_role: Option<String>,
 }
 
 impl WorkspaceDto {
@@ -38,12 +43,18 @@ impl WorkspaceDto {
             updated_at: workspace.updated_at.map(|dt| dt.to_rfc3339()),
             member_count: None,
             route_count: None,
+            user_role: None,
         }
     }
 
     pub fn with_counts(mut self, member_count: i32, route_count: i64) -> Self {
         self.member_count = Some(member_count);
         self.route_count = Some(route_count);
+        self
+    }
+
+    pub fn with_user_role(mut self, role: Option<String>) -> Self {
+        self.user_role = role;
         self
     }
 }
@@ -97,6 +108,12 @@ pub struct WorkspaceMemberDto {
     pub is_admin: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub joined_at: Option<String>,
+    /// The member's email, resolved from the local user directory - falls
+    /// back to the raw user ID client-side if this user was never seen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 impl WorkspaceMemberDto {
@@ -109,7 +126,15 @@ impl WorkspaceMemberDto {
             is_owner: membership.is_owner(),
             is_admin: membership.is_admin(),
             joined_at: membership.joined_at.map(|dt| dt.to_rfc3339()),
+            email: None,
+            name: None,
         }
+    }
+
+    pub fn with_user_info(mut self, email: Option<String>, name: Option<String>) -> Self {
+        self.email = email;
+        self.name = name;
+        self
     }
 }
 

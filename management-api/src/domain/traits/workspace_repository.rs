@@ -58,4 +58,9 @@ pub trait WorkspaceRepository: Send + Sync {
 
     /// Get the user ID of the workspace's owner, if any.
     async fn get_owner_user_id(&self, workspace_id: Uuid) -> Result<Option<String>>;
+
+    /// List all of a user's memberships (one row per workspace they belong
+    /// to), for attaching `user_role` to a workspace list without an N+1
+    /// per-workspace members fetch.
+    async fn list_memberships_by_user(&self, user_id: &str) -> Result<Vec<UserWorkspace>>;
 }

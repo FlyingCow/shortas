@@ -1195,6 +1195,21 @@ body {
   color: var(--text-muted);
 }
 
+.app-select-group-header {
+  padding: 0.4rem 0.75rem 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+.app-select-group-header:not(:first-child) {
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--border-primary);
+  padding-top: 0.5rem;
+}
+
 /* ===== FORMS ===== */
 .form-group {
   margin-bottom: var(--space-md);
@@ -4510,12 +4525,6 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-}
-
-.topbar-title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
 }
 
 .topbar-right {

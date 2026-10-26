@@ -22,7 +22,10 @@ const workspaceStyles = `
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 1rem;
-  align-items: start;
+  /* Stretch (not start) so every card in a row shares the tallest card's
+     height - otherwise cards without a description or without edit/delete
+     actions end up visibly shorter than their row neighbors. */
+  align-items: stretch;
 }
 
 .ws-card-top {
@@ -30,6 +33,9 @@ const workspaceStyles = `
   align-items: flex-start;
   gap: 0.875rem;
   margin-bottom: 0.75rem;
+  /* Absorbs the extra height from stretching so the footer still lands at
+     the same spot regardless of name/description length. */
+  flex: 1;
 }
 
 .ws-icon {
@@ -93,6 +99,9 @@ const workspaceStyles = `
   margin-top: 0.875rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border-primary);
+  /* Match .ws-action-btn's height so the row doesn't shrink when a card has
+     no edit/delete actions to show (e.g. a shared or System workspace). */
+  min-height: 30px;
 }
 
 .ws-meta-group {
@@ -590,12 +599,13 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, isOwn
               {members.map((member) => {
                 const isSelf = currentUserId && member.userId === currentUserId;
                 const isBusy = busyUserId === member.userId;
+                const displayName = member.email || member.userId;
                 return (
                   <div key={member.userId} className="wm-row">
-                    <div className="wm-avatar">{(member.userId || '?').slice(0, 2)}</div>
+                    <div className="wm-avatar">{displayName.slice(0, 2)}</div>
                     <div className="wm-info">
                       <span className="wm-id" title={member.userId}>
-                        {member.userId}{isSelf ? ' (You)' : ''}
+                        {displayName}{isSelf ? ' (You)' : ''}
                       </span>
                       <span className="wm-joined">Joined {formatDate(member.joinedAt)}</span>
                     </div>
@@ -872,7 +882,7 @@ const Workspaces: React.FC = () => {
               const memberCount = memberCounts[ws.id];
 
               return (
-                <div key={ws.id} className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column' }}>
+                <div key={ws.id} className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
                   <div className="ws-card-top">
                     <div className={`ws-icon ${isSystem ? 'ws-icon-system' : 'ws-icon-user'}`}>
                       {isSystem ? <Shield size={18} /> : <Briefcase size={18} />}

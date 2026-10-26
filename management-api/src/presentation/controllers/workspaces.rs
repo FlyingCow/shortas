@@ -70,6 +70,15 @@ pub async fn list_workspaces(depot: &mut Depot, res: &mut Response) {
 
     match app_state.workspace_repo.list_by_user(&user_id).await {
         Ok(workspaces) => {
+            let role_by_workspace: std::collections::HashMap<uuid::Uuid, String> = app_state
+                .workspace_repo
+                .list_memberships_by_user(&user_id)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|m| (m.workspace_id, m.role))
+                .collect();
+
             let mut dtos = Vec::new();
             for ws in workspaces {
                 let member_count = app_state
@@ -83,7 +92,12 @@ pub async fn list_workspaces(depot: &mut Depot, res: &mut Response) {
                     .count_by_workspace(ws.id)
                     .await
                     .unwrap_or(0);
-                dtos.push(WorkspaceDto::from_entity(ws).with_counts(member_count, route_count));
+                let user_role = role_by_workspace.get(&ws.id).cloned();
+                dtos.push(
+                    WorkspaceDto::from_entity(ws)
+                        .with_counts(member_count, route_count)
+                        .with_user_role(user_role),
+                );
             }
             render_success(res, dtos);
         }
@@ -414,17 +428,36 @@ pub async fn list_members(req: &mut Request, depot: &mut Depot, res: &mut Respon
         }
     };
 
-    if !app_state.workspace_repo.user_has_access(id, &user_id).await.unwrap_or(false) {
-        render_error(res, ApiError::forbidden());
-        return;
-    }
+    let caller_membership = match app_state.workspace_repo.get_membership(id, &user_id).await {
+        Ok(Some(m)) => m,
+        _ => {
+            render_error(res, ApiError::forbidden());
+            return;
+        }
+    };
 
     match app_state.workspace_repo.list_members(id).await {
         Ok(members) => {
-            let dtos: Vec<WorkspaceMemberDto> = members
-                .into_iter()
-                .map(WorkspaceMemberDto::from_entity)
-                .collect();
+            // A plain member (not Owner/Admin) only sees the workspace
+            // owner and themselves, not the full roster.
+            let visible_members: Vec<_> = if caller_membership.is_admin() {
+                members
+            } else {
+                members
+                    .into_iter()
+                    .filter(|m| m.is_owner() || m.user_id == user_id)
+                    .collect()
+            };
+
+            let mut dtos = Vec::with_capacity(visible_members.len());
+            for member in visible_members {
+                let user_info = app_state.user_repo.get_by_id(&member.user_id).await.ok().flatten();
+                let (email, name) = match user_info {
+                    Some(u) => (Some(u.email), u.name),
+                    None => (None, None),
+                };
+                dtos.push(WorkspaceMemberDto::from_entity(member).with_user_info(email, name));
+            }
             render_success(res, dtos);
         }
         Err(e) => render_error(res, e),

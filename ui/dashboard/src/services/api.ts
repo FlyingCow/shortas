@@ -438,6 +438,8 @@ export interface WorkspaceDto {
   updatedAt?: string;
   memberCount?: number;
   routeCount?: number;
+  /** The current user's role in this workspace ("Owner", "Admin", or "Member") */
+  userRole?: string;
 }
 
 export interface UserWorkspaceDto {
@@ -448,6 +450,8 @@ export interface UserWorkspaceDto {
   isOwner: boolean;
   isAdmin: boolean;
   joinedAt?: string;
+  email?: string;
+  name?: string;
 }
 
 export interface CreateWorkspaceDto {

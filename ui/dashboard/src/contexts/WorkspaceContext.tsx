@@ -2,14 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { apiService, WorkspaceDto } from '../services/api';
 
 const STORAGE_KEY = 'shortas.currentWorkspaceId';
-const ALL_SENTINEL = 'all';
 
 interface WorkspaceContextType {
   workspaces: WorkspaceDto[];
   loading: boolean;
-  /** null means "All Workspaces" */
+  /** null only while workspaces are still loading, or the user has none. */
   currentWorkspaceId: string | null;
-  setCurrentWorkspaceId: (id: string | null) => void;
+  setCurrentWorkspaceId: (id: string) => void;
   refreshWorkspaces: () => Promise<void>;
 }
 
@@ -24,9 +23,9 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
   const [loading, setLoading] = useState(true);
   const [currentWorkspaceId, setCurrentWorkspaceIdState] = useState<string | null>(null);
 
-  const setCurrentWorkspaceId = useCallback((id: string | null) => {
+  const setCurrentWorkspaceId = useCallback((id: string) => {
     setCurrentWorkspaceIdState(id);
-    localStorage.setItem(STORAGE_KEY, id === null ? ALL_SENTINEL : id);
+    localStorage.setItem(STORAGE_KEY, id);
   }, []);
 
   const refreshWorkspaces = useCallback(async () => {
@@ -36,13 +35,10 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }
       setWorkspaces(data);
 
       // Reconcile the persisted selection against what's actually available:
-      // honor an explicit "All Workspaces" choice, keep a still-valid
-      // selection, or fall back to the user's first (usually their
-      // auto-created Personal) workspace if nothing valid is stored.
+      // keep a still-valid selection, or fall back to the user's first
+      // (usually their auto-created Personal) workspace otherwise.
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === ALL_SENTINEL) {
-        setCurrentWorkspaceIdState(null);
-      } else if (stored && data.some((ws) => ws.id === stored)) {
+      if (stored && data.some((ws) => ws.id === stored)) {
         setCurrentWorkspaceIdState(stored);
       } else {
         setCurrentWorkspaceIdState(data[0]?.id ?? null);
