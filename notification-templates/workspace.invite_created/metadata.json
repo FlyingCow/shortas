@@ -1,0 +1,5 @@
+{
+  "channels": ["email", "in_app"],
+  "required_context": ["workspace_name", "inviter_name", "role", "role_label", "invite_url"],
+  "description": "Sent when a user is invited to join a workspace."
+}

@@ -5,16 +5,27 @@ use serde::Deserialize;
 
 const DEV_RUN_MODE: &str = "development";
 
-/// Root settings structure.
+/// Root settings structure. Every section is `#[serde(default)]` so a
+/// binary that only needs a subset (e.g. `notification-worker` doesn't
+/// care about `server`/`jwt`/`click_router`/`elasticsearch`) can ship a
+/// config file containing only the sections it actually reads.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Settings {
+    #[serde(default)]
     pub server: ServerSettings,
+    #[serde(default)]
     pub database: DatabaseSettings,
+    #[serde(default)]
     pub jwt: JwtSettings,
+    #[serde(default)]
     pub click_router: ClickRouterSettings,
+    #[serde(default)]
     pub click_aggregator: ClickAggregatorSettings,
+    #[serde(default)]
     pub elasticsearch: ElasticsearchSettings,
+    #[serde(default)]
     pub minio: MinioSettings,
+    #[serde(default)]
     pub rabbitmq: RabbitMqSettings,
     #[serde(default)]
     pub shared_domains: SharedDomainsSettings,
@@ -185,6 +196,44 @@ pub struct RabbitMqSettings {
     pub url: String,
     pub domain_verification_queue: String,
     pub route_status_queue: String,
+    #[serde(default = "default_notifications_exchange")]
+    pub notifications_exchange: String,
+    #[serde(default = "default_notifications_queue")]
+    pub notifications_queue: String,
+    #[serde(default = "default_notifications_retry_queue")]
+    pub notifications_retry_queue: String,
+    #[serde(default = "default_notifications_dead_queue")]
+    pub notifications_dead_queue: String,
+    /// Retry delay, enforced by the retry queue's message TTL.
+    #[serde(default = "default_notifications_retry_delay_ms")]
+    pub notifications_retry_delay_ms: u32,
+    /// Redeliveries (via `x-death` count) before a message is routed to the dead queue.
+    #[serde(default = "default_notifications_max_retries")]
+    pub notifications_max_retries: i64,
+}
+
+fn default_notifications_exchange() -> String {
+    "notifications".to_string()
+}
+
+fn default_notifications_queue() -> String {
+    "notifications".to_string()
+}
+
+fn default_notifications_retry_queue() -> String {
+    "notifications.retry".to_string()
+}
+
+fn default_notifications_dead_queue() -> String {
+    "notifications.dead".to_string()
+}
+
+fn default_notifications_retry_delay_ms() -> u32 {
+    30_000
+}
+
+fn default_notifications_max_retries() -> i64 {
+    5
 }
 
 /// Email sending settings. "smtp" talks to a local relay (MailHog in dev);
@@ -238,6 +287,12 @@ impl Default for RabbitMqSettings {
             url: "amqp://localhost:5672".to_string(),
             domain_verification_queue: "domain-verification".to_string(),
             route_status_queue: "route-status".to_string(),
+            notifications_exchange: default_notifications_exchange(),
+            notifications_queue: default_notifications_queue(),
+            notifications_retry_queue: default_notifications_retry_queue(),
+            notifications_dead_queue: default_notifications_dead_queue(),
+            notifications_retry_delay_ms: default_notifications_retry_delay_ms(),
+            notifications_max_retries: default_notifications_max_retries(),
         }
     }
 }

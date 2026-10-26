@@ -49,6 +49,9 @@ sqlx.workspace = true
 # Search
 elasticsearch.workspace = true
 
+# Caching (notification template store)
+moka.workspace = true
+
 # Object storage
 aws-sdk-s3.workspace = true
 aws-config.workspace = true

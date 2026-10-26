@@ -32,6 +32,7 @@ ALL_SERVICES=(
     "route-icon-worker"
     "cert-bot"
     "management-api"
+    "notification-worker"
     "dashboard"
     "landing"
     "pages"
@@ -99,6 +100,9 @@ build_service() {
             ;;
         management-api)
             dockerfile="${PROJECT_ROOT}/management-api/Dockerfile"
+            ;;
+        notification-worker)
+            dockerfile="${PROJECT_ROOT}/notification-worker/Dockerfile"
             ;;
         dashboard)
             dockerfile="${PROJECT_ROOT}/ui/dashboard/Dockerfile"

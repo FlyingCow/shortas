@@ -6,21 +6,19 @@ use tokio::sync::broadcast;
 use tokio::time::interval;
 use tracing::{error, info, warn};
 
-use crate::domain::entities::{Notification, OutboxMessageType};
-use crate::domain::traits::{InvitationRepository, NotificationRepository, OutboxRepository};
-use crate::infrastructure::email::EmailSender;
-use crate::infrastructure::email::render_invite_email;
+use crate::domain::entities::OutboxMessageType;
+use crate::domain::traits::{InvitationRepository, OutboxRepository};
 use crate::infrastructure::search::ElasticsearchService;
+
+use super::NotificationPublisher;
 
 /// Outbox processor background service.
 pub struct OutboxProcessor {
     outbox_repo: Arc<dyn OutboxRepository>,
     search_service: Arc<ElasticsearchService>,
     route_repo: Arc<dyn crate::domain::traits::RouteRepository>,
-    notification_repo: Arc<dyn NotificationRepository>,
     invitation_repo: Arc<dyn InvitationRepository>,
-    email_sender: Arc<dyn EmailSender>,
-    dashboard_base_url: String,
+    notification_publisher: Arc<NotificationPublisher>,
 }
 
 impl OutboxProcessor {
@@ -29,19 +27,15 @@ impl OutboxProcessor {
         outbox_repo: Arc<dyn OutboxRepository>,
         search_service: Arc<ElasticsearchService>,
         route_repo: Arc<dyn crate::domain::traits::RouteRepository>,
-        notification_repo: Arc<dyn NotificationRepository>,
         invitation_repo: Arc<dyn InvitationRepository>,
-        email_sender: Arc<dyn EmailSender>,
-        dashboard_base_url: String,
+        notification_publisher: Arc<NotificationPublisher>,
     ) -> Self {
         Self {
             outbox_repo,
             search_service,
             route_repo,
-            notification_repo,
             invitation_repo,
-            email_sender,
-            dashboard_base_url,
+            notification_publisher,
         }
     }
 
@@ -114,11 +108,8 @@ impl OutboxProcessor {
                     // Just mark as completed
                     Ok(())
                 }
-                OutboxMessageType::SendNotification => {
-                    self.process_send_notification(&message.payload).await
-                }
-                OutboxMessageType::SendInviteEmail => {
-                    self.process_send_invite_email(&message.payload).await
+                OutboxMessageType::PublishNotificationEvent => {
+                    self.notification_publisher.publish(&message.payload).await
                 }
             };
 
@@ -170,48 +161,6 @@ impl OutboxProcessor {
         self.search_service.delete_route(route_uuid).await?;
 
         info!("Deleted route index: {}", route_id);
-        Ok(())
-    }
-
-    /// Process a notification-center delivery message.
-    async fn process_send_notification(&self, payload: &serde_json::Value) -> anyhow::Result<()> {
-        let user_id = payload["user_id"]
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("Missing user_id"))?;
-        let notification_type = payload["notification_type"]
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("Missing notification_type"))?;
-        let inner_payload = payload.get("payload").cloned().unwrap_or(serde_json::json!({}));
-
-        let notification = Notification::new(
-            user_id.to_string(),
-            notification_type.to_string(),
-            inner_payload,
-        );
-        self.notification_repo.create(&notification).await?;
-
-        info!("Created notification for user {}: {}", user_id, notification_type);
-        Ok(())
-    }
-
-    /// Process a workspace invitation email message.
-    async fn process_send_invite_email(&self, payload: &serde_json::Value) -> anyhow::Result<()> {
-        let to_email = payload["to_email"]
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("Missing to_email"))?;
-        let token = payload["token"]
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("Missing token"))?;
-        let workspace_name = payload["workspace_name"].as_str().unwrap_or("a workspace");
-        let inviter_name = payload["inviter_name"].as_str().unwrap_or("Someone");
-        let role = payload["role"].as_str().unwrap_or("Member");
-
-        let invite_url = format!("{}/invite/{}", self.dashboard_base_url.trim_end_matches('/'), token);
-        let (subject, html) = render_invite_email(workspace_name, inviter_name, role, &invite_url);
-
-        self.email_sender.send(to_email, &subject, &html).await?;
-
-        info!("Sent invite email to {} for workspace '{}'", to_email, workspace_name);
         Ok(())
     }
 

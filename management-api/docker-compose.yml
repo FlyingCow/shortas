@@ -124,6 +124,50 @@ services:
     networks:
       - shortas-net
 
+  notification-worker:
+    build:
+      context: ..
+      dockerfile: notification-worker/Dockerfile
+    container_name: shortas-notification-worker
+    restart: unless-stopped
+    environment:
+      - RUST_LOG=info
+      - APP_RUN_MODE=development
+      # Database settings (PostgreSQL) - same schema as management-api
+      - APP__DATABASE__HOST=shortas-api-postgres
+      - APP__DATABASE__PORT=5432
+      - APP__DATABASE__USERNAME=shortas_user
+      - APP__DATABASE__PASSWORD=shortas_password
+      - APP__DATABASE__DATABASE=shortas_dev_db
+      - APP__DATABASE__MAX_CONNECTIONS=5
+      # MinIO (notification templates live under notification-templates/ in this bucket)
+      - APP__MINIO__ENDPOINT=http://shortas-minio:9000
+      - APP__MINIO__PUBLIC_ENDPOINT=http://localhost:9003
+      - APP__MINIO__REGION=us-east-1
+      - APP__MINIO__ACCESS_KEY=minioadmin
+      - APP__MINIO__SECRET_KEY=minioadmin
+      - APP__MINIO__BUCKET=route-images
+      # RabbitMQ
+      - APP__RABBITMQ__URL=amqp://guest:guest@shortas-rabbitmq:5672
+      - APP__RABBITMQ__NOTIFICATIONS_EXCHANGE=notifications
+      - APP__RABBITMQ__NOTIFICATIONS_QUEUE=notifications
+      - APP__RABBITMQ__NOTIFICATIONS_RETRY_QUEUE=notifications.retry
+      - APP__RABBITMQ__NOTIFICATIONS_DEAD_QUEUE=notifications.dead
+      # Email (MailHog catch-all in dev - view sent mail at http://localhost:8025)
+      - APP__EMAIL__PROVIDER=smtp
+      - APP__EMAIL__SMTP_HOST=shortas-mailhog
+      - APP__EMAIL__SMTP_PORT=1025
+      - APP__EMAIL__FROM_ADDRESS=no-reply@shortas.space
+    depends_on:
+      shortas-api-postgres:
+        condition: service_healthy
+      shortas-mailhog:
+        condition: service_started
+      notification-templates-sync:
+        condition: service_completed_successfully
+    networks:
+      - shortas-net
+
 volumes:
   postgres_data:
   elasticsearch_data:

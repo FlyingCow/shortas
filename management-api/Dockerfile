@@ -23,6 +23,10 @@ COPY Cargo.toml Cargo.lock ./
 # Copy management-api
 COPY management-api/ ./management-api/
 
+# Copy notification-worker (not built here, but cargo needs every workspace
+# member's Cargo.toml present to resolve the workspace at all).
+COPY notification-worker/ ./notification-worker/
+
 # Copy shortas-common (uses explicit versions, no workspace needed)
 COPY redirect/shortas-common/ ./redirect/shortas-common/
 

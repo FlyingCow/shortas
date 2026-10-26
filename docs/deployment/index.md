@@ -20,11 +20,11 @@ docker compose up -d
 `infra/custom/docker-compose.yml` is the real entry point. It `include`s three other compose files and additionally defines a few shared services directly:
 
 - **Included — `redirect/docker-compose.yml`**: MongoDB, ClickHouse, Redis, MinIO topic setup, Fluvio (SC + SPU), gglsbl-rest (Safe Browsing), and all the redirect application services (click-router, click-router-api, click-tracker, click-aggregator, click-aggregator-api, route-verifier, route-icon-worker, domain-verifier, cert-bot, pages). This file itself includes `redirect/monitoring/docker-compose.yml` (Prometheus, Grafana, Loki).
-- **Included — `management-api/docker-compose.yml`**: a dedicated PostgreSQL instance, Elasticsearch, and the `management-api` container.
+- **Included — `management-api/docker-compose.yml`**: a dedicated PostgreSQL instance, Elasticsearch, the `management-api` container, and the `notification-worker` container.
 - **Included — `ui/docker-compose.yml`**: the dashboard and landing page containers.
 - **Defined directly**: Keycloak (+ its own Postgres DB), HashiCorp Vault (dev mode), RabbitMQ, and MinIO/RustFS (+ bucket/CORS setup and an nginx reverse proxy in front of it for presigned-URL CORS handling).
 
-Init containers run automatically: MinIO bucket + CORS setup, Fluvio topic creation, ClickHouse migrations.
+Init containers run automatically: MinIO bucket + CORS setup, Fluvio topic creation, ClickHouse migrations, and a `notification-templates-sync` container that mirrors the repo's `notification-templates/` directory into the MinIO bucket (`aws s3 sync --delete`) before `notification-worker` starts — see [Notification Templates](#notification-templates) below.
 
 ### Running a Subset
 
@@ -55,6 +55,7 @@ domain-verifier        → mongo, rabbitmq
 cert-bot               → mongo, click-router-api
 pages                  → (standalone, static)
 management-api         → postgres, elasticsearch, rabbitmq, minio, click-router-api, click-aggregator-api, keycloak
+notification-worker    → postgres, rabbitmq, minio (notification-templates-sync), mailhog/SES
 dashboard              → management-api, keycloak, minio-nginx
 ```
 
@@ -80,11 +81,20 @@ APP__MINIO__PUBLIC_ENDPOINT=http://localhost:9003
 APP__RABBITMQ__URL=amqp://guest:guest@shortas-rabbitmq:5672
 ```
 
+## Notification Templates
+
+Notification Worker renders templates it fetches from S3/MinIO at `notification-templates/<notification_id>/{metadata.json, email.subject.hbs, email.body.hbs, in_app.hbs}`, but the templates themselves live in the repo under `notification-templates/` — not baked into any Docker image — so they can be edited and reviewed like code.
+
+- **Local (Docker Compose)**: the `notification-templates-sync` init container (`amazon/aws-cli`, defined in `infra/custom/docker-compose.yml`) mounts the repo's `notification-templates/` directory and runs `aws s3 sync --delete` into the local MinIO bucket on every `docker compose up`, after `minio-setup` creates the bucket and before `notification-worker` starts (`depends_on: condition: service_completed_successfully`).
+- **AWS**: `infra/aws/scripts/deploy-services.sh` runs the same `aws s3 sync --delete` (resolving the bucket name from that environment's `s3_route_images_bucket` Terraform output) whenever `notification-worker` is one of the services being deployed — so a normal deploy always leaves S3 matching the deployed commit.
+
+Adding a new notification type is a new `notification-templates/<id>/` directory plus a PR — no Rust or frontend change needed, as long as the type only needs the `email`/`in_app` channels and fields already in its action's render context.
+
 ## Docker Images
 
 Multi-stage builds minimize image sizes:
 
-- **Rust services** (including `management-api`): built from the repo-root Dockerfile context, producing a Debian slim image with a non-root user
+- **Rust services** (including `management-api` and `notification-worker`): built from the repo-root Dockerfile context, producing a Debian slim image with a non-root user. `notification-worker` depends on `management-api` as a Cargo library (not a copy of its code), so both Dockerfiles `COPY` both `management-api/` and `notification-worker/` into the build context regardless of which binary they actually build — Cargo needs every workspace member's `Cargo.toml` present to resolve the workspace at all.
 - **UI apps**: Node-based builds outputting static assets served by nginx
 
 The legacy `api/` (ASP.NET Core) project has its own three-stage Dockerfile targeting `mcr.microsoft.com/dotnet/aspnet:9.0`, but it is not part of the active deployment.
@@ -150,16 +160,18 @@ cd ../scripts
 
 ### Environments
 
-Two environments are provided (17 Terraform modules power both):
+Three environments are provided (17 Terraform modules power all three) — `dev`, `prod`, and `budget` (a cost-minimized demo/presentation environment meant to be spun up and torn down rather than run continuously; see its own cost notes in `infra/aws/terraform/environments/budget/main.tf`):
 
-| Feature | Dev | Prod |
-|---------|-----|------|
-| NAT Gateway | Single | Per-AZ |
-| RDS Instances | 1 | 2+ (Multi-AZ) |
-| Redis Nodes | 1 | 3 (Primary + replicas) |
-| ECS Spot | Yes | No |
-| Cognito MFA | Optional | Required |
-| Backup Retention | 3 days | 14 days |
+| Feature | Dev | Budget | Prod |
+|---------|-----|--------|------|
+| NAT Gateway | Single | Single | Per-AZ |
+| RDS Instances | 1 | 1 (0.5–2 ACU Serverless v2) | 2+ (Multi-AZ) |
+| Redis Nodes | 1 | 1 | 3 (Primary + replicas) |
+| ECS Spot | Yes | Yes | No |
+| Cognito MFA | Optional | Optional | Required |
+| Backup Retention | 3 days | 1 day | 14 days |
+
+`notification-worker` is deployed as an ECS service in all three, sized the same as the other lightweight background workers (256 CPU / 512 MB, no ALB target group — it's a pure RabbitMQ consumer).
 
 ### Authentication with AWS Cognito
 

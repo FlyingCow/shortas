@@ -23,6 +23,7 @@ impl PgNotificationRepository {
         let user_id: String = row.try_get("user_id").unwrap_or_default();
         let notification_type: String = row.try_get("type").unwrap_or_default();
         let payload: serde_json::Value = row.try_get("payload").unwrap_or_else(|_| serde_json::json!({}));
+        let rendered_text: Option<String> = row.try_get("rendered_text").ok();
         let status_str: String = row.try_get("status").unwrap_or_else(|_| "Unread".to_string());
         let created_at: DateTime<Utc> = row.try_get("created_at").unwrap_or_else(|_| Utc::now());
         let read_at: Option<DateTime<Utc>> = row.try_get("read_at").ok();
@@ -32,6 +33,7 @@ impl PgNotificationRepository {
             user_id,
             notification_type,
             payload,
+            rendered_text,
             status: NotificationStatus::from_str(&status_str),
             created_at,
             read_at,
@@ -44,14 +46,15 @@ impl NotificationRepository for PgNotificationRepository {
     async fn create(&self, notification: &Notification) -> Result<Notification> {
         sqlx::query(
             r#"
-            INSERT INTO notifications (id, user_id, type, payload, status, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO notifications (id, user_id, type, payload, rendered_text, status, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             "#,
         )
         .bind(notification.id)
         .bind(&notification.user_id)
         .bind(&notification.notification_type)
         .bind(&notification.payload)
+        .bind(&notification.rendered_text)
         .bind(notification.status.as_str())
         .bind(notification.created_at)
         .execute(&self.pool)
@@ -107,6 +110,22 @@ impl NotificationRepository for PgNotificationRepository {
             .execute(&self.pool)
             .await
             .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn mark_actioned_by_invitation(&self, invitation_id: Uuid) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE notifications
+            SET status = 'Actioned', read_at = COALESCE(read_at, NOW())
+            WHERE status != 'Actioned' AND payload->>'invitation_id' = $1
+            "#,
+        )
+        .bind(invitation_id.to_string())
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
 
         Ok(())
     }

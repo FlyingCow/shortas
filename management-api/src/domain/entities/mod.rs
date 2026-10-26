@@ -8,6 +8,7 @@ pub mod domain;
 pub mod error;
 pub mod invitation;
 pub mod notification;
+pub mod notification_event;
 pub mod outbox;
 pub mod route;
 pub mod user;
@@ -36,3 +37,4 @@ pub use user::*;
 // Re-export invitation and notification types
 pub use invitation::{InvitationStatus, WorkspaceInvitation};
 pub use notification::{Notification, NotificationStatus};
+pub use notification_event::{NotificationEvent, NotificationRecipient};

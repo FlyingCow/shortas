@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["management-api", "redirect/shortas-common"]
+members = ["management-api", "notification-worker", "redirect/shortas-common"]
 exclude = ["salvo"]
 
 [workspace.package]
@@ -75,3 +75,9 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chro
 
 # Search
 elasticsearch = "8.17.0-alpha.1"
+
+# Templating
+handlebars = "6.3"
+
+# Caching
+moka = { version = "0.12.7", features = ["future"] }

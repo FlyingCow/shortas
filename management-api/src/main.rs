@@ -13,7 +13,9 @@ use tokio::sync::broadcast;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
-use management_api::infrastructure::messaging::{OutboxProcessor, RabbitMqConsumer};
+use management_api::infrastructure::messaging::{
+    NotificationPublisher, OutboxProcessor, RabbitMqConsumer,
+};
 use management_api::presentation::controllers::api_routes;
 use management_api::presentation::middleware::{AppState, AppStateMiddleware};
 use management_api::settings::Settings;
@@ -78,14 +80,14 @@ async fn main() -> Result<()> {
     let (shutdown_tx, _) = broadcast::channel::<()>(1);
 
     // Start background services
+    let notification_publisher = Arc::new(NotificationPublisher::new(&settings.rabbitmq).await?);
+
     let outbox_processor = Arc::new(OutboxProcessor::new(
         app_state.outbox_repo.clone(),
         app_state.search_service.clone(),
         app_state.route_repo.clone(),
-        app_state.notification_repo.clone(),
         app_state.invitation_repo.clone(),
-        app_state.email_sender.clone(),
-        settings.email.dashboard_base_url.clone(),
+        notification_publisher,
     ));
 
     let outbox_shutdown = shutdown_tx.subscribe();

@@ -22,4 +22,9 @@ pub trait NotificationRepository: Send + Sync {
 
     /// Mark a notification as actioned (e.g. invite accepted/declined).
     async fn mark_actioned(&self, id: Uuid) -> Result<()>;
+
+    /// Mark as actioned any notification whose payload carries this
+    /// `invitation_id` (e.g. once the invitation itself has been
+    /// accepted/declined, so it stops reappearing in the bell).
+    async fn mark_actioned_by_invitation(&self, invitation_id: Uuid) -> Result<()>;
 }

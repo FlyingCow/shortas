@@ -99,6 +99,11 @@ const bellStyles = `
 `;
 
 const describeNotification = (n: NotificationDto): string => {
+  if (n.renderedText) {
+    return n.renderedText;
+  }
+  // Fallback for notifications created before backend template rendering
+  // existed (or any sent outside the templating pipeline).
   if (n.type === 'WorkspaceInvite') {
     const workspaceName = n.payload?.workspace_name || n.payload?.workspaceName || 'a workspace';
     const inviterName = n.payload?.inviter_name || n.payload?.inviterName || 'Someone';
@@ -194,7 +199,11 @@ const NotificationBell: React.FC = () => {
             <div className="nb-empty">You're all caught up.</div>
           ) : (
             notifications.map((n) => {
-              const isInvite = n.type === 'WorkspaceInvite' && n.status !== 'Actioned';
+              // 'WorkspaceInvite' is the legacy type for notifications created before
+              // template-based rendering; 'workspace.invite_created' is the current one.
+              const isInvite =
+                (n.type === 'WorkspaceInvite' || n.type === 'workspace.invite_created') &&
+                n.status !== 'Actioned';
               const isBusy = busyId === n.id;
               return (
                 <div key={n.id} className="nb-item">

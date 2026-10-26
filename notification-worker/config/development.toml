@@ -1,0 +1,32 @@
+[database]
+host = "shortas-api-postgres"
+port = 5432
+username = "shortas_user"
+password = "shortas_password"
+database = "shortas_dev_db"
+max_connections = 5
+
+[minio]
+endpoint = "http://shortas-minio:9000"
+public_endpoint = "http://localhost:9003"
+region = "us-east-1"
+access_key = "minioadmin"
+secret_key = "minioadmin"
+bucket = "route-images"
+
+[rabbitmq]
+url = "amqp://guest:guest@shortas-rabbitmq:5672"
+domain_verification_queue = "domain-verification"
+route_status_queue = "route-status"
+notifications_exchange = "notifications"
+notifications_queue = "notifications"
+notifications_retry_queue = "notifications.retry"
+notifications_dead_queue = "notifications.dead"
+notifications_retry_delay_ms = 30000
+notifications_max_retries = 5
+
+[email]
+provider = "smtp"
+smtp_host = "shortas-mailhog"
+smtp_port = 1025
+dashboard_base_url = "http://localhost:3000"

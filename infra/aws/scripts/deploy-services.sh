@@ -38,6 +38,7 @@ DEPLOYMENT_ORDER=(
     "cert-bot"
     # API and frontend
     "management-api"
+    "notification-worker"
     "dashboard"
     "landing"
 )
@@ -59,6 +60,24 @@ usage() {
 
 get_cluster_name() {
     echo "${ENVIRONMENT}-shortas-cluster"
+}
+
+# Mirrors notification-templates/ (repo root) into the S3 bucket
+# notification-worker reads from, so a deploy always ships the templates
+# matching the commit being deployed. Skipped (with a warning, not a
+# failure) if the bucket name can't be resolved, e.g. when running outside
+# of a checked-out terraform state.
+sync_notification_templates() {
+    local bucket
+    bucket=$(terraform -chdir="${SCRIPT_DIR}/../terraform/environments/${ENVIRONMENT}" output -raw s3_route_images_bucket 2>/dev/null || echo "")
+
+    if [[ -z "${bucket}" ]]; then
+        log_warn "Could not resolve the notification templates bucket (terraform output unavailable), skipping template sync"
+        return 0
+    fi
+
+    log_step "Syncing notification templates to s3://${bucket}/notification-templates/"
+    aws s3 sync "${SCRIPT_DIR}/../../../notification-templates/" "s3://${bucket}/notification-templates/" --delete
 }
 
 update_service() {
@@ -185,6 +204,11 @@ if [[ "${ENVIRONMENT}" == "prod" ]]; then
         log_error "Deployment cancelled"
         exit 1
     fi
+fi
+
+# Keep S3 templates in sync whenever notification-worker is part of this deploy
+if [[ " ${SERVICES[*]} " =~ " notification-worker " ]]; then
+    sync_notification_templates
 fi
 
 # Update each service

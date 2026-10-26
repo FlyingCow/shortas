@@ -39,6 +39,12 @@ bucket = "route-images"
 url = "amqp://guest:guest@shortas-rabbitmq:5672"
 domain_verification_queue = "domain-verification"
 route_status_queue = "route-status"
+notifications_exchange = "notifications"
+notifications_queue = "notifications"
+notifications_retry_queue = "notifications.retry"
+notifications_dead_queue = "notifications.dead"
+notifications_retry_delay_ms = 30000
+notifications_max_retries = 5
 
 [shared_domains]
 names = ["shortas.space"]
