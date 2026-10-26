@@ -2914,7 +2914,11 @@ body {
   .container {
     padding: 0 var(--space-sm);
   }
-  
+
+  .app-topbar {
+    padding: 0 var(--space-sm);
+  }
+
   .stats-grid {
     grid-template-columns: 1fr;
     gap: var(--space-md);
@@ -4514,7 +4518,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-lg);
+  /* Match .container's horizontal padding so the topbar's content lines up
+     with the page title below it, left and right. */
+  padding: 0 var(--space-md);
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);

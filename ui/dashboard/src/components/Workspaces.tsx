@@ -99,9 +99,6 @@ const workspaceStyles = `
   margin-top: 0.875rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border-primary);
-  /* Match .ws-action-btn's height so the row doesn't shrink when a card has
-     no edit/delete actions to show (e.g. a shared or System workspace). */
-  min-height: 30px;
 }
 
 .ws-meta-group {
@@ -143,6 +140,10 @@ const workspaceStyles = `
   display: flex;
   gap: 0.25rem;
   flex-shrink: 0;
+  /* Reserve the same height as .ws-action-btn even when this card has no
+     edit/delete buttons to show, so the footer row is identical whether
+     or not a card happens to render any action buttons. */
+  min-height: 30px;
 }
 
 .ws-action-btn {
@@ -836,7 +837,7 @@ const Workspaces: React.FC = () => {
 
         <div className="toolbar">
           <div className="toolbar-section">
-            <div className="search-box" style={{ marginBottom: 0 }}>
+            <div className="search-box" style={{ flex: 1, maxWidth: 360, marginBottom: 0 }}>
               <Search size={15} />
               <input
                 type="text"
@@ -845,8 +846,10 @@ const Workspaces: React.FC = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <span className="text-sm text-muted" style={{ whiteSpace: 'nowrap' }}>
+              {filtered.length} workspace{filtered.length !== 1 ? 's' : ''}
+            </span>
           </div>
-          <span className="text-sm text-muted">{filtered.length} workspace{filtered.length !== 1 ? 's' : ''}</span>
         </div>
 
         {error && (
