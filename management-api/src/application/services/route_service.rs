@@ -55,7 +55,7 @@ impl RouteService {
             .await?
             .ok_or_else(|| ApiError::not_found("Route", &id.to_string()))?;
 
-        self.validate_ownership(&route, user_id)?;
+        self.validate_read_access(&route, user_id).await?;
         Ok(route)
     }
 
@@ -73,7 +73,7 @@ impl RouteService {
             .await?
             .ok_or_else(|| ApiError::not_found("Route", &format!("{}/{}", domain, path)))?;
 
-        self.validate_ownership(&route, user_id)?;
+        self.validate_read_access(&route, user_id).await?;
         Ok(route)
     }
 
@@ -169,7 +169,7 @@ impl RouteService {
             .await?
             .ok_or_else(|| ApiError::not_found("Route", &id.to_string()))?;
 
-        self.validate_ownership(&existing, user_id)?;
+        self.validate_write_access(&existing, user_id).await?;
 
         // Enforce immutable fields
         let mut route = updated;
@@ -206,7 +206,7 @@ impl RouteService {
             .await?
             .ok_or_else(|| ApiError::not_found("Route", &id.to_string()))?;
 
-        self.validate_ownership(&route, user_id)?;
+        self.validate_write_access(&route, user_id).await?;
 
         // Delete from database
         self.route_repo.delete(id).await?;
@@ -267,7 +267,7 @@ impl RouteService {
     pub async fn bulk_update(&self, routes: Vec<Route>, user_id: &str) -> Result<Vec<Route>> {
         // Validate ownership of all routes
         for route in &routes {
-            self.validate_ownership(route, user_id)?;
+            self.validate_write_access(route, user_id).await?;
         }
 
         let updated = self.route_repo.bulk_update(&routes).await?;
@@ -297,7 +297,7 @@ impl RouteService {
                 .await?
                 .ok_or_else(|| ApiError::not_found("Route", &id.to_string()))?;
 
-            self.validate_ownership(&route, user_id)?;
+            self.validate_write_access(&route, user_id).await?;
         }
 
         // Get routes for click-router deletion
@@ -335,7 +335,7 @@ impl RouteService {
             .await?
             .ok_or_else(|| ApiError::not_found("Route", &id.to_string()))?;
 
-        self.validate_ownership(&route, user_id)?;
+        self.validate_write_access(&route, user_id).await?;
 
         route.status = RouteStatus::Active;
 
@@ -449,11 +449,54 @@ impl RouteService {
     }
 
     /// Validate user ownership of a route.
-    fn validate_ownership(&self, route: &Route, user_id: &str) -> Result<()> {
-        if route.properties.owner_id.as_deref() != Some(user_id) {
-            return Err(ApiError::forbidden());
+    /// Any workspace membership (Owner/Admin/Member) grants read access, in
+    /// addition to the literal creator.
+    async fn validate_read_access(&self, route: &Route, user_id: &str) -> Result<()> {
+        if route.properties.owner_id.as_deref() == Some(user_id) {
+            return Ok(());
         }
-        Ok(())
+        if self.has_workspace_membership(route, user_id).await {
+            return Ok(());
+        }
+        Err(ApiError::forbidden())
+    }
+
+    /// Only the literal creator or a workspace Owner/Admin may mutate a route.
+    /// A plain workspace Member ("User" in the UI) has view-only/stats access.
+    async fn validate_write_access(&self, route: &Route, user_id: &str) -> Result<()> {
+        if route.properties.owner_id.as_deref() == Some(user_id) {
+            return Ok(());
+        }
+        if self.has_workspace_admin_access(route, user_id).await {
+            return Ok(());
+        }
+        Err(ApiError::forbidden())
+    }
+
+    async fn has_workspace_membership(&self, route: &Route, user_id: &str) -> bool {
+        let Some(workspace_id) = route.properties.workspace_id.as_deref() else {
+            return false;
+        };
+        let Ok(workspace_uuid) = Uuid::parse_str(workspace_id) else {
+            return false;
+        };
+        self.workspace_repo
+            .user_has_access(workspace_uuid, user_id)
+            .await
+            .unwrap_or(false)
+    }
+
+    async fn has_workspace_admin_access(&self, route: &Route, user_id: &str) -> bool {
+        let Some(workspace_id) = route.properties.workspace_id.as_deref() else {
+            return false;
+        };
+        let Ok(workspace_uuid) = Uuid::parse_str(workspace_id) else {
+            return false;
+        };
+        match self.workspace_repo.get_membership(workspace_uuid, user_id).await {
+            Ok(Some(membership)) => membership.is_admin(),
+            _ => false,
+        }
     }
 
     /// Propagate route to click-router.

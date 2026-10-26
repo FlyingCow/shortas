@@ -5,13 +5,18 @@ use jsonwebtoken::{decode, decode_header, jwk::JwkSet, DecodingKey, TokenData, V
 use reqwest::Client;
 use salvo::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tracing::{debug, error, warn};
 
+use super::DepotExt;
 use crate::domain::entities::UserProfile;
 use crate::settings::JwtSettings;
+
+/// How often to re-upsert a seen user into the local directory table.
+const USER_DIRECTORY_TTL: Duration = Duration::from_secs(600);
 
 /// JWT claims from Keycloak.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +75,7 @@ pub struct JwtAuth {
     settings: JwtSettings,
     http_client: Client,
     jwks_cache: Arc<RwLock<Option<JwksCache>>>,
+    user_seen_cache: Arc<RwLock<HashMap<String, Instant>>>,
 }
 
 impl JwtAuth {
@@ -79,7 +85,37 @@ impl JwtAuth {
             settings,
             http_client: Client::new(),
             jwks_cache: Arc::new(RwLock::new(None)),
+            user_seen_cache: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    /// Opportunistically upsert the authenticated user into the local user
+    /// directory (used for invite search), throttled so it's not a DB write
+    /// on every single request.
+    async fn touch_user_directory(&self, depot: &Depot, profile: &UserProfile) {
+        let Some(email) = profile.email.as_deref() else {
+            return;
+        };
+
+        {
+            let cache = self.user_seen_cache.read().await;
+            if let Some(seen_at) = cache.get(&profile.id) {
+                if seen_at.elapsed() < USER_DIRECTORY_TTL {
+                    return;
+                }
+            }
+        }
+
+        if let Ok(app_state) = depot.app_state() {
+            let user_repo = app_state.user_repo.clone();
+            if let Err(e) = user_repo.upsert(&profile.id, email, profile.name.as_deref()).await {
+                warn!("Failed to upsert user directory entry for {}: {}", profile.id, e);
+                return;
+            }
+        }
+
+        let mut cache = self.user_seen_cache.write().await;
+        cache.insert(profile.id.clone(), Instant::now());
     }
 
     /// Fetch JWKS from Keycloak.
@@ -203,6 +239,7 @@ impl Handler for JwtAuth {
             Ok(token_data) => {
                 let user_profile: UserProfile = token_data.claims.into();
                 debug!("Authenticated user: {}", user_profile.id);
+                self.touch_user_directory(depot, &user_profile).await;
                 depot.inject(user_profile);
                 ctrl.call_next(req, depot, res).await;
             }

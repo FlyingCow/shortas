@@ -15,3 +15,8 @@ routes_index = "routes"
 
 [shared_domains]
 names = ["shortas.space"]
+
+[email]
+ses_region = "us-east-1"
+from_address = "no-reply@shortas.space"
+dashboard_base_url = "https://app.shortas.space"

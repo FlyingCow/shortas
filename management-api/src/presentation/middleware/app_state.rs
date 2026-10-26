@@ -7,12 +7,15 @@ use std::sync::Arc;
 
 use crate::application::services::RouteService;
 use crate::domain::traits::{
-    CertificateRepository, DomainRepository, OutboxRepository, RouteRepository, WorkspaceRepository,
+    CertificateRepository, DomainRepository, InvitationRepository, NotificationRepository,
+    OutboxRepository, RouteRepository, UserRepository, WorkspaceRepository,
 };
 use crate::infrastructure::{
+    email::{build_email_sender, EmailSender},
     http_clients::{ClickAggregatorClient, ClickRouterClient},
     repositories::{
-        PgCertificateRepository, PgDomainRepository, PgOutboxRepository, PgRouteRepository,
+        PgCertificateRepository, PgDomainRepository, PgInvitationRepository,
+        PgNotificationRepository, PgOutboxRepository, PgRouteRepository, PgUserRepository,
         PgWorkspaceRepository,
     },
     search::ElasticsearchService,
@@ -28,6 +31,10 @@ pub struct AppState {
     pub workspace_repo: Arc<dyn WorkspaceRepository>,
     pub certificate_repo: Arc<dyn CertificateRepository>,
     pub outbox_repo: Arc<dyn OutboxRepository>,
+    pub user_repo: Arc<dyn UserRepository>,
+    pub invitation_repo: Arc<dyn InvitationRepository>,
+    pub notification_repo: Arc<dyn NotificationRepository>,
+    pub email_sender: Arc<dyn EmailSender>,
     pub route_service: Arc<RouteService>,
     pub click_router: Arc<ClickRouterClient>,
     pub click_aggregator: Arc<ClickAggregatorClient>,
@@ -47,6 +54,13 @@ impl AppState {
         let certificate_repo: Arc<dyn CertificateRepository> =
             Arc::new(PgCertificateRepository::new(pool.clone()));
         let outbox_repo: Arc<dyn OutboxRepository> = Arc::new(PgOutboxRepository::new(pool.clone()));
+        let user_repo: Arc<dyn UserRepository> = Arc::new(PgUserRepository::new(pool.clone()));
+        let invitation_repo: Arc<dyn InvitationRepository> =
+            Arc::new(PgInvitationRepository::new(pool.clone()));
+        let notification_repo: Arc<dyn NotificationRepository> =
+            Arc::new(PgNotificationRepository::new(pool.clone()));
+
+        let email_sender = build_email_sender(&settings.email).await?;
 
         // Create HTTP clients
         let click_router = Arc::new(ClickRouterClient::new(&settings.click_router)?);
@@ -71,6 +85,10 @@ impl AppState {
             workspace_repo,
             certificate_repo,
             outbox_repo,
+            user_repo,
+            invitation_repo,
+            notification_repo,
+            email_sender,
             route_service,
             click_router,
             click_aggregator,

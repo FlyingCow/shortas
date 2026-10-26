@@ -1,6 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit, Trash2, Search, Briefcase, Calendar, Shield, X, Users, UserPlus, UserMinus } from 'lucide-react';
-import { apiService, WorkspaceDto, CreateWorkspaceDto, UserWorkspaceDto } from '../services/api';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, Edit, Trash2, Search, Briefcase, Calendar, Shield, X, Users, UserMinus, Mail, Clock } from 'lucide-react';
+import {
+  apiService,
+  WorkspaceDto,
+  CreateWorkspaceDto,
+  UserWorkspaceDto,
+  UserSearchResultDto,
+  InvitationDto,
+} from '../services/api';
 import { useAlert } from '../contexts/AlertContext';
 import { getUserInfo } from '../config/keycloak';
 import Dropdown from './Dropdown';
@@ -219,7 +226,84 @@ const workspaceStyles = `
   padding-top: 1rem;
   border-top: 1px solid var(--border-primary);
 }
+
+.wm-combobox {
+  position: relative;
+  flex: 1;
+}
+
+.wm-suggestions {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.wm-suggestion-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+}
+
+.wm-suggestion-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.wm-suggestion-name {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.wm-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin: 1rem 0 0.5rem;
+}
+
+.wm-pending-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border-primary);
+}
+
+.wm-input-error {
+  border-color: var(--color-error) !important;
+}
+
+.wm-error-hint {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.6875rem;
+  color: var(--color-error);
+}
 `;
+
+const roleLabel = (role: string) => (role === 'Member' ? 'User' : role);
+
+// Simple format check, not RFC 5322 — good enough to catch typos before
+// round-tripping to the server, which still does the authoritative validation.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isValidEmail = (value: string) => EMAIL_RE.test(value.trim());
 
 /* ---------- Workspace create/edit modal ---------- */
 interface WorkspaceModalProps {
@@ -317,22 +401,31 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
 interface MembersModalProps {
   workspace: WorkspaceDto;
   canManage: boolean;
+  /** Only the owner may change a member's role — admins can invite/remove but not reassign roles. */
+  isOwnerViewer: boolean;
   currentUserId?: string;
   onClose: () => void;
   onMemberCountChange: (workspaceId: string, count: number) => void;
 }
 
-const ROLE_OPTIONS = ['Owner', 'Admin', 'Member'];
+const INVITE_ROLE_OPTIONS = ['Admin', 'Member'];
 
-const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, currentUserId, onClose, onMemberCountChange }) => {
+const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, isOwnerViewer, currentUserId, onClose, onMemberCountChange }) => {
   const { showToast, showConfirm } = useAlert();
   const [members, setMembers] = useState<UserWorkspaceDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
-  const [newUserId, setNewUserId] = useState('');
-  const [newRole, setNewRole] = useState('Member');
-  const [adding, setAdding] = useState(false);
+
+  const [pendingInvitations, setPendingInvitations] = useState<InvitationDto[]>([]);
+  const [busyInvitationId, setBusyInvitationId] = useState<string | null>(null);
+
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('Member');
+  const [inviting, setInviting] = useState(false);
+  const [suggestions, setSuggestions] = useState<UserSearchResultDto[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const comboboxRef = useRef<HTMLDivElement>(null);
 
   const loadMembers = useCallback(async () => {
     try {
@@ -348,7 +441,47 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, curre
     }
   }, [workspace.id, onMemberCountChange]);
 
+  const loadPendingInvitations = useCallback(async () => {
+    if (!canManage) return;
+    try {
+      const data = await apiService.invitations.listPending(workspace.id);
+      setPendingInvitations(data);
+    } catch {
+      // Non-critical - just don't show the pending list.
+    }
+  }, [workspace.id, canManage]);
+
   useEffect(() => { loadMembers(); }, [loadMembers]);
+  useEffect(() => { loadPendingInvitations(); }, [loadPendingInvitations]);
+
+  // Debounced email typeahead search.
+  useEffect(() => {
+    if (inviteEmail.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const handle = setTimeout(async () => {
+      try {
+        const results = await apiService.users.search(inviteEmail.trim());
+        setSuggestions(results);
+        setShowSuggestions(true);
+      } catch {
+        setSuggestions([]);
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [inviteEmail]);
+
+  // Close the suggestions dropdown when clicking outside it.
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -386,24 +519,51 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, curre
     }
   };
 
-  const handleAdd = async () => {
-    if (!newUserId.trim()) return;
-    setAdding(true);
+  const handleInvite = async () => {
+    const email = inviteEmail.trim();
+    if (!email) return;
+    if (!isValidEmail(email)) {
+      showToast('Enter a valid email address', 'error');
+      return;
+    }
+    setInviting(true);
     try {
-      await apiService.workspaces.addMember(workspace.id, newUserId.trim(), newRole);
-      setNewUserId('');
-      setNewRole('Member');
-      await loadMembers();
-      showToast('Member added', 'success');
+      await apiService.invitations.create(workspace.id, email, inviteRole);
+      setInviteEmail('');
+      setInviteRole('Member');
+      setShowSuggestions(false);
+      await loadPendingInvitations();
+      showToast(`Invitation sent to ${email}`, 'success');
     } catch (err: any) {
-      showToast(err.response?.data?.message || 'Failed to add member', 'error');
+      showToast(err.response?.data?.message || 'Failed to send invitation', 'error');
     } finally {
-      setAdding(false);
+      setInviting(false);
+    }
+  };
+
+  const handleRevokeInvitation = async (invitation: InvitationDto) => {
+    const confirmed = await showConfirm(
+      `Revoke the pending invitation to ${invitation.invitedEmail}?`,
+      'Revoke invitation',
+      { confirmLabel: 'Revoke', variant: 'danger' }
+    );
+    if (!confirmed) return;
+    setBusyInvitationId(invitation.id);
+    try {
+      await apiService.invitations.revoke(workspace.id, invitation.id);
+      await loadPendingInvitations();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Failed to revoke invitation', 'error');
+    } finally {
+      setBusyInvitationId(null);
     }
   };
 
   const formatDate = (iso?: string) =>
     iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
+
+  const trimmedInviteEmail = inviteEmail.trim();
+  const inviteEmailHasError = trimmedInviteEmail.length > 0 && !isValidEmail(trimmedInviteEmail);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -439,16 +599,22 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, curre
                       </span>
                       <span className="wm-joined">Joined {formatDate(member.joinedAt)}</span>
                     </div>
-                    {canManage ? (
+                    {member.role === 'Owner' ? (
+                      <span className="badge badge-secondary">Owner</span>
+                    ) : canManage ? (
                       <>
-                        <Dropdown
-                          compact
-                          align="right"
-                          value={member.role}
-                          disabled={isBusy}
-                          onChange={(v) => handleRoleChange(member, v)}
-                          options={ROLE_OPTIONS.map((r) => ({ value: r, label: r }))}
-                        />
+                        {isOwnerViewer ? (
+                          <Dropdown
+                            compact
+                            align="right"
+                            value={member.role}
+                            disabled={isBusy}
+                            onChange={(v) => handleRoleChange(member, v)}
+                            options={INVITE_ROLE_OPTIONS.map((r) => ({ value: r, label: roleLabel(r) }))}
+                          />
+                        ) : (
+                          <span className="badge badge-secondary">{roleLabel(member.role)}</span>
+                        )}
                         <button
                           className="ws-action-btn danger"
                           title="Remove member"
@@ -459,7 +625,7 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, curre
                         </button>
                       </>
                     ) : (
-                      <span className="badge badge-secondary">{member.role}</span>
+                      <span className="badge badge-secondary">{roleLabel(member.role)}</span>
                     )}
                   </div>
                 );
@@ -467,29 +633,80 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, curre
             </div>
           )}
 
+          {canManage && pendingInvitations.length > 0 && (
+            <>
+              <div className="wm-section-title">Pending invitations</div>
+              <div className="wm-list">
+                {pendingInvitations.map((invitation) => (
+                  <div key={invitation.id} className="wm-pending-row">
+                    <div className="wm-avatar"><Clock size={14} /></div>
+                    <div className="wm-info">
+                      <span className="wm-id">{invitation.invitedEmail}</span>
+                      <span className="wm-joined">Invited as {roleLabel(invitation.role)}</span>
+                    </div>
+                    <button
+                      className="ws-action-btn danger"
+                      title="Revoke invitation"
+                      disabled={busyInvitationId === invitation.id}
+                      onClick={() => handleRevokeInvitation(invitation)}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           {canManage && (
             <div className="wm-add-row">
-              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                <label className="form-label">Add member by user ID</label>
+              <div className="wm-combobox" ref={comboboxRef}>
+                <label className="form-label">Invite by email</label>
                 <input
-                  className="form-control"
-                  value={newUserId}
-                  onChange={(e) => setNewUserId(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                  placeholder="User ID"
-                  disabled={adding}
+                  className={`form-control ${inviteEmailHasError ? 'wm-input-error' : ''}`}
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
+                  placeholder="name@company.com"
+                  disabled={inviting}
+                  aria-invalid={inviteEmailHasError}
                 />
+                {inviteEmailHasError && <span className="wm-error-hint">Enter a valid email address</span>}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="wm-suggestions">
+                    {suggestions.map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        className="wm-suggestion-item"
+                        onClick={() => {
+                          setInviteEmail(user.email);
+                          setShowSuggestions(false);
+                        }}
+                      >
+                        <span>{user.email}</span>
+                        {user.name && <span className="wm-suggestion-name">{user.name}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <Dropdown
                 compact
-                value={newRole}
-                onChange={setNewRole}
-                disabled={adding}
-                options={ROLE_OPTIONS.map((r) => ({ value: r, label: r }))}
+                value={inviteRole}
+                onChange={setInviteRole}
+                disabled={inviting}
+                options={INVITE_ROLE_OPTIONS.map((r) => ({ value: r, label: roleLabel(r) }))}
               />
-              <button className="btn btn-primary btn-sm" onClick={handleAdd} disabled={adding || !newUserId.trim()}>
-                <UserPlus size={14} />
-                Add
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={handleInvite}
+                disabled={inviting || !trimmedInviteEmail || inviteEmailHasError}
+              >
+                <Mail size={14} />
+                Invite
               </button>
             </div>
           )}
@@ -664,7 +881,7 @@ const Workspaces: React.FC = () => {
                       <div className="ws-name-row">
                         <h3 className="ws-name">{ws.name}</h3>
                         {isSystem && <span className="badge badge-primary">System</span>}
-                        {myMembership?.role && <span className="badge badge-secondary">{myMembership.role}</span>}
+                        {myMembership?.role && <span className="badge badge-secondary">{roleLabel(myMembership.role)}</span>}
                       </div>
                       <p className="ws-desc">{ws.description || 'No description.'}</p>
                     </div>
@@ -712,6 +929,7 @@ const Workspaces: React.FC = () => {
         <MembersModal
           workspace={membersWorkspace}
           canManage={!!(myMemberships[membersWorkspace.id]?.isOwner || myMemberships[membersWorkspace.id]?.isAdmin)}
+          isOwnerViewer={!!myMemberships[membersWorkspace.id]?.isOwner}
           currentUserId={currentUserId}
           onClose={() => setMembersWorkspace(undefined)}
           onMemberCountChange={handleMemberCountChange}

@@ -493,6 +493,11 @@ pub async fn add_member(req: &mut Request, depot: &mut Depot, res: &mut Response
         }
     };
 
+    if dto.role == "Owner" {
+        render_error(res, ApiError::validation("Ownership cannot be assigned this way"));
+        return;
+    }
+
     let new_member = dto.to_entity(id);
 
     match app_state.workspace_repo.add_member(&new_member).await {
@@ -565,6 +570,28 @@ pub async fn update_member_role(req: &mut Request, depot: &mut Depot, res: &mut 
             return;
         }
     };
+
+    if dto.role == "Owner" {
+        render_error(res, ApiError::validation("Ownership cannot be assigned this way"));
+        return;
+    }
+
+    let target_membership = match app_state.workspace_repo.get_membership(id, &target_user_id).await {
+        Ok(Some(m)) => m,
+        Ok(None) => {
+            render_error(res, ApiError::not_found("Member", &target_user_id));
+            return;
+        }
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
+    if target_membership.is_owner() {
+        render_error(res, ApiError::validation("The workspace owner's role cannot be changed"));
+        return;
+    }
 
     match app_state
         .workspace_repo

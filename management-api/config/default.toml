@@ -42,3 +42,8 @@ route_status_queue = "route-status"
 
 [shared_domains]
 names = ["shortas.space"]
+
+# provider defaults to "ses" (see EmailSettings::default) - unset here so
+# production.toml / env vars are the source of truth for region/from address.
+[email]
+dashboard_base_url = "https://app.shortas.space"

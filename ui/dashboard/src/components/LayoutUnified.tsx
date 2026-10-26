@@ -21,6 +21,7 @@ import DevelopmentBanner from './DevelopmentBanner';
 import Dropdown from './Dropdown';
 import Footer from './Footer';
 import Logo from './Logo';
+import NotificationBell from './NotificationBell';
 import './DesignSystem.css';
 
 const ALL_WORKSPACES = '__all__';
@@ -197,7 +198,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 />
               </div>
             </div>
-            <div className="topbar-right">
+            <div className="topbar-right" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <NotificationBell />
+
               {/* User Dropdown */}
               <div ref={userMenuRef} style={{ position: 'relative' }}>
                 <button

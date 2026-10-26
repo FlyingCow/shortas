@@ -3,7 +3,7 @@
 use salvo::oapi::ToSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::entities::{UserOnboarding, UserProfile, Workspace};
+use crate::domain::entities::{User, UserOnboarding, UserProfile, Workspace};
 
 /// User profile response DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -29,6 +29,25 @@ impl UserProfileDto {
             preferred_username: profile.preferred_username,
             email_verified: profile.email_verified,
             is_admin,
+        }
+    }
+}
+
+/// A user search result, used for the invite-by-email typeahead.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct UserSearchResultDto {
+    pub id: String,
+    pub email: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+impl UserSearchResultDto {
+    pub fn from_entity(user: User) -> Self {
+        Self {
+            id: user.id,
+            email: user.email,
+            name: user.name,
         }
     }
 }

@@ -77,6 +77,26 @@ const createApiInstance = (baseURL: string): AxiosInstance => {
 export const routerApi = createApiInstance(ROUTER_API_URL);
 export const aggregatorApi = createApiInstance(AGGREGATOR_API_URL);
 
+// Instance for endpoints that work without auth (e.g. previewing an invite
+// link before the visitor has logged in). Attaches a token when one happens
+// to be available, but never rejects or redirects when it isn't.
+const publicApi = axios.create({
+  baseURL: ROUTER_API_URL,
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
+});
+publicApi.interceptors.request.use(async (config) => {
+  try {
+    if (isInitialized() && isAuthenticated()) {
+      const token = getToken();
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    // Not authenticated - proceed without a token.
+  }
+  return config;
+});
+
 // Conditional Routing Types
 export interface Expression {
   default_operator?: 'And' | 'Or';
@@ -453,6 +473,43 @@ export interface InitializationStatusResponse {
   hasUserSettings: boolean;
 }
 
+// User search (invite typeahead)
+export interface UserSearchResultDto {
+  id: string;
+  email: string;
+  name?: string;
+}
+
+// Workspace invitation types
+export interface InvitationDto {
+  id: string;
+  workspaceId: string;
+  invitedEmail: string;
+  role: string;
+  invitedBy: string;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface InvitationPreviewDto {
+  workspaceName: string;
+  inviterName: string;
+  role: string;
+  invitedEmail: string;
+  status: string;
+}
+
+// Notification center types
+export interface NotificationDto {
+  id: string;
+  type: string;
+  payload: Record<string, any>;
+  status: 'Unread' | 'Read' | 'Actioned';
+  createdAt: string;
+  readAt?: string;
+}
+
 // Helper function to simulate API delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -813,6 +870,61 @@ export const apiService = {
 
     updateMemberRole: async (id: string, userId: string, role: string): Promise<void> => {
       await routerApi.put(`/workspaces/${id}/members/${userId}`, { role });
+    },
+  },
+
+  // User directory search (invite typeahead)
+  users: {
+    search: async (query: string): Promise<UserSearchResultDto[]> => {
+      if (query.trim().length < 2) return [];
+      const response = await routerApi.get('/users/search', { params: { q: query.trim() } });
+      return response.data;
+    },
+  },
+
+  // Workspace invitations
+  invitations: {
+    create: async (workspaceId: string, email: string, role: string): Promise<InvitationDto> => {
+      const response = await routerApi.post(`/workspaces/${workspaceId}/invitations`, { email, role });
+      return response.data;
+    },
+
+    listPending: async (workspaceId: string): Promise<InvitationDto[]> => {
+      const response = await routerApi.get(`/workspaces/${workspaceId}/invitations`);
+      return response.data;
+    },
+
+    revoke: async (workspaceId: string, invitationId: string): Promise<void> => {
+      await routerApi.delete(`/workspaces/${workspaceId}/invitations/${invitationId}`);
+    },
+
+    previewByToken: async (token: string): Promise<InvitationPreviewDto> => {
+      const response = await publicApi.get(`/invitations/by-token/${token}`);
+      return response.data;
+    },
+
+    accept: async (invitationId: string): Promise<void> => {
+      await routerApi.post(`/invitations/${invitationId}/accept`);
+    },
+
+    decline: async (invitationId: string): Promise<void> => {
+      await routerApi.post(`/invitations/${invitationId}/decline`);
+    },
+
+    acceptByToken: async (token: string): Promise<void> => {
+      await routerApi.post(`/invitations/by-token/${token}/accept`);
+    },
+  },
+
+  // Notification center
+  notifications: {
+    list: async (): Promise<NotificationDto[]> => {
+      const response = await routerApi.get('/notifications');
+      return response.data;
+    },
+
+    markRead: async (id: string): Promise<void> => {
+      await routerApi.post(`/notifications/${id}/read`);
     },
   },
 

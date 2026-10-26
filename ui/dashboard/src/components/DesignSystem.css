@@ -1151,7 +1151,11 @@ body {
   max-width: 320px;
   max-height: 320px;
   overflow-y: auto;
-  z-index: var(--z-dropdown);
+  /* Popover level, not --z-dropdown: this menu is portaled specifically so
+     it isn't clipped by ancestors, which must also hold for a modal
+     (--z-modal: 1050) — a dropdown opened inside a modal needs to render
+     above it, not behind it. */
+  z-index: var(--z-popover);
   padding: 2px;
 }
 
