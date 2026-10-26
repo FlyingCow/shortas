@@ -11,7 +11,7 @@ React admin interface for managing short links and viewing click analytics.
 - Geographic click distribution map (React Simple Maps)
 - Route blocking/unblocking for Safe Browsing violations
 - Automatic favicon display for destination URLs
-- Workspace management
+- Workspace management with role-based member access (Owner/Admin/Member) and email-based invitations
 - Keyboard shortcuts for common actions
 - Keycloak-based authentication
 
