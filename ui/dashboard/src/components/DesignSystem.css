@@ -256,6 +256,20 @@
 /* Dark Mode Variables */
 /* Dark mode support - removed conflicting media query to use theme system */
 
+/* The semantic "-light" tints above (--color-primary-light etc.) are the
+   fixed pastel-100 swatches, which read as blinding against the dark
+   surfaces below — override them here with low-alpha tints of the base
+   color so selected/hover/badge backgrounds stay subtle on dark. Must come
+   after the :root block above: both selectors have equal specificity, so
+   source order decides the winner. */
+[data-theme="dark"] {
+  --color-primary-light: rgba(59, 130, 246, 0.16);
+  --color-success-light: rgba(34, 197, 94, 0.16);
+  --color-warning-light: rgba(245, 158, 11, 0.16);
+  --color-error-light: rgba(239, 68, 68, 0.16);
+  --color-info-light: rgba(59, 130, 246, 0.16);
+}
+
 /* ===== BASE STYLES ===== */
 * {
   box-sizing: border-box;
@@ -691,40 +705,43 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-/* Ensure button text is always visible with fallback colors */
+/* Ensure button text is always visible with fallback colors.
+   background/border-color/box-shadow are intentionally NOT !important here:
+   that would beat the (non-!important) :hover rules below on specificity
+   and freeze these buttons' hover state — only `color` needs the guard. */
 .btn-primary {
   color: #ffffff !important;
-  background: var(--color-primary, #3b82f6) !important;
-  border-color: var(--color-primary, #3b82f6) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  background: var(--color-primary, #3b82f6);
+  border-color: var(--color-primary, #3b82f6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .btn-success {
   color: #ffffff !important;
-  background: var(--color-success, #22c55e) !important;
-  border-color: var(--color-success, #22c55e) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  background: var(--color-success, #22c55e);
+  border-color: var(--color-success, #22c55e);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .btn-danger {
   color: #ffffff !important;
-  background: var(--color-error, #ef4444) !important;
-  border-color: var(--color-error, #ef4444) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  background: var(--color-error, #ef4444);
+  border-color: var(--color-error, #ef4444);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .btn-warning {
   color: #ffffff !important;
-  background: var(--color-warning, #f59e0b) !important;
-  border-color: var(--color-warning, #f59e0b) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  background: var(--color-warning, #f59e0b);
+  border-color: var(--color-warning, #f59e0b);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .btn-info {
   color: #ffffff !important;
-  background: var(--color-info, #3b82f6) !important;
-  border-color: var(--color-info, #3b82f6) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  background: var(--color-info, #3b82f6);
+  border-color: var(--color-info, #3b82f6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -1208,6 +1225,16 @@ body {
   margin-top: 0.25rem;
   border-top: 1px solid var(--border-primary);
   padding-top: 0.5rem;
+}
+
+/* Bootstrap's reboot sets kbd { color: var(--bs-body-bg) } (white) — fine on
+   its own dark default kbd background, but invisible once we tint the
+   background light for the light theme. Pin the color explicitly. */
+.shortcut-kbd {
+  padding: 0.15rem 0.4rem;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: 4px;
 }
 
 /* ===== FORMS ===== */
