@@ -63,7 +63,7 @@ body {
 
 .error-content {
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-primary);
   border-radius: 6px;
   padding: 3rem;
   text-align: center;
@@ -107,60 +107,15 @@ body {
 }
 
 
-/* Utility Classes */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1.5rem;
-  background: var(--color-primary);
-  color: white;
-  border-radius: 6px;
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.875rem;
-  transition: background 0.2s ease;
-  border: none;
-  cursor: pointer;
-}
-
-.btn:hover {
-  background: var(--color-primary-hover);
-}
-
-.btn-secondary {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-}
-
-.btn-secondary:hover {
-  background: var(--border-color);
-}
-
-.btn-danger {
-  background: var(--color-error);
-}
-
-.card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 1.5rem;
-  box-shadow: var(--shadow-md);
-  transition: all 0.2s ease;
-}
-
-.card:hover {
-  box-shadow: var(--shadow-md);
-}
-
-.card-header {
-  font-weight: 600;
-  color: var(--primary-color);
-  margin-bottom: 1rem;
-  font-size: 1.1rem;
-}
+/* .btn / .btn-secondary / .btn-danger / .card / .card-header used to be
+   redefined here too, duplicating the unified system in DesignSystem.css
+   with stale values (including a --border-color variable that was never
+   defined anywhere, so e.g. .btn-secondary:hover's background silently
+   computed to transparent). Depending on module import order, this file's
+   rules could load after DesignSystem.css and win the cascade on equal
+   specificity, breaking hover for the most commonly used button variant.
+   Removed in favor of the DesignSystem.css definitions — don't redeclare
+   these classes here. */
 
 /* Responsive Design */
 @media (max-width: 768px) {

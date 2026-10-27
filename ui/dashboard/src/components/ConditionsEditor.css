@@ -4,7 +4,7 @@
   --ce-block-border: var(--theme-border-primary, #e4e4e7);
   --ce-rule-bg: var(--theme-bg-secondary, #fafafa);
   --ce-rule-border: var(--theme-border-secondary, #e4e4e7);
-  --ce-accent: var(--primary-600, #2563eb);
+  --ce-accent: var(--color-primary, #3b82f6);
   --ce-accent-muted: var(--primary-100, #dbeafe);
   --ce-text: var(--theme-text-primary, #09090b);
   --ce-text-secondary: var(--theme-text-secondary, #3f3f46);
@@ -90,6 +90,10 @@
   box-shadow: 0 0 0 2px var(--ce-accent-muted);
 }
 
+.ce-block--error {
+  border-color: var(--color-error, #ef4444);
+}
+
 .ce-block-head {
   display: flex;
   align-items: center;
@@ -168,6 +172,26 @@
   outline: none;
   border-color: var(--ce-accent);
   box-shadow: 0 0 0 2px var(--ce-accent-muted);
+}
+
+/* Validation (appears once a field has been touched and is invalid —
+   see computeConditionErrors in ConditionsEditor.tsx). Always paired with
+   another class on the same element, so plain specificity beats the base
+   .ce-block-dest/.ce-rule-value/.ce-rule-row rules without !important. */
+.ce-input-error {
+  border-color: var(--color-error, #ef4444);
+}
+
+.ce-rule-row--error {
+  border-color: var(--color-error, #ef4444);
+}
+
+.ce-error-text {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-error, #ef4444);
+  margin-top: 4px;
+  padding-left: 2px;
 }
 
 .ce-block-actions {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Shuffle, Link2, Globe, ChevronRight, ArrowRightLeft, GitBranch, Tag, Settings } from 'lucide-react';
 import { RouteDto, RoutingPolicy, DomainDto, ConditionRouteDto, ConditionalRouting, apiService } from '../services/api';
-import { ConditionsEditor } from './ConditionsEditor';
+import { ConditionsEditor, ConditionsEditorHandle } from './ConditionsEditor';
 import Dropdown from './Dropdown';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import './DesignSystem.css';
@@ -159,6 +159,7 @@ const RouteForm: React.FC<RouteFormProps> = ({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [generatingLink, setGeneratingLink] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const conditionsRef = useRef<ConditionsEditorHandle>(null);
 
   // Re-initialize when route prop changes
   useEffect(() => {
@@ -290,7 +291,10 @@ const RouteForm: React.FC<RouteFormProps> = ({
     if (!formData.dest?.trim()) newErrors.dest = 'Destination URL is required';
     setErrors(newErrors);
     setTouched({ domainId: true, link: true, dest: true });
-    return Object.keys(newErrors).length === 0;
+    // Always call through — it also touches/expands the invalid conditional
+    // rules so their errors become visible, not just a short-circuit check.
+    const conditionsValid = conditionsRef.current?.validate() ?? true;
+    return Object.keys(newErrors).length === 0 && conditionsValid;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -529,6 +533,7 @@ const RouteForm: React.FC<RouteFormProps> = ({
           </summary>
           <div className="rf-section-body">
             <ConditionsEditor
+              ref={conditionsRef}
               conditions={formData.conditions || []}
               onChange={(conditions) => handleChange('conditions' as any, conditions)}
             />

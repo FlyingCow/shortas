@@ -22,6 +22,8 @@ pub struct Settings {
     #[serde(default)]
     pub route_verifier: RouteVerifierSettings,
     #[serde(default)]
+    pub domain_verifier: DomainVerifierSettings,
+    #[serde(default)]
     pub click_aggregator: ClickAggregatorSettings,
     #[serde(default)]
     pub elasticsearch: ElasticsearchSettings,
@@ -144,6 +146,22 @@ impl Default for RouteVerifierSettings {
     fn default() -> Self {
         Self {
             base_url: "http://localhost:5831".to_string(),
+            timeout_ms: 5000,
+        }
+    }
+}
+
+/// Domain Verifier API settings (registers domains for ongoing DNS verification).
+#[derive(Debug, Clone, Deserialize)]
+pub struct DomainVerifierSettings {
+    pub base_url: String,
+    pub timeout_ms: u64,
+}
+
+impl Default for DomainVerifierSettings {
+    fn default() -> Self {
+        Self {
+            base_url: "http://localhost:5830".to_string(),
             timeout_ms: 5000,
         }
     }
@@ -378,6 +396,7 @@ impl Default for Settings {
             jwt: JwtSettings::default(),
             click_router: ClickRouterSettings::default(),
             route_verifier: RouteVerifierSettings::default(),
+            domain_verifier: DomainVerifierSettings::default(),
             click_aggregator: ClickAggregatorSettings::default(),
             elasticsearch: ElasticsearchSettings::default(),
             minio: MinioSettings::default(),

@@ -653,7 +653,7 @@ const routeStatsStyles = `
 }
 
 .rs-create-btn:hover {
-  background: var(--color-primary-dark);
+  background: var(--color-primary-hover);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   transform: translateY(-1px);
 }

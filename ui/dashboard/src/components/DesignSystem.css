@@ -134,6 +134,8 @@
   --color-primary: var(--primary-500);
   --color-primary-hover: var(--primary-600);
   --color-primary-light: var(--primary-100);
+  --color-primary-light-hover: var(--primary-200);
+  --color-primary-alpha: rgba(59, 130, 246, 0.1);
   --color-success: var(--success-500);
   --color-success-hover: var(--success-600);
   --color-success-light: var(--success-100);
@@ -171,6 +173,7 @@
   --shadow-md: var(--theme-shadow-md);
   --shadow-lg: var(--theme-shadow-lg);
   --shadow-xl: var(--theme-shadow-xl);
+  --shadow-2xl: var(--theme-shadow-2xl);
 
   /* Spacing */
   --space-xs: 0.25rem;
@@ -264,6 +267,7 @@
    source order decides the winner. */
 [data-theme="dark"] {
   --color-primary-light: rgba(59, 130, 246, 0.16);
+  --color-primary-light-hover: rgba(59, 130, 246, 0.26);
   --color-success-light: rgba(34, 197, 94, 0.16);
   --color-warning-light: rgba(245, 158, 11, 0.16);
   --color-error-light: rgba(239, 68, 68, 0.16);
@@ -321,6 +325,7 @@ body {
   --shadow-md: var(--theme-shadow-md);
   --shadow-lg: var(--theme-shadow-lg);
   --shadow-xl: var(--theme-shadow-xl);
+  --shadow-2xl: var(--theme-shadow-2xl);
 }
 
 .theme-dark {
@@ -344,6 +349,7 @@ body {
   --shadow-md: var(--theme-shadow-md);
   --shadow-lg: var(--theme-shadow-lg);
   --shadow-xl: var(--theme-shadow-xl);
+  --shadow-2xl: var(--theme-shadow-2xl);
 }
 
 /* ===== TYPOGRAPHY ===== */
@@ -432,6 +438,7 @@ body {
   display: inline-flex;
   padding: 2px;
   background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
   border-radius: var(--radius-lg);
   gap: 2px;
 }
@@ -453,7 +460,12 @@ body {
 }
 
 .range-btn.active {
-  background: var(--bg-elevated);
+  /* Not --bg-elevated: in dark theme that's the same tone as (or darker
+     than) the group's --bg-tertiary background, so the "selected" pill had
+     no visible fill at all — just blue text floating with nothing behind
+     it. Use the same primary-tinted highlight the sidebar's active nav
+     item uses instead, which is tuned correctly for both themes. */
+  background: var(--color-primary-light);
   color: var(--color-primary);
   box-shadow: var(--shadow-sm);
 }
@@ -941,6 +953,14 @@ body {
   padding: var(--space-xs) var(--space-sm);
   font-size: var(--font-size-xs);
   gap: var(--space-xs);
+  /* .btn's base min-height:40px/min-width:80px (for toolbar-level buttons)
+     otherwise wins here too, since neither is touched above — forcing xs
+     buttons to the same footprint as full-size ones. That's the size this
+     variant exists to avoid: dense inline contexts (e.g. the conditional
+     routing rule builder, one dropdown per field in a packed row) end up
+     with a 40px pill towering over ~26-28px neighbors. */
+  min-height: 26px;
+  min-width: 0;
 }
 
 .btn-sm {
@@ -1071,7 +1091,7 @@ body {
   
   .btn-lg {
     padding: var(--space-md) var(--space-lg);
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-base);
   }
   
   .btn-group {
@@ -1122,6 +1142,21 @@ body {
 .app-select-trigger {
   justify-content: space-between;
   white-space: nowrap;
+  background: var(--color-primary-light);
+  border-color: transparent;
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-lg);
+}
+
+.app-select-trigger:hover:not(:disabled) {
+  background: var(--color-primary-light-hover);
+  border-color: transparent;
+  color: var(--color-primary);
+}
+
+.app-select-trigger .app-select-chevron {
+  color: var(--color-primary);
 }
 
 .app-select.app-select-block .app-select-trigger {
@@ -1129,7 +1164,17 @@ body {
 }
 
 .app-select-trigger.app-select-error {
-  border-color: var(--color-error);
+  background: var(--color-error-light);
+  color: var(--color-error);
+  border-color: transparent;
+}
+
+.app-select-trigger.app-select-error .app-select-chevron {
+  color: var(--color-error);
+}
+
+.app-select-trigger.app-select-error .app-select-trigger-label.app-select-placeholder {
+  color: var(--color-error);
 }
 
 .app-select-trigger-label {
@@ -1140,8 +1185,13 @@ body {
   text-align: left;
 }
 
+/* Not --text-muted: that was written for the old transparent/outline
+   trigger, where muted gray read as an empty-state hint. Now that the
+   trigger itself is a blue-tinted pill, gray text on top of it reads as
+   broken rather than intentional — stay on the same hue, just faded. */
 .app-select-trigger-label.app-select-placeholder {
-  color: var(--text-muted);
+  color: var(--color-primary);
+  opacity: 0.7;
 }
 
 .app-select-chevron {

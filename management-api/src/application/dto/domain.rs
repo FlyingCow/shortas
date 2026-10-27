@@ -121,14 +121,6 @@ impl UpdateDomainDto {
     }
 }
 
-/// DNS configuration response DTO.
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct DnsConfigDto {
-    pub txt_record: String,
-    pub cname_target: String,
-    pub a_records: Vec<String>,
-}
-
 /// Domain verification request.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct VerifyDomainDto {

@@ -4,8 +4,8 @@ use salvo::prelude::*;
 use uuid::Uuid;
 
 use crate::application::dto::{
-    CreateDomainDto, DnsConfigDto, DomainAttentionDto, DomainDto, DomainSummaryDto,
-    PaginatedDomainsDto, UpdateDomainDto,
+    CreateDomainDto, DomainAttentionDto, DomainDto, DomainSummaryDto, PaginatedDomainsDto,
+    UpdateDomainDto,
 };
 use crate::domain::entities::ApiError;
 use crate::presentation::middleware::{
@@ -29,7 +29,6 @@ pub fn domains_controller() -> Router {
                 .put(update_domain)
                 .delete(delete_domain)
                 .options(cors_preflight)
-                .push(Router::with_path("dns-config").get(get_dns_config).options(cors_preflight))
                 .push(Router::with_path("verify").post(verify_domain).options(cors_preflight)),
         )
 }
@@ -277,7 +276,17 @@ pub async fn create_domain(req: &mut Request, depot: &mut Depot, res: &mut Respo
     let domain = dto.to_entity(&user_id);
 
     match app_state.domain_repo.create(&domain).await {
-        Ok(created) => render_created(res, DomainDto::from_entity(created)),
+        Ok(created) => {
+            // Submit it to domain-verifier right away rather than waiting for
+            // the user to click "Verify" — same outbox path verify_domain()
+            // uses below, so it's registered and the first DNS check is
+            // triggered immediately instead of sitting idle until someone
+            // asks for it.
+            let outbox_msg = crate::domain::entities::OutboxMessage::verify_domain(created.id);
+            let _ = app_state.outbox_repo.create(&outbox_msg).await;
+
+            render_created(res, DomainDto::from_entity(created))
+        }
         Err(e) => render_error(res, e),
     }
 }
@@ -417,77 +426,6 @@ pub async fn delete_domain(req: &mut Request, depot: &mut Depot, res: &mut Respo
         Ok(()) => render_no_content(res),
         Err(e) => render_error(res, e),
     }
-}
-
-/// Get DNS configuration for a domain.
-#[endpoint(
-    operation_id = "get_dns_config",
-    summary = "Get DNS config",
-    description = "Get DNS configuration required for domain verification",
-    tags("Domains"),
-    parameters(
-        ("id" = String, Path, description = "Domain ID")
-    ),
-    responses(
-        (status_code = 200, description = "DNS configuration", body = DnsConfigDto)
-    )
-)]
-pub async fn get_dns_config(req: &mut Request, depot: &mut Depot, res: &mut Response) {
-    let app_state = match depot.app_state() {
-        Ok(state) => state,
-        Err(e) => {
-            render_error(res, ApiError::internal(e.to_string()));
-            return;
-        }
-    };
-
-    let user_id = match depot.user_id() {
-        Ok(id) => id,
-        Err(e) => {
-            render_error(res, ApiError::unauthorized(e.to_string()));
-            return;
-        }
-    };
-
-    let id_str: String = req.param("id").unwrap_or_default();
-    let id = match Uuid::parse_str(&id_str) {
-        Ok(id) => id,
-        Err(_) => {
-            render_error(res, ApiError::validation("Invalid domain ID"));
-            return;
-        }
-    };
-
-    let domain = match app_state.domain_repo.get_by_id(id).await {
-        Ok(Some(d)) => d,
-        Ok(None) => {
-            render_error(res, ApiError::not_found("Domain", &id_str));
-            return;
-        }
-        Err(e) => {
-            render_error(res, e);
-            return;
-        }
-    };
-
-    if domain.owner_id != user_id {
-        render_error(res, ApiError::forbidden());
-        return;
-    }
-
-    // Generate verification records
-    let txt_record = format!("shortas-verify={}", id);
-    let cname_target = "redirect.shortas.work".to_string();
-    let a_records = vec!["1.2.3.4".to_string()]; // Replace with actual IPs
-
-    render_success(
-        res,
-        DnsConfigDto {
-            txt_record,
-            cname_target,
-            a_records,
-        },
-    );
 }
 
 /// Trigger domain verification.

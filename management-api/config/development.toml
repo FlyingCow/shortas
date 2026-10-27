@@ -23,6 +23,10 @@ timeout_ms = 5000
 base_url = "http://shortas-route-verifier:5831"
 timeout_ms = 5000
 
+[domain_verifier]
+base_url = "http://shortas-domain-verifier:5830"
+timeout_ms = 5000
+
 [click_aggregator]
 base_url = "http://shortas-click-aggregator-api:5820"
 timeout_ms = 10000
