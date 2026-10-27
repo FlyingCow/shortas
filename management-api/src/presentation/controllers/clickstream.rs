@@ -958,14 +958,51 @@ pub async fn get_route_performance(req: &mut Request, depot: &mut Depot, res: &m
         }
     };
 
-    match app_state
+    let stats = match app_state
         .click_aggregator
         .get_route_performance(owner_id, workspace_id.as_deref(), from_date, to_date, limit)
         .await
     {
-        Ok(stats) => render_success(res, stats),
-        Err(e) => render_error(res, ApiError::external_service(e.to_string())),
-    }
+        Ok(stats) => stats,
+        Err(e) => {
+            render_error(res, ApiError::external_service(e.to_string()));
+            return;
+        }
+    };
+
+    // Collect unique route IDs for enrichment
+    let route_ids: Vec<Uuid> = stats
+        .iter()
+        .filter_map(|s| Uuid::parse_str(&s.route_id).ok())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    // Fetch route info in a single query
+    let route_info_map: HashMap<Uuid, RouteInfo> = match app_state
+        .route_repo
+        .get_route_info_by_ids(&route_ids)
+        .await
+    {
+        Ok(infos) => infos.into_iter().map(|info| (info.id, info)).collect(),
+        Err(_) => HashMap::new(), // Continue without enrichment if query fails
+    };
+
+    let stats: Vec<RoutePerformance> = stats
+        .into_iter()
+        .map(|mut s| {
+            if let Some(info) = Uuid::parse_str(&s.route_id)
+                .ok()
+                .and_then(|id| route_info_map.get(&id))
+            {
+                s.route_name = Some(info.link.clone());
+                s.route_domain_name = info.domain_name.clone();
+            }
+            s
+        })
+        .collect();
+
+    render_success(res, stats)
 }
 
 /// Get top destinations.

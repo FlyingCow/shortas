@@ -2537,11 +2537,12 @@ body {
   right: 0 !important;
 }
 
-/* Ensure dropdown containers don't clip content */
+/* Ensure dropdown containers don't clip content.
+   .table-container/.table-wrapper are deliberately excluded: they rely on
+   overflow-y: auto + max-height (see UNIFIED TABLES above) to scroll large
+   tables instead of spilling past the card into whatever sits below it. */
 .card,
 .card-body,
-.table-container,
-.table-wrapper,
 .flex,
 .container {
   overflow: visible !important;
@@ -2549,14 +2550,6 @@ body {
 
 /* Specific overrides for common container classes */
 .card-body {
-  overflow: visible !important;
-}
-
-.table-container {
-  overflow: visible !important;
-}
-
-.table-wrapper {
   overflow: visible !important;
 }
 

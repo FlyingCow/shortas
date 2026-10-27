@@ -46,6 +46,33 @@ impl DomainDto {
     }
 }
 
+/// A minimal domain reference, just enough for a dashboard link.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DomainSummaryDto {
+    pub id: String,
+    pub name: String,
+    pub verification_status: String,
+}
+
+impl DomainSummaryDto {
+    pub fn from_entity(domain: RouteDomain) -> Self {
+        Self {
+            id: domain.id.to_string(),
+            name: domain.name,
+            verification_status: domain.verification_status.as_str().to_string(),
+        }
+    }
+}
+
+/// Count and short sample of a user's not-yet-verified domains.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DomainAttentionDto {
+    pub unverified_count: i64,
+    pub domains: Vec<DomainSummaryDto>,
+}
+
 /// Domain creation request DTO.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CreateDomainDto {

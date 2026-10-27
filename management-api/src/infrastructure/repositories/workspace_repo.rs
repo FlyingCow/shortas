@@ -6,7 +6,7 @@ use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
 use crate::domain::entities::{ApiError, Result, UserWorkspace, Workspace};
-use crate::domain::traits::WorkspaceRepository;
+use crate::domain::traits::{WorkspaceRepository, WorkspaceStats};
 
 /// PostgreSQL workspace repository.
 pub struct PgWorkspaceRepository {
@@ -86,6 +86,8 @@ impl WorkspaceRepository for PgWorkspaceRepository {
     }
 
     async fn create(&self, workspace: &Workspace) -> Result<Workspace> {
+        let mut tx = self.pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
         sqlx::query(
             r#"
             INSERT INTO workspaces (id, name, description, type, created_at, updated_at)
@@ -98,9 +100,23 @@ impl WorkspaceRepository for PgWorkspaceRepository {
         .bind(&workspace.workspace_type)
         .bind(Utc::now())
         .bind(Utc::now())
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        // Seed the stats row so route_repo/add_member's plain `UPDATE
+        // workspace_stats ...` (no upsert, see route_repo.rs) always has a
+        // row to increment.
+        sqlx::query(
+            "INSERT INTO workspace_stats (workspace_id, route_count, active_route_count, blocked_route_count, member_count, updated_at) \
+             VALUES ($1, 0, 0, 0, 0, NOW())",
+        )
+        .bind(workspace.id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
         self.get_by_id(workspace.id)
             .await?
@@ -177,6 +193,8 @@ impl WorkspaceRepository for PgWorkspaceRepository {
     }
 
     async fn add_member(&self, membership: &UserWorkspace) -> Result<UserWorkspace> {
+        let mut tx = self.pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
         sqlx::query(
             r#"
             INSERT INTO user_workspaces (id, user_id, workspace_id, role, joined_at)
@@ -188,7 +206,7 @@ impl WorkspaceRepository for PgWorkspaceRepository {
         .bind(membership.workspace_id)
         .bind(&membership.role)
         .bind(Utc::now())
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| {
             // SQLSTATE 23505 = unique_violation - the (user_id, workspace_id)
@@ -202,18 +220,40 @@ impl WorkspaceRepository for PgWorkspaceRepository {
             }
         })?;
 
+        sqlx::query(
+            "UPDATE workspace_stats SET member_count = member_count + 1, updated_at = NOW() WHERE workspace_id = $1",
+        )
+        .bind(membership.workspace_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
         self.get_membership(membership.workspace_id, &membership.user_id)
             .await?
             .ok_or_else(|| ApiError::internal("Failed to retrieve created membership"))
     }
 
     async fn remove_member(&self, workspace_id: Uuid, user_id: &str) -> Result<()> {
+        let mut tx = self.pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
         sqlx::query("DELETE FROM user_workspaces WHERE workspace_id = $1 AND user_id = $2")
             .bind(workspace_id)
             .bind(user_id)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
             .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        sqlx::query(
+            "UPDATE workspace_stats SET member_count = GREATEST(member_count - 1, 0), updated_at = NOW() WHERE workspace_id = $1",
+        )
+        .bind(workspace_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
         Ok(())
     }
@@ -291,5 +331,27 @@ impl WorkspaceRepository for PgWorkspaceRepository {
             .map_err(|e| ApiError::internal(e.to_string()))?;
 
         Ok(rows.iter().filter_map(|r| Self::map_membership_row(r).ok()).collect())
+    }
+
+    async fn get_stats(&self, workspace_id: Uuid) -> Result<Option<WorkspaceStats>> {
+        let row = sqlx::query("SELECT * FROM workspace_stats WHERE workspace_id = $1")
+            .bind(workspace_id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        match row {
+            Some(r) => Ok(Some(WorkspaceStats {
+                workspace_id: r
+                    .try_get("workspace_id")
+                    .map_err(|e| ApiError::internal(e.to_string()))?,
+                route_count: r.try_get("route_count").unwrap_or(0),
+                active_route_count: r.try_get("active_route_count").unwrap_or(0),
+                blocked_route_count: r.try_get("blocked_route_count").unwrap_or(0),
+                member_count: r.try_get("member_count").unwrap_or(0),
+                updated_at: r.try_get("updated_at").ok(),
+            })),
+            None => Ok(None),
+        }
     }
 }

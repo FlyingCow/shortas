@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::domain::entities::{ApiError, UserWorkspace, Workspace};
+use crate::domain::traits::{RouteInfo, WorkspaceStats};
 
 /// Matches the `workspaces.name VARCHAR(255)` column - caught here with a
 /// clear message instead of as a raw truncation error from Postgres.
@@ -63,6 +64,54 @@ impl WorkspaceDto {
     pub fn with_user_role(mut self, role: Option<String>) -> Self {
         self.user_role = role;
         self
+    }
+}
+
+/// Lightweight workspace counters, maintained incrementally instead of
+/// derived by fetching and scanning the workspace's full route list.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceStatsDto {
+    pub workspace_id: String,
+    pub route_count: i64,
+    pub active_route_count: i64,
+    pub blocked_route_count: i64,
+    pub member_count: i64,
+    /// A short sample of currently-blocked routes (not the full list) for a
+    /// "needs attention" UI - use `blocked_route_count` for the true total.
+    pub blocked_routes: Vec<BlockedRouteSummaryDto>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+}
+
+impl WorkspaceStatsDto {
+    pub fn from_stats(stats: WorkspaceStats, blocked_routes: Vec<RouteInfo>) -> Self {
+        Self {
+            workspace_id: stats.workspace_id.to_string(),
+            route_count: stats.route_count,
+            active_route_count: stats.active_route_count,
+            blocked_route_count: stats.blocked_route_count,
+            member_count: stats.member_count,
+            blocked_routes: blocked_routes.into_iter().map(BlockedRouteSummaryDto::from_info).collect(),
+            updated_at: stats.updated_at.map(|dt| dt.to_rfc3339()),
+        }
+    }
+}
+
+/// A minimal route reference, just enough for a dashboard link.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockedRouteSummaryDto {
+    pub id: String,
+    pub link: String,
+}
+
+impl BlockedRouteSummaryDto {
+    pub fn from_info(info: RouteInfo) -> Self {
+        Self {
+            id: info.id.to_string(),
+            link: info.link,
+        }
     }
 }
 

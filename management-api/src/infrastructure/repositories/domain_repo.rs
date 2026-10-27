@@ -6,7 +6,7 @@ use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
 use crate::domain::entities::{ApiError, DomainVerificationStatus, Result, RouteDomain};
-use crate::domain::traits::DomainRepository;
+use crate::domain::traits::{DomainRepository, PaginatedResult};
 
 /// PostgreSQL domain repository.
 pub struct PgDomainRepository {
@@ -115,13 +115,72 @@ impl DomainRepository for PgDomainRepository {
         Ok(rows.iter().filter_map(|r| Self::map_row(r).ok()).collect())
     }
 
-    async fn list_accessible(&self, user_id: &str) -> Result<Vec<RouteDomain>> {
-        // Return user's own domains only
-        // Frontend combines this with /domains/shared endpoint for full list
-        let rows = sqlx::query(
-            "SELECT * FROM route_domains WHERE owner_id = $1 ORDER BY name",
+    async fn list_accessible(
+        &self,
+        user_id: &str,
+        page: i32,
+        page_size: i32,
+        search: Option<&str>,
+    ) -> Result<PaginatedResult<RouteDomain>> {
+        // Return user's own domains only - frontend combines this with
+        // /domains/shared for the full list. Filtering/pagination both
+        // happen in SQL now rather than after fetching every owned domain.
+        let offset = (page - 1) * page_size;
+        let search_pattern = search.map(|s| format!("%{}%", s));
+
+        let count_row = sqlx::query(
+            "SELECT COUNT(*) as count FROM route_domains WHERE owner_id = $1 AND ($2::text IS NULL OR name ILIKE $2)",
         )
         .bind(user_id)
+        .bind(&search_pattern)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+        let total_count: i64 = count_row.try_get("count").unwrap_or(0);
+
+        let rows = sqlx::query(
+            r#"
+            SELECT * FROM route_domains
+            WHERE owner_id = $1 AND ($2::text IS NULL OR name ILIKE $2)
+            ORDER BY name
+            LIMIT $3 OFFSET $4
+            "#,
+        )
+        .bind(user_id)
+        .bind(&search_pattern)
+        .bind(page_size)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        let domains: Vec<RouteDomain> = rows.iter().filter_map(|r| Self::map_row(r).ok()).collect();
+        Ok(PaginatedResult::new(domains, total_count, page, page_size))
+    }
+
+    async fn count_unverified_by_owner(&self, owner_id: &str) -> Result<i64> {
+        let row = sqlx::query(
+            "SELECT COUNT(*) as count FROM route_domains WHERE owner_id = $1 AND verification_status != 'Verified'",
+        )
+        .bind(owner_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(row.try_get::<i64, _>("count").unwrap_or(0))
+    }
+
+    async fn list_unverified_by_owner(&self, owner_id: &str, limit: i32) -> Result<Vec<RouteDomain>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT * FROM route_domains
+            WHERE owner_id = $1 AND verification_status != 'Verified'
+            ORDER BY created_at DESC
+            LIMIT $2
+            "#,
+        )
+        .bind(owner_id)
+        .bind(limit)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
@@ -130,6 +189,8 @@ impl DomainRepository for PgDomainRepository {
     }
 
     async fn create(&self, domain: &RouteDomain) -> Result<RouteDomain> {
+        let mut tx = self.pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
         sqlx::query(
             r#"
             INSERT INTO route_domains (id, name, owner_id, is_shared, verification_status,
@@ -147,9 +208,19 @@ impl DomainRepository for PgDomainRepository {
         .bind(&domain.custom_not_found_url)
         .bind(Utc::now())
         .bind(Utc::now())
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        // Seed the stats row so route_repo's plain `UPDATE domain_stats ...`
+        // (no upsert, see route_repo.rs) always has a row to increment.
+        sqlx::query("INSERT INTO domain_stats (domain_id, route_count, updated_at) VALUES ($1, 0, NOW())")
+            .bind(domain.id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
         self.get_by_id(domain.id)
             .await?
@@ -181,11 +252,61 @@ impl DomainRepository for PgDomainRepository {
     }
 
     async fn delete(&self, id: Uuid) -> Result<()> {
-        sqlx::query("DELETE FROM route_domains WHERE id = $1")
-            .bind(id)
-            .execute(&self.pool)
+        let mut tx = self.pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+        // Deleting the domain cascades (DB-level FK) straight through
+        // routes -> route_properties -> domain_stats, without going
+        // through route_repo's delete(). route_properties.workspace_id
+        // isn't a real FK so it isn't part of that cascade - precompute
+        // what's about to disappear here so workspace_stats stays accurate.
+        let rows = sqlx::query(
+            r#"
+            SELECT p.workspace_id, r.status, COUNT(*) as cnt
+            FROM routes r
+            LEFT JOIN route_properties p ON p.route_id = r.id
+            WHERE r.domain_id = $1 AND r.switch = 'main' AND p.workspace_id IS NOT NULL
+            GROUP BY p.workspace_id, r.status
+            "#,
+        )
+        .bind(id)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        for row in &rows {
+            let workspace_id_str: Option<String> = row.try_get("workspace_id").ok();
+            let Some(workspace_id) = workspace_id_str.and_then(|s| Uuid::parse_str(&s).ok()) else {
+                continue;
+            };
+            let status: String = row.try_get("status").unwrap_or_default();
+            let cnt: i64 = row.try_get("cnt").unwrap_or(0);
+            let is_active = status == "Active";
+
+            sqlx::query(
+                r#"
+                UPDATE workspace_stats
+                SET route_count = route_count - $2,
+                    active_route_count = active_route_count - CASE WHEN $3 THEN $2 ELSE 0 END,
+                    blocked_route_count = blocked_route_count - CASE WHEN $3 THEN 0 ELSE $2 END,
+                    updated_at = NOW()
+                WHERE workspace_id = $1
+                "#,
+            )
+            .bind(workspace_id)
+            .bind(cnt)
+            .bind(is_active)
+            .execute(&mut *tx)
             .await
             .map_err(|e| ApiError::internal(e.to_string()))?;
+        }
+
+        sqlx::query("DELETE FROM route_domains WHERE id = $1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
         Ok(())
     }

@@ -3,6 +3,7 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
+use super::route_repository::PaginatedResult;
 use crate::domain::entities::{Result, RouteDomain};
 
 /// Domain repository trait for database operations.
@@ -23,8 +24,23 @@ pub trait DomainRepository: Send + Sync {
     /// List shared domains.
     async fn list_shared(&self) -> Result<Vec<RouteDomain>>;
 
-    /// List domains accessible by user (owned + shared).
-    async fn list_accessible(&self, user_id: &str) -> Result<Vec<RouteDomain>>;
+    /// List domains accessible by user (owned + shared), paginated and
+    /// optionally name-filtered at the database level.
+    async fn list_accessible(
+        &self,
+        user_id: &str,
+        page: i32,
+        page_size: i32,
+        search: Option<&str>,
+    ) -> Result<PaginatedResult<RouteDomain>>;
+
+    /// Count the user's domains that aren't fully verified.
+    async fn count_unverified_by_owner(&self, owner_id: &str) -> Result<i64>;
+
+    /// A small sample of the user's not-yet-verified domains (for a
+    /// dashboard "needs attention" list). Use `count_unverified_by_owner`
+    /// for the true total.
+    async fn list_unverified_by_owner(&self, owner_id: &str, limit: i32) -> Result<Vec<RouteDomain>>;
 
     /// Create a new domain.
     async fn create(&self, domain: &RouteDomain) -> Result<RouteDomain>;
