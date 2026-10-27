@@ -34,8 +34,8 @@ import {
   ClickAnalytics,
   TrafficTypeStatsDto,
   RoutePerformanceDto,
-  RouteDto,
-  DomainDto,
+  BlockedRouteSummaryDto,
+  DomainSummaryDto,
 } from '../services/api';
 import { getCountryDisplayName } from '../utils/countries';
 import { useWorkspace } from '../contexts/WorkspaceContext';
@@ -290,9 +290,6 @@ const CHART_COLORS = [
 
 const TRAFFIC_COLORS = ['var(--success-500)', 'var(--error-500)'];
 
-const isRouteBlocked = (status: string | undefined): boolean =>
-  (status || '').toLowerCase().startsWith('blocked');
-
 const formatAxisNumber = (value: number): string => {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
@@ -383,8 +380,10 @@ const Dashboard: React.FC = () => {
   const [prevTotals, setPrevTotals] = useState<PeriodTotals | null>(null);
   const [trafficTypeStats, setTrafficTypeStats] = useState<TrafficTypeStatsDto[]>([]);
   const [routePerformance, setRoutePerformance] = useState<RoutePerformanceDto[]>([]);
-  const [blockedRoutes, setBlockedRoutes] = useState<RouteDto[]>([]);
-  const [attentionDomains, setAttentionDomains] = useState<DomainDto[]>([]);
+  const [blockedRoutes, setBlockedRoutes] = useState<BlockedRouteSummaryDto[]>([]);
+  const [blockedRouteCount, setBlockedRouteCount] = useState(0);
+  const [attentionDomains, setAttentionDomains] = useState<DomainSummaryDto[]>([]);
+  const [unverifiedDomainCount, setUnverifiedDomainCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState('7d');
@@ -417,6 +416,17 @@ const Dashboard: React.FC = () => {
       const fromHour = startDate.toISOString().replace('T', ' ').substring(0, 13);
       const toHour = endDate.toISOString().replace('T', ' ').substring(0, 13);
 
+      const workspaceStatsPromise = currentWorkspaceId
+        ? apiService.workspaces.getStats(currentWorkspaceId)
+        : Promise.resolve({
+            workspaceId: '',
+            routeCount: 0,
+            activeRouteCount: 0,
+            blockedRouteCount: 0,
+            memberCount: 0,
+            blockedRoutes: [],
+          });
+
       const [
         dailyStats,
         geographicStats,
@@ -424,8 +434,8 @@ const Dashboard: React.FC = () => {
         browserStats,
         trafficStats,
         routePerf,
-        routesResponse,
-        domainsResponse,
+        workspaceStats,
+        domainsAttention,
         prevDailyStats,
       ] = await Promise.all([
         apiService.clickstream.getDailyStats({ fromDate, toDate, workspaceId: currentWorkspaceId ?? undefined }),
@@ -434,8 +444,8 @@ const Dashboard: React.FC = () => {
         apiService.clickstream.getBrowserStats({ fromDate, toDate, workspaceId: currentWorkspaceId ?? undefined }),
         apiService.clickstream.getTrafficTypeStats({ fromHour, toHour, workspaceId: currentWorkspaceId ?? undefined }),
         apiService.clickstream.getRoutePerformance({ fromDate, toDate, limit: 10, workspaceId: currentWorkspaceId ?? undefined }),
-        apiService.routes.list({ page: 1, pageSize: 1000, workspaceId: currentWorkspaceId ?? undefined }),
-        apiService.domains.list({ page: 1, pageSize: 100 }),
+        workspaceStatsPromise,
+        apiService.domains.getAttention(),
         apiService.clickstream.getDailyStats({ fromDate: prevFromDate, toDate: prevToDate, workspaceId: currentWorkspaceId ?? undefined }),
       ]);
 
@@ -474,18 +484,18 @@ const Dashboard: React.FC = () => {
       setTrafficTypeStats(trafficStats);
       setRoutePerformance(routePerf);
       setPrevTotals(sumTotals(prevDailyStats));
-      setBlockedRoutes(routesResponse.data.filter((route) => isRouteBlocked(route.status)));
-      setAttentionDomains(domainsResponse.data.filter((domain) => domain.verificationStatus !== 'Verified'));
-
-      const activeRoutes = routesResponse.data.filter((route) => route.status === 'Active').length;
+      setBlockedRoutes(workspaceStats.blockedRoutes);
+      setBlockedRouteCount(workspaceStats.blockedRouteCount);
+      setAttentionDomains(domainsAttention.domains);
+      setUnverifiedDomainCount(domainsAttention.unverifiedCount);
 
       setStats({
         totalClicks: totals.totalClicks,
         uniqueClicks: totals.uniqueClicks,
         botClicks: totals.botClicks,
         humanClicks: totals.humanClicks,
-        totalRoutes: routesResponse.pagination.totalCount,
-        activeRoutes,
+        totalRoutes: workspaceStats.routeCount,
+        activeRoutes: workspaceStats.activeRouteCount,
       });
     } catch (err: any) {
       console.error('Failed to fetch dashboard data:', err);
@@ -556,7 +566,7 @@ const Dashboard: React.FC = () => {
     ];
   })();
 
-  const needsAttentionCount = blockedRoutes.length + attentionDomains.length;
+  const needsAttentionCount = blockedRouteCount + unverifiedDomainCount;
 
   return (
     <>
@@ -702,7 +712,7 @@ const Dashboard: React.FC = () => {
               </div>
             ) : (
               <div className="db-attention-list">
-                {blockedRoutes.slice(0, 5).map((route) => (
+                {blockedRoutes.map((route) => (
                   <Link key={route.id} to="/routes" className="db-attention-row">
                     <span className="badge badge-error">
                       <Ban size={12} style={{ marginRight: 4 }} />
@@ -712,7 +722,7 @@ const Dashboard: React.FC = () => {
                     <ArrowUp size={14} className="db-attention-arrow" style={{ transform: 'rotate(45deg)' }} />
                   </Link>
                 ))}
-                {attentionDomains.slice(0, 5).map((domain) => (
+                {attentionDomains.map((domain) => (
                   <Link key={domain.id} to="/domains" className="db-attention-row">
                     <span className={`badge ${domain.verificationStatus === 'Failed' ? 'badge-error' : 'badge-warning'}`}>
                       <ShieldAlert size={12} style={{ marginRight: 4 }} />
@@ -722,10 +732,14 @@ const Dashboard: React.FC = () => {
                     <ArrowUp size={14} className="db-attention-arrow" style={{ transform: 'rotate(45deg)' }} />
                   </Link>
                 ))}
-                {(blockedRoutes.length > 5 || attentionDomains.length > 5) && (
+                {(blockedRouteCount > blockedRoutes.length || unverifiedDomainCount > attentionDomains.length) && (
                   <div className="db-attention-more">
-                    {blockedRoutes.length > 5 && <span>+{blockedRoutes.length - 5} more blocked route(s)</span>}
-                    {attentionDomains.length > 5 && <span>+{attentionDomains.length - 5} more domain(s)</span>}
+                    {blockedRouteCount > blockedRoutes.length && (
+                      <span>+{blockedRouteCount - blockedRoutes.length} more blocked route(s)</span>
+                    )}
+                    {unverifiedDomainCount > attentionDomains.length && (
+                      <span>+{unverifiedDomainCount - attentionDomains.length} more domain(s)</span>
+                    )}
                   </div>
                 )}
               </div>

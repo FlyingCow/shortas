@@ -88,6 +88,7 @@ async fn main() -> Result<()> {
         app_state.route_repo.clone(),
         app_state.invitation_repo.clone(),
         notification_publisher,
+        app_state.route_verifier.clone(),
     ));
 
     let outbox_shutdown = shutdown_tx.subscribe();
@@ -116,11 +117,11 @@ async fn main() -> Result<()> {
 
         // Route status consumer
         let status_consumer = consumer.clone();
-        let route_repo = app_state.route_repo.clone();
+        let route_service = app_state.route_service.clone();
         let status_shutdown = shutdown_tx.subscribe();
         tokio::spawn(async move {
             if let Err(e) = status_consumer
-                .start_route_status_consumer(route_repo, status_shutdown)
+                .start_route_status_consumer(route_service, status_shutdown)
                 .await
             {
                 tracing::error!("Route status consumer error: {}", e);

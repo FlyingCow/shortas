@@ -117,6 +117,18 @@ cd ui/dashboard
 npm install && npm start
 ```
 
+### Seeding Test Data
+
+Once the stack is up, `infra/custom/seed-dashboard-data.py` populates the dashboard with test data via the real APIs (no direct DB writes): it logs in as the local Keycloak dev user (`testuser` / `testpassword`, seeded from `infra/custom/keycloak/realm-export.json`), creates a workspace and a handful of routes on the shared domain (reusing them on repeat runs instead of duplicating), and (re)generates ClickHouse clickstream history for those routes so the daily stats, route performance, geo, and device charts have something to show.
+
+```bash
+python3 infra/custom/seed-dashboard-data.py                  # last 21 days (default)
+python3 infra/custom/seed-dashboard-data.py --days 60         # longer history
+python3 infra/custom/seed-dashboard-data.py --skip-clickhouse # just routes/workspace, no click data
+```
+
+It's safe to re-run whenever you want fresh data — the previous clickstream rows for that user are deleted before inserting the new batch. Requires only the Python 3 standard library; run `--help` to see the Keycloak/API/ClickHouse connection flags if your ports or credentials differ from the `infra/custom/docker-compose.yml` defaults.
+
 ### AWS Deployment
 
 For production deployments, Shortas can be deployed to AWS using Terraform. This replaces local services with AWS managed equivalents:

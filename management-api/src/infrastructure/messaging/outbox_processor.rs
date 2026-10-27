@@ -8,6 +8,7 @@ use tracing::{error, info, warn};
 
 use crate::domain::entities::OutboxMessageType;
 use crate::domain::traits::{InvitationRepository, OutboxRepository};
+use crate::infrastructure::http_clients::RouteVerifierClient;
 use crate::infrastructure::search::ElasticsearchService;
 
 use super::NotificationPublisher;
@@ -19,6 +20,7 @@ pub struct OutboxProcessor {
     route_repo: Arc<dyn crate::domain::traits::RouteRepository>,
     invitation_repo: Arc<dyn InvitationRepository>,
     notification_publisher: Arc<NotificationPublisher>,
+    route_verifier_client: Arc<RouteVerifierClient>,
 }
 
 impl OutboxProcessor {
@@ -29,6 +31,7 @@ impl OutboxProcessor {
         route_repo: Arc<dyn crate::domain::traits::RouteRepository>,
         invitation_repo: Arc<dyn InvitationRepository>,
         notification_publisher: Arc<NotificationPublisher>,
+        route_verifier_client: Arc<RouteVerifierClient>,
     ) -> Self {
         Self {
             outbox_repo,
@@ -36,6 +39,7 @@ impl OutboxProcessor {
             route_repo,
             invitation_repo,
             notification_publisher,
+            route_verifier_client,
         }
     }
 
@@ -104,9 +108,10 @@ impl OutboxProcessor {
                     Ok(())
                 }
                 OutboxMessageType::CheckRouteSafety => {
-                    // Safety check is handled externally
-                    // Just mark as completed
-                    Ok(())
+                    self.process_check_route_safety(&message.payload).await
+                }
+                OutboxMessageType::DeleteRouteSafetyCheck => {
+                    self.process_delete_route_safety_check(&message.payload).await
                 }
                 OutboxMessageType::PublishNotificationEvent => {
                     self.notification_publisher.publish(&message.payload).await
@@ -161,6 +166,53 @@ impl OutboxProcessor {
         self.search_service.delete_route(route_uuid).await?;
 
         info!("Deleted route index: {}", route_id);
+        Ok(())
+    }
+
+    /// Process check route safety message: register the route with
+    /// route-verifier so its background worker keeps checking the
+    /// destination against Safe Browsing.
+    async fn process_check_route_safety(&self, payload: &serde_json::Value) -> anyhow::Result<()> {
+        let route_id = payload["route_id"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Missing route_id"))?;
+
+        let route_uuid = uuid::Uuid::parse_str(route_id)?;
+
+        let route = self
+            .route_repo
+            .get_by_id(route_uuid)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Route not found: {}", route_id))?;
+
+        let Some(dest) = route.dest.clone() else {
+            return Ok(());
+        };
+
+        self.route_verifier_client
+            .register_route(
+                route_id,
+                &route.link,
+                vec![dest],
+                route.properties.owner_id.clone(),
+                route.properties.workspace_id.clone(),
+            )
+            .await?;
+
+        info!("Registered route {} with route-verifier for safety checks", route_id);
+        Ok(())
+    }
+
+    /// Process delete route safety check message: remove the route from
+    /// route-verifier now that it no longer exists.
+    async fn process_delete_route_safety_check(&self, payload: &serde_json::Value) -> anyhow::Result<()> {
+        let route_id = payload["route_id"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Missing route_id"))?;
+
+        self.route_verifier_client.remove_route(route_id).await?;
+
+        info!("Removed route {} from route-verifier", route_id);
         Ok(())
     }
 

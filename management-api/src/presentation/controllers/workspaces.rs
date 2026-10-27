@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::application::dto::{
     AddMemberDto, CreateWorkspaceDto, UpdateMemberRoleDto, UpdateWorkspaceDto,
-    WorkspaceDto, WorkspaceMemberDto,
+    WorkspaceDto, WorkspaceMemberDto, WorkspaceStatsDto,
 };
 use crate::domain::entities::ApiError;
 use crate::presentation::middleware::{
@@ -40,6 +40,7 @@ pub fn workspaces_controller() -> Router {
                 .put(update_workspace)
                 .delete(delete_workspace)
                 .options(cors_preflight)
+                .push(Router::with_path("stats").get(get_workspace_counters).options(cors_preflight))
                 .push(
                     Router::with_path("members")
                         .get(list_members)
@@ -182,6 +183,77 @@ pub async fn get_workspace(req: &mut Request, depot: &mut Depot, res: &mut Respo
         Ok(None) => render_error(res, ApiError::not_found("Workspace", &id_str)),
         Err(e) => render_error(res, e),
     }
+}
+
+/// Get a workspace's counters.
+///
+/// Replaces the old dashboard pattern of fetching up to 1000 full route
+/// objects just to derive a couple of counts and a short blocked-routes
+/// list - these counters are maintained incrementally on every
+/// route/member write instead of scanned at request time.
+#[endpoint(
+    operation_id = "get_workspace_counters",
+    summary = "Get workspace stats",
+    description = "Get route/member counters for a workspace",
+    tags("Workspaces"),
+    parameters(
+        ("id" = String, Path, description = "Workspace ID")
+    ),
+    responses(
+        (status_code = 200, description = "Workspace stats", body = WorkspaceStatsDto),
+        (status_code = 404, description = "Workspace not found")
+    )
+)]
+pub async fn get_workspace_counters(req: &mut Request, depot: &mut Depot, res: &mut Response) {
+    let app_state = match depot.app_state() {
+        Ok(state) => state,
+        Err(e) => {
+            render_error(res, ApiError::internal(e.to_string()));
+            return;
+        }
+    };
+
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+
+    let id_str: String = req.param("id").unwrap_or_default();
+    let id = match Uuid::parse_str(&id_str) {
+        Ok(id) => id,
+        Err(_) => {
+            render_error(res, ApiError::validation("Invalid workspace ID"));
+            return;
+        }
+    };
+
+    if !app_state.workspace_repo.user_has_access(id, &user_id).await.unwrap_or(false) {
+        render_error(res, ApiError::forbidden());
+        return;
+    }
+
+    let stats = match app_state.workspace_repo.get_stats(id).await {
+        Ok(Some(stats)) => stats,
+        Ok(None) => {
+            render_error(res, ApiError::not_found("Workspace", &id_str));
+            return;
+        }
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
+    let blocked_routes = app_state
+        .route_repo
+        .list_blocked_by_workspace(id, 5)
+        .await
+        .unwrap_or_default();
+
+    render_success(res, WorkspaceStatsDto::from_stats(stats, blocked_routes));
 }
 
 /// Create a new workspace.

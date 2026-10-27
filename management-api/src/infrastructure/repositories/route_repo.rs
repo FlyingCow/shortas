@@ -104,6 +104,64 @@ impl PgRouteRepository {
         })
     }
 
+    /// Parse a route's loosely-typed `workspace_id` property into a UUID,
+    /// if it's set and valid. `route_properties.workspace_id` is a plain
+    /// text column (not an FK), so this is best-effort: an empty/garbage
+    /// value just means the route isn't counted against any workspace.
+    fn parse_workspace_id(workspace_id: &Option<String>) -> Option<Uuid> {
+        workspace_id.as_deref().and_then(|s| Uuid::parse_str(s).ok())
+    }
+
+    /// Apply a route-count delta to a domain's stats row. A plain `UPDATE`
+    /// (not an upsert) by design: every real domain gets a `domain_stats`
+    /// row at creation time (and the initial migration backfilled existing
+    /// ones), so a missing row means a stale/invalid id - safe to no-op
+    /// rather than risk aborting the caller's transaction on an INSERT's FK
+    /// violation.
+    async fn adjust_domain_stats(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        domain_id: Uuid,
+        route_delta: i64,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE domain_stats SET route_count = route_count + $2, updated_at = NOW() WHERE domain_id = $1",
+        )
+        .bind(domain_id)
+        .bind(route_delta)
+        .execute(&mut **tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Apply a route-count delta to a workspace's stats row, attributing
+    /// the same magnitude to the active or blocked bucket depending on
+    /// `is_active`. Same plain-`UPDATE`, no-op-if-missing rationale as
+    /// `adjust_domain_stats`.
+    async fn adjust_workspace_route_stats(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        workspace_id: Uuid,
+        route_delta: i64,
+        is_active: bool,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE workspace_stats
+            SET route_count = route_count + $2,
+                active_route_count = active_route_count + CASE WHEN $3 THEN $2 ELSE 0 END,
+                blocked_route_count = blocked_route_count + CASE WHEN $3 THEN 0 ELSE $2 END,
+                updated_at = NOW()
+            WHERE workspace_id = $1
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(route_delta)
+        .bind(is_active)
+        .execute(&mut **tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -335,6 +393,22 @@ impl RouteRepository for PgRouteRepository {
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
+        // Keep workspace_stats/domain_stats in sync in the same transaction
+        // as the insert. Only "main" rows are counted - a route's family
+        // (conditional branches) share one DB row per `create()` call, but
+        // the `switch` column can still carry a non-"main" value for other
+        // cases, and list()/count_by_domain()/count_by_workspace() all
+        // filter on switch = 'main' too, so stats must match that.
+        if route.switch == "main" {
+            if let Some(domain_id) = route.domain_id {
+                Self::adjust_domain_stats(&mut tx, domain_id, 1).await?;
+            }
+            if let Some(workspace_id) = Self::parse_workspace_id(&route.properties.workspace_id) {
+                Self::adjust_workspace_route_stats(&mut tx, workspace_id, 1, route.status.is_active())
+                    .await?;
+            }
+        }
+
         tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
         // Return the created route
@@ -344,6 +418,19 @@ impl RouteRepository for PgRouteRepository {
     }
 
     async fn update(&self, route: &Route) -> Result<Route> {
+        let mut tx = self.pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+        // Snapshot the prior switch/status/workspace so the stats delta
+        // below reflects what's actually changing, not just the new state.
+        let prior = sqlx::query(
+            "SELECT r.switch, r.status, p.workspace_id FROM routes r \
+             LEFT JOIN route_properties p ON p.route_id = r.id WHERE r.id = $1 FOR UPDATE OF r",
+        )
+        .bind(route.id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
         let policy_json = serde_json::to_string(&route.policy).unwrap_or_default();
 
         sqlx::query(
@@ -362,7 +449,7 @@ impl RouteRepository for PgRouteRepository {
         .bind(route.status.as_str())
         .bind(format!("{:?}", route.terminal))
         .bind(&policy_json)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
@@ -393,9 +480,45 @@ impl RouteRepository for PgRouteRepository {
         .bind(&qr_settings_json)
         .bind(route.properties.opengraph)
         .bind(route.properties.allow_debug)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        // Reconcile workspace_stats against whatever actually changed:
+        // status flip, workspace reassignment, or both.
+        if let Some(prior) = prior {
+            let prior_switch: String = prior.try_get("switch").unwrap_or_default();
+            let prior_is_active: bool = prior
+                .try_get::<String, _>("status")
+                .map(|s| s == "Active")
+                .unwrap_or(true);
+            let prior_workspace: Option<String> = prior.try_get("workspace_id").ok();
+            let prior_workspace_id = Self::parse_workspace_id(&prior_workspace);
+
+            if prior_switch == "main" {
+                let new_workspace_id = Self::parse_workspace_id(&route.properties.workspace_id);
+                let new_is_active = route.status.is_active();
+
+                // Only touch stats when something that affects them actually
+                // changed. A no-op edit (e.g. just `dest`) skips this
+                // entirely; a status flip and/or workspace reassignment is
+                // modeled as "remove the route's old contribution, add its
+                // new one" - which collapses to a net-zero pair of updates
+                // on the same row when the workspace didn't change.
+                if prior_workspace_id != new_workspace_id || prior_is_active != new_is_active {
+                    if let Some(old_ws) = prior_workspace_id {
+                        Self::adjust_workspace_route_stats(&mut tx, old_ws, -1, prior_is_active)
+                            .await?;
+                    }
+                    if let Some(new_ws) = new_workspace_id {
+                        Self::adjust_workspace_route_stats(&mut tx, new_ws, 1, new_is_active)
+                            .await?;
+                    }
+                }
+            }
+        }
+
+        tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
         self.get_by_id(route.id)
             .await?
@@ -403,18 +526,50 @@ impl RouteRepository for PgRouteRepository {
     }
 
     async fn delete(&self, id: Uuid) -> Result<()> {
+        let mut tx = self.pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+
+        let existing = sqlx::query(
+            "SELECT r.switch, r.status, r.domain_id, p.workspace_id FROM routes r \
+             LEFT JOIN route_properties p ON p.route_id = r.id WHERE r.id = $1 FOR UPDATE OF r",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
         // Delete properties first (foreign key)
         sqlx::query("DELETE FROM route_properties WHERE route_id = $1")
             .bind(id)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
             .map_err(|e| ApiError::internal(e.to_string()))?;
 
         sqlx::query("DELETE FROM routes WHERE id = $1")
             .bind(id)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
             .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        if let Some(existing) = existing {
+            let switch: String = existing.try_get("switch").unwrap_or_default();
+            if switch == "main" {
+                let is_active: bool = existing
+                    .try_get::<String, _>("status")
+                    .map(|s| s == "Active")
+                    .unwrap_or(true);
+                let domain_id: Option<Uuid> = existing.try_get("domain_id").ok();
+                let workspace_id: Option<String> = existing.try_get("workspace_id").ok();
+
+                if let Some(domain_id) = domain_id {
+                    Self::adjust_domain_stats(&mut tx, domain_id, -1).await?;
+                }
+                if let Some(workspace_id) = Self::parse_workspace_id(&workspace_id) {
+                    Self::adjust_workspace_route_stats(&mut tx, workspace_id, -1, is_active).await?;
+                }
+            }
+        }
+
+        tx.commit().await.map_err(|e| ApiError::internal(e.to_string()))?;
 
         Ok(())
     }
@@ -524,5 +679,32 @@ impl RouteRepository for PgRouteRepository {
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
         Ok(row.try_get::<i64, _>("count").unwrap_or(0))
+    }
+
+    async fn list_blocked_by_workspace(&self, workspace_id: Uuid, limit: i32) -> Result<Vec<RouteInfo>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT r.id, r.link
+            FROM routes r
+            JOIN route_properties p ON p.route_id = r.id
+            WHERE p.workspace_id = $1::text AND r.status = 'Blocked' AND r.switch = 'main'
+            ORDER BY r.updated_at DESC
+            LIMIT $2
+            "#,
+        )
+        .bind(workspace_id.to_string())
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(rows
+            .iter()
+            .filter_map(|row| {
+                let id: Uuid = row.try_get("id").ok()?;
+                let link: String = row.try_get("link").ok()?;
+                Some(RouteInfo { id, link, domain_name: None })
+            })
+            .collect())
     }
 }

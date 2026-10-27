@@ -1,9 +1,24 @@
 //! Workspace repository trait.
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::domain::entities::{Result, UserWorkspace, Workspace};
+
+/// Denormalized workspace counters (`workspace_stats` table). Maintained
+/// incrementally by the write paths that change them (route/member
+/// create/update/delete) rather than computed here - this is just the read
+/// side, an O(1) lookup instead of scanning/joining `routes`.
+#[derive(Debug, Clone)]
+pub struct WorkspaceStats {
+    pub workspace_id: Uuid,
+    pub route_count: i64,
+    pub active_route_count: i64,
+    pub blocked_route_count: i64,
+    pub member_count: i64,
+    pub updated_at: Option<DateTime<Utc>>,
+}
 
 /// Workspace repository trait for database operations.
 #[async_trait]
@@ -63,4 +78,7 @@ pub trait WorkspaceRepository: Send + Sync {
     /// to), for attaching `user_role` to a workspace list without an N+1
     /// per-workspace members fetch.
     async fn list_memberships_by_user(&self, user_id: &str) -> Result<Vec<UserWorkspace>>;
+
+    /// Get the workspace's denormalized counters.
+    async fn get_stats(&self, workspace_id: Uuid) -> Result<Option<WorkspaceStats>>;
 }

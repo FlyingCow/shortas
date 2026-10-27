@@ -19,6 +19,10 @@ jwks_url = "https://auth.shortas.work/realms/shortas/protocol/openid-connect/cer
 base_url = "http://localhost:8081"
 timeout_ms = 5000
 
+[route_verifier]
+base_url = "http://localhost:5831"
+timeout_ms = 5000
+
 [click_aggregator]
 base_url = "http://localhost:8082"
 timeout_ms = 10000

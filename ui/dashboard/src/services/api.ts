@@ -427,6 +427,19 @@ export interface CertificateDto {
   domain?: DomainDto;
 }
 
+export interface DomainSummaryDto {
+  id: string;
+  name: string;
+  verificationStatus: string;
+}
+
+// Count and short sample of the current user's not-yet-verified domains,
+// maintained server-side instead of fetched-and-filtered client-side.
+export interface DomainAttentionDto {
+  unverifiedCount: number;
+  domains: DomainSummaryDto[];
+}
+
 // Workspace Types
 export interface WorkspaceDto {
   id: string;
@@ -440,6 +453,23 @@ export interface WorkspaceDto {
   routeCount?: number;
   /** The current user's role in this workspace ("Owner", "Admin", or "Member") */
   userRole?: string;
+}
+
+export interface BlockedRouteSummaryDto {
+  id: string;
+  link: string;
+}
+
+// Lightweight workspace counters, maintained incrementally server-side -
+// replaces fetching the full route list just to derive these.
+export interface WorkspaceStatsDto {
+  workspaceId: string;
+  routeCount: number;
+  activeRouteCount: number;
+  blockedRouteCount: number;
+  memberCount: number;
+  blockedRoutes: BlockedRouteSummaryDto[];
+  updatedAt?: string;
 }
 
 export interface UserWorkspaceDto {
@@ -761,6 +791,11 @@ export const apiService = {
       return response.data;
     },
 
+    getAttention: async (): Promise<DomainAttentionDto> => {
+      const response = await routerApi.get('/domains/attention');
+      return response.data;
+    },
+
     create: async (domain: CreateDomainDto): Promise<DomainDto> => {
       const response = await routerApi.post('/domains', domain);
       return response.data;
@@ -844,6 +879,11 @@ export const apiService = {
 
     get: async (id: string): Promise<WorkspaceDto> => {
       const response = await routerApi.get(`/workspaces/${id}`);
+      return response.data;
+    },
+
+    getStats: async (id: string): Promise<WorkspaceStatsDto> => {
+      const response = await routerApi.get(`/workspaces/${id}/stats`);
       return response.data;
     },
 

@@ -27,7 +27,7 @@ import {
   Cell,
   CartesianGrid
 } from 'recharts';
-import { apiService, RouteDto, RoutingPolicy, DomainDto, RouteSearchResult } from '../services/api';
+import { apiService, RouteDto, DomainDto, RouteSearchResult } from '../services/api';
 import { useAlert } from '../contexts/AlertContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { getRouteImagesBaseUrl } from '../config/runtimeEnv';
@@ -1051,15 +1051,6 @@ const RoutesWithSidebar: React.FC = () => {
     setSelectedRoute(route);
   };
 
-  const getPolicyType = (policy?: RoutingPolicy): string => {
-    if (!policy || policy === 'Basic') return 'Basic';
-    if (policy === 'Mirroring') return 'Mirroring';
-    if (typeof policy === 'object' && 'type' in policy) {
-      return policy.type;
-    }
-    return 'Basic';
-  };
-
   // Helper functions for blocked status handling
   const getStatusBadgeClass = (status: string): string => {
     const lower = status.toLowerCase();
@@ -1207,11 +1198,6 @@ const RoutesWithSidebar: React.FC = () => {
                     <span className={`badge ${getStatusBadgeClass(route.status)}`}>
                       {getStatusDisplay(route.status)}
                     </span>
-                    {route.policy && getPolicyType(route.policy) !== 'Basic' && (
-                      <span className="badge badge-primary">
-                        {getPolicyType(route.policy)}
-                      </span>
-                    )}
                     {route.code > 0 && (
                       <span className="badge badge-secondary" style={{ fontFamily: 'var(--font-family-mono)' }}>{route.code}</span>
                     )}

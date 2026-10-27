@@ -104,4 +104,9 @@ pub trait RouteRepository: Send + Sync {
 
     /// Count routes for workspace.
     async fn count_by_workspace(&self, workspace_id: Uuid) -> Result<i64>;
+
+    /// Get a small sample of blocked routes for a workspace (for a
+    /// dashboard "needs attention" list), ordered most-recently-blocked
+    /// first. Use `workspace_stats.blocked_route_count` for the true total.
+    async fn list_blocked_by_workspace(&self, workspace_id: Uuid, limit: i32) -> Result<Vec<RouteInfo>>;
 }

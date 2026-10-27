@@ -191,6 +191,8 @@ impl RouteService {
         route.properties.creator_id = existing.properties.creator_id.clone();
         route.properties.route_id = existing.properties.route_id.clone();
 
+        let dest_changed = existing.dest != route.dest;
+
         // Update in database
         let saved = self.route_repo.update(&route).await?;
 
@@ -207,7 +209,42 @@ impl RouteService {
         let outbox_msg = OutboxMessage::index_route(saved.id);
         let _ = self.outbox_repo.create(&outbox_msg).await;
 
+        // Re-queue for safety check if the destination changed
+        if dest_changed {
+            if let Some(ref dest) = saved.dest {
+                let safety_msg = OutboxMessage::check_route_safety(saved.id, dest.clone());
+                let _ = self.outbox_repo.create(&safety_msg).await;
+            }
+        }
+
         Ok(saved)
+    }
+
+    /// Apply a status change coming from an external safety check (route-verifier
+    /// blocking a route for Safe Browsing, for example). There's no end-user
+    /// request behind this, so unlike `update()` it skips ownership validation
+    /// and the immutable-field reset, and - crucially - still propagates the
+    /// new status to click-router so the redirect-serving store actually
+    /// reflects the block instead of only Postgres/the dashboard.
+    pub async fn apply_safety_status(&self, route_id: Uuid, status: RouteStatus) -> Result<()> {
+        let mut route = self
+            .route_repo
+            .get_by_id(route_id)
+            .await?
+            .ok_or_else(|| ApiError::not_found("Route", &route_id.to_string()))?;
+
+        route.status = status;
+        let saved = self.route_repo.update(&route).await?;
+
+        if let Some(domain_id) = saved.domain_id {
+            if let Ok(Some(domain)) = self.domain_repo.get_by_id(domain_id).await {
+                if let Err(e) = self.propagate_route(&saved, &domain.name).await {
+                    warn!(route_id = %saved.id, error = %e, "Failed to propagate safety status to click-router");
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Delete a route.
@@ -233,6 +270,10 @@ impl RouteService {
         // Queue for index deletion
         let outbox_msg = OutboxMessage::delete_route_index(id);
         let _ = self.outbox_repo.create(&outbox_msg).await;
+
+        // Queue removal from route-verifier
+        let safety_msg = OutboxMessage::delete_route_safety_check(id);
+        let _ = self.outbox_repo.create(&safety_msg).await;
 
         Ok(())
     }
@@ -276,6 +317,12 @@ impl RouteService {
             // Queue for indexing
             let outbox_msg = OutboxMessage::index_route(route.id);
             let _ = self.outbox_repo.create(&outbox_msg).await;
+
+            // Queue for safety check if has destination
+            if let Some(ref dest) = route.dest {
+                let safety_msg = OutboxMessage::check_route_safety(route.id, dest.clone());
+                let _ = self.outbox_repo.create(&safety_msg).await;
+            }
         }
 
         Ok(created)
@@ -300,6 +347,11 @@ impl RouteService {
 
             let outbox_msg = OutboxMessage::index_route(route.id);
             let _ = self.outbox_repo.create(&outbox_msg).await;
+
+            if let Some(ref dest) = route.dest {
+                let safety_msg = OutboxMessage::check_route_safety(route.id, dest.clone());
+                let _ = self.outbox_repo.create(&safety_msg).await;
+            }
         }
 
         Ok(updated)
@@ -340,6 +392,10 @@ impl RouteService {
             // Queue for index deletion
             let outbox_msg = OutboxMessage::delete_route_index(route.id);
             let _ = self.outbox_repo.create(&outbox_msg).await;
+
+            // Queue removal from route-verifier
+            let safety_msg = OutboxMessage::delete_route_safety_check(route.id);
+            let _ = self.outbox_repo.create(&safety_msg).await;
         }
 
         Ok(())

@@ -19,6 +19,10 @@ jwks_url = "http://keycloak:8080/realms/shortas-dev/protocol/openid-connect/cert
 base_url = "http://shortas-click-router-api:5810"
 timeout_ms = 5000
 
+[route_verifier]
+base_url = "http://shortas-route-verifier:5831"
+timeout_ms = 5000
+
 [click_aggregator]
 base_url = "http://shortas-click-aggregator-api:5820"
 timeout_ms = 10000

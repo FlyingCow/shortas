@@ -3,7 +3,10 @@
 use salvo::prelude::*;
 use uuid::Uuid;
 
-use crate::application::dto::{CreateDomainDto, DnsConfigDto, DomainDto, PaginatedDomainsDto, UpdateDomainDto};
+use crate::application::dto::{
+    CreateDomainDto, DnsConfigDto, DomainAttentionDto, DomainDto, DomainSummaryDto,
+    PaginatedDomainsDto, UpdateDomainDto,
+};
 use crate::domain::entities::ApiError;
 use crate::presentation::middleware::{
     render_created, render_error, render_no_content, render_success, DepotExt, UserExt,
@@ -19,6 +22,7 @@ pub fn domains_controller() -> Router {
         .options(cors_preflight)
         .push(Router::with_path("dns-config").get(get_global_dns_config).options(cors_preflight))
         .push(Router::with_path("shared").get(list_shared_domains).options(cors_preflight))
+        .push(Router::with_path("attention").get(get_domains_attention).options(cors_preflight))
         .push(
             Router::with_path("{id}")
                 .get(get_domain)
@@ -63,35 +67,67 @@ pub async fn list_domains(req: &mut Request, depot: &mut Depot, res: &mut Respon
     };
 
     let page: i32 = req.query("page").unwrap_or(1);
-    let page_size: i32 = req.query("pageSize").unwrap_or(20);
+    let page_size: i32 = req.query("pageSize").unwrap_or(20).min(100);
     let search: Option<String> = req.query("search");
 
-    match app_state.domain_repo.list_accessible(&user_id).await {
-        Ok(domains) => {
-            // Apply search filter if provided
-            let filtered: Vec<_> = if let Some(ref search_term) = search {
-                let term = search_term.to_lowercase();
-                domains.into_iter()
-                    .filter(|d| d.name.to_lowercase().contains(&term))
-                    .collect()
-            } else {
-                domains
-            };
-
-            let total_count = filtered.len() as i64;
-
-            // Apply pagination
-            let start = ((page - 1) * page_size) as usize;
-            let paginated: Vec<_> = filtered.into_iter()
-                .skip(start)
-                .take(page_size as usize)
-                .collect();
-
-            let dtos: Vec<DomainDto> = paginated.into_iter().map(DomainDto::from_entity).collect();
-            render_success(res, PaginatedDomainsDto::new(dtos, page, page_size, total_count));
+    match app_state.domain_repo.list_accessible(&user_id, page, page_size, search.as_deref()).await {
+        Ok(result) => {
+            let dtos: Vec<DomainDto> = result.items.into_iter().map(DomainDto::from_entity).collect();
+            render_success(res, PaginatedDomainsDto::new(dtos, page, page_size, result.total_count));
         }
         Err(e) => render_error(res, e),
     }
+}
+
+/// Get a short list of the user's domains needing attention (not fully
+/// verified), plus the true total - for a dashboard summary widget.
+/// Replaces fetching a full page of domains and filtering client-side,
+/// which silently missed domains past whatever page size was requested.
+#[endpoint(
+    operation_id = "get_domains_attention",
+    summary = "Get domains needing attention",
+    description = "Get a count and short sample of the current user's not-yet-verified domains",
+    tags("Domains"),
+    responses(
+        (status_code = 200, description = "Unverified domains summary", body = DomainAttentionDto)
+    )
+)]
+pub async fn get_domains_attention(depot: &mut Depot, res: &mut Response) {
+    let app_state = match depot.app_state() {
+        Ok(state) => state,
+        Err(e) => {
+            render_error(res, ApiError::internal(e.to_string()));
+            return;
+        }
+    };
+
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+
+    let unverified_count = app_state
+        .domain_repo
+        .count_unverified_by_owner(&user_id)
+        .await
+        .unwrap_or(0);
+
+    let domains = app_state
+        .domain_repo
+        .list_unverified_by_owner(&user_id, 5)
+        .await
+        .unwrap_or_default();
+
+    render_success(
+        res,
+        DomainAttentionDto {
+            unverified_count,
+            domains: domains.into_iter().map(DomainSummaryDto::from_entity).collect(),
+        },
+    );
 }
 
 /// Get global DNS configuration for domain verification.
