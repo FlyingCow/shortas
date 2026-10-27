@@ -7,8 +7,8 @@ use tokio::time::interval;
 use tracing::{error, info, warn};
 
 use crate::domain::entities::OutboxMessageType;
-use crate::domain::traits::{InvitationRepository, OutboxRepository};
-use crate::infrastructure::http_clients::RouteVerifierClient;
+use crate::domain::traits::{DomainRepository, InvitationRepository, OutboxRepository};
+use crate::infrastructure::http_clients::{DomainVerifierClient, RouteVerifierClient};
 use crate::infrastructure::search::ElasticsearchService;
 
 use super::NotificationPublisher;
@@ -18,9 +18,11 @@ pub struct OutboxProcessor {
     outbox_repo: Arc<dyn OutboxRepository>,
     search_service: Arc<ElasticsearchService>,
     route_repo: Arc<dyn crate::domain::traits::RouteRepository>,
+    domain_repo: Arc<dyn DomainRepository>,
     invitation_repo: Arc<dyn InvitationRepository>,
     notification_publisher: Arc<NotificationPublisher>,
     route_verifier_client: Arc<RouteVerifierClient>,
+    domain_verifier_client: Arc<DomainVerifierClient>,
 }
 
 impl OutboxProcessor {
@@ -29,17 +31,21 @@ impl OutboxProcessor {
         outbox_repo: Arc<dyn OutboxRepository>,
         search_service: Arc<ElasticsearchService>,
         route_repo: Arc<dyn crate::domain::traits::RouteRepository>,
+        domain_repo: Arc<dyn DomainRepository>,
         invitation_repo: Arc<dyn InvitationRepository>,
         notification_publisher: Arc<NotificationPublisher>,
         route_verifier_client: Arc<RouteVerifierClient>,
+        domain_verifier_client: Arc<DomainVerifierClient>,
     ) -> Self {
         Self {
             outbox_repo,
             search_service,
             route_repo,
+            domain_repo,
             invitation_repo,
             notification_publisher,
             route_verifier_client,
+            domain_verifier_client,
         }
     }
 
@@ -103,9 +109,7 @@ impl OutboxProcessor {
                     self.process_delete_route_index(&message.payload).await
                 }
                 OutboxMessageType::VerifyDomain => {
-                    // Domain verification is handled by RabbitMQ consumer
-                    // Just mark as completed
-                    Ok(())
+                    self.process_verify_domain(&message.payload).await
                 }
                 OutboxMessageType::CheckRouteSafety => {
                     self.process_check_route_safety(&message.payload).await
@@ -200,6 +204,37 @@ impl OutboxProcessor {
             .await?;
 
         info!("Registered route {} with route-verifier for safety checks", route_id);
+        Ok(())
+    }
+
+    /// Process verify domain message: register the domain with
+    /// domain-verifier (idempotent — a no-op if it's already registered)
+    /// and trigger an immediate DNS check rather than waiting for
+    /// domain-verifier's next poll cycle. The result comes back
+    /// asynchronously via the `domain.state.changed` RabbitMQ consumer
+    /// (see `rabbitmq_consumer.rs`), which updates `route_domains` directly.
+    async fn process_verify_domain(&self, payload: &serde_json::Value) -> anyhow::Result<()> {
+        let domain_id_str = payload["domain_id"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Missing domain_id"))?;
+
+        let domain_id = uuid::Uuid::parse_str(domain_id_str)?;
+
+        let domain = self
+            .domain_repo
+            .get_by_id(domain_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Domain not found: {}", domain_id_str))?;
+
+        self.domain_verifier_client
+            .register_domain(domain_id_str, &domain.name, &domain.owner_id)
+            .await?;
+
+        self.domain_verifier_client
+            .trigger_verification(domain_id_str)
+            .await?;
+
+        info!("Submitted domain {} ({}) to domain-verifier", domain.name, domain_id_str);
         Ok(())
     }
 

@@ -10,7 +10,7 @@ const wizardStyles = `
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--primary-700) 100%);
   padding: 2rem;
 }
 
@@ -39,7 +39,7 @@ const wizardStyles = `
 .wizard-header p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
 }
 
 .wizard-progress {
@@ -71,15 +71,15 @@ const wizardStyles = `
 }
 
 .wizard-step.active .wizard-step-number {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-  border-color: var(--primary);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--primary-700) 100%);
+  border-color: var(--color-primary);
   color: white;
   box-shadow: 0 0 0 4px var(--color-primary-alpha);
 }
 
 .wizard-step.completed .wizard-step-number {
-  background: var(--success);
-  border-color: var(--success);
+  background: var(--color-success);
+  border-color: var(--color-success);
   color: white;
 }
 
@@ -105,7 +105,7 @@ const wizardStyles = `
 }
 
 .wizard-step.completed ~ .wizard-step .wizard-divider {
-  background: var(--success);
+  background: var(--color-success);
 }
 
 .wizard-body {
@@ -142,7 +142,7 @@ const wizardStyles = `
 .wizard-step-description {
   color: var(--text-secondary);
   margin: 0 0 2rem 0;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
 }
 
 .wizard-footer {
@@ -163,7 +163,7 @@ const wizardStyles = `
   width: 80px;
   height: 80px;
   margin: 0 auto 1.5rem;
-  color: var(--success);
+  color: var(--color-success);
   animation: scaleIn 0.5s ease-in-out;
 }
 
@@ -208,14 +208,14 @@ const wizardStyles = `
   border-radius: 0;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
   transition: all var(--transition-normal);
 }
 
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-alpha);
 }
 
@@ -387,7 +387,7 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete 
             </p>
 
             <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1rem 0', fontSize: 'var(--font-size-md)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--text-primary)' }}>Configuration Summary</h3>
+              <h3 style={{ margin: '0 0 1rem 0', fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--text-primary)' }}>Configuration Summary</h3>
 
               <div style={{ display: 'grid', gap: '0.75rem' }}>
                 <div>
