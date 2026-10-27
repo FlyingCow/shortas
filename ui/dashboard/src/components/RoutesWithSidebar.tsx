@@ -755,9 +755,31 @@ const RoutesWithSidebar: React.FC = () => {
   const [qrDesignerRoute, setQrDesignerRoute] = useState<RouteDto | null>(null);
   const { showToast, showConfirm } = useAlert();
 
+  // Memoized on currentWorkspaceId so callers that depend on it (e.g.
+  // scheduleIconRefresh below) always re-fetch with the current workspace
+  // filter instead of closing over a stale (possibly unfiltered) version.
+  const fetchRoutes = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const params: any = { page: 1, pageSize: 100 };
+      if (currentWorkspaceId) {
+        params.workspaceId = currentWorkspaceId;
+      }
+      const response = await apiService.routes.list(params);
+      setRoutes(response.data);
+    } catch (err: any) {
+      console.error('Failed to fetch routes:', err);
+      setError('Failed to load routes. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentWorkspaceId]);
+
   useEffect(() => {
     fetchRoutes();
     fetchDomains();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const scheduleIconRefresh = useCallback(() => {
@@ -768,7 +790,7 @@ const RoutesWithSidebar: React.FC = () => {
       });
       iconRefreshTimeoutRef.current = null;
     }, 2000);
-  }, []);
+  }, [fetchRoutes]);
 
   useEffect(() => {
     return () => {
@@ -838,24 +860,6 @@ const RoutesWithSidebar: React.FC = () => {
       }
     };
   }, [searchTerm, currentWorkspaceId]);
-
-  const fetchRoutes = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const params: any = { page: 1, pageSize: 100 };
-      if (currentWorkspaceId) {
-        params.workspaceId = currentWorkspaceId;
-      }
-      const response = await apiService.routes.list(params);
-      setRoutes(response.data);
-    } catch (err: any) {
-      console.error('Failed to fetch routes:', err);
-      setError('Failed to load routes. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchDomains = async () => {
     try {
