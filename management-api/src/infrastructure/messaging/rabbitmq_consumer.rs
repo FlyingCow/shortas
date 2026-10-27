@@ -14,6 +14,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use tracing::{error, info, warn};
 
+use crate::application::services::RouteService;
 use crate::domain::entities::{BlockedReason, RouteStatus};
 use crate::domain::traits::DomainRepository;
 use crate::settings::RabbitMqSettings;
@@ -190,7 +191,7 @@ impl RabbitMqConsumer {
     /// Start the route status consumer (Safe Browsing results).
     pub async fn start_route_status_consumer(
         &self,
-        route_repo: Arc<dyn crate::domain::traits::RouteRepository>,
+        route_service: Arc<RouteService>,
         mut shutdown: broadcast::Receiver<()>,
     ) -> anyhow::Result<()> {
         let (channel, mut consumer) = self
@@ -216,25 +217,25 @@ impl RabbitMqConsumer {
                             Ok(msg) => {
                                 info!("Processing route status: {:?}", msg);
 
-                                if let Ok(route_id) = uuid::Uuid::parse_str(&msg.route_id) {
-                                    if let Ok(Some(mut route)) = route_repo.get_by_id(route_id).await {
-                                        // Update route status based on Safe Browsing result
-                                        if msg.new_status == "Blocked" {
-                                            let reason = msg.blocked_reason.unwrap_or_else(|| "Safe Browsing".to_string());
-                                            route.status = RouteStatus::Blocked(
-                                                BlockedReason::Reasoned(reason)
-                                            );
+                                if msg.new_status == "Blocked" {
+                                    if let Ok(route_id) = uuid::Uuid::parse_str(&msg.route_id) {
+                                        let reason = msg.blocked_reason.unwrap_or_else(|| "Safe Browsing".to_string());
+                                        let status = RouteStatus::Blocked(BlockedReason::Reasoned(reason));
 
-                                            if let Err(e) = route_repo.update(&route).await {
-                                                error!("Failed to update route status: {}", e);
-                                                let _ = channel
-                                                    .basic_nack(
-                                                        delivery.delivery_tag,
-                                                        BasicNackOptions { requeue: true, ..Default::default() },
-                                                    )
-                                                    .await;
-                                                continue;
-                                            }
+                                        // apply_safety_status both persists the new status and
+                                        // propagates it to click-router - the actual
+                                        // redirect-serving store. Updating Postgres alone would
+                                        // leave the dashboard showing "Blocked" while click-router
+                                        // keeps redirecting to the unsafe destination.
+                                        if let Err(e) = route_service.apply_safety_status(route_id, status).await {
+                                            error!("Failed to update route status: {}", e);
+                                            let _ = channel
+                                                .basic_nack(
+                                                    delivery.delivery_tag,
+                                                    BasicNackOptions { requeue: true, ..Default::default() },
+                                                )
+                                                .await;
+                                            continue;
                                         }
                                     }
                                 }

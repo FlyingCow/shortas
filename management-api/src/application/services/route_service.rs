@@ -220,6 +220,33 @@ impl RouteService {
         Ok(saved)
     }
 
+    /// Apply a status change coming from an external safety check (route-verifier
+    /// blocking a route for Safe Browsing, for example). There's no end-user
+    /// request behind this, so unlike `update()` it skips ownership validation
+    /// and the immutable-field reset, and - crucially - still propagates the
+    /// new status to click-router so the redirect-serving store actually
+    /// reflects the block instead of only Postgres/the dashboard.
+    pub async fn apply_safety_status(&self, route_id: Uuid, status: RouteStatus) -> Result<()> {
+        let mut route = self
+            .route_repo
+            .get_by_id(route_id)
+            .await?
+            .ok_or_else(|| ApiError::not_found("Route", &route_id.to_string()))?;
+
+        route.status = status;
+        let saved = self.route_repo.update(&route).await?;
+
+        if let Some(domain_id) = saved.domain_id {
+            if let Ok(Some(domain)) = self.domain_repo.get_by_id(domain_id).await {
+                if let Err(e) = self.propagate_route(&saved, &domain.name).await {
+                    warn!(route_id = %saved.id, error = %e, "Failed to propagate safety status to click-router");
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Delete a route.
     pub async fn delete(&self, id: Uuid, user_id: &str) -> Result<()> {
         let route = self
