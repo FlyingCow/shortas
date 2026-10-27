@@ -475,6 +475,7 @@ module "ecs" {
         { name = "APP__JWT__AUDIENCE", value = "management-api" },
         { name = "APP__JWT__JWKS_URL", value = module.cognito.jwks_url },
         { name = "APP__CLICK_ROUTER__BASE_URL", value = "http://click-router-api.${local.environment}.shortas.local:5810" },
+        { name = "APP__ROUTE_VERIFIER__BASE_URL", value = "http://route-verifier.${local.environment}.shortas.local:5831" },
         { name = "APP__CLICK_AGGREGATOR__BASE_URL", value = "http://click-aggregator-api.${local.environment}.shortas.local:5820" },
         { name = "APP__ELASTICSEARCH__URL", value = module.opensearch.url },
         { name = "APP__MINIO__BUCKET", value = module.s3.route_images_bucket_name },

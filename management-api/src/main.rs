@@ -88,6 +88,7 @@ async fn main() -> Result<()> {
         app_state.route_repo.clone(),
         app_state.invitation_repo.clone(),
         notification_publisher,
+        app_state.route_verifier.clone(),
     ));
 
     let outbox_shutdown = shutdown_tx.subscribe();

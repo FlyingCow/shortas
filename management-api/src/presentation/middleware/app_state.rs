@@ -12,7 +12,7 @@ use crate::domain::traits::{
 };
 use crate::infrastructure::{
     email::{build_email_sender, EmailSender},
-    http_clients::{ClickAggregatorClient, ClickRouterClient},
+    http_clients::{ClickAggregatorClient, ClickRouterClient, RouteVerifierClient},
     repositories::{
         PgCertificateRepository, PgDomainRepository, PgInvitationRepository,
         PgNotificationRepository, PgOutboxRepository, PgRouteRepository, PgUserRepository,
@@ -37,6 +37,7 @@ pub struct AppState {
     pub email_sender: Arc<dyn EmailSender>,
     pub route_service: Arc<RouteService>,
     pub click_router: Arc<ClickRouterClient>,
+    pub route_verifier: Arc<RouteVerifierClient>,
     pub click_aggregator: Arc<ClickAggregatorClient>,
     pub search_service: Arc<ElasticsearchService>,
     pub storage_service: Arc<MinioService>,
@@ -64,6 +65,7 @@ impl AppState {
 
         // Create HTTP clients
         let click_router = Arc::new(ClickRouterClient::new(&settings.click_router)?);
+        let route_verifier = Arc::new(RouteVerifierClient::new(&settings.route_verifier)?);
         let click_aggregator = Arc::new(ClickAggregatorClient::new(&settings.click_aggregator)?);
 
         // Create infrastructure services
@@ -91,6 +93,7 @@ impl AppState {
             email_sender,
             route_service,
             click_router,
+            route_verifier,
             click_aggregator,
             search_service,
             storage_service,

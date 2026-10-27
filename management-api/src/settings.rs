@@ -20,6 +20,8 @@ pub struct Settings {
     #[serde(default)]
     pub click_router: ClickRouterSettings,
     #[serde(default)]
+    pub route_verifier: RouteVerifierSettings,
+    #[serde(default)]
     pub click_aggregator: ClickAggregatorSettings,
     #[serde(default)]
     pub elasticsearch: ElasticsearchSettings,
@@ -131,6 +133,22 @@ impl Default for ClickRouterSettings {
     }
 }
 
+/// Route Verifier API settings (registers routes for ongoing Safe Browsing checks).
+#[derive(Debug, Clone, Deserialize)]
+pub struct RouteVerifierSettings {
+    pub base_url: String,
+    pub timeout_ms: u64,
+}
+
+impl Default for RouteVerifierSettings {
+    fn default() -> Self {
+        Self {
+            base_url: "http://localhost:5831".to_string(),
+            timeout_ms: 5000,
+        }
+    }
+}
+
 /// Click Aggregator API settings.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ClickAggregatorSettings {
@@ -196,6 +214,14 @@ pub struct RabbitMqSettings {
     pub url: String,
     pub domain_verification_queue: String,
     pub route_status_queue: String,
+    /// Fanout exchange domain-verifier publishes `DomainStateChangedMessage` to.
+    /// The consumer's queue must be bound to this exchange or messages are dropped.
+    #[serde(default = "default_domain_state_exchange")]
+    pub domain_state_exchange: String,
+    /// Fanout exchange route-verifier publishes `RouteStatusChangedMessage` to.
+    /// The consumer's queue must be bound to this exchange or messages are dropped.
+    #[serde(default = "default_route_status_exchange")]
+    pub route_status_exchange: String,
     #[serde(default = "default_notifications_exchange")]
     pub notifications_exchange: String,
     #[serde(default = "default_notifications_queue")]
@@ -210,6 +236,14 @@ pub struct RabbitMqSettings {
     /// Redeliveries (via `x-death` count) before a message is routed to the dead queue.
     #[serde(default = "default_notifications_max_retries")]
     pub notifications_max_retries: i64,
+}
+
+fn default_domain_state_exchange() -> String {
+    "domain.state.changed".to_string()
+}
+
+fn default_route_status_exchange() -> String {
+    "route.status.changed".to_string()
 }
 
 fn default_notifications_exchange() -> String {
@@ -287,6 +321,8 @@ impl Default for RabbitMqSettings {
             url: "amqp://localhost:5672".to_string(),
             domain_verification_queue: "domain-verification".to_string(),
             route_status_queue: "route-status".to_string(),
+            domain_state_exchange: default_domain_state_exchange(),
+            route_status_exchange: default_route_status_exchange(),
             notifications_exchange: default_notifications_exchange(),
             notifications_queue: default_notifications_queue(),
             notifications_retry_queue: default_notifications_retry_queue(),
@@ -341,6 +377,7 @@ impl Default for Settings {
             database: DatabaseSettings::default(),
             jwt: JwtSettings::default(),
             click_router: ClickRouterSettings::default(),
+            route_verifier: RouteVerifierSettings::default(),
             click_aggregator: ClickAggregatorSettings::default(),
             elasticsearch: ElasticsearchSettings::default(),
             minio: MinioSettings::default(),

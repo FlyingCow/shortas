@@ -46,6 +46,8 @@ pub enum OutboxMessageType {
     VerifyDomain,
     /// Check route against Safe Browsing.
     CheckRouteSafety,
+    /// Remove a deleted route from ongoing Safe Browsing verification.
+    DeleteRouteSafetyCheck,
     /// Publish a notification event to RabbitMQ for the notification-worker
     /// to render (from its S3 template set) and deliver.
     PublishNotificationEvent,
@@ -58,6 +60,7 @@ impl OutboxMessageType {
             OutboxMessageType::DeleteRouteIndex => "DeleteRouteIndex",
             OutboxMessageType::VerifyDomain => "VerifyDomain",
             OutboxMessageType::CheckRouteSafety => "CheckRouteSafety",
+            OutboxMessageType::DeleteRouteSafetyCheck => "DeleteRouteSafetyCheck",
             OutboxMessageType::PublishNotificationEvent => "PublishNotificationEvent",
         }
     }
@@ -68,6 +71,7 @@ impl OutboxMessageType {
             "DeleteRouteIndex" => Some(OutboxMessageType::DeleteRouteIndex),
             "VerifyDomain" => Some(OutboxMessageType::VerifyDomain),
             "CheckRouteSafety" => Some(OutboxMessageType::CheckRouteSafety),
+            "DeleteRouteSafetyCheck" => Some(OutboxMessageType::DeleteRouteSafetyCheck),
             "PublishNotificationEvent" => Some(OutboxMessageType::PublishNotificationEvent),
             _ => None,
         }
@@ -135,6 +139,14 @@ impl OutboxMessage {
         Self::new(
             OutboxMessageType::CheckRouteSafety,
             serde_json::json!({ "route_id": route_id, "url": url }),
+        )
+    }
+
+    /// Create a message to remove a deleted route from ongoing safety verification.
+    pub fn delete_route_safety_check(route_id: Uuid) -> Self {
+        Self::new(
+            OutboxMessageType::DeleteRouteSafetyCheck,
+            serde_json::json!({ "route_id": route_id }),
         )
     }
 

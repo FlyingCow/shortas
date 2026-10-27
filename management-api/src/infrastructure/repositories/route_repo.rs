@@ -424,7 +424,7 @@ impl RouteRepository for PgRouteRepository {
         // below reflects what's actually changing, not just the new state.
         let prior = sqlx::query(
             "SELECT r.switch, r.status, p.workspace_id FROM routes r \
-             LEFT JOIN route_properties p ON p.route_id = r.id WHERE r.id = $1 FOR UPDATE",
+             LEFT JOIN route_properties p ON p.route_id = r.id WHERE r.id = $1 FOR UPDATE OF r",
         )
         .bind(route.id)
         .fetch_optional(&mut *tx)
@@ -530,7 +530,7 @@ impl RouteRepository for PgRouteRepository {
 
         let existing = sqlx::query(
             "SELECT r.switch, r.status, r.domain_id, p.workspace_id FROM routes r \
-             LEFT JOIN route_properties p ON p.route_id = r.id WHERE r.id = $1 FOR UPDATE",
+             LEFT JOIN route_properties p ON p.route_id = r.id WHERE r.id = $1 FOR UPDATE OF r",
         )
         .bind(id)
         .fetch_optional(&mut *tx)
