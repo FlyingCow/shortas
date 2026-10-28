@@ -257,4 +257,63 @@ mod tests {
         // Check PNG magic bytes
         assert_eq!(&png_data[0..8], &[137, 80, 78, 71, 13, 10, 26, 10]);
     }
+
+    fn test_module(cache: Arc<MokaQrCodeCache>, qr_images_base_url: Option<String>) -> QrCodeModule {
+        QrCodeModule::with_defaults(cache, qr_images_base_url)
+    }
+
+    fn fresh_cache() -> Arc<MokaQrCodeCache> {
+        Arc::new(MokaQrCodeCache::new(QrCodeCacheSettings {
+            max_capacity: 100,
+            time_to_live_minutes: 60,
+            time_to_idle_minutes: 30,
+        }))
+    }
+
+    #[tokio::test]
+    async fn test_fetch_stored_qr_returns_none_when_no_base_url_configured() {
+        let module = test_module(fresh_cache(), None);
+        let result = module.fetch_stored_qr("owner-1", "route-1").await;
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_fetch_stored_qr_returns_bytes_on_success() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .and(wiremock::matchers::path("/owner-1/route-1/qr.svg"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_bytes(vec![1, 2, 3]))
+            .mount(&server)
+            .await;
+
+        let module = test_module(fresh_cache(), Some(server.uri()));
+        let result = module.fetch_stored_qr("owner-1", "route-1").await;
+        assert_eq!(result, Some(vec![1, 2, 3]));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_stored_qr_returns_none_on_404() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(wiremock::ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+
+        let module = test_module(fresh_cache(), Some(server.uri()));
+        let result = module.fetch_stored_qr("owner-1", "route-1").await;
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_fetch_stored_qr_returns_none_on_unexpected_status() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(wiremock::ResponseTemplate::new(500))
+            .mount(&server)
+            .await;
+
+        let module = test_module(fresh_cache(), Some(server.uri()));
+        let result = module.fetch_stored_qr("owner-1", "route-1").await;
+        assert!(result.is_none());
+    }
 }

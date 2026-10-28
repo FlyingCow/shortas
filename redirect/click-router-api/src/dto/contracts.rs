@@ -432,3 +432,165 @@ impl From<&common::RouteProperties> for internal::RouteProperties {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::condition as icond;
+
+    fn internal_route() -> internal::Route {
+        internal::Route::new(
+            "abc123".to_string(),
+            "abc123".to_string(),
+            Some("https://example.com".to_string()),
+            internal::RouteProperties::default(),
+        )
+    }
+
+    #[test]
+    fn test_route_to_common_preserves_switch_and_dest() {
+        let route = internal_route();
+        let common_route: common::Route = (&route).into();
+        assert_eq!(common_route.switch, "abc123");
+        assert_eq!(common_route.dest, Some("https://example.com".to_string()));
+        assert_eq!(common_route.policy, common::RoutingPolicy::Basic);
+        assert_eq!(common_route.status, common::RouteStatus::Active);
+    }
+
+    #[test]
+    fn test_route_to_common_generates_fresh_id_each_time() {
+        let route = internal_route();
+        let first: common::Route = (&route).into();
+        let second: common::Route = (&route).into();
+        assert_ne!(first.id, second.id, "message contract should mint a new id per conversion");
+    }
+
+    #[test]
+    fn test_blocked_reason_roundtrip() {
+        let mut route = internal_route();
+        route.status = internal::RouteStatus::Blocked(internal::BlockedReason::Resoned("spam".to_string()));
+
+        let common_route: common::Route = (&route).into();
+        assert_eq!(
+            common_route.status,
+            common::RouteStatus::Blocked(common::BlockedReason::Reasoned("spam".to_string()))
+        );
+
+        let back: internal::Route = (&common_route).into();
+        match back.status {
+            internal::RouteStatus::Blocked(internal::BlockedReason::Resoned(msg)) => {
+                assert_eq!(msg, "spam");
+            }
+            other => panic!("expected blocked/resoned status, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_conditional_policy_roundtrip() {
+        let mut route = internal_route();
+        route.policy = internal::RoutingPolicy::Conditional(vec![internal::ConditionalRouting {
+            key: "mobile".to_string(),
+            condition: icond::Condition {
+                ua: Some(icond::UA::EQ("Chrome".to_string())),
+                ..Default::default()
+            },
+            dest: Some("https://m.example.com".to_string()),
+        }]);
+
+        let common_route: common::Route = (&route).into();
+        match &common_route.policy {
+            common::RoutingPolicy::Conditional { conditions } => {
+                assert_eq!(conditions.len(), 1);
+                assert_eq!(conditions[0].key, "mobile");
+                assert_eq!(
+                    conditions[0].condition.ua,
+                    Some(common::StringCondition::Eq("Chrome".to_string()))
+                );
+            }
+            other => panic!("expected conditional policy, got {other:?}"),
+        }
+
+        let back: internal::Route = (&common_route).into();
+        match back.policy {
+            internal::RoutingPolicy::Conditional(conditions) => {
+                assert_eq!(conditions.len(), 1);
+                assert_eq!(conditions[0].key, "mobile");
+                assert!(matches!(conditions[0].condition.ua, Some(icond::UA::EQ(ref v)) if v == "Chrome"));
+            }
+            other => panic!("expected conditional policy, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_challenge_policy_round_trip_and_unknown_fallback() {
+        let mut route = internal_route();
+        route.policy = internal::RoutingPolicy::Challenge(internal::ChallengeRouting {
+            key: "captcha".to_string(),
+            source: "recaptcha".to_string(),
+            challenge_type: "v2".to_string(),
+        });
+
+        let common_route: common::Route = (&route).into();
+        match &common_route.policy {
+            common::RoutingPolicy::Challenge { challenge } => {
+                assert_eq!(challenge.as_ref().unwrap().key, "captcha");
+            }
+            other => panic!("expected challenge policy, got {other:?}"),
+        }
+
+        // A None challenge coming back from common falls back to Unknown internally.
+        let empty_challenge = common::Route {
+            policy: common::RoutingPolicy::Challenge { challenge: None },
+            ..(&internal_route()).into()
+        };
+        let back: internal::Route = (&empty_challenge).into();
+        assert!(matches!(back.policy, internal::RoutingPolicy::Unknown));
+    }
+
+    #[test]
+    fn test_numeric_condition_conversion_preserves_values() {
+        let cond = icond::Condition {
+            rnd: Some(icond::RND::GT(10)),
+            day_of_week: Some(icond::DayOfWeek::IN(vec![1, 2, 3])),
+            ..Default::default()
+        };
+        let common_cond: common::Condition = (&cond).into();
+        assert_eq!(common_cond.rnd, Some(common::NumericCondition::Gt(10)));
+        assert_eq!(
+            common_cond.day_of_week,
+            Some(common::NumericCondition::In(vec![1, 2, 3]))
+        );
+
+        let back: icond::Condition = (&common_cond).into();
+        assert!(matches!(back.rnd, Some(icond::RND::GT(10))));
+        assert!(matches!(back.day_of_week, Some(icond::DayOfWeek::IN(ref v)) if v == &vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn test_date_condition_starts_ends_fallback_to_eq_on_reverse_conversion() {
+        // common::Date doesn't exist as a separate type; StringCondition::Starts has
+        // no Starts/Ends equivalent on the internal Date type, so the reverse
+        // conversion collapses it to Eq.
+        let starts = common::StringCondition::Starts("Chr".to_string());
+        let internal_date = convert_to_internal_date(&starts);
+        assert!(matches!(internal_date, icond::Date::EQ(ref v) if v == "Chr"));
+    }
+
+    #[test]
+    fn test_route_properties_conversion_preserves_fields() {
+        let mut props = internal::RouteProperties::default();
+        props.route_id = Some("route-1".to_string());
+        props.tags = Some(vec!["a".to_string(), "b".to_string()]);
+        props.opengraph = true;
+
+        let common_props: common::RouteProperties = (&props).into();
+        assert_eq!(common_props.route_id, Some("route-1".to_string()));
+        assert_eq!(common_props.tags, Some(vec!["a".to_string(), "b".to_string()]));
+        assert!(common_props.opengraph);
+
+        let back: internal::RouteProperties = (&common_props).into();
+        assert_eq!(back.route_id, props.route_id);
+        assert_eq!(back.tags, props.tags);
+        assert_eq!(back.opengraph, props.opengraph);
+    }
+}

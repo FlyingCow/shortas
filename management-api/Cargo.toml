@@ -78,3 +78,14 @@ tracing-subscriber.workspace = true
 # Security
 jsonwebtoken.workspace = true
 sha2.workspace = true
+
+# Test mocking of domain traits, also exposed to downstream crates (e.g.
+# notification-worker) via the `mocks` feature so they can mock the same
+# trait definitions instead of redeclaring them.
+mockall.workspace = true
+
+[dev-dependencies]
+wiremock.workspace = true
+
+[features]
+mocks = []

@@ -500,3 +500,94 @@ pub struct ClickStreamItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trace: Option<HitTrace>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn new_context() -> TrackingPipeContext {
+        TrackingPipeContext::new(Hit {
+            id: "hit-1".to_string(),
+            data: HitData::Click(Click { dest: None }),
+            route: None,
+            user_agent: None,
+            ip: None,
+            utc: Utc::now(),
+            trace: None,
+        })
+    }
+
+    #[test]
+    fn test_tracking_pipe_data_is_bool() {
+        let data = TrackingPipeData::Bool(true);
+        assert!(data.is_bool(true));
+        assert!(!data.is_bool(false));
+        assert!(!data.is_string("true"));
+        assert!(!data.is_num(1.0));
+    }
+
+    #[test]
+    fn test_tracking_pipe_data_is_string_is_case_insensitive() {
+        let data = TrackingPipeData::String("Skip");
+        assert!(data.is_string("skip"));
+        assert!(data.is_string("SKIP"));
+        assert!(!data.is_string("other"));
+    }
+
+    #[test]
+    fn test_tracking_pipe_data_is_num() {
+        let data = TrackingPipeData::Number(3.5);
+        assert!(data.is_num(3.5));
+        assert!(!data.is_num(1.0));
+    }
+
+    #[test]
+    fn test_is_data_true_defaults_to_false_when_missing() {
+        let context = new_context();
+        assert!(!context.is_data_true("tracking"));
+    }
+
+    #[test]
+    fn test_add_bool_and_is_data_true() {
+        let mut context = new_context();
+        context.add_bool(SKIP_TRACKING, true);
+        assert!(context.is_data_true(SKIP_TRACKING));
+
+        context.add_bool(SKIP_TRACKING, false);
+        assert!(!context.is_data_true(SKIP_TRACKING));
+    }
+
+    #[test]
+    fn test_is_data_true_returns_false_for_non_bool_value() {
+        let mut context = new_context();
+        context.add_string("tracking", "yes");
+        assert!(!context.is_data_true("tracking"));
+    }
+
+    #[test]
+    fn test_add_string_and_add_num_store_distinct_keys() {
+        let mut context = new_context();
+        context.add_string("source", "newsletter");
+        context.add_num("score", 42.0);
+
+        let data = context.data.as_ref().unwrap();
+        assert!(data.get("source").unwrap().is_string("newsletter"));
+        assert!(data.get("score").unwrap().is_num(42.0));
+    }
+
+    #[test]
+    fn test_os_ua_device_defaults_are_other() {
+        assert_eq!(OS::default().family, "Other");
+        assert_eq!(UserAgent::default().family, "Other");
+        assert_eq!(Device::default().family, "Other");
+    }
+
+    #[test]
+    fn test_tracking_pipe_context_new_generates_ulid_and_ok_state() {
+        let context = new_context();
+        assert!(!context.id.is_empty());
+        assert!(matches!(context.state, TrackingState::Ok));
+        assert!(context.data.is_none(), "data should be lazily initialized");
+        assert!(!context.spider);
+    }
+}

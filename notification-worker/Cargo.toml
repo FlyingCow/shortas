@@ -38,3 +38,10 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 handlebars.workspace = true
+
+[dev-dependencies]
+# Pulls in management-api's MockNotificationRepository/MockUserRepository/
+# MockEmailSender (gated behind its own "mocks" feature) so this crate's
+# tests can mock the same trait definitions instead of redeclaring them.
+management-api = { path = "../management-api", features = ["mocks"] }
+mockall.workspace = true

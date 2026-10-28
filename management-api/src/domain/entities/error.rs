@@ -171,3 +171,60 @@ impl<T, E: std::fmt::Display> ResultExt<T, E> for std::result::Result<T, E> {
         self.map_err(|e| ApiError::with_details(ErrorCode::ExternalServiceError, message, e.to_string()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_code_status() {
+        assert_eq!(ErrorCode::ValidationError.status_code(), 400);
+        assert_eq!(ErrorCode::Forbidden.status_code(), 403);
+        assert_eq!(ErrorCode::NotFound.status_code(), 404);
+        assert_eq!(ErrorCode::InternalError.status_code(), 500);
+    }
+
+    #[test]
+    fn test_api_error_creation() {
+        let err = ApiError::not_found("Route", "123");
+        assert_eq!(err.code, ErrorCode::NotFound);
+        assert!(err.message.contains("Route"));
+        assert!(err.message.contains("123"));
+    }
+
+    #[test]
+    fn test_api_error_required_and_forbidden() {
+        let err = ApiError::required("name");
+        assert_eq!(err.code, ErrorCode::ValidationError);
+        assert!(err.message.contains("name"));
+
+        let err = ApiError::forbidden();
+        assert_eq!(err.code, ErrorCode::Forbidden);
+    }
+
+    #[test]
+    fn test_option_ext() {
+        let none: Option<String> = None;
+        let result = none.ok_or_not_found("Route", "123");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, ErrorCode::NotFound);
+
+        let some = Some("value".to_string());
+        let result = some.ok_or_not_found("Route", "123");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_result_ext() {
+        let err: std::result::Result<(), &str> = Err("database error");
+        let result: Result<()> = err.map_internal_err("Failed to query database");
+        assert!(result.is_err());
+        let api_err = result.unwrap_err();
+        assert_eq!(api_err.code, ErrorCode::InternalError);
+        assert!(api_err.details.is_some());
+
+        let err: std::result::Result<(), &str> = Err("timeout");
+        let result: Result<()> = err.map_external_err("Failed to call upstream service");
+        assert_eq!(result.unwrap_err().code, ErrorCode::ExternalServiceError);
+    }
+}

@@ -144,3 +144,5 @@ elasticsearch = "8.17.0-alpha.1"
 
 # Development dependencies
 criterion = { version = "0.6.0", features = ["html_reports", "async_futures"] }
+mockall = "0.13"
+wiremock = "0.6"

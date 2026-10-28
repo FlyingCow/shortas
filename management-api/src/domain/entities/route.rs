@@ -288,3 +288,132 @@ impl Route {
         format!("{}/{}", domain_name, self.link)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn basic_route() -> Route {
+        Route::new(
+            "abc123".to_string(),
+            "abc123".to_string(),
+            Some("https://example.com".to_string()),
+            RouteProperties::default(),
+        )
+    }
+
+    #[test]
+    fn test_route_new_sets_random_id_and_defaults() {
+        let route = basic_route();
+        assert_eq!(route.switch, "abc123");
+        assert_eq!(route.dest, Some("https://example.com".to_string()));
+        assert_eq!(route.policy, RoutingPolicy::Basic);
+        assert_eq!(route.status, RouteStatus::Active);
+        assert!(!route.id.is_nil());
+
+        let other = basic_route();
+        assert_ne!(route.id, other.id, "each new route should get a fresh id");
+    }
+
+    #[test]
+    fn test_is_conditional() {
+        let mut route = basic_route();
+        assert!(!route.is_conditional());
+
+        route.policy = RoutingPolicy::Conditional { conditions: vec![] };
+        assert!(route.is_conditional());
+    }
+
+    #[test]
+    fn test_full_path() {
+        let route = basic_route();
+        assert_eq!(route.full_path("example.com"), "example.com/abc123");
+    }
+
+    #[test]
+    fn test_route_status_is_active_and_as_str() {
+        assert!(RouteStatus::Active.is_active());
+        assert_eq!(RouteStatus::Active.as_str(), "Active");
+
+        let blocked = RouteStatus::Blocked(BlockedReason::Reasoned("spam".to_string()));
+        assert!(!blocked.is_active());
+        assert_eq!(blocked.as_str(), "Blocked");
+    }
+
+    #[test]
+    fn test_routing_policy_type() {
+        assert_eq!(RoutingPolicy::Basic.policy_type(), "Basic");
+        assert_eq!(
+            RoutingPolicy::Conditional { conditions: vec![] }.policy_type(),
+            "Conditional"
+        );
+        assert_eq!(
+            RoutingPolicy::Challenge { challenge: None }.policy_type(),
+            "Challenge"
+        );
+        assert_eq!(RoutingPolicy::File { file: None }.policy_type(), "File");
+        assert_eq!(RoutingPolicy::Mirroring.policy_type(), "Mirroring");
+        assert_eq!(RoutingPolicy::Unknown.policy_type(), "Unknown");
+    }
+
+    #[test]
+    fn test_build_family_non_conditional_returns_self() {
+        let route = basic_route();
+        let route_id = route.id;
+        let family = route.build_family();
+        assert_eq!(family.len(), 1);
+        assert_eq!(family[0].id, route_id);
+    }
+
+    #[test]
+    fn test_build_family_conditional_splits_into_children_and_master() {
+        let mut route = basic_route();
+        route.properties.route_id = Some("route-1".to_string());
+        route.policy = RoutingPolicy::Conditional {
+            conditions: vec![
+                ConditionalRouting {
+                    key: "mobile".to_string(),
+                    condition: Condition::default(),
+                    dest: Some("https://m.example.com".to_string()),
+                },
+                ConditionalRouting {
+                    key: "desktop".to_string(),
+                    condition: Condition::default(),
+                    dest: Some("https://example.com".to_string()),
+                },
+            ],
+        };
+
+        let family = route.build_family();
+        // 2 children + 1 master
+        assert_eq!(family.len(), 3);
+
+        let (children, masters): (Vec<_>, Vec<_>) = family
+            .into_iter()
+            .partition(|r| matches!(r.policy, RoutingPolicy::Basic));
+        assert_eq!(children.len(), 2);
+        assert_eq!(masters.len(), 1);
+
+        for child in &children {
+            assert!(child.properties.route_id.is_none());
+        }
+        assert_eq!(
+            children.iter().find(|c| c.switch == "mobile").unwrap().dest,
+            Some("https://m.example.com".to_string())
+        );
+        assert_eq!(
+            children.iter().find(|c| c.switch == "desktop").unwrap().dest,
+            Some("https://example.com".to_string())
+        );
+
+        let master = &masters[0];
+        assert_eq!(master.properties.route_id, Some("route-1".to_string()));
+        match &master.policy {
+            RoutingPolicy::Conditional { conditions } => {
+                assert_eq!(conditions.len(), 2);
+                assert!(conditions.iter().all(|c| c.dest.is_none()));
+            }
+            other => panic!("expected conditional policy on master, got {other:?}"),
+        }
+    }
+}

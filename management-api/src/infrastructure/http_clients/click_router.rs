@@ -277,3 +277,220 @@ impl ClickRouterClient {
         Ok(response.status().is_success())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::entities::{
+        ChallengeRouting, Condition, ConditionalRouting, DestinationFormat, FileRouting,
+        RouteProperties, RouteStatus, RoutingTerminal,
+    };
+    use uuid::Uuid;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    fn test_client(base_url: String) -> ClickRouterClient {
+        ClickRouterClient::new(&ClickRouterSettings { base_url, timeout_ms: 5000 }).unwrap()
+    }
+
+    fn sample_route() -> Route {
+        Route {
+            id: Uuid::new_v4(),
+            switch: "main".to_string(),
+            link: "abc123".to_string(),
+            dest: Some("https://example.com".to_string()),
+            dest_format: DestinationFormat::Http,
+            code: None,
+            ttl: None,
+            status: RouteStatus::Active,
+            terminal: RoutingTerminal::External,
+            policy: RoutingPolicy::Basic,
+            properties: RouteProperties::default(),
+            domain_id: None,
+        }
+    }
+
+    // --- pure helpers ---
+
+    #[test]
+    fn test_encode_link() {
+        assert_eq!(ClickRouterClient::encode_link("example.com", "abc"), "example.com%2Fabc");
+    }
+
+    #[test]
+    fn test_to_camel_case() {
+        assert_eq!(to_camel_case("dest_format"), "destFormat");
+        assert_eq!(to_camel_case("owner_id"), "ownerId");
+        assert_eq!(to_camel_case("plain"), "plain");
+        assert_eq!(to_camel_case("a_b_c"), "aBC");
+    }
+
+    #[test]
+    fn test_convert_keys_to_camel_case_nested() {
+        let input = json!({
+            "owner_id": "u1",
+            "nested_obj": { "route_id": "r1" },
+            "a_list": [ { "domain_id": "d1" } ],
+        });
+        let converted = convert_keys_to_camel_case(input);
+        assert_eq!(converted["ownerId"], json!("u1"));
+        assert_eq!(converted["nestedObj"]["routeId"], json!("r1"));
+        assert_eq!(converted["aList"][0]["domainId"], json!("d1"));
+    }
+
+    #[test]
+    fn test_convert_policy_for_click_router_variants() {
+        assert_eq!(convert_policy_for_click_router(&RoutingPolicy::Basic), json!("Basic"));
+        assert_eq!(convert_policy_for_click_router(&RoutingPolicy::Mirroring), json!("Mirroring"));
+        assert_eq!(convert_policy_for_click_router(&RoutingPolicy::Unknown), json!("Unknown"));
+
+        let challenge = RoutingPolicy::Challenge {
+            challenge: Some(ChallengeRouting { key: "k".into(), source: "recaptcha".into(), challenge_type: "v2".into() }),
+        };
+        assert_eq!(convert_policy_for_click_router(&challenge)["Challenge"]["key"], json!("k"));
+
+        let no_challenge = RoutingPolicy::Challenge { challenge: None };
+        assert_eq!(convert_policy_for_click_router(&no_challenge), json!("Unknown"));
+
+        let file = RoutingPolicy::File { file: Some(FileRouting { content_type: "image/png".into() }) };
+        assert_eq!(convert_policy_for_click_router(&file)["File"]["content_type"], json!("image/png"));
+
+        let no_file = RoutingPolicy::File { file: None };
+        assert_eq!(convert_policy_for_click_router(&no_file), json!("Unknown"));
+
+        let conditional = RoutingPolicy::Conditional {
+            conditions: vec![ConditionalRouting { key: "mobile".into(), condition: Condition::default(), dest: None }],
+        };
+        assert_eq!(convert_policy_for_click_router(&conditional)["Conditional"][0]["key"], json!("mobile"));
+    }
+
+    // --- HTTP behavior against a wiremock server ---
+
+    #[tokio::test]
+    async fn test_upsert_route_uses_route_id_endpoint_when_present() {
+        let server = MockServer::start().await;
+        let mut route = sample_route();
+        route.properties.route_id = Some("route-1".to_string());
+
+        Mock::given(method("PUT"))
+            .and(path("/v1/routes/route-1"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        client.upsert_route("example.com", &route).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_upsert_route_falls_back_to_switch_domain_path_endpoint() {
+        let server = MockServer::start().await;
+        let route = sample_route(); // no route_id set
+
+        Mock::given(method("PUT"))
+            .and(path("/v1/routes/main/example.com/abc123"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        client.upsert_route("example.com", &route).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_upsert_route_errors_on_non_success_status() {
+        let server = MockServer::start().await;
+        let route = sample_route();
+
+        Mock::given(method("PUT"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("boom"))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let err = client.upsert_route("example.com", &route).await.unwrap_err();
+        assert!(err.to_string().contains("500"));
+    }
+
+    #[tokio::test]
+    async fn test_delete_route_treats_404_as_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("DELETE"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.delete_route("example.com", "abc123", "main").await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_delete_route_errors_on_other_failure_status() {
+        let server = MockServer::start().await;
+        Mock::given(method("DELETE"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.delete_route("example.com", "abc123", "main").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_route_returns_none_on_404() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.get_route("example.com", "abc123", "main").await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_route_returns_route_on_success() {
+        let server = MockServer::start().await;
+        let route = sample_route();
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&route))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.get_route("example.com", "abc123", "main").await.unwrap();
+        assert_eq!(result.unwrap().switch, "main");
+    }
+
+    #[tokio::test]
+    async fn test_health_check_reflects_response_status() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/public/health"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        assert!(client.health_check().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_bulk_delete_deletes_each_route() {
+        let server = MockServer::start().await;
+        Mock::given(method("DELETE"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(2)
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let routes = vec![("abc".to_string(), "main".to_string()), ("def".to_string(), "main".to_string())];
+        client.bulk_delete("example.com", &routes).await.unwrap();
+    }
+}

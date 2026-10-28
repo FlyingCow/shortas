@@ -5,10 +5,11 @@ use async_trait::async_trait;
 use crate::domain::entities::{Result, User};
 
 /// Repository for the local shadow user directory (used for invite search).
+#[cfg_attr(any(test, feature = "mocks"), mockall::automock)]
 #[async_trait]
 pub trait UserRepository: Send + Sync {
     /// Insert or update a user's known profile fields.
-    async fn upsert(&self, id: &str, email: &str, name: Option<&str>) -> Result<User>;
+    async fn upsert<'a>(&self, id: &str, email: &str, name: Option<&'a str>) -> Result<User>;
 
     /// Get a user by Keycloak ID.
     async fn get_by_id(&self, id: &str) -> Result<Option<User>>;

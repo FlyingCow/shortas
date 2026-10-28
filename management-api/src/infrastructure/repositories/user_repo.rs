@@ -36,7 +36,7 @@ impl PgUserRepository {
 
 #[async_trait]
 impl UserRepository for PgUserRepository {
-    async fn upsert(&self, id: &str, email: &str, name: Option<&str>) -> Result<User> {
+    async fn upsert<'a>(&self, id: &str, email: &str, name: Option<&'a str>) -> Result<User> {
         sqlx::query(
             r#"
             INSERT INTO users (id, email, name, created_at, updated_at)

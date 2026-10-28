@@ -81,3 +81,7 @@ handlebars = "6.3"
 
 # Caching
 moka = { version = "0.12.7", features = ["future"] }
+
+# Test-only: trait mocking and HTTP mocking
+mockall = "0.13"
+wiremock = "0.6"

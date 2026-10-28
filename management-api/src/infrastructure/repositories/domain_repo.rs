@@ -115,12 +115,12 @@ impl DomainRepository for PgDomainRepository {
         Ok(rows.iter().filter_map(|r| Self::map_row(r).ok()).collect())
     }
 
-    async fn list_accessible(
+    async fn list_accessible<'a>(
         &self,
         user_id: &str,
         page: i32,
         page_size: i32,
-        search: Option<&str>,
+        search: Option<&'a str>,
     ) -> Result<PaginatedResult<RouteDomain>> {
         // Return user's own domains only - frontend combines this with
         // /domains/shared for the full list. Filtering/pagination both

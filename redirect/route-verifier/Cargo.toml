@@ -41,3 +41,6 @@ futures.workspace = true
 reqwest.workspace = true
 url.workspace = true
 urlencoding.workspace = true
+
+[dev-dependencies]
+wiremock.workspace = true

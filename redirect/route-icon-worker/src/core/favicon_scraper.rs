@@ -175,3 +175,164 @@ impl FaviconScraper {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scraper() -> FaviconScraper {
+        FaviconScraper::new(5, 1_000_000).expect("client should build without network access")
+    }
+
+    #[test]
+    fn test_resolve_url_absolute_is_returned_as_is() {
+        let scraper = scraper();
+        let base = Url::parse("https://example.com/path/").unwrap();
+        let resolved = scraper.resolve_url(&base, "https://cdn.example.com/favicon.png").unwrap();
+        assert_eq!(resolved, "https://cdn.example.com/favicon.png");
+    }
+
+    #[test]
+    fn test_resolve_url_protocol_relative_uses_base_scheme() {
+        let scraper = scraper();
+        let base = Url::parse("https://example.com/").unwrap();
+        let resolved = scraper.resolve_url(&base, "//cdn.example.com/favicon.png").unwrap();
+        assert_eq!(resolved, "https://cdn.example.com/favicon.png");
+    }
+
+    #[test]
+    fn test_resolve_url_relative_joins_against_base() {
+        let scraper = scraper();
+        let base = Url::parse("https://example.com/sub/page.html").unwrap();
+        let resolved = scraper.resolve_url(&base, "/favicon.png").unwrap();
+        assert_eq!(resolved, "https://example.com/favicon.png");
+
+        let resolved = scraper.resolve_url(&base, "favicon.png").unwrap();
+        assert_eq!(resolved, "https://example.com/sub/favicon.png");
+    }
+
+    #[test]
+    fn test_resolve_url_rejects_data_urls() {
+        let scraper = scraper();
+        let base = Url::parse("https://example.com/").unwrap();
+        let result = scraper.resolve_url(&base, "data:image/png;base64,abcd");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_is_valid_image_type_accepts_known_image_types() {
+        let scraper = scraper();
+        assert!(scraper.is_valid_image_type("image/png"));
+        assert!(scraper.is_valid_image_type("image/x-icon"));
+        assert!(scraper.is_valid_image_type("image/svg+xml"));
+        assert!(scraper.is_valid_image_type("image/webp"));
+    }
+
+    #[test]
+    fn test_is_valid_image_type_rejects_non_image_types() {
+        let scraper = scraper();
+        assert!(!scraper.is_valid_image_type("text/html"));
+        assert!(!scraper.is_valid_image_type("application/json"));
+        assert!(!scraper.is_valid_image_type(""));
+    }
+
+    // --- scrape_favicon against a mock HTTP server ---
+    //
+    // NB: on exhaustion, `scrape_favicon` falls through to a hardcoded
+    // `https://www.google.com/s2/favicons` request with no way to redirect
+    // that to a mock server, so every test here is written to resolve via
+    // either the HTML <link> or the /favicon.ico fallback - never reaching
+    // that branch (which would hit the real network).
+
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[tokio::test]
+    async fn test_scrape_favicon_finds_link_in_html() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"<html><head><link rel="icon" href="/static/favicon.png"></head></html>"#,
+            ))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/static/favicon.png"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "image/png")
+                    .set_body_bytes(vec![1, 2, 3, 4]),
+            )
+            .mount(&server)
+            .await;
+
+        let scraper = scraper();
+        let result = scraper.scrape_favicon(&server.uri()).await.unwrap();
+        assert_eq!(result.content_type, "image/png");
+        assert_eq!(result.data, vec![1, 2, 3, 4]);
+    }
+
+    #[tokio::test]
+    async fn test_scrape_favicon_falls_back_to_favicon_ico_when_no_link_in_html() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("<html><head></head></html>"))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/favicon.ico"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "image/x-icon")
+                    .set_body_bytes(vec![9, 9, 9]),
+            )
+            .mount(&server)
+            .await;
+
+        let scraper = scraper();
+        let result = scraper.scrape_favicon(&server.uri()).await.unwrap();
+        assert_eq!(result.content_type, "image/x-icon");
+        assert_eq!(result.data, vec![9, 9, 9]);
+    }
+
+    #[tokio::test]
+    async fn test_scrape_favicon_errors_when_initial_page_fetch_fails() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&server)
+            .await;
+
+        let scraper = scraper();
+        let result = scraper.scrape_favicon(&server.uri()).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_scrape_favicon_skips_data_url_links_and_falls_back() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"<html><head><link rel="icon" href="data:image/png;base64,abcd"></head></html>"#,
+            ))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/favicon.ico"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "image/x-icon")
+                    .set_body_bytes(vec![7, 7]),
+            )
+            .mount(&server)
+            .await;
+
+        let scraper = scraper();
+        let result = scraper.scrape_favicon(&server.uri()).await.unwrap();
+        assert_eq!(result.data, vec![7, 7]);
+    }
+}

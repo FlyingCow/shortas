@@ -145,4 +145,138 @@ mod tests {
         assert!(parsed.and.is_some());
         assert_eq!(parsed.and.unwrap().len(), 2);
     }
+
+    #[test]
+    fn test_empty_condition_defaults_all_none() {
+        let condition: Condition = serde_json::from_str("{}").unwrap();
+        assert_eq!(condition, Condition::default());
+        assert!(condition.ua.is_none());
+        assert!(condition.and.is_none());
+        assert!(condition.or.is_none());
+    }
+
+    #[test]
+    fn test_deeply_nested_and_or_condition() {
+        let json = r#"{
+            "or": [
+                { "and": [ { "ua": { "eq": "Chrome" } }, { "os": { "eq": "Windows" } } ] },
+                { "and": [ { "ua": { "eq": "Safari" } }, { "os": { "eq": "macOS" } } ] }
+            ]
+        }"#;
+        let parsed: Condition = serde_json::from_str(json).unwrap();
+        let or_branches = parsed.or.expect("expected or branches");
+        assert_eq!(or_branches.len(), 2);
+
+        let first_and = or_branches[0].and.as_ref().expect("expected and branch");
+        assert_eq!(first_and.len(), 2);
+        assert_eq!(
+            first_and[0].ua,
+            Some(StringCondition::Eq("Chrome".to_string()))
+        );
+        assert_eq!(
+            first_and[1].os,
+            Some(StringCondition::Eq("Windows".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_field_name_aliases_are_case_insensitive() {
+        let lower: Condition = serde_json::from_str(r#"{"ua": {"eq": "Chrome"}}"#).unwrap();
+        let upper: Condition = serde_json::from_str(r#"{"UA": {"eq": "Chrome"}}"#).unwrap();
+        assert_eq!(lower, upper);
+
+        let lower_op: Condition =
+            serde_json::from_str(r#"{"default_operator": "and"}"#).unwrap();
+        let upper_op: Condition =
+            serde_json::from_str(r#"{"DEFAULT_OPERATOR": "AND"}"#).unwrap();
+        assert_eq!(lower_op, upper_op);
+        assert_eq!(lower_op.default_operator, Some(DefaultOperator::And));
+    }
+
+    #[test]
+    fn test_default_operator_variants_and_aliases() {
+        assert_eq!(
+            serde_json::from_str::<DefaultOperator>("\"And\"").unwrap(),
+            DefaultOperator::And
+        );
+        assert_eq!(
+            serde_json::from_str::<DefaultOperator>("\"and\"").unwrap(),
+            DefaultOperator::And
+        );
+        assert_eq!(
+            serde_json::from_str::<DefaultOperator>("\"AND\"").unwrap(),
+            DefaultOperator::And
+        );
+        assert_eq!(
+            serde_json::from_str::<DefaultOperator>("\"Or\"").unwrap(),
+            DefaultOperator::Or
+        );
+        assert_eq!(
+            serde_json::from_str::<DefaultOperator>("\"or\"").unwrap(),
+            DefaultOperator::Or
+        );
+        assert_eq!(
+            serde_json::from_str::<DefaultOperator>("\"OR\"").unwrap(),
+            DefaultOperator::Or
+        );
+    }
+
+    #[test]
+    fn test_string_condition_variants() {
+        assert_eq!(
+            serde_json::from_str::<StringCondition>(r#"{"eq": "Chrome"}"#).unwrap(),
+            StringCondition::Eq("Chrome".to_string())
+        );
+        assert_eq!(
+            serde_json::from_str::<StringCondition>(r#"{"EQ": "Chrome"}"#).unwrap(),
+            StringCondition::Eq("Chrome".to_string())
+        );
+        assert_eq!(
+            serde_json::from_str::<StringCondition>(r#"{"starts": "Chr"}"#).unwrap(),
+            StringCondition::Starts("Chr".to_string())
+        );
+        assert_eq!(
+            serde_json::from_str::<StringCondition>(r#"{"ends": "me"}"#).unwrap(),
+            StringCondition::Ends("me".to_string())
+        );
+        assert_eq!(
+            serde_json::from_str::<StringCondition>(r#"{"in": ["Chrome", "Firefox"]}"#).unwrap(),
+            StringCondition::In(vec!["Chrome".to_string(), "Firefox".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_numeric_condition_variants() {
+        assert_eq!(
+            serde_json::from_str::<NumericCondition>(r#"{"eq": 5}"#).unwrap(),
+            NumericCondition::Eq(5)
+        );
+        assert_eq!(
+            serde_json::from_str::<NumericCondition>(r#"{"gt": 1}"#).unwrap(),
+            NumericCondition::Gt(1)
+        );
+        assert_eq!(
+            serde_json::from_str::<NumericCondition>(r#"{"lt": 10}"#).unwrap(),
+            NumericCondition::Lt(10)
+        );
+        assert_eq!(
+            serde_json::from_str::<NumericCondition>(r#"{"in": [1, 2, 3]}"#).unwrap(),
+            NumericCondition::In(vec![1, 2, 3])
+        );
+    }
+
+    #[test]
+    fn test_condition_roundtrip_skips_none_fields() {
+        let condition = Condition {
+            rnd: Some(NumericCondition::Gt(50)),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&condition).unwrap();
+        assert!(!json.contains("\"ua\""));
+        assert!(!json.contains("\"and\""));
+        assert!(json.contains("rnd"));
+
+        let parsed: Condition = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, condition);
+    }
 }

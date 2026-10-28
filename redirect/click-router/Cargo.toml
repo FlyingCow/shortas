@@ -76,6 +76,7 @@ tower-cookies = "0.10"
 
 [dev-dependencies]
 criterion.workspace = true
+wiremock.workspace = true
 
 [[bench]]
 name = "default"

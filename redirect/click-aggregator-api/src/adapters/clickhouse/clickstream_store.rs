@@ -825,3 +825,178 @@ impl ClickStreamStore for ClickHouseClickStreamStore {
         Ok(stats)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::clickstream::ClickStreamQuery;
+
+    // --- pure helpers (no HTTP) ---
+
+    #[test]
+    fn test_escape_sql_string_escapes_quotes_and_backslashes() {
+        assert_eq!(escape_sql_string("O'Brien"), "O\\'Brien");
+        assert_eq!(escape_sql_string(r"back\slash"), r"back\\slash");
+        assert_eq!(escape_sql_string("plain"), "plain");
+    }
+
+    #[test]
+    fn test_escape_sql_string_neutralizes_injection_attempt() {
+        // A naive `owner_id = '{value}'` with this input would close the
+        // string literal early and append arbitrary SQL; escaping must
+        // prevent that.
+        let malicious = "x' OR '1'='1";
+        let escaped = escape_sql_string(malicious);
+        assert_eq!(escaped, "x\\' OR \\'1\\'=\\'1");
+        assert!(!escaped.contains("' OR '"));
+    }
+
+    fn store() -> ClickHouseClickStreamStore {
+        ClickHouseClickStreamStore::new("http://localhost:8123", "user", "pass", "db").unwrap()
+    }
+
+    #[test]
+    fn test_build_where_clause_empty_when_no_filters() {
+        let store = store();
+        let query = ClickStreamQuery::default();
+        assert_eq!(store.build_where_clause(&query), "");
+    }
+
+    #[test]
+    fn test_build_where_clause_combines_filters_with_and() {
+        let store = store();
+        let mut query = ClickStreamQuery::default();
+        query.owner_id = Some("owner-1".to_string());
+        query.route_id = Some("route-1".to_string());
+
+        let clause = store.build_where_clause(&query);
+        assert_eq!(clause, "WHERE owner_id = 'owner-1' AND route_id = 'route-1'");
+    }
+
+    #[test]
+    fn test_build_where_clause_escapes_filter_values() {
+        let store = store();
+        let mut query = ClickStreamQuery::default();
+        query.owner_id = Some("x' OR '1'='1".to_string());
+
+        let clause = store.build_where_clause(&query);
+        assert!(!clause.contains("' OR '"), "owner_id filter must be escaped: {clause}");
+    }
+
+    #[test]
+    fn test_row_to_item_converts_nulls_to_unknown_defaults() {
+        use crate::model::clickstream::UNKNOWN;
+
+        let row = ClickStreamRow {
+            id: "1".to_string(),
+            owner_id: "o1".to_string(),
+            creator_id: "c1".to_string(),
+            route_id: "r1".to_string(),
+            workspace_id: "w1".to_string(),
+            created: Utc::now(),
+            dest: "https://example.com".to_string(),
+            ip: "1.2.3.4".to_string(),
+            continent: None,
+            country: Some("US".to_string()),
+            location: None,
+            os_family: None,
+            os_version: None,
+            user_agent_family: None,
+            user_agent_version: None,
+            device_brand: None,
+            device_family: None,
+            device_model: None,
+            session_first: None,
+            session_clicks: None,
+            is_unique: true,
+            is_bot: false,
+        };
+
+        let item = ClickHouseClickStreamStore::row_to_item(row);
+        assert_eq!(item.continent, UNKNOWN);
+        assert_eq!(item.country, "US");
+        assert_eq!(item.session_clicks, 0);
+        assert_eq!(item.session_first, crate::model::clickstream::epoch_datetime());
+    }
+
+    // --- HTTP behavior against a mock ClickHouse server ---
+
+    /// Distinguishes the row-fetching query from the COUNT(*) query, since
+    /// both hit the exact same URL with different `query` params.
+    struct QueryContains(&'static str);
+    impl wiremock::Match for QueryContains {
+        fn matches(&self, request: &wiremock::Request) -> bool {
+            request
+                .url
+                .query_pairs()
+                .any(|(key, value)| key == "query" && value.contains(self.0))
+        }
+    }
+
+    fn test_store(url: String) -> ClickHouseClickStreamStore {
+        ClickHouseClickStreamStore::new(&url, "user", "pass", "db").unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_query_clickstream_parses_rows_and_computes_has_more() {
+        let server = wiremock::MockServer::start().await;
+
+        let row = r#"{"id":"1","owner_id":"o1","creator_id":"c1","route_id":"r1","workspace_id":"w1","created":"2024-01-01 00:00:00.000","dest":"https://example.com","ip":"1.2.3.4","continent":null,"country":"US","location":null,"os_family":null,"os_version":null,"user_agent_family":null,"user_agent_version":null,"device_brand":null,"device_family":null,"device_model":null,"session_first":null,"session_clicks":null,"is_unique":1,"is_bot":0}"#;
+
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .and(QueryContains("COUNT"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string("{\"count\":5}\n"))
+            .mount(&server)
+            .await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .and(QueryContains("SELECT id"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string(format!("{row}\n")))
+            .mount(&server)
+            .await;
+
+        let store = test_store(server.uri());
+        let mut query = ClickStreamQuery::default();
+        query.limit = Some(1);
+        query.offset = Some(0);
+
+        let response = store.query_clickstream(&query).await.unwrap();
+        assert_eq!(response.items.len(), 1);
+        assert_eq!(response.items[0].owner_id, "o1");
+        assert_eq!(response.total, 5);
+        assert!(response.has_more, "offset(0) + limit(1) < total(5)");
+    }
+
+    #[tokio::test]
+    async fn test_query_clickstream_skips_malformed_rows() {
+        let server = wiremock::MockServer::start().await;
+
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .and(QueryContains("COUNT"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string("{\"count\":0}\n"))
+            .mount(&server)
+            .await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .and(QueryContains("SELECT id"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string("not valid json\n"))
+            .mount(&server)
+            .await;
+
+        let store = test_store(server.uri());
+        let response = store.query_clickstream(&ClickStreamQuery::default()).await.unwrap();
+        assert!(response.items.is_empty());
+        assert!(!response.has_more);
+    }
+
+    #[tokio::test]
+    async fn test_count_clickstream_returns_count() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string("{\"count\":42}\n"))
+            .mount(&server)
+            .await;
+
+        let store = test_store(server.uri());
+        let count = store.count_clickstream(&ClickStreamQuery::default()).await.unwrap();
+        assert_eq!(count, 42);
+    }
+}

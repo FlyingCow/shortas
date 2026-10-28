@@ -348,11 +348,149 @@ pub trait IntoApiError<T> {
     fn into_api_error(self) -> Result<T, ApiError>;
 }
 
-impl<T, E> IntoApiError<T> for Result<T, E> 
-where 
+impl<T, E> IntoApiError<T> for Result<T, E>
+where
     E: Into<ApiError>
 {
     fn into_api_error(self) -> Result<T, ApiError> {
         self.map_err(Into::into)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_database_error_codes() {
+        assert_eq!(DatabaseError::ConnectionFailed("x".into()).get_error_code(), 503);
+        assert_eq!(DatabaseError::QueryFailed("x".into()).get_error_code(), 500);
+        assert_eq!(DatabaseError::DuplicateKey("x".into()).get_error_code(), 409);
+        assert_eq!(DatabaseError::Timeout("x".into()).get_error_code(), 504);
+    }
+
+    #[test]
+    fn test_authentication_error_codes() {
+        assert_eq!(AuthenticationError::InvalidApiKey.get_error_code(), 401);
+        assert_eq!(AuthenticationError::InsufficientPermissions("x".into()).get_error_code(), 403);
+        assert_eq!(AuthenticationError::UserNotFound("x".into()).get_error_code(), 404);
+    }
+
+    #[test]
+    fn test_route_error_codes() {
+        let not_found = RouteError::NotFound {
+            switch: "s".into(),
+            domain: "d".into(),
+            path: "p".into(),
+        };
+        assert_eq!(not_found.get_error_code(), 404);
+        assert_eq!(RouteError::Blocked { reason: "spam".into() }.get_error_code(), 403);
+        assert_eq!(RouteError::Expired { expires_at: "2024".into() }.get_error_code(), 410);
+    }
+
+    #[test]
+    fn test_external_service_error_codes() {
+        assert_eq!(ExternalServiceError::Unavailable("x".into()).get_error_code(), 503);
+        assert_eq!(ExternalServiceError::RateLimited("x".into()).get_error_code(), 429);
+        assert_eq!(ExternalServiceError::Timeout("x".into()).get_error_code(), 504);
+    }
+
+    #[test]
+    fn test_validation_configuration_internal_error_codes() {
+        assert_eq!(ValidationError::MissingField("x".into()).get_error_code(), 400);
+        assert_eq!(ConfigurationError::Missing("x".into()).get_error_code(), 500);
+        assert_eq!(InternalError::MemoryAllocation.get_error_code(), 500);
+    }
+
+    #[test]
+    fn test_api_error_get_error_code_dispatches_to_variant() {
+        assert_eq!(
+            ApiError::Database(DatabaseError::Timeout("x".into())).get_error_code(),
+            504
+        );
+        assert_eq!(
+            ApiError::Route(RouteError::Blocked { reason: "x".into() }).get_error_code(),
+            403
+        );
+        assert_eq!(
+            ApiError::ExternalService(ExternalServiceError::RateLimited("x".into())).get_error_code(),
+            429
+        );
+    }
+
+    #[test]
+    fn test_api_error_get_error_message_uses_display() {
+        let err = ApiError::Database(DatabaseError::ConnectionFailed("pool exhausted".into()));
+        assert_eq!(err.get_error_message(), "Database error: Connection failed: pool exhausted");
+    }
+
+    #[test]
+    fn test_helper_constructors() {
+        assert!(matches!(
+            ApiError::database_connection_failed("x".into()),
+            ApiError::Database(DatabaseError::ConnectionFailed(_))
+        ));
+        assert!(matches!(
+            ApiError::database_query_failed("x".into()),
+            ApiError::Database(DatabaseError::QueryFailed(_))
+        ));
+        assert!(matches!(
+            ApiError::route_not_found("s".into(), "d".into(), "p".into()),
+            ApiError::Route(RouteError::NotFound { .. })
+        ));
+        assert!(matches!(
+            ApiError::user_not_found("u1".into()),
+            ApiError::Authentication(AuthenticationError::UserNotFound(ref id)) if id == "u1"
+        ));
+        assert!(matches!(
+            ApiError::invalid_api_key(),
+            ApiError::Authentication(AuthenticationError::InvalidApiKey)
+        ));
+        assert!(matches!(
+            ApiError::validation_error("field".into(), "bad".into()),
+            ApiError::Validation(ValidationError::InvalidInput { .. })
+        ));
+        assert!(matches!(
+            ApiError::external_service_error("s3".into(), "down".into()),
+            ApiError::ExternalService(ExternalServiceError::Unavailable(_))
+        ));
+    }
+
+    #[test]
+    fn test_from_anyhow_error_downcasts_existing_api_error() {
+        let original = ApiError::invalid_api_key();
+        let wrapped: anyhow::Error = anyhow::Error::new(original);
+        let converted: ApiError = wrapped.into();
+        assert!(matches!(
+            converted,
+            ApiError::Authentication(AuthenticationError::InvalidApiKey)
+        ));
+    }
+
+    #[test]
+    fn test_from_anyhow_error_falls_back_to_internal() {
+        let wrapped = anyhow::anyhow!("boom");
+        let converted: ApiError = wrapped.into();
+        assert!(matches!(converted, ApiError::Internal(InternalError::Unexpected(ref msg)) if msg == "boom"));
+    }
+
+    #[test]
+    fn test_into_api_error_trait_maps_err_variant() {
+        let result: Result<(), anyhow::Error> = Err(anyhow::anyhow!("failure"));
+        let converted = result.into_api_error();
+        assert!(converted.is_err());
+        assert!(matches!(converted.unwrap_err(), ApiError::Internal(InternalError::Unexpected(_))));
+    }
+
+    #[test]
+    fn test_legacy_api_error_display_is_generic() {
+        let err = LegacyApiError {
+            code: 500,
+            message: "boom".to_string(),
+            error: None,
+        };
+        assert_eq!(err.to_string(), "An Error Occurred, Please Try Again!");
+        assert_eq!(err.get_error_message(), "boom");
+        assert_eq!(err.get_error_code(), 500);
     }
 }

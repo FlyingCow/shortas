@@ -7,6 +7,7 @@ use super::route_repository::PaginatedResult;
 use crate::domain::entities::{Result, RouteDomain};
 
 /// Domain repository trait for database operations.
+#[cfg_attr(any(test, feature = "mocks"), mockall::automock)]
 #[async_trait]
 pub trait DomainRepository: Send + Sync {
     /// Get domain by ID.
@@ -26,12 +27,12 @@ pub trait DomainRepository: Send + Sync {
 
     /// List domains accessible by user (owned + shared), paginated and
     /// optionally name-filtered at the database level.
-    async fn list_accessible(
+    async fn list_accessible<'a>(
         &self,
         user_id: &str,
         page: i32,
         page_size: i32,
-        search: Option<&str>,
+        search: Option<&'a str>,
     ) -> Result<PaginatedResult<RouteDomain>>;
 
     /// Count the user's domains that aren't fully verified.

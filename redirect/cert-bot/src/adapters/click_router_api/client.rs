@@ -189,3 +189,139 @@ impl ClickRouterApiClient {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    fn test_client(base_url: String) -> ClickRouterApiClient {
+        ClickRouterApiClient::new(&ClickRouterApiSettings { base_url, timeout_seconds: 5 }).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_store_challenge_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("PUT"))
+            .and(path("/v1/challenges/example.com/token1"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        client.store_challenge("example.com", "token1", "auth-key").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_store_challenge_errors_on_failure() {
+        let server = MockServer::start().await;
+        Mock::given(method("PUT"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("boom"))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let err = client.store_challenge("example.com", "token1", "auth-key").await.unwrap_err();
+        assert!(err.to_string().contains("500"));
+    }
+
+    #[tokio::test]
+    async fn test_delete_domain_challenges_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("DELETE"))
+            .and(path("/v1/challenges/example.com"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        client.delete_domain_challenges("example.com").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_store_certificate_falls_back_to_put_when_post_fails() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(409))
+            .mount(&server)
+            .await;
+        Mock::given(method("PUT"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        client.store_certificate("example.com", "key-pem", "cert-pem").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_store_certificate_errors_when_both_post_and_put_fail() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST")).respond_with(ResponseTemplate::new(500)).mount(&server).await;
+        Mock::given(method("PUT")).respond_with(ResponseTemplate::new(500)).mount(&server).await;
+
+        let client = test_client(server.uri());
+        let err = client.store_certificate("example.com", "key-pem", "cert-pem").await.unwrap_err();
+        assert!(err.to_string().contains("500"));
+    }
+
+    #[tokio::test]
+    async fn test_get_certificate_returns_none_on_404() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET")).respond_with(ResponseTemplate::new(404)).mount(&server).await;
+
+        let client = test_client(server.uri());
+        let result = client.get_certificate("example.com").await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_certificate_returns_some_on_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "key": "key-pem",
+                "cert": "cert-pem",
+                "ocsp_resp": "",
+            })))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.get_certificate("example.com").await.unwrap();
+        assert_eq!(result.unwrap().key, "key-pem");
+    }
+
+    #[tokio::test]
+    async fn test_get_certificates_expiring_before_returns_empty_on_404() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET")).respond_with(ResponseTemplate::new(404)).mount(&server).await;
+
+        let client = test_client(server.uri());
+        let result = client.get_certificates_expiring_before(Utc::now()).await.unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_certificates_expiring_before_maps_response() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "certificates": [
+                    { "domain": "example.com", "owner_id": "owner-1", "expires_at": null }
+                ]
+            })))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.get_certificates_expiring_before(Utc::now()).await.unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].domain, "example.com");
+        assert_eq!(result[0].owner_id, Some("owner-1".to_string()));
+    }
+}

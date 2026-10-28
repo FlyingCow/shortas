@@ -641,3 +641,526 @@ impl RouteService {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::entities::{
+        DestinationFormat, RouteDomain, RouteProperties, RouteStatus, RoutingPolicy,
+        RoutingTerminal, UserWorkspace,
+    };
+    use crate::domain::traits::{MockDomainRepository, MockOutboxRepository, MockRouteRepository, MockWorkspaceRepository};
+    use crate::settings::ClickRouterSettings;
+    use wiremock::matchers::method;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    /// A click-router double that accepts any PUT/DELETE, for tests that
+    /// need propagation to succeed but aren't asserting on it directly.
+    async fn ok_click_router() -> Arc<ClickRouterClient> {
+        let server = MockServer::start().await;
+        Mock::given(method("PUT")).respond_with(ResponseTemplate::new(200)).mount(&server).await;
+        Mock::given(method("DELETE")).respond_with(ResponseTemplate::new(200)).mount(&server).await;
+        // Leak the server so it outlives the client for the duration of the test process;
+        // acceptable in a test-only helper used once per test.
+        let uri = server.uri();
+        std::mem::forget(server);
+        Arc::new(ClickRouterClient::new(&ClickRouterSettings { base_url: uri, timeout_ms: 5000 }).unwrap())
+    }
+
+    fn sample_domain(owner_id: &str) -> RouteDomain {
+        RouteDomain::new("example.com".to_string(), owner_id.to_string())
+    }
+
+    fn route_with_domain(domain_id: Uuid, link: &str) -> Route {
+        Route {
+            id: Uuid::new_v4(),
+            switch: "main".to_string(),
+            link: link.to_string(),
+            dest: Some("https://example.com".to_string()),
+            dest_format: DestinationFormat::Http,
+            code: None,
+            ttl: None,
+            status: RouteStatus::Active,
+            terminal: RoutingTerminal::External,
+            policy: RoutingPolicy::Basic,
+            properties: RouteProperties::default(),
+            domain_id: Some(domain_id),
+        }
+    }
+
+    async fn service(
+        route_repo: MockRouteRepository,
+        domain_repo: MockDomainRepository,
+        outbox_repo: MockOutboxRepository,
+        workspace_repo: MockWorkspaceRepository,
+    ) -> RouteService {
+        RouteService::new(
+            Arc::new(route_repo),
+            Arc::new(domain_repo),
+            Arc::new(outbox_repo),
+            ok_click_router().await,
+            Arc::new(workspace_repo),
+        )
+    }
+
+    // --- pure helpers ---
+
+    #[test]
+    fn test_calculate_optimal_length_grows_with_existing_count() {
+        assert_eq!(RouteService::calculate_optimal_length(0), MIN_LENGTH);
+        // 36^3 = 46656; 30% of that is ~13996, so above that it should grow to length 4.
+        assert_eq!(RouteService::calculate_optimal_length(20_000), 4);
+    }
+
+    #[test]
+    fn test_generate_candidates_respects_length_count_and_alphabet() {
+        let candidates = RouteService::generate_candidates(5, 10);
+        assert_eq!(candidates.len(), 10);
+        for c in &candidates {
+            assert_eq!(c.len(), 5);
+            assert!(c.bytes().all(|b| ALPHABET.contains(&b)));
+        }
+    }
+
+    // --- suggest_link ---
+
+    #[tokio::test]
+    async fn test_suggest_link_returns_available_candidate() {
+        let domain_id = Uuid::new_v4();
+        let mut domain_repo = MockDomainRepository::new();
+        domain_repo
+            .expect_get_by_id()
+            .returning(move |_| Ok(Some(sample_domain("owner-1"))));
+
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_count_by_domain().returning(|_| Ok(0));
+        route_repo.expect_find_existing_links().returning(|_, _| Ok(vec![]));
+
+        let svc = service(
+            route_repo,
+            domain_repo,
+            MockOutboxRepository::new(),
+            MockWorkspaceRepository::new(),
+        )
+        .await;
+
+        let link = svc.suggest_link(domain_id).await.unwrap();
+        assert_eq!(link.len(), MIN_LENGTH);
+        assert!(link.bytes().all(|b| ALPHABET.contains(&b)));
+    }
+
+    #[tokio::test]
+    async fn test_suggest_link_domain_not_found() {
+        let domain_id = Uuid::new_v4();
+        let mut domain_repo = MockDomainRepository::new();
+        domain_repo.expect_get_by_id().returning(|_| Ok(None));
+
+        let svc = service(
+            MockRouteRepository::new(),
+            domain_repo,
+            MockOutboxRepository::new(),
+            MockWorkspaceRepository::new(),
+        )
+        .await;
+
+        let err = svc.suggest_link(domain_id).await.unwrap_err();
+        assert_eq!(err.code, crate::domain::entities::ErrorCode::NotFound);
+    }
+
+    #[tokio::test]
+    async fn test_suggest_link_exhausts_retries_when_all_candidates_collide() {
+        let domain_id = Uuid::new_v4();
+        let mut domain_repo = MockDomainRepository::new();
+        domain_repo
+            .expect_get_by_id()
+            .returning(move |_| Ok(Some(sample_domain("owner-1"))));
+
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_count_by_domain().returning(|_| Ok(0));
+        // Echo every candidate back as "already existing" to force exhaustion.
+        route_repo
+            .expect_find_existing_links()
+            .returning(|_, links| Ok(links.to_vec()));
+
+        let svc = service(
+            route_repo,
+            domain_repo,
+            MockOutboxRepository::new(),
+            MockWorkspaceRepository::new(),
+        )
+        .await;
+
+        let err = svc.suggest_link(domain_id).await.unwrap_err();
+        assert_eq!(err.code, crate::domain::entities::ErrorCode::InternalError);
+    }
+
+    // --- get_by_id access control ---
+
+    #[tokio::test]
+    async fn test_get_by_id_allows_owner() {
+        let domain_id = Uuid::new_v4();
+        let mut route = route_with_domain(domain_id, "abc");
+        route.properties.owner_id = Some("owner-1".to_string());
+        let route_id = route.id;
+
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_get_by_id().returning(move |_| Ok(Some(route.clone())));
+
+        let svc = service(
+            route_repo,
+            MockDomainRepository::new(),
+            MockOutboxRepository::new(),
+            MockWorkspaceRepository::new(),
+        )
+        .await;
+
+        let result = svc.get_by_id(route_id, "owner-1").await.unwrap();
+        assert_eq!(result.id, route_id);
+    }
+
+    #[tokio::test]
+    async fn test_get_by_id_allows_workspace_member() {
+        let domain_id = Uuid::new_v4();
+        let workspace_id = Uuid::new_v4();
+        let mut route = route_with_domain(domain_id, "abc");
+        route.properties.owner_id = Some("owner-1".to_string());
+        route.properties.workspace_id = Some(workspace_id.to_string());
+        let route_id = route.id;
+
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_get_by_id().returning(move |_| Ok(Some(route.clone())));
+
+        let mut workspace_repo = MockWorkspaceRepository::new();
+        workspace_repo.expect_user_has_access().returning(|_, _| Ok(true));
+
+        let svc = service(route_repo, MockDomainRepository::new(), MockOutboxRepository::new(), workspace_repo).await;
+
+        let result = svc.get_by_id(route_id, "member-1").await.unwrap();
+        assert_eq!(result.id, route_id);
+    }
+
+    #[tokio::test]
+    async fn test_get_by_id_denies_non_member() {
+        let domain_id = Uuid::new_v4();
+        let mut route = route_with_domain(domain_id, "abc");
+        route.properties.owner_id = Some("owner-1".to_string());
+        let route_id = route.id;
+
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_get_by_id().returning(move |_| Ok(Some(route.clone())));
+
+        let svc = service(
+            route_repo,
+            MockDomainRepository::new(),
+            MockOutboxRepository::new(),
+            MockWorkspaceRepository::new(),
+        )
+        .await;
+
+        let err = svc.get_by_id(route_id, "stranger").await.unwrap_err();
+        assert_eq!(err.code, crate::domain::entities::ErrorCode::Forbidden);
+    }
+
+    #[tokio::test]
+    async fn test_get_by_id_not_found() {
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_get_by_id().returning(|_| Ok(None));
+
+        let svc = service(
+            route_repo,
+            MockDomainRepository::new(),
+            MockOutboxRepository::new(),
+            MockWorkspaceRepository::new(),
+        )
+        .await;
+
+        let err = svc.get_by_id(Uuid::new_v4(), "owner-1").await.unwrap_err();
+        assert_eq!(err.code, crate::domain::entities::ErrorCode::NotFound);
+    }
+
+    // --- create ---
+
+    #[tokio::test]
+    async fn test_create_requires_domain_id() {
+        let mut route = route_with_domain(Uuid::new_v4(), "abc");
+        route.domain_id = None;
+
+        let svc = service(
+            MockRouteRepository::new(),
+            MockDomainRepository::new(),
+            MockOutboxRepository::new(),
+            MockWorkspaceRepository::new(),
+        )
+        .await;
+
+        let err = svc.create(route, "owner-1").await.unwrap_err();
+        assert_eq!(err.code, crate::domain::entities::ErrorCode::ValidationError);
+    }
+
+    #[tokio::test]
+    async fn test_create_domain_not_found() {
+        let domain_id = Uuid::new_v4();
+        let route = route_with_domain(domain_id, "abc");
+
+        let mut domain_repo = MockDomainRepository::new();
+        domain_repo.expect_get_by_id().returning(|_| Ok(None));
+
+        let svc = service(
+            MockRouteRepository::new(),
+            domain_repo,
+            MockOutboxRepository::new(),
+            MockWorkspaceRepository::new(),
+        )
+        .await;
+
+        let err = svc.create(route, "owner-1").await.unwrap_err();
+        assert_eq!(err.code, crate::domain::entities::ErrorCode::NotFound);
+    }
+
+    #[tokio::test]
+    async fn test_create_forbidden_when_domain_not_usable_by_owner() {
+        let domain_id = Uuid::new_v4();
+        let route = route_with_domain(domain_id, "abc");
+
+        let mut domain_repo = MockDomainRepository::new();
+        // Domain owned by someone else and not shared.
+        domain_repo
+            .expect_get_by_id()
+            .returning(move |_| Ok(Some(sample_domain("someone-else"))));
+
+        let svc = service(
+            MockRouteRepository::new(),
+            domain_repo,
+            MockOutboxRepository::new(),
+            MockWorkspaceRepository::new(),
+        )
+        .await;
+
+        let err = svc.create(route, "owner-1").await.unwrap_err();
+        assert_eq!(err.code, crate::domain::entities::ErrorCode::Forbidden);
+    }
+
+    #[tokio::test]
+    async fn test_create_conflict_when_link_exists() {
+        let domain_id = Uuid::new_v4();
+        let route = route_with_domain(domain_id, "abc");
+
+        let mut domain_repo = MockDomainRepository::new();
+        domain_repo
+            .expect_get_by_id()
+            .returning(move |_| Ok(Some(sample_domain("owner-1"))));
+
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_link_exists().returning(|_, _| Ok(true));
+
+        let svc = service(
+            route_repo,
+            domain_repo,
+            MockOutboxRepository::new(),
+            MockWorkspaceRepository::new(),
+        )
+        .await;
+
+        let err = svc.create(route, "owner-1").await.unwrap_err();
+        assert_eq!(err.code, crate::domain::entities::ErrorCode::Conflict);
+    }
+
+    #[tokio::test]
+    async fn test_create_happy_path_sets_owner_creator_and_queues_outbox() {
+        let domain_id = Uuid::new_v4();
+        let route = route_with_domain(domain_id, "abc");
+
+        let mut domain_repo = MockDomainRepository::new();
+        domain_repo
+            .expect_get_by_id()
+            .returning(move |_| Ok(Some(sample_domain("owner-1"))));
+
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_link_exists().returning(|_, _| Ok(false));
+        route_repo.expect_create().returning(|r| Ok(r.clone()));
+
+        let mut outbox_repo = MockOutboxRepository::new();
+        // index_route + check_route_safety (dest is Some)
+        outbox_repo.expect_create().times(2).returning(|m| Ok(m.clone()));
+
+        let svc = service(route_repo, domain_repo, outbox_repo, MockWorkspaceRepository::new()).await;
+
+        let created = svc.create(route, "owner-1").await.unwrap();
+        assert_eq!(created.properties.owner_id, Some("owner-1".to_string()));
+        assert_eq!(created.properties.creator_id, Some("owner-1".to_string()));
+        assert_eq!(created.properties.route_id, Some(created.id.to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_create_in_shared_workspace_assigns_owner_to_workspace_owner() {
+        let domain_id = Uuid::new_v4();
+        let workspace_id = Uuid::new_v4();
+        let mut route = route_with_domain(domain_id, "abc");
+        route.properties.workspace_id = Some(workspace_id.to_string());
+
+        let mut domain_repo = MockDomainRepository::new();
+        // Domain belongs to the workspace owner, not the admin creating it.
+        domain_repo
+            .expect_get_by_id()
+            .returning(move |_| Ok(Some(sample_domain("workspace-owner"))));
+
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_link_exists().returning(|_, _| Ok(false));
+        route_repo.expect_create().returning(|r| Ok(r.clone()));
+
+        let mut outbox_repo = MockOutboxRepository::new();
+        outbox_repo.expect_create().times(2).returning(|m| Ok(m.clone()));
+
+        let mut workspace_repo = MockWorkspaceRepository::new();
+        let admin_membership = UserWorkspace::new("admin-1".to_string(), workspace_id, "Admin".to_string());
+        workspace_repo
+            .expect_get_membership()
+            .returning(move |_, _| Ok(Some(admin_membership.clone())));
+        workspace_repo
+            .expect_get_owner_user_id()
+            .returning(|_| Ok(Some("workspace-owner".to_string())));
+
+        let svc = service(route_repo, domain_repo, outbox_repo, workspace_repo).await;
+
+        let created = svc.create(route, "admin-1").await.unwrap();
+        assert_eq!(created.properties.owner_id, Some("workspace-owner".to_string()));
+        assert_eq!(created.properties.creator_id, Some("admin-1".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_create_forbidden_when_no_workspace_membership() {
+        let domain_id = Uuid::new_v4();
+        let workspace_id = Uuid::new_v4();
+        let mut route = route_with_domain(domain_id, "abc");
+        route.properties.workspace_id = Some(workspace_id.to_string());
+
+        let mut domain_repo = MockDomainRepository::new();
+        domain_repo
+            .expect_get_by_id()
+            .returning(move |_| Ok(Some(sample_domain("owner-1"))));
+
+        let mut workspace_repo = MockWorkspaceRepository::new();
+        workspace_repo.expect_get_membership().returning(|_, _| Ok(None));
+
+        let svc = service(
+            MockRouteRepository::new(),
+            domain_repo,
+            MockOutboxRepository::new(),
+            workspace_repo,
+        )
+        .await;
+
+        let err = svc.create(route, "stranger").await.unwrap_err();
+        assert_eq!(err.code, crate::domain::entities::ErrorCode::Forbidden);
+    }
+
+    // --- update ---
+
+    #[tokio::test]
+    async fn test_update_preserves_immutable_fields() {
+        let domain_id = Uuid::new_v4();
+        let other_domain_id = Uuid::new_v4();
+        let mut existing = route_with_domain(domain_id, "original-link");
+        existing.properties.owner_id = Some("owner-1".to_string());
+        existing.properties.creator_id = Some("owner-1".to_string());
+        existing.properties.route_id = Some(existing.id.to_string());
+        let route_id = existing.id;
+
+        let mut attempted_update = existing.clone();
+        attempted_update.link = "hacked-link".to_string();
+        attempted_update.domain_id = Some(other_domain_id);
+        attempted_update.properties.owner_id = Some("attacker".to_string());
+        attempted_update.dest = Some("https://still-example.com".to_string());
+
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_get_by_id().returning(move |_| Ok(Some(existing.clone())));
+        route_repo.expect_update().returning(|r| Ok(r.clone()));
+
+        let mut domain_repo = MockDomainRepository::new();
+        domain_repo
+            .expect_get_by_id()
+            .returning(move |_| Ok(Some(sample_domain("owner-1"))));
+
+        let mut outbox_repo = MockOutboxRepository::new();
+        outbox_repo.expect_create().returning(|m| Ok(m.clone()));
+
+        let svc = service(route_repo, domain_repo, outbox_repo, MockWorkspaceRepository::new()).await;
+
+        let saved = svc.update(route_id, attempted_update, "owner-1").await.unwrap();
+        assert_eq!(saved.link, "original-link");
+        assert_eq!(saved.domain_id, Some(domain_id));
+        assert_eq!(saved.properties.owner_id, Some("owner-1".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_update_not_found() {
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_get_by_id().returning(|_| Ok(None));
+
+        let svc = service(
+            route_repo,
+            MockDomainRepository::new(),
+            MockOutboxRepository::new(),
+            MockWorkspaceRepository::new(),
+        )
+        .await;
+
+        let err = svc
+            .update(Uuid::new_v4(), route_with_domain(Uuid::new_v4(), "abc"), "owner-1")
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, crate::domain::entities::ErrorCode::NotFound);
+    }
+
+    #[tokio::test]
+    async fn test_update_forbidden_for_non_owner_non_admin() {
+        let domain_id = Uuid::new_v4();
+        let mut existing = route_with_domain(domain_id, "abc");
+        existing.properties.owner_id = Some("owner-1".to_string());
+        let route_id = existing.id;
+
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_get_by_id().returning(move |_| Ok(Some(existing.clone())));
+
+        let svc = service(
+            route_repo,
+            MockDomainRepository::new(),
+            MockOutboxRepository::new(),
+            MockWorkspaceRepository::new(),
+        )
+        .await;
+
+        let err = svc
+            .update(route_id, route_with_domain(domain_id, "abc"), "stranger")
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, crate::domain::entities::ErrorCode::Forbidden);
+    }
+
+    // --- delete ---
+
+    #[tokio::test]
+    async fn test_delete_removes_route_and_queues_cleanup() {
+        let domain_id = Uuid::new_v4();
+        let mut route = route_with_domain(domain_id, "abc");
+        route.properties.owner_id = Some("owner-1".to_string());
+        let route_id = route.id;
+
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_get_by_id().returning(move |_| Ok(Some(route.clone())));
+        route_repo.expect_delete().returning(|_| Ok(()));
+
+        let mut domain_repo = MockDomainRepository::new();
+        domain_repo
+            .expect_get_by_id()
+            .returning(move |_| Ok(Some(sample_domain("owner-1"))));
+
+        let mut outbox_repo = MockOutboxRepository::new();
+        // delete_route_index + delete_route_safety_check
+        outbox_repo.expect_create().times(2).returning(|m| Ok(m.clone()));
+
+        let svc = service(route_repo, domain_repo, outbox_repo, MockWorkspaceRepository::new()).await;
+
+        svc.delete(route_id, "owner-1").await.unwrap();
+    }
+}

@@ -75,3 +75,49 @@ impl Notification {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_notification_status_as_str() {
+        assert_eq!(NotificationStatus::Unread.as_str(), "Unread");
+        assert_eq!(NotificationStatus::Read.as_str(), "Read");
+        assert_eq!(NotificationStatus::Actioned.as_str(), "Actioned");
+    }
+
+    #[test]
+    fn test_notification_status_from_str() {
+        assert_eq!(NotificationStatus::from_str("Read"), NotificationStatus::Read);
+        assert_eq!(NotificationStatus::from_str("Actioned"), NotificationStatus::Actioned);
+        assert_eq!(NotificationStatus::from_str("Unread"), NotificationStatus::Unread);
+        assert_eq!(NotificationStatus::from_str("garbage"), NotificationStatus::Unread);
+    }
+
+    #[test]
+    fn test_notification_new_defaults_to_unread_with_no_rendered_text() {
+        let notification = Notification::new(
+            "user-1".to_string(),
+            "WorkspaceInvite".to_string(),
+            serde_json::json!({"workspace": "Acme"}),
+        );
+        assert_eq!(notification.status, NotificationStatus::Unread);
+        assert!(notification.rendered_text.is_none());
+        assert!(notification.read_at.is_none());
+        assert_eq!(notification.user_id, "user-1");
+    }
+
+    #[test]
+    fn test_notification_with_rendered_text_preserves_fields() {
+        let notification = Notification::with_rendered_text(
+            "user-1".to_string(),
+            "WorkspaceInvite".to_string(),
+            serde_json::json!({"workspace": "Acme"}),
+            "Jane invited you to Acme".to_string(),
+        );
+        assert_eq!(notification.rendered_text, Some("Jane invited you to Acme".to_string()));
+        assert_eq!(notification.status, NotificationStatus::Unread);
+        assert_eq!(notification.notification_type, "WorkspaceInvite");
+    }
+}

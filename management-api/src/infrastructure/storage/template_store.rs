@@ -113,3 +113,82 @@ impl TemplateStore {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn template_set(required_context: Vec<&str>) -> TemplateSet {
+        TemplateSet {
+            metadata: TemplateMetadata {
+                channels: vec!["email".to_string()],
+                required_context: required_context.into_iter().map(String::from).collect(),
+                description: String::new(),
+            },
+            email_subject: None,
+            email_body: None,
+            in_app: None,
+        }
+    }
+
+    #[test]
+    fn test_validate_context_passes_when_all_required_keys_present() {
+        let set = template_set(vec!["workspace_name", "inviter_name"]);
+        let context = serde_json::json!({
+            "workspace_name": "Acme",
+            "inviter_name": "Jane",
+            "extra_key": "ignored",
+        });
+        assert!(set.validate_context(&context).is_ok());
+    }
+
+    #[test]
+    fn test_validate_context_fails_when_key_missing() {
+        let set = template_set(vec!["workspace_name", "inviter_name"]);
+        let context = serde_json::json!({ "workspace_name": "Acme" });
+        let err = set.validate_context(&context).unwrap_err();
+        assert!(err.to_string().contains("inviter_name"));
+    }
+
+    #[test]
+    fn test_validate_context_fails_when_context_is_not_an_object() {
+        let set = template_set(vec!["workspace_name"]);
+        let context = serde_json::json!("not-an-object");
+        assert!(set.validate_context(&context).is_err());
+    }
+
+    #[test]
+    fn test_validate_context_passes_when_no_required_keys() {
+        let set = template_set(vec![]);
+        let context = serde_json::json!({});
+        assert!(set.validate_context(&context).is_ok());
+    }
+
+    #[test]
+    fn test_metadata_deserializes_from_real_invite_created_fixture() {
+        let raw = std::fs::read_to_string(format!(
+            "{}/../notification-templates/workspace.invite_created/metadata.json",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .expect("fixture should exist");
+        let metadata: TemplateMetadata = serde_json::from_str(&raw).unwrap();
+        assert!(metadata.channels.contains(&"email".to_string()));
+        assert!(metadata.required_context.contains(&"workspace_name".to_string()));
+
+        let set = TemplateSet {
+            metadata,
+            email_subject: None,
+            email_body: None,
+            in_app: None,
+        };
+        let full_context = serde_json::json!({
+            "workspace_name": "Acme",
+            "inviter_name": "Jane",
+            "role": "Member",
+            "role_label": "Member",
+            "invite_url": "https://example.com/invite/abc",
+        });
+        assert!(set.validate_context(&full_context).is_ok());
+        assert!(set.validate_context(&serde_json::json!({})).is_err());
+    }
+}
