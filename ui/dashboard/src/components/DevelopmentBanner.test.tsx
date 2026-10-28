@@ -4,7 +4,8 @@ import { render, screen } from '@testing-library/react';
 // process.env, so each scenario needs a fresh module graph.
 function renderBannerWithEnv(nodeEnv: string, useMockData?: string) {
   jest.resetModules();
-  process.env.NODE_ENV = nodeEnv;
+  // NODE_ENV is typed readonly in @types/node; cast to assign it in tests.
+  (process.env as any).NODE_ENV = nodeEnv;
   if (useMockData === undefined) {
     delete process.env.REACT_APP_USE_MOCK_DATA;
   } else {

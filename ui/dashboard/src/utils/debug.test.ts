@@ -4,13 +4,14 @@ describe('debug utils', () => {
   const originalEnv = process.env.NODE_ENV;
 
   afterEach(() => {
-    process.env.NODE_ENV = originalEnv;
+    // NODE_ENV is typed readonly in @types/node; cast to assign it in tests.
+    (process.env as any).NODE_ENV = originalEnv;
     jest.restoreAllMocks();
   });
 
   describe('in development', () => {
     beforeEach(() => {
-      process.env.NODE_ENV = 'development';
+      (process.env as any).NODE_ENV = 'development';
     });
 
     it('debugLog writes to console.log with the Shortas Debug prefix', () => {
@@ -35,7 +36,7 @@ describe('debug utils', () => {
 
   describe('outside development', () => {
     beforeEach(() => {
-      process.env.NODE_ENV = 'production';
+      (process.env as any).NODE_ENV = 'production';
     });
 
     it('debugLog is silent', () => {

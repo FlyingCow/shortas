@@ -1,3 +1,5 @@
+export {}; // mark this file as a module for --isolatedModules
+
 describe('development config flags', () => {
   const originalEnv = { ...process.env };
 
@@ -8,14 +10,15 @@ describe('development config flags', () => {
 
   it('isDevelopment is true when NODE_ENV is development', () => {
     jest.resetModules();
-    process.env.NODE_ENV = 'development';
+    // NODE_ENV is typed readonly in @types/node; cast to assign it in tests.
+    (process.env as any).NODE_ENV = 'development';
     const { isDevelopment } = require('./development');
     expect(isDevelopment).toBe(true);
   });
 
   it('isDevelopment is false when NODE_ENV is production', () => {
     jest.resetModules();
-    process.env.NODE_ENV = 'production';
+    (process.env as any).NODE_ENV = 'production';
     const { isDevelopment } = require('./development');
     expect(isDevelopment).toBe(false);
   });

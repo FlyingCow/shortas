@@ -1,6 +1,7 @@
 // Keycloak.ts keeps module-level singleton state (the Keycloak instance,
 // plus init caching/dedup flags), so every test resets modules and
 // re-requires it fresh rather than importing it once at the top of the file.
+export {}; // mark this file as a module for --isolatedModules
 
 jest.mock('keycloak-js', () => {
   return jest.fn().mockImplementation(() => ({
