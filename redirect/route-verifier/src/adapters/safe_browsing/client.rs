@@ -229,4 +229,127 @@ mod tests {
         assert_eq!(response.matches.as_ref().unwrap().len(), 2);
         assert_eq!(response.url, Some("http://example.com/malware".to_string()));
     }
+
+    fn test_client(base_url: String) -> SafeBrowsingClient {
+        SafeBrowsingClient::new(&SafeBrowsingSettings { base_url, timeout_seconds: 5 })
+    }
+
+    #[tokio::test]
+    async fn test_check_url_invalid_url_is_safe_without_network_call() {
+        // Deliberately unroutable base_url: if this made a request it would fail.
+        let client = test_client("http://127.0.0.1:1".to_string());
+        let result = client.check_url("not a url").await.unwrap();
+        assert!(result.is_safe);
+    }
+
+    #[tokio::test]
+    async fn test_check_url_404_is_safe() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(wiremock::ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.check_url("https://example.com").await.unwrap();
+        assert!(result.is_safe);
+    }
+
+    #[tokio::test]
+    async fn test_check_url_non_success_status_is_safe() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(wiremock::ResponseTemplate::new(500))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.check_url("https://example.com").await.unwrap();
+        assert!(result.is_safe);
+    }
+
+    #[tokio::test]
+    async fn test_check_url_empty_body_is_safe() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string(""))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.check_url("https://example.com").await.unwrap();
+        assert!(result.is_safe);
+    }
+
+    #[tokio::test]
+    async fn test_check_url_null_body_is_safe() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string("null"))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.check_url("https://example.com").await.unwrap();
+        assert!(result.is_safe);
+    }
+
+    #[tokio::test]
+    async fn test_check_url_with_matches_is_unsafe() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string(
+                r#"{"matches":[{"platform":"ANY_PLATFORM","threat":"MALWARE","threat_entry":"URL"}],"url":"https://malware.example.com"}"#,
+            ))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.check_url("https://malware.example.com").await.unwrap();
+        assert!(!result.is_safe);
+        assert_eq!(result.first_threat_type(), Some("MALWARE"));
+    }
+
+    #[tokio::test]
+    async fn test_check_url_malformed_json_is_safe() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string("not json"))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.check_url("https://example.com").await.unwrap();
+        assert!(result.is_safe);
+    }
+
+    #[tokio::test]
+    async fn test_check_urls_returns_first_unsafe_result() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_string(
+                r#"{"matches":[{"platform":"ANY_PLATFORM","threat":"MALWARE","threat_entry":"URL"}],"url":"https://bad.example.com"}"#,
+            ))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let urls = vec!["https://good.example.com".to_string(), "https://bad.example.com".to_string()];
+        let result = client.check_urls(&urls).await.unwrap();
+        assert!(!result.is_safe);
+    }
+
+    #[tokio::test]
+    async fn test_check_urls_all_safe_returns_safe() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(wiremock::ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let urls = vec!["https://a.example.com".to_string(), "https://b.example.com".to_string()];
+        let result = client.check_urls(&urls).await.unwrap();
+        assert!(result.is_safe);
+    }
 }

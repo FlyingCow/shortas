@@ -238,3 +238,118 @@ pub struct ClickStreamResponse {
     pub has_more: bool,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_unknown() {
+        assert!(ClickStreamItem::is_unknown(UNKNOWN));
+        assert!(!ClickStreamItem::is_unknown("US"));
+    }
+
+    #[test]
+    fn test_has_session() {
+        let mut item = ClickStreamItem::default();
+        assert!(!item.has_session(), "default session_first is epoch, so no session");
+
+        item.session_first = Utc::now();
+        assert!(item.has_session());
+    }
+
+    #[test]
+    fn test_has_geo_data() {
+        let mut item = ClickStreamItem::default();
+        assert!(!item.has_geo_data());
+
+        item.country = "US".to_string();
+        assert!(item.has_geo_data());
+    }
+
+    #[test]
+    fn test_has_device_data() {
+        let mut item = ClickStreamItem::default();
+        assert!(!item.has_device_data());
+
+        item.device_family = "iPhone".to_string();
+        assert!(item.has_device_data());
+    }
+
+    #[test]
+    fn test_has_user_agent_data() {
+        let mut item = ClickStreamItem::default();
+        assert!(!item.has_user_agent_data());
+
+        item.user_agent_family = "Chrome".to_string();
+        assert!(item.has_user_agent_data());
+    }
+
+    #[test]
+    fn test_default_item_has_unknown_geo_and_device_fields() {
+        let item = ClickStreamItem::default();
+        assert_eq!(item.continent, UNKNOWN);
+        assert_eq!(item.country, UNKNOWN);
+        assert_eq!(item.location, UNKNOWN);
+        assert_eq!(item.os_family, UNKNOWN);
+        assert_eq!(item.device_family, UNKNOWN);
+        assert_eq!(item.session_clicks, 0);
+        assert!(!item.is_unique);
+        assert!(!item.is_bot);
+    }
+
+    #[test]
+    fn test_deserialize_missing_optional_fields_use_defaults() {
+        let json = r#"{
+            "id": "1",
+            "owner_id": "o1",
+            "creator_id": "c1",
+            "route_id": "r1",
+            "workspace_id": "w1",
+            "created": "2024-01-01T00:00:00Z",
+            "dest": "https://example.com",
+            "ip": "1.2.3.4",
+            "is_unique": true,
+            "is_bot": false
+        }"#;
+        let item: ClickStreamItem = serde_json::from_str(json).unwrap();
+        assert_eq!(item.continent, UNKNOWN);
+        assert_eq!(item.country, UNKNOWN);
+        assert_eq!(item.session_clicks, 0);
+        assert_eq!(item.session_first, epoch_datetime());
+        assert!(item.is_unique);
+        assert!(!item.is_bot);
+    }
+
+    #[test]
+    fn test_query_default_has_pagination_but_no_filters() {
+        let query = ClickStreamQuery::default();
+        assert_eq!(query.limit, Some(100));
+        assert_eq!(query.offset, Some(0));
+        assert!(!query.has_filters());
+    }
+
+    #[test]
+    fn test_query_builder_sets_filters() {
+        let query = ClickStreamQuery::new()
+            .with_owner_id("owner-1".to_string())
+            .with_route_id("route-1".to_string())
+            .with_pagination(50, 10);
+
+        assert!(query.has_filters());
+        assert_eq!(query.owner_id, Some("owner-1".to_string()));
+        assert_eq!(query.route_id, Some("route-1".to_string()));
+        assert_eq!(query.limit, Some(50));
+        assert_eq!(query.offset, Some(10));
+    }
+
+    #[test]
+    fn test_query_with_date_range_counts_as_a_filter() {
+        let from = epoch_datetime();
+        let to = Utc::now();
+        let query = ClickStreamQuery::new().with_date_range(from, to);
+        assert!(query.has_filters());
+        assert_eq!(query.created_from, Some(from));
+        assert_eq!(query.created_to, Some(to));
+    }
+}
+

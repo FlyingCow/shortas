@@ -84,3 +84,63 @@ pub mod auth {
         ApiError::Authentication(AuthenticationError::AccountBlocked(reason.to_string()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::error::{ApiError, AuthenticationError, RouteError};
+
+    #[test]
+    fn test_validate_not_empty() {
+        assert!(validation::validate_not_empty("name", "shortas").is_ok());
+        assert!(validation::validate_not_empty("name", "   ").is_err());
+        assert!(validation::validate_not_empty("name", "").is_err());
+    }
+
+    #[test]
+    fn test_validate_url() {
+        assert!(validation::validate_url("dest", "https://example.com").is_ok());
+        assert!(validation::validate_url("dest", "ftp://example.com").is_err());
+        assert!(validation::validate_url("dest", "").is_err());
+    }
+
+    #[test]
+    fn test_validate_domain() {
+        assert!(validation::validate_domain("domain", "example.com").is_ok());
+        assert!(validation::validate_domain("domain", "localhost").is_err());
+        assert!(validation::validate_domain("domain", "").is_err());
+    }
+
+    #[test]
+    fn test_route_error_helpers() {
+        assert!(matches!(
+            route::route_not_found("abc", "example.com", "/abc"),
+            ApiError::Route(RouteError::NotFound { .. })
+        ));
+        assert!(matches!(
+            route::route_blocked("spam"),
+            ApiError::Route(RouteError::Blocked { .. })
+        ));
+        assert!(matches!(
+            route::route_expired("2024-01-01"),
+            ApiError::Route(RouteError::Expired { .. })
+        ));
+    }
+
+    #[test]
+    fn test_auth_error_helpers() {
+        assert!(matches!(
+            auth::invalid_api_key(),
+            ApiError::Authentication(AuthenticationError::InvalidApiKey)
+        ));
+        assert!(matches!(
+            auth::user_not_found("user-1"),
+            ApiError::Authentication(AuthenticationError::UserNotFound(ref id)) if id == "user-1"
+        ));
+        assert!(matches!(
+            auth::account_blocked("fraud"),
+            ApiError::Authentication(AuthenticationError::AccountBlocked(ref reason)) if reason == "fraud"
+        ));
+    }
+
+}

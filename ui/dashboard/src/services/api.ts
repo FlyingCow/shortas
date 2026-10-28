@@ -80,7 +80,7 @@ export const aggregatorApi = createApiInstance(AGGREGATOR_API_URL);
 // Instance for endpoints that work without auth (e.g. previewing an invite
 // link before the visitor has logged in). Attaches a token when one happens
 // to be available, but never rejects or redirects when it isn't.
-const publicApi = axios.create({
+export const publicApi = axios.create({
   baseURL: ROUTER_API_URL,
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },

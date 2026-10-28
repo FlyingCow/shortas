@@ -48,6 +48,7 @@ pub struct RouteInfo {
 }
 
 /// Route repository trait for database operations.
+#[cfg_attr(any(test, feature = "mocks"), mockall::automock)]
 #[async_trait]
 pub trait RouteRepository: Send + Sync {
     /// Get route by ID.
@@ -57,11 +58,11 @@ pub trait RouteRepository: Send + Sync {
     async fn get_route_info_by_ids(&self, ids: &[Uuid]) -> Result<Vec<RouteInfo>>;
 
     /// Get route by domain and path.
-    async fn get_by_domain_and_path(
+    async fn get_by_domain_and_path<'a>(
         &self,
         domain: &str,
         path: &str,
-        switch: Option<&str>,
+        switch: Option<&'a str>,
     ) -> Result<Option<Route>>;
 
     /// List routes with pagination and filters.

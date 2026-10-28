@@ -219,11 +219,11 @@ impl RouteRepository for PgRouteRepository {
             .collect())
     }
 
-    async fn get_by_domain_and_path(
+    async fn get_by_domain_and_path<'a>(
         &self,
         domain: &str,
         path: &str,
-        switch: Option<&str>,
+        switch: Option<&'a str>,
     ) -> Result<Option<Route>> {
         let switch_val = switch.unwrap_or("main");
 

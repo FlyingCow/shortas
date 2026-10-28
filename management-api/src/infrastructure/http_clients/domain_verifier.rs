@@ -74,3 +74,82 @@ impl DomainVerifierClient {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    fn test_client(base_url: String) -> DomainVerifierClient {
+        DomainVerifierClient::new(&DomainVerifierSettings { base_url, timeout_ms: 5000 }).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_register_domain_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/domains"))
+            .respond_with(ResponseTemplate::new(201))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        client.register_domain("d1", "example.com", "owner-1").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_register_domain_treats_conflict_as_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/domains"))
+            .respond_with(ResponseTemplate::new(409))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let result = client.register_domain("d1", "example.com", "owner-1").await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_register_domain_errors_on_other_failure() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("boom"))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let err = client.register_domain("d1", "example.com", "owner-1").await.unwrap_err();
+        assert!(err.to_string().contains("500"));
+    }
+
+    #[tokio::test]
+    async fn test_trigger_verification_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/domains/d1/verify"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        client.trigger_verification("d1").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_trigger_verification_errors_when_domain_unregistered() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let err = client.trigger_verification("unknown").await.unwrap_err();
+        assert!(err.to_string().contains("404"));
+    }
+}

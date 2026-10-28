@@ -218,3 +218,62 @@ pub struct TrafficTypeStatsDto {
     pub total_clicks: u64,
     pub unique_ips: u64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::clickstream::epoch_datetime;
+
+    #[test]
+    fn test_unknown_fields_become_none() {
+        let item = ClickStreamItem::default();
+        let dto: ClickStreamItemDto = item.into();
+        assert_eq!(dto.continent, None);
+        assert_eq!(dto.country, None);
+        assert_eq!(dto.os_family, None);
+        assert_eq!(dto.device_family, None);
+        assert_eq!(dto.session_first, None);
+        assert_eq!(dto.session_clicks, None);
+    }
+
+    #[test]
+    fn test_known_fields_are_preserved() {
+        let mut item = ClickStreamItem::default();
+        item.country = "US".to_string();
+        item.device_family = "iPhone".to_string();
+        item.session_clicks = 3;
+        item.session_first = chrono::Utc::now();
+
+        let dto: ClickStreamItemDto = item.clone().into();
+        assert_eq!(dto.country, Some("US".to_string()));
+        assert_eq!(dto.device_family, Some("iPhone".to_string()));
+        assert_eq!(dto.session_clicks, Some(3));
+        assert!(dto.session_first.is_some());
+    }
+
+    #[test]
+    fn test_from_owned_and_from_ref_agree() {
+        let mut item = ClickStreamItem::default();
+        item.country = "FR".to_string();
+        item.session_clicks = 5;
+
+        let from_ref: ClickStreamItemDto = (&item).into();
+        let from_owned: ClickStreamItemDto = item.into();
+
+        assert_eq!(from_ref.country, from_owned.country);
+        assert_eq!(from_ref.session_clicks, from_owned.session_clicks);
+        assert_eq!(from_ref.id, from_owned.id);
+    }
+
+    #[test]
+    fn test_epoch_session_first_maps_to_none_but_nonepoch_maps_to_some() {
+        let mut item = ClickStreamItem::default();
+        item.session_first = epoch_datetime();
+        let dto: ClickStreamItemDto = (&item).into();
+        assert_eq!(dto.session_first, None);
+
+        item.session_first = epoch_datetime() + chrono::Duration::seconds(1);
+        let dto: ClickStreamItemDto = (&item).into();
+        assert!(dto.session_first.is_some());
+    }
+}

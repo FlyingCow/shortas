@@ -156,3 +156,90 @@ pub mod auth {
         ApiError::Authentication(AuthenticationError::AccountBlocked(reason.to_string()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::error::{AuthenticationError, DatabaseError, ExternalServiceError, RouteError, ValidationError};
+
+    #[test]
+    fn test_convert_mongo_error_connection() {
+        let err = mongodb::convert_mongo_error(anyhow::anyhow!("connection pool exhausted"));
+        assert!(matches!(err, ApiError::Database(DatabaseError::ConnectionFailed(_))));
+    }
+
+    #[test]
+    fn test_convert_mongo_error_timeout() {
+        let err = mongodb::convert_mongo_error(anyhow::anyhow!("operation timeout"));
+        assert!(matches!(err, ApiError::Database(DatabaseError::Timeout(_))));
+    }
+
+    #[test]
+    fn test_convert_mongo_error_duplicate() {
+        let err = mongodb::convert_mongo_error(anyhow::anyhow!("duplicate key violation"));
+        assert!(matches!(err, ApiError::Database(DatabaseError::DuplicateKey(_))));
+    }
+
+    #[test]
+    fn test_convert_mongo_error_invalid_argument() {
+        let err = mongodb::convert_mongo_error(anyhow::anyhow!("invalid argument supplied"));
+        assert!(matches!(err, ApiError::Validation(ValidationError::InvalidInput { .. })));
+    }
+
+    #[test]
+    fn test_convert_mongo_error_unknown_falls_back_to_external_service() {
+        let err = mongodb::convert_mongo_error(anyhow::anyhow!("something unexpected happened"));
+        assert!(matches!(err, ApiError::ExternalService(ExternalServiceError::MongoDB(_))));
+    }
+
+    #[test]
+    fn test_validate_not_empty() {
+        assert!(validation::validate_not_empty("name", "shortas").is_ok());
+        assert!(validation::validate_not_empty("name", "   ").is_err());
+        assert!(validation::validate_not_empty("name", "").is_err());
+    }
+
+    #[test]
+    fn test_validate_url() {
+        assert!(validation::validate_url("dest", "https://example.com").is_ok());
+        assert!(validation::validate_url("dest", "http://example.com").is_ok());
+        assert!(validation::validate_url("dest", "ftp://example.com").is_err());
+        assert!(validation::validate_url("dest", "").is_err());
+    }
+
+    #[test]
+    fn test_validate_domain() {
+        assert!(validation::validate_domain("domain", "example.com").is_ok());
+        assert!(validation::validate_domain("domain", "localhost").is_err());
+        assert!(validation::validate_domain("domain", "").is_err());
+    }
+
+    #[test]
+    fn test_route_error_helpers() {
+        let err = route::route_not_found("abc", "example.com", "/abc");
+        assert!(matches!(err, ApiError::Route(RouteError::NotFound { .. })));
+        assert_eq!(err.get_error_code(), 404);
+
+        let err = route::route_blocked("spam");
+        assert!(matches!(err, ApiError::Route(RouteError::Blocked { .. })));
+
+        let err = route::route_expired("2024-01-01T00:00:00Z");
+        assert!(matches!(err, ApiError::Route(RouteError::Expired { .. })));
+    }
+
+    #[test]
+    fn test_auth_error_helpers() {
+        assert!(matches!(
+            auth::invalid_api_key(),
+            ApiError::Authentication(AuthenticationError::InvalidApiKey)
+        ));
+        assert!(matches!(
+            auth::user_not_found("user-1"),
+            ApiError::Authentication(AuthenticationError::UserNotFound(ref id)) if id == "user-1"
+        ));
+        assert!(matches!(
+            auth::account_blocked("fraud"),
+            ApiError::Authentication(AuthenticationError::AccountBlocked(ref reason)) if reason == "fraud"
+        ));
+    }
+}

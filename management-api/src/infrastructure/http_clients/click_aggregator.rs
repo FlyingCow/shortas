@@ -800,3 +800,128 @@ impl ClickAggregatorClient {
         Ok(response.json().await?)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::matchers::{method, path, query_param};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    fn test_client(base_url: String) -> ClickAggregatorClient {
+        ClickAggregatorClient::new(&ClickAggregatorSettings { base_url, timeout_ms: 5000 }).unwrap()
+    }
+
+    fn sample_daily_stats() -> Vec<DailyStats> {
+        vec![DailyStats {
+            date: "2024-01-01".to_string(),
+            total_clicks: 10,
+            unique_clicks: 8,
+            bot_clicks: 1,
+            human_clicks: 9,
+            unique_ips: 7,
+        }]
+    }
+
+    #[tokio::test]
+    async fn test_get_daily_stats_builds_query_params_and_parses_response() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/stats/daily"))
+            .and(query_param("owner_id", "owner-1"))
+            .and(query_param("from_date", "2024-01-01"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(sample_daily_stats()))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let stats = client
+            .get_daily_stats(
+                Some("owner-1"),
+                None,
+                None,
+                Some(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap()),
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(stats.len(), 1);
+        assert_eq!(stats[0].total_clicks, 10);
+    }
+
+    #[tokio::test]
+    async fn test_get_daily_stats_omits_query_string_when_no_filters() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/stats/daily"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(Vec::<DailyStats>::new()))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let stats = client.get_daily_stats(None, None, None, None, None).await.unwrap();
+        assert!(stats.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_handle_response_surfaces_status_and_body_on_error() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("db unavailable"))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let err = client.get_daily_stats(None, None, None, None, None).await.unwrap_err();
+        assert!(err.to_string().contains("500"));
+        assert!(err.to_string().contains("db unavailable"));
+    }
+
+    #[tokio::test]
+    async fn test_get_workspace_top_routes_maps_route_performance_into_top_routes() {
+        let server = MockServer::start().await;
+        let performance = vec![RoutePerformance {
+            route_id: "r1".to_string(),
+            route_name: Some("abc123".to_string()),
+            route_domain_name: Some("example.com".to_string()),
+            total_clicks: 42,
+            unique_visitors: 30,
+            bot_clicks: 2,
+            human_clicks: 40,
+            countries_reached: 5,
+            device_types: 3,
+        }];
+        Mock::given(method("GET"))
+            .and(path("/v1/stats/route-performance"))
+            .and(query_param("workspace_id", "ws-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&performance))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let top_routes = client
+            .get_workspace_top_routes("ws-1", None, None, None)
+            .await
+            .unwrap();
+
+        assert_eq!(top_routes.len(), 1);
+        assert_eq!(top_routes[0].route_id, "r1");
+        assert_eq!(top_routes[0].link, "abc123");
+        assert_eq!(top_routes[0].clicks, 42);
+    }
+
+    #[tokio::test]
+    async fn test_health_check_reflects_response_status() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/public/health"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        assert!(client.health_check().await.unwrap());
+    }
+}

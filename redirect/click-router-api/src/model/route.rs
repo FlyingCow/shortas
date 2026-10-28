@@ -4,7 +4,7 @@ use salvo::oapi::ToSchema;
 
 use super::condition::Condition;
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub enum RoutingTerminal {
     #[default]
     External,
@@ -12,19 +12,19 @@ pub enum RoutingTerminal {
     Middleware,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub enum DestinationFormat {
     #[default]
     Http,
     Native,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct FileRouting {
     pub content_type: String,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ConditionalRouting {
     pub key: String,
     pub condition: Condition,
@@ -32,14 +32,14 @@ pub struct ConditionalRouting {
     pub dest: Option<String>,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChallengeRouting {
     pub key: String,
     pub source: String,
     pub challenge_type: String,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum RoutingPolicy {
     #[default]
     Basic,
@@ -50,7 +50,7 @@ pub enum RoutingPolicy {
     Unknown,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct RouteProperties {
     pub route_id: Option<String>,
     pub domain_id: Option<String>,
@@ -87,21 +87,21 @@ impl Default for RouteProperties {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub enum BlockedReason {
     Resoned(String),
     #[default]
     Unknown,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub enum RouteStatus {
     #[default]
     Active,
     Blocked(BlockedReason),
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Route {
     pub switch: String,
     pub link: String,
@@ -192,5 +192,81 @@ impl Route {
     /// Check if this route has a conditional policy
     pub fn is_conditional(&self) -> bool {
         matches!(self.policy, RoutingPolicy::Conditional(_))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn basic_route() -> Route {
+        Route::new(
+            "abc123".to_string(),
+            "abc123".to_string(),
+            Some("https://example.com".to_string()),
+            RouteProperties::default(),
+        )
+    }
+
+    #[test]
+    fn test_is_conditional() {
+        let mut route = basic_route();
+        assert!(!route.is_conditional());
+
+        route.policy = RoutingPolicy::Conditional(vec![]);
+        assert!(route.is_conditional());
+    }
+
+    #[test]
+    fn test_build_family_non_conditional_returns_self() {
+        let route = basic_route();
+        let family = route.clone().build_family();
+        assert_eq!(family.len(), 1);
+        assert_eq!(family[0], route);
+    }
+
+    #[test]
+    fn test_build_family_conditional_splits_into_children_and_master() {
+        let mut route = basic_route();
+        route.properties.route_id = Some("route-1".to_string());
+        route.policy = RoutingPolicy::Conditional(vec![
+            ConditionalRouting {
+                key: "mobile".to_string(),
+                condition: Condition::default(),
+                dest: Some("https://m.example.com".to_string()),
+            },
+            ConditionalRouting {
+                key: "desktop".to_string(),
+                condition: Condition::default(),
+                dest: Some("https://example.com".to_string()),
+            },
+        ]);
+
+        let family = route.build_family();
+        assert_eq!(family.len(), 3);
+
+        let (children, masters): (Vec<_>, Vec<_>) = family
+            .into_iter()
+            .partition(|r| matches!(r.policy, RoutingPolicy::Basic));
+        assert_eq!(children.len(), 2);
+        assert_eq!(masters.len(), 1);
+
+        for child in &children {
+            assert!(child.properties.route_id.is_none());
+        }
+        assert_eq!(
+            children.iter().find(|c| c.switch == "mobile").unwrap().dest,
+            Some("https://m.example.com".to_string())
+        );
+
+        let master = &masters[0];
+        assert_eq!(master.properties.route_id, Some("route-1".to_string()));
+        match &master.policy {
+            RoutingPolicy::Conditional(conditions) => {
+                assert_eq!(conditions.len(), 2);
+                assert!(conditions.iter().all(|c| c.dest.is_none()));
+            }
+            other => panic!("expected conditional policy on master, got {other:?}"),
+        }
     }
 }

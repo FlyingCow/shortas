@@ -555,3 +555,277 @@ impl PaginatedRoutesDto {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn minimal_create_dto(domain_id: &str) -> CreateRouteDto {
+        CreateRouteDto {
+            switch: "main".to_string(),
+            link: Some("abc123".to_string()),
+            dest: Some("https://example.com".to_string()),
+            dest_format: "Http".to_string(),
+            code: None,
+            ttl: None,
+            status: "Active".to_string(),
+            terminal: "External".to_string(),
+            policy: None,
+            properties: None,
+            domain_id: Some(domain_id.to_string()),
+            conditions: None,
+        }
+    }
+
+    #[test]
+    fn test_create_route_dto_requires_domain_id() {
+        let mut dto = minimal_create_dto(&Uuid::new_v4().to_string());
+        dto.domain_id = None;
+        let result = dto.to_entity("user-1");
+        assert_eq!(result.unwrap_err(), "domain_id is required");
+    }
+
+    #[test]
+    fn test_create_route_dto_rejects_invalid_domain_id() {
+        let mut dto = minimal_create_dto("not-a-uuid");
+        dto.domain_id = Some("not-a-uuid".to_string());
+        let result = dto.to_entity("user-1");
+        assert_eq!(result.unwrap_err(), "Invalid domain_id");
+    }
+
+    #[test]
+    fn test_create_route_dto_sets_owner_creator_and_domain_on_properties() {
+        let domain_id = Uuid::new_v4();
+        let dto = minimal_create_dto(&domain_id.to_string());
+        let route = dto.to_entity("user-1").unwrap();
+
+        assert_eq!(route.properties.owner_id, Some("user-1".to_string()));
+        assert_eq!(route.properties.creator_id, Some("user-1".to_string()));
+        assert_eq!(route.properties.domain_id, Some(domain_id.to_string()));
+        assert_eq!(route.domain_id, Some(domain_id));
+        assert_eq!(route.policy, RoutingPolicy::Basic);
+        assert_eq!(route.status, RouteStatus::Active);
+        assert_eq!(route.terminal, RoutingTerminal::External);
+        assert_eq!(route.dest_format, DestinationFormat::Http);
+    }
+
+    #[test]
+    fn test_create_route_dto_unknown_enum_strings_fall_back_to_defaults() {
+        let mut dto = minimal_create_dto(&Uuid::new_v4().to_string());
+        dto.dest_format = "Bogus".to_string();
+        dto.terminal = "Bogus".to_string();
+        dto.status = "Bogus".to_string();
+        let route = dto.to_entity("user-1").unwrap();
+
+        assert_eq!(route.dest_format, DestinationFormat::Http);
+        assert_eq!(route.terminal, RoutingTerminal::External);
+        assert_eq!(route.status, RouteStatus::Active);
+    }
+
+    #[test]
+    fn test_create_route_dto_conditions_shorthand_builds_conditional_policy() {
+        let mut dto = minimal_create_dto(&Uuid::new_v4().to_string());
+        dto.conditions = Some(vec![
+            ConditionDestinationDto {
+                key: Some("mobile".to_string()),
+                condition: serde_json::json!({}),
+                dest: "https://m.example.com".to_string(),
+            },
+            ConditionDestinationDto {
+                key: None,
+                condition: serde_json::json!({}),
+                dest: "https://example.com".to_string(),
+            },
+        ]);
+
+        let route = dto.to_entity("user-1").unwrap();
+        match route.policy {
+            RoutingPolicy::Conditional { conditions } => {
+                assert_eq!(conditions.len(), 2);
+                assert_eq!(conditions[0].key, "mobile");
+                assert_eq!(conditions[1].key, "cond-1");
+                assert_eq!(conditions[1].dest, Some("https://example.com".to_string()));
+            }
+            other => panic!("expected conditional policy, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_create_route_dto_status_blocked() {
+        let mut dto = minimal_create_dto(&Uuid::new_v4().to_string());
+        dto.status = "Blocked".to_string();
+        let route = dto.to_entity("user-1").unwrap();
+        assert_eq!(route.status, RouteStatus::Blocked(BlockedReason::Unknown));
+    }
+
+    fn sample_route() -> Route {
+        Route {
+            id: Uuid::new_v4(),
+            switch: "main".to_string(),
+            link: "abc123".to_string(),
+            dest: Some("https://example.com".to_string()),
+            dest_format: DestinationFormat::Http,
+            code: None,
+            ttl: None,
+            status: RouteStatus::Active,
+            terminal: RoutingTerminal::External,
+            policy: RoutingPolicy::Basic,
+            properties: RouteProperties {
+                owner_id: Some("owner-1".to_string()),
+                creator_id: Some("creator-1".to_string()),
+                domain_id: Some("domain-1".to_string()),
+                ..Default::default()
+            },
+            domain_id: None,
+        }
+    }
+
+    #[test]
+    fn test_update_route_dto_only_touches_provided_fields() {
+        let route = sample_route();
+        let update = UpdateRouteDto {
+            dest: Some("https://new.example.com".to_string()),
+            dest_format: None,
+            code: None,
+            ttl: None,
+            status: None,
+            terminal: None,
+            policy: None,
+            properties: None,
+            conditions: None,
+        };
+
+        let updated = update.apply_to(route.clone());
+        assert_eq!(updated.dest, Some("https://new.example.com".to_string()));
+        // Untouched fields preserved
+        assert_eq!(updated.status, route.status);
+        assert_eq!(updated.terminal, route.terminal);
+        assert_eq!(updated.dest_format, route.dest_format);
+    }
+
+    #[test]
+    fn test_update_route_dto_conditions_override_policy() {
+        let route = sample_route();
+        let update = UpdateRouteDto {
+            dest: None,
+            dest_format: None,
+            code: None,
+            ttl: None,
+            status: None,
+            terminal: None,
+            policy: Some(RoutingPolicyDto::Mirroring),
+            properties: None,
+            conditions: Some(vec![ConditionDestinationDto {
+                key: None,
+                condition: serde_json::json!({}),
+                dest: "https://example.com".to_string(),
+            }]),
+        };
+
+        let updated = update.apply_to(route);
+        // conditions shorthand takes priority over policy when both are present
+        assert!(matches!(updated.policy, RoutingPolicy::Conditional { .. }));
+    }
+
+    #[test]
+    fn test_update_route_dto_properties_merge_preserves_immutable_fields() {
+        let route = sample_route();
+        let update = UpdateRouteDto {
+            dest: None,
+            dest_format: None,
+            code: None,
+            ttl: None,
+            status: None,
+            terminal: None,
+            policy: None,
+            properties: Some(RoutePropertiesDto {
+                route_id: None,
+                domain_id: Some("attempted-override".to_string()),
+                owner_id: Some("attempted-override".to_string()),
+                creator_id: Some("attempted-override".to_string()),
+                workspace_id: Some("ws-1".to_string()),
+                scripts: None,
+                tags: None,
+                custom: None,
+                native: None,
+                bundling: None,
+                qr_settings: None,
+                opengraph: true,
+                allow_debug: false,
+            }),
+            conditions: None,
+        };
+
+        let updated = update.apply_to(route);
+        // Immutable fields keep their original values regardless of the update DTO
+        assert_eq!(updated.properties.owner_id, Some("owner-1".to_string()));
+        assert_eq!(updated.properties.creator_id, Some("creator-1".to_string()));
+        assert_eq!(updated.properties.domain_id, Some("domain-1".to_string()));
+        // Mutable field is updated
+        assert_eq!(updated.properties.workspace_id, Some("ws-1".to_string()));
+        assert!(updated.properties.opengraph);
+    }
+
+    #[test]
+    fn test_routing_policy_dto_roundtrip_for_each_variant() {
+        assert_eq!(RoutingPolicyDto::from_entity(&RoutingPolicy::Basic).to_entity(), RoutingPolicy::Basic);
+        assert_eq!(
+            RoutingPolicyDto::from_entity(&RoutingPolicy::Mirroring).to_entity(),
+            RoutingPolicy::Mirroring
+        );
+
+        let challenge = RoutingPolicy::Challenge {
+            challenge: Some(ChallengeRouting {
+                key: "k".to_string(),
+                source: "recaptcha".to_string(),
+                challenge_type: "v2".to_string(),
+            }),
+        };
+        assert_eq!(RoutingPolicyDto::from_entity(&challenge).to_entity(), challenge);
+
+        let file = RoutingPolicy::File {
+            file: Some(FileRouting { content_type: "image/png".to_string() }),
+        };
+        assert_eq!(RoutingPolicyDto::from_entity(&file).to_entity(), file);
+    }
+
+    #[test]
+    fn test_routing_policy_dto_unknown_collapses_to_basic() {
+        let dto = RoutingPolicyDto::from_entity(&RoutingPolicy::Unknown);
+        assert!(matches!(dto, RoutingPolicyDto::Basic));
+    }
+
+    #[test]
+    fn test_conditional_routing_dto_to_entity_generates_key_when_missing() {
+        let dto = ConditionalRoutingDto {
+            key: None,
+            condition: serde_json::json!({}),
+            dest: Some("https://example.com".to_string()),
+        };
+        let entity = dto.to_entity(3);
+        assert_eq!(entity.key, "cond-3");
+    }
+
+    #[test]
+    fn test_conditional_routing_dto_to_entity_invalid_condition_falls_back_to_default() {
+        let dto = ConditionalRoutingDto {
+            key: Some("k".to_string()),
+            condition: serde_json::json!("not-an-object"),
+            dest: None,
+        };
+        let entity = dto.to_entity(0);
+        assert_eq!(entity.condition, crate::domain::entities::Condition::default());
+    }
+
+    #[test]
+    fn test_paginated_routes_dto_total_pages_rounds_up() {
+        let paginated = PaginatedRoutesDto::new(vec![], 1, 10, 25);
+        assert_eq!(paginated.pagination.total_pages, 3);
+
+        let exact = PaginatedRoutesDto::new(vec![], 1, 10, 20);
+        assert_eq!(exact.pagination.total_pages, 2);
+
+        let empty = PaginatedRoutesDto::new(vec![], 1, 10, 0);
+        assert_eq!(empty.pagination.total_pages, 0);
+    }
+}

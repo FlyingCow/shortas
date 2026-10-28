@@ -21,6 +21,7 @@ pub struct WorkspaceStats {
 }
 
 /// Workspace repository trait for database operations.
+#[cfg_attr(any(test, feature = "mocks"), mockall::automock)]
 #[async_trait]
 pub trait WorkspaceRepository: Send + Sync {
     /// Get workspace by ID.

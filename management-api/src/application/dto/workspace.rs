@@ -257,3 +257,105 @@ impl AddMemberDto {
 pub struct UpdateMemberRoleDto {
     pub role: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::entities::ErrorCode;
+
+    #[test]
+    fn test_create_workspace_dto_validate_rejects_empty_name() {
+        let dto = CreateWorkspaceDto { name: "   ".to_string(), description: String::new() };
+        let err = dto.validate().unwrap_err();
+        assert_eq!(err.code, ErrorCode::ValidationError);
+    }
+
+    #[test]
+    fn test_create_workspace_dto_validate_rejects_name_too_long() {
+        let dto = CreateWorkspaceDto {
+            name: "a".repeat(WORKSPACE_NAME_MAX_LEN + 1),
+            description: String::new(),
+        };
+        assert!(dto.validate().is_err());
+    }
+
+    #[test]
+    fn test_create_workspace_dto_validate_rejects_description_too_long() {
+        let dto = CreateWorkspaceDto {
+            name: "Acme".to_string(),
+            description: "a".repeat(WORKSPACE_DESCRIPTION_MAX_LEN + 1),
+        };
+        assert!(dto.validate().is_err());
+    }
+
+    #[test]
+    fn test_create_workspace_dto_validate_accepts_valid_input() {
+        let dto = CreateWorkspaceDto { name: "Acme".to_string(), description: "desc".to_string() };
+        assert!(dto.validate().is_ok());
+    }
+
+    #[test]
+    fn test_create_workspace_dto_to_entity_sets_user_type_and_description() {
+        let dto = CreateWorkspaceDto { name: "Acme".to_string(), description: "desc".to_string() };
+        let workspace = dto.to_entity();
+        assert_eq!(workspace.name, "Acme");
+        assert_eq!(workspace.workspace_type, "User");
+        assert_eq!(workspace.description, "desc");
+        assert!(!workspace.is_system());
+    }
+
+    #[test]
+    fn test_update_workspace_dto_validate_only_checks_provided_fields() {
+        let dto = UpdateWorkspaceDto { name: None, description: None };
+        assert!(dto.validate().is_ok());
+
+        let dto = UpdateWorkspaceDto { name: Some("   ".to_string()), description: None };
+        assert!(dto.validate().is_err());
+    }
+
+    #[test]
+    fn test_update_workspace_dto_apply_to_only_touches_provided_fields() {
+        let workspace = Workspace::new("Original".to_string(), "User".to_string());
+        let dto = UpdateWorkspaceDto { name: Some("Renamed".to_string()), description: None };
+        let updated = dto.apply_to(workspace.clone());
+        assert_eq!(updated.name, "Renamed");
+        assert_eq!(updated.description, workspace.description);
+    }
+
+    #[test]
+    fn test_workspace_dto_from_entity_and_builders() {
+        let workspace = Workspace::new("Acme".to_string(), "System".to_string());
+        let dto = WorkspaceDto::from_entity(workspace)
+            .with_counts(5, 42)
+            .with_user_role(Some("Owner".to_string()));
+
+        assert!(dto.is_system);
+        assert_eq!(dto.member_count, Some(5));
+        assert_eq!(dto.route_count, Some(42));
+        assert_eq!(dto.user_role, Some("Owner".to_string()));
+    }
+
+    #[test]
+    fn test_add_member_dto_to_entity_builds_user_workspace() {
+        let workspace_id = Uuid::new_v4();
+        let dto = AddMemberDto { user_id: "user-1".to_string(), role: "Admin".to_string() };
+        let membership = dto.to_entity(workspace_id);
+        assert_eq!(membership.user_id, "user-1");
+        assert_eq!(membership.workspace_id, workspace_id);
+        assert!(membership.is_admin());
+        assert!(!membership.is_owner());
+    }
+
+    #[test]
+    fn test_workspace_member_dto_from_entity_reflects_role_flags() {
+        let membership = UserWorkspace::new("user-1".to_string(), Uuid::new_v4(), "Owner".to_string());
+        let dto = WorkspaceMemberDto::from_entity(membership).with_user_info(
+            Some("user@example.com".to_string()),
+            Some("User One".to_string()),
+        );
+        assert!(dto.is_owner);
+        assert!(dto.is_admin);
+        assert_eq!(dto.email, Some("user@example.com".to_string()));
+        assert_eq!(dto.name, Some("User One".to_string()));
+    }
+}

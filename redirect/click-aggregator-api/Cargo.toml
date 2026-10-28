@@ -50,3 +50,6 @@ base64.workspace = true
 
 # Project-specific dependencies (different version from workspace)
 clickhouse = { version = "0.13.2", features = ["chrono"] }
+
+[dev-dependencies]
+wiremock.workspace = true

@@ -220,3 +220,87 @@ impl UserWorkspace {
         self.role == "Admin" || self.role == "Owner"
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_domain_verification_status_as_str() {
+        assert_eq!(DomainVerificationStatus::Pending.as_str(), "Pending");
+        assert_eq!(DomainVerificationStatus::Verified.as_str(), "Verified");
+        assert_eq!(DomainVerificationStatus::Failed.as_str(), "Failed");
+    }
+
+    #[test]
+    fn test_domain_verification_status_from_str() {
+        assert_eq!(DomainVerificationStatus::from_str("Verified"), DomainVerificationStatus::Verified);
+        assert_eq!(DomainVerificationStatus::from_str("Failed"), DomainVerificationStatus::Failed);
+        assert_eq!(DomainVerificationStatus::from_str("Pending"), DomainVerificationStatus::Pending);
+        assert_eq!(DomainVerificationStatus::from_str("garbage"), DomainVerificationStatus::Pending);
+    }
+
+    #[test]
+    fn test_route_domain_new_normalizes_name_and_defaults_to_pending() {
+        let domain = RouteDomain::new("Example.COM".to_string(), "user-1".to_string());
+        assert_eq!(domain.name, "example.com");
+        assert_eq!(domain.owner_id, "user-1");
+        assert!(!domain.is_verified());
+        assert_eq!(domain.verification_reason, "not_checked");
+        assert!(domain.created_at.is_some());
+    }
+
+    #[test]
+    fn test_route_domain_is_verified() {
+        let mut domain = RouteDomain::new("example.com".to_string(), "user-1".to_string());
+        assert!(!domain.is_verified());
+        domain.verification_status = DomainVerificationStatus::Verified;
+        assert!(domain.is_verified());
+    }
+
+    #[test]
+    fn test_route_domain_can_use() {
+        let mut domain = RouteDomain::new("example.com".to_string(), "owner-1".to_string());
+        assert!(domain.can_use("owner-1"));
+        assert!(!domain.can_use("someone-else"));
+
+        domain.is_shared = true;
+        assert!(domain.can_use("someone-else"));
+    }
+
+    #[test]
+    fn test_certificate_new_sets_fresh_id_and_created_at() {
+        let domain_id = Uuid::new_v4();
+        let cert = Certificate::new("key".to_string(), "cert".to_string(), "owner-1".to_string(), domain_id);
+        assert_eq!(cert.key, "key");
+        assert_eq!(cert.cert, "cert");
+        assert_eq!(cert.domain_id, domain_id);
+        assert!(cert.created_at.is_some());
+        assert!(!cert.id.is_nil());
+    }
+
+    #[test]
+    fn test_workspace_is_system() {
+        let system_workspace = Workspace::new("System".to_string(), "System".to_string());
+        assert!(system_workspace.is_system());
+
+        let user_workspace = Workspace::new("My Workspace".to_string(), "User".to_string());
+        assert!(!user_workspace.is_system());
+    }
+
+    #[test]
+    fn test_user_workspace_roles() {
+        let workspace_id = Uuid::new_v4();
+        let owner = UserWorkspace::new("user-1".to_string(), workspace_id, "Owner".to_string());
+        assert!(owner.is_owner());
+        assert!(owner.is_admin());
+
+        let admin = UserWorkspace::new("user-2".to_string(), workspace_id, "Admin".to_string());
+        assert!(!admin.is_owner());
+        assert!(admin.is_admin());
+
+        let member = UserWorkspace::new("user-3".to_string(), workspace_id, "Member".to_string());
+        assert!(!member.is_owner());
+        assert!(!member.is_admin());
+    }
+}

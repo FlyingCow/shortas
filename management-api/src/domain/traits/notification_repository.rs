@@ -6,6 +6,7 @@ use uuid::Uuid;
 use crate::domain::entities::{Notification, Result};
 
 /// Repository for in-app notifications.
+#[cfg_attr(any(test, feature = "mocks"), mockall::automock)]
 #[async_trait]
 pub trait NotificationRepository: Send + Sync {
     /// Create a new notification.

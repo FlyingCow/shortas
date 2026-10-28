@@ -52,3 +52,6 @@ futures.workspace = true
 
 # UUID generation
 uuid.workspace = true
+
+[dev-dependencies]
+wiremock.workspace = true

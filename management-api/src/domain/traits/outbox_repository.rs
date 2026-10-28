@@ -6,6 +6,7 @@ use uuid::Uuid;
 use crate::domain::entities::{OutboxMessage, Result};
 
 /// Outbox repository trait for database operations.
+#[cfg_attr(any(test, feature = "mocks"), mockall::automock)]
 #[async_trait]
 pub trait OutboxRepository: Send + Sync {
     /// Create a new outbox message.
