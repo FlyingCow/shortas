@@ -4,8 +4,8 @@ use salvo::prelude::*;
 use uuid::Uuid;
 
 use crate::application::dto::{
-    CreateDomainDto, DomainAttentionDto, DomainDto, DomainSummaryDto, PaginatedDomainsDto,
-    UpdateDomainDto,
+    CreateDomainDto, CustomPagesDto, DomainAttentionDto, DomainDto, DomainSummaryDto,
+    PaginatedDomainsDto, UpdateCustomPagesDto, UpdateDomainDto,
 };
 use crate::domain::entities::ApiError;
 use crate::presentation::middleware::{
@@ -30,6 +30,16 @@ pub fn domains_controller() -> Router {
                 .delete(delete_domain)
                 .options(cors_preflight)
                 .push(Router::with_path("verify").post(verify_domain).options(cors_preflight)),
+        )
+        // Keyed by domain name rather than ID: the dashboard's Custom Pages
+        // dialog is opened straight off a domain row, which only has the
+        // name on hand.
+        .push(
+            Router::with_path("{name}/custom-pages")
+                .get(get_custom_pages)
+                .put(update_custom_pages)
+                .delete(delete_custom_pages)
+                .options(cors_preflight),
         )
 }
 
@@ -493,4 +503,208 @@ pub async fn verify_domain(req: &mut Request, depot: &mut Depot, res: &mut Respo
     res.render(Json(serde_json::json!({
         "message": "Verification started"
     })));
+}
+
+/// Get a domain's custom index/404 page settings by domain name.
+#[endpoint(
+    operation_id = "get_custom_pages",
+    summary = "Get custom pages",
+    description = "Get a domain's custom index and 404 page URLs",
+    tags("Domains"),
+    parameters(
+        ("name" = String, Path, description = "Domain name")
+    ),
+    responses(
+        (status_code = 200, description = "Custom pages settings", body = CustomPagesDto),
+        (status_code = 404, description = "Domain not found")
+    )
+)]
+pub async fn get_custom_pages(req: &mut Request, depot: &mut Depot, res: &mut Response) {
+    let app_state = match depot.app_state() {
+        Ok(state) => state,
+        Err(e) => {
+            render_error(res, ApiError::internal(e.to_string()));
+            return;
+        }
+    };
+
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+
+    let name: String = req.param("name").unwrap_or_default();
+
+    let domain = match app_state.domain_repo.get_by_name(&name).await {
+        Ok(Some(d)) => d,
+        Ok(None) => {
+            render_error(res, ApiError::not_found("Domain", &name));
+            return;
+        }
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
+    if !domain.can_use(&user_id) {
+        render_error(res, ApiError::forbidden());
+        return;
+    }
+
+    render_success(res, CustomPagesDto::from_entity(&domain));
+}
+
+/// Update a domain's custom index/404 page settings by domain name.
+#[endpoint(
+    operation_id = "update_custom_pages",
+    summary = "Update custom pages",
+    description = "Update a domain's custom index and 404 page URLs",
+    tags("Domains"),
+    parameters(
+        ("name" = String, Path, description = "Domain name")
+    ),
+    request_body(content = UpdateCustomPagesDto, description = "Custom page URLs"),
+    responses(
+        (status_code = 200, description = "Custom pages updated", body = CustomPagesDto),
+        (status_code = 404, description = "Domain not found")
+    )
+)]
+pub async fn update_custom_pages(req: &mut Request, depot: &mut Depot, res: &mut Response) {
+    let app_state = match depot.app_state() {
+        Ok(state) => state,
+        Err(e) => {
+            render_error(res, ApiError::internal(e.to_string()));
+            return;
+        }
+    };
+
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+
+    let name: String = req.param("name").unwrap_or_default();
+
+    let dto: UpdateCustomPagesDto = match req.parse_json().await {
+        Ok(dto) => dto,
+        Err(e) => {
+            render_error(res, ApiError::validation(e.to_string()));
+            return;
+        }
+    };
+
+    let domain = match app_state.domain_repo.get_by_name(&name).await {
+        Ok(Some(d)) => d,
+        Ok(None) => {
+            render_error(res, ApiError::not_found("Domain", &name));
+            return;
+        }
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
+    if domain.owner_id != user_id {
+        render_error(res, ApiError::forbidden());
+        return;
+    }
+
+    let updated = dto.apply_to(domain);
+
+    let saved = match app_state.domain_repo.update(&updated).await {
+        Ok(saved) => saved,
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
+    // Propagate to click-router: the domains table is just the source of
+    // truth the dashboard reads back; the actual index/404 redirect is
+    // served off an internal route click-router-api writes on our behalf.
+    if let Err(e) = app_state
+        .click_router
+        .set_custom_pages(&name, saved.custom_index_url.as_deref(), saved.custom_not_found_url.as_deref())
+        .await
+    {
+        render_error(res, ApiError::external_service(e.to_string()));
+        return;
+    }
+
+    render_success(res, CustomPagesDto::from_entity(&saved));
+}
+
+/// Clear a domain's custom index/404 page settings by domain name.
+#[endpoint(
+    operation_id = "delete_custom_pages",
+    summary = "Clear custom pages",
+    description = "Clear a domain's custom index and 404 page URLs back to the defaults",
+    tags("Domains"),
+    parameters(
+        ("name" = String, Path, description = "Domain name")
+    ),
+    responses(
+        (status_code = 204, description = "Custom pages cleared"),
+        (status_code = 404, description = "Domain not found")
+    )
+)]
+pub async fn delete_custom_pages(req: &mut Request, depot: &mut Depot, res: &mut Response) {
+    let app_state = match depot.app_state() {
+        Ok(state) => state,
+        Err(e) => {
+            render_error(res, ApiError::internal(e.to_string()));
+            return;
+        }
+    };
+
+    let user_id = match depot.user_id() {
+        Ok(id) => id,
+        Err(e) => {
+            render_error(res, ApiError::unauthorized(e.to_string()));
+            return;
+        }
+    };
+
+    let name: String = req.param("name").unwrap_or_default();
+
+    let domain = match app_state.domain_repo.get_by_name(&name).await {
+        Ok(Some(d)) => d,
+        Ok(None) => {
+            render_error(res, ApiError::not_found("Domain", &name));
+            return;
+        }
+        Err(e) => {
+            render_error(res, e);
+            return;
+        }
+    };
+
+    if domain.owner_id != user_id {
+        render_error(res, ApiError::forbidden());
+        return;
+    }
+
+    let mut cleared = domain;
+    cleared.custom_index_url = None;
+    cleared.custom_not_found_url = None;
+
+    if let Err(e) = app_state.domain_repo.update(&cleared).await {
+        render_error(res, e);
+        return;
+    }
+
+    if let Err(e) = app_state.click_router.clear_custom_pages(&name).await {
+        render_error(res, ApiError::external_service(e.to_string()));
+        return;
+    }
+
+    render_no_content(res);
 }

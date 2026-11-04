@@ -90,6 +90,14 @@ const workspaceStyles = `
   color: var(--text-primary);
   margin: 0;
   line-height: 1.3;
+  /* A name at or near the 255-char max has no natural break points, so
+     without this it overflows the card and the whole grid instead of
+     wrapping - min-width:0 lets it actually shrink inside the flex row. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ws-desc {

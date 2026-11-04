@@ -335,6 +335,13 @@ async fn main() {
     // Create routers for HTTP and HTTPS servers
     let app = Router::new()
         .merge(conversion_routes::conversion_routes())
+        // Axum's "/*rest_path" wildcard requires at least one segment after
+        // the slash to capture, so it never matches the bare root path "/" -
+        // every domain's index page has been 404ing at this routing layer,
+        // before the request ever reaches RootModule. redirect_handler reads
+        // the path straight off the request itself rather than a route
+        // parameter, so it's safe to register for both patterns unchanged.
+        .route("/", get(redirect_handler))
         .route("/*rest_path", get(redirect_handler))
         .layer(CookieManagerLayer::new())
         .layer(TraceLayer::new_for_http())

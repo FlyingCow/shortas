@@ -1037,6 +1037,10 @@ body {
   padding: var(--space-sm);
   border-radius: 50%;
   aspect-ratio: 1;
+  /* .btn's base min-width:80px otherwise wins here too (nothing above
+     touches it), stretching icon-only buttons into a pill/oval instead
+     of the circle aspect-ratio:1 is meant to produce. */
+  min-width: 0;
 }
 
 .btn-icon.btn-sm {

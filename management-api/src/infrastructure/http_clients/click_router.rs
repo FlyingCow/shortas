@@ -276,6 +276,53 @@ impl ClickRouterClient {
         let response = self.client.get(&url).send().await?;
         Ok(response.status().is_success())
     }
+
+    /// Set a domain's custom index/404 pages. Goes through click-router-api's
+    /// dedicated custom-pages endpoint rather than the general routes API,
+    /// which deliberately refuses writes to the internal switch these use.
+    /// A `None` URL clears that page back to the global default (the
+    /// endpoint always applies both fields, never leaves one untouched).
+    pub async fn set_custom_pages(
+        &self,
+        domain: &str,
+        index_url: Option<&str>,
+        not_found_url: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let url = format!("{}/v1/domains/{}/custom-pages", self.base_url, domain);
+
+        let response = self
+            .client
+            .put(&url)
+            .json(&json!({
+                "indexUrl": index_url,
+                "notFoundUrl": not_found_url,
+            }))
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("Click Router API error: {} - {}", status, body);
+        }
+
+        Ok(())
+    }
+
+    /// Clear a domain's custom index/404 pages back to the global defaults.
+    pub async fn clear_custom_pages(&self, domain: &str) -> anyhow::Result<()> {
+        let url = format!("{}/v1/domains/{}/custom-pages", self.base_url, domain);
+
+        let response = self.client.delete(&url).send().await?;
+
+        if !response.status().is_success() && response.status().as_u16() != 404 {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("Click Router API error: {} - {}", status, body);
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -492,5 +539,63 @@ mod tests {
         let client = test_client(server.uri());
         let routes = vec![("abc".to_string(), "main".to_string()), ("def".to_string(), "main".to_string())];
         client.bulk_delete("example.com", &routes).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_set_custom_pages_sends_both_urls_to_the_domain_endpoint() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("PUT"))
+            .and(path("/v1/domains/example.com/custom-pages"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        client
+            .set_custom_pages("example.com", Some("https://example.com/welcome"), None)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_set_custom_pages_errors_on_failure_status() {
+        let server = MockServer::start().await;
+        Mock::given(method("PUT"))
+            .and(path("/v1/domains/example.com/custom-pages"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let err = client.set_custom_pages("example.com", None, None).await.unwrap_err();
+        assert!(err.to_string().contains("Click Router API error"));
+    }
+
+    #[tokio::test]
+    async fn test_clear_custom_pages_deletes_the_domain_endpoint() {
+        let server = MockServer::start().await;
+        Mock::given(method("DELETE"))
+            .and(path("/v1/domains/example.com/custom-pages"))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        client.clear_custom_pages("example.com").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_clear_custom_pages_treats_404_as_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("DELETE"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        client.clear_custom_pages("example.com").await.unwrap();
     }
 }

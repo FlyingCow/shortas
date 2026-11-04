@@ -423,7 +423,16 @@ const RouteForm: React.FC<RouteFormProps> = ({
                 onChange={(v) => {
                   handleChange('domainId', v);
                   handlePropertyChange('domainId', v);
-                  handleBlur('domainId');
+                  // Validate against the newly selected value directly rather than
+                  // handleBlur(), which would re-read formData.domainId from this
+                  // render's stale closure (still empty) and re-add the error.
+                  setTouched((prev) => ({ ...prev, domainId: true }));
+                  setErrors((prev) => {
+                    const next = { ...prev };
+                    if (!v?.trim()) next.domainId = 'Domain is required';
+                    else delete next.domainId;
+                    return next;
+                  });
                 }}
                 disabled={saving || isEdit || singleDomain}
                 error={Boolean(touched.domainId && errors.domainId)}

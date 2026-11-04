@@ -49,11 +49,14 @@ impl FlowModule for RootModule {
                 }
             }
 
-            // Fall back to global index URL
-            let root_uri = string_format!(
-                self.redirect.index_url.clone(),
-                context.request.uri().host().unwrap().to_string()
-            );
+            // Fall back to global index URL. Use the already-resolved `domain`
+            // (from context.in_route.host, same as the custom-route lookup
+            // above) rather than context.request.uri().host(): for a normal
+            // HTTP/1.1 request the Host comes via the Host header, not the
+            // request-line URI, so uri().host() is None here for virtually
+            // all real traffic - unwrap()'ing it panicked the whole worker
+            // thread on every request to "/" with no custom index route set.
+            let root_uri = string_format!(self.redirect.index_url.clone(), domain.to_string());
 
             context.result = Some(FlowRouterResult::Proxied(
                 Uri::from_str(&root_uri).unwrap(),

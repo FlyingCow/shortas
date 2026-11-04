@@ -121,6 +121,50 @@ impl UpdateDomainDto {
     }
 }
 
+/// Custom index/404 page response DTO, keyed by domain name rather than ID
+/// to match the dashboard's Custom Pages dialog, which only has the domain
+/// name on hand.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomPagesDto {
+    pub domain_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_index_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_not_found_url: Option<String>,
+}
+
+impl CustomPagesDto {
+    pub fn from_entity(domain: &RouteDomain) -> Self {
+        Self {
+            domain_name: domain.name.clone(),
+            custom_index_url: domain.custom_index_url.clone(),
+            custom_not_found_url: domain.custom_not_found_url.clone(),
+        }
+    }
+}
+
+/// Custom index/404 page update request. The dashboard always sends both
+/// fields on every save (a string, or `null` to use the default page), so
+/// unlike `UpdateDomainDto` this is a full replace of both fields rather
+/// than a merge-patch — no need to distinguish "omitted" from "null".
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCustomPagesDto {
+    #[serde(default)]
+    pub custom_index_url: Option<String>,
+    #[serde(default)]
+    pub custom_not_found_url: Option<String>,
+}
+
+impl UpdateCustomPagesDto {
+    pub fn apply_to(self, mut domain: RouteDomain) -> RouteDomain {
+        domain.custom_index_url = self.custom_index_url;
+        domain.custom_not_found_url = self.custom_not_found_url;
+        domain
+    }
+}
+
 /// Domain verification request.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct VerifyDomainDto {
@@ -162,5 +206,36 @@ impl PaginatedDomainsDto {
                 total_pages,
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_update_custom_pages_dto_deserializes_camel_case_body() {
+        // The dashboard sends camelCase JSON (customIndexUrl/customNotFoundUrl).
+        // Without #[serde(rename_all = "camelCase")] these silently fail to
+        // match the snake_case field names and fall back to their #[serde(default)]
+        // of None, so every save would clear both URLs instead of setting them.
+        let dto: UpdateCustomPagesDto = serde_json::from_str(
+            r#"{"customIndexUrl":"https://example.com/welcome","customNotFoundUrl":null}"#,
+        )
+        .unwrap();
+        assert_eq!(dto.custom_index_url, Some("https://example.com/welcome".to_string()));
+        assert_eq!(dto.custom_not_found_url, None);
+    }
+
+    #[test]
+    fn test_update_custom_pages_dto_apply_to_sets_both_fields() {
+        let domain = RouteDomain::new("example.com".to_string(), "owner-1".to_string());
+        let dto = UpdateCustomPagesDto {
+            custom_index_url: Some("https://example.com/welcome".to_string()),
+            custom_not_found_url: Some("https://example.com/404".to_string()),
+        };
+        let updated = dto.apply_to(domain);
+        assert_eq!(updated.custom_index_url, Some("https://example.com/welcome".to_string()));
+        assert_eq!(updated.custom_not_found_url, Some("https://example.com/404".to_string()));
     }
 }

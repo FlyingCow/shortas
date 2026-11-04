@@ -55,12 +55,17 @@ impl FlowModule for NotFoundModule {
                 }
             }
 
-            // Fall back to global not found URL
-            let request_domain = context.request.uri().host().unwrap_or_default();
+            // Fall back to global not found URL. Use the already-resolved
+            // `domain` (context.in_route.host, same as the custom-route
+            // lookup above) rather than context.request.uri().host(): for a
+            // normal HTTP/1.1 request the Host comes via the Host header,
+            // not the request-line URI, so uri().host() is None here for
+            // virtually all real traffic - this silently sent an empty
+            // domain param on every fallback redirect.
             let path = context.request.uri().path().trim_start_matches('/');
 
             // URL-encode the parameters for safe transmission
-            let encoded_domain = urlencoding::encode(request_domain);
+            let encoded_domain = urlencoding::encode(domain);
             let encoded_path = urlencoding::encode(path);
 
             // Build the not found URL with domain and path parameters
