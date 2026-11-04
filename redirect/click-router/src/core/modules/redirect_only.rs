@@ -70,7 +70,7 @@ impl RedirectOnlyModule {
             .await?;
 
         if let Some(settings) = settings {
-            if settings.skip.contains(&SKIP_TRACKING.to_string()) {
+            if settings.skip.iter().any(|s| s == SKIP_TRACKING) {
                 return Ok(false);
             }
 

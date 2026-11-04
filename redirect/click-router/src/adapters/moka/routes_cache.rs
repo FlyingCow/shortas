@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
@@ -17,14 +18,13 @@ thread_local! {
     static KEY_BUFFER: RefCell<String> = RefCell::new(String::with_capacity(256));
 }
 
-#[derive(Clone, Debug)]
-pub struct RouteCacheItem {
-    value: Option<Route>,
-}
-
 #[derive(Clone)]
 pub struct MokaRoutesCache {
-    cache: Cache<String, RouteCacheItem>,
+    // `Option<Arc<Route>>` as the value type means a cache hit only clones an
+    // `Arc` (a refcount bump) instead of deep-cloning the whole `Route`
+    // (its Strings, Vec<String> tags/scripts, and JSON blobs) on every
+    // request that hits the cache.
+    cache: Cache<String, Option<Arc<Route>>>,
     routes_store: RoutesStoreType,
 }
 
@@ -77,15 +77,15 @@ impl RoutesCache for MokaRoutesCache {
         Ok(())
     }
 
-    async fn get_route(&self, switch: &str, path: &str) -> Result<Option<Route>> {
+    async fn get_route(&self, switch: &str, path: &str) -> Result<Option<Arc<Route>>> {
         let key = get_key(switch, path);
         let cache_timer = Timer::new();
 
-        // Check if key exists in cache first
+        // Check if key exists in cache first - cheap clone (Arc refcount bump)
         if let Some(cached) = self.cache.get(&key).await {
             METRICS.route_cache_hits.inc();
             cache_timer.observe_duration_seconds(&METRICS.cache_lookup_duration);
-            return Ok(cached.value);
+            return Ok(cached);
         }
 
         // Cache miss - fetch from database
@@ -96,14 +96,12 @@ impl RoutesCache for MokaRoutesCache {
         let route_result = self.routes_store.get_route(switch, path).await;
         db_timer.observe_duration_seconds(&METRICS.db_query_duration);
 
-        let cache_item = RouteCacheItem {
-            value: route_result.unwrap(),
-        };
+        let value: Option<Arc<Route>> = route_result.unwrap().map(Arc::new);
 
-        // Store in cache
-        self.cache.insert(key, cache_item.clone()).await;
+        // Store in cache (cheap: cloning Option<Arc<Route>> is a refcount bump)
+        self.cache.insert(key, value.clone()).await;
         cache_timer.observe_duration_seconds(&METRICS.cache_lookup_duration);
 
-        Ok(cache_item.value)
+        Ok(value)
     }
 }

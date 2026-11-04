@@ -1,0 +1,280 @@
+
+# Data node (recommended: Hetzner CCX23, dedicated vCPU, + a separate attached
+# Volume mounted at /mnt/shortas-data — see ../README.md "Data node").
+#
+# Everything here is purely passive: it never needs to resolve the app/platform
+# nodes by name, and nothing here is exposed publicly. Lock this host down with
+# a Hetzner Cloud Firewall that only allows the app/platform nodes' private IPs
+# (plus your admin IP for SSH) to reach these ports.
+
+networks:
+  shortas-net:
+    name: shortas-net
+    driver: bridge
+
+volumes:
+  mongo_data:
+  keycloak_postgres_data:
+  api_postgres_data:
+  clickhouse_data:
+  redis_data:
+  elasticsearch_data:
+  rabbitmq_data:
+  safe_browsing_data:
+  fluvio_sc_metadata:
+  fluvio_spu_data:
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: shortas-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - shortas-net
+
+  keycloak-db:
+    image: postgres:16.2
+    container_name: keycloak-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: ${KEYCLOAK_DB_USER}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - keycloak_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER} -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shortas-net
+
+  shortas-api-postgres:
+    image: postgres:15-alpine
+    container_name: shortas-api-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${API_DB_NAME}
+      POSTGRES_USER: ${API_DB_USER}
+      POSTGRES_PASSWORD: ${API_DB_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - api_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${API_DB_USER} -d ${API_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shortas-net
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: shortas-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O /dev/null http://localhost:8123/ping || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    networks:
+      - shortas-net
+
+  clickhouse-migrations:
+    image: alpine:latest
+    container_name: shortas-clickhouse-migrations
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DATABASE=shortas
+    volumes:
+      - ../../redirect/click-aggregator-api/migrations:/app/migrations:ro
+      - ../../redirect/click-aggregator-api/scripts:/app/scripts:ro
+    working_dir: /app
+    command:
+      - /bin/sh
+      - -c
+      - |
+        apk add --no-cache curl bash
+        echo "Waiting for ClickHouse to be ready..."
+        for i in $$(seq 1 10); do
+          curl -s "http://clickhouse:8123/ping" | grep -q "Ok" && break
+          echo "Attempt $$i: ClickHouse not ready, retrying in 3s..."; sleep 3
+        done
+        curl -s "http://clickhouse:8123/?user=default&password=${CLICKHOUSE_PASSWORD}" --data-binary "CREATE DATABASE IF NOT EXISTS shortas"
+        cd /app/scripts && bash apply_migrations.sh
+    networks:
+      - shortas-net
+
+  redis:
+    image: redis/redis-stack:latest
+    container_name: shortas-redis
+    restart: unless-stopped
+    command: redis-server --save 60 100 --loglevel warning --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - shortas-net
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.16
+    container_name: shortas-api-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shortas-net
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: shortas-rabbitmq
+    hostname: shortas-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - shortas-net
+
+  # --- Fluvio event streaming (click-router producer, click-tracker /
+  # click-aggregator consumers, all on the app node) ---
+  sc:
+    image: infinyon/fluvio:stable
+    container_name: sc
+    hostname: sc
+    restart: unless-stopped
+    environment:
+      - RUST_LOG=info
+    command: "./fluvio-run sc --local /fluvio/metadata"
+    ports:
+      - "9003:9003"
+    volumes:
+      - fluvio_sc_metadata:/fluvio/metadata
+    networks:
+      - shortas-net
+
+  sc-setup:
+    image: infinyon/fluvio:stable
+    container_name: sc-setup
+    depends_on:
+      - sc
+    command: >
+      bash -c "
+        for i in $$(seq 1 10); do
+          fluvio profile add docker sc:9003 docker 2>/dev/null && break
+          echo \"Attempt $$i: SC not ready, retrying in 3s...\"; sleep 3
+        done &&
+        sleep 2 &&
+        (fluvio cluster spu register --id 5001 -p spu:9010 -l spu:9010 --private-server spu:9011 || echo 'SPU already registered')
+      "
+    networks:
+      - shortas-net
+
+  spu:
+    image: infinyon/fluvio:stable
+    container_name: spu
+    hostname: spu
+    restart: unless-stopped
+    environment:
+      - RUST_LOG=info
+    depends_on:
+      sc-setup:
+        condition: service_completed_successfully
+    ports:
+      - "9010:9010"
+      - "9011:9011"
+    command: "./fluvio-run spu -i 5001 -p spu:9010 -v spu:9011 --sc-addr sc:9004 --log-base-dir /fluvio/data"
+    volumes:
+      - fluvio_spu_data:/fluvio/data
+    networks:
+      - shortas-net
+
+  topic-setup:
+    image: infinyon/fluvio:stable
+    container_name: topic-setup
+    depends_on:
+      - spu
+    command: >
+      bash -c "
+        fluvio profile add docker sc:9003 docker &&
+        for i in $$(seq 1 10); do
+          fluvio cluster spu list 2>/dev/null | grep -q 'Online' && break
+          echo \"Attempt $$i: SPU not ready, retrying in 3s...\"; sleep 3
+        done &&
+        (fluvio topic create hit-stream-main || true) &&
+        (fluvio topic create click-aggs-main || true) &&
+        fluvio topic list
+      "
+    networks:
+      - shortas-net
+
+  # Google Safe Browsing list cache used by route-verifier (app node). Lives
+  # here, not on the app node, because it wants durable disk for its ~GB-scale
+  # downloaded list and there's no benefit to running it twice.
+  safe-browsing:
+    image: mlsecproject/gglsbl-rest:latest
+    container_name: shortas-safe-browsing
+    restart: unless-stopped
+    environment:
+      - TIMEOUT=120
+      - GSB_API_KEY=${GSB_API_KEY}
+    ports:
+      - "5000:5000"
+    volumes:
+      - safe_browsing_data:/var/lib/gglsbl
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/status"]
+      interval: 60s
+      timeout: 30s
+      retries: 10
+      start_period: 600s
+    networks:
+      - shortas-net

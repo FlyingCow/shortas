@@ -127,8 +127,8 @@ impl FlowModule for QrCodeModule {
             let out_route = flow_router.get_main_route(&original_path_owned, context).await?;
 
             if let Some(route) = out_route {
-                // Wrap route in Arc to avoid expensive cloning later
-                context.main_route = Some(Arc::new(route));
+                // Already an Arc<Route> from the cache.
+                context.main_route = Some(route);
                 context.add_bool(IS_QR_REQUEST, true);
                 context.add_string(ORIGINAL_PATH, original_path_owned);
             }

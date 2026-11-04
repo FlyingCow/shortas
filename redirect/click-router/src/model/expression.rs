@@ -146,6 +146,29 @@ impl Expression {
     }
 
     ///
+    /// Checks if current expression or subsequential expressions need language to be preloaded.
+    ///
+    pub fn needs_lang(&self) -> bool {
+        let curent = self.lang.is_some();
+        let and = self.and.is_some()
+            && self
+                .and
+                .as_ref()
+                .unwrap()
+                .iter()
+                .any(|item| item.needs_lang());
+        let or = self.or.is_some()
+            && self
+                .or
+                .as_ref()
+                .unwrap()
+                .iter()
+                .any(|item| item.needs_lang());
+
+        curent || and || or
+    }
+
+    ///
     /// Checks if current expression or subsequential expressions need country to be preloaded.
     ///
     pub fn needs_country(&self) -> bool {

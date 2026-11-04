@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 
 use crate::adapters::UserSettingsCacheType;
@@ -11,7 +13,9 @@ pub trait UserSettingsStore {
 
 #[async_trait::async_trait()]
 pub trait UserSettingsCache {
-    async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>>;
+    /// Returns an `Arc<UserSettings>` so a cache hit only bumps a refcount
+    /// instead of deep-cloning the settings struct.
+    async fn get_user_settings(&self, user_id: &str) -> Result<Option<Arc<UserSettings>>>;
     async fn invalidate(&self, user_id: &str) -> Result<()>;
 }
 
@@ -21,7 +25,7 @@ pub struct UserSettingsManager {
 }
 
 impl UserSettingsManager {
-    pub async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
+    pub async fn get_user_settings(&self, user_id: &str) -> Result<Option<Arc<UserSettings>>> {
         let user_settings_result = self.user_settings_cache.get_user_settings(user_id).await;
 
         Ok(user_settings_result.unwrap())

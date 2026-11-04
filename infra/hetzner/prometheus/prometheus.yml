@@ -1,0 +1,32 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers: []
+
+rule_files: []
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # click-router runs on both app nodes; each exposes its own metrics on 9092.
+  # Replace with the app nodes' private IPs (see ../.env.platform.example).
+  - job_name: 'click-router'
+    static_configs:
+      - targets:
+          - 'app-node-1:9092'
+          - 'app-node-2:9092'
+    metrics_path: /metrics
+    scrape_interval: 5s
+
+  # click-aggregator is a Fluvio consumer and runs as a singleton — only on
+  # app-node-1 (the "singleton" compose profile). See ../README.md.
+  - job_name: 'click-aggregator'
+    static_configs:
+      - targets:
+          - 'app-node-1:9090'
+    metrics_path: /metrics
+    scrape_interval: 5s

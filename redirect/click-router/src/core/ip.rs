@@ -41,15 +41,18 @@ fn get_debug(request: &RequestType) -> Option<String> {
 
 fn detect_for_headers(request: &RequestType) -> Option<String> {
     if let Some(proto_header) = request.headers().get(X_FORWARDED_FOR_HEADER) {
-        let header = proto_header.to_str().unwrap_or_default().replace(" ", "");
+        let header = proto_header.to_str().unwrap_or_default();
 
-        let client_details = header.split(",").last().unwrap();
+        // Avoid allocating a space-stripped copy of the whole header: take
+        // the last comma-separated entry first (that's all we need), then
+        // only allocate once, trimming + lowercasing in a single pass.
+        let last_entry = header.rsplit(',').next().unwrap_or_default().trim();
 
-        if client_details.is_empty() {
+        if last_entry.is_empty() {
             return None;
         }
 
-        return Some(client_details.to_ascii_lowercase());
+        return Some(last_entry.to_ascii_lowercase());
     }
 
     None

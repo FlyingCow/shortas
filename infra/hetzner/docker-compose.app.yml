@@ -1,0 +1,361 @@
+
+# App node (recommended: Hetzner CPX32 x2, identical deploy on both, behind
+# a Hetzner Load Balancer). Everything here is either stateless (safe to run
+# on both nodes) or a RabbitMQ competing-consumer (safe to scale out). The
+# "singleton" profile (click-tracker, click-aggregator, cert-bot) must run on
+# exactly ONE node — see ../README.md "Why some workers are singletons".
+#
+# Cross-host hostnames (mongo, redis, clickhouse, shortas-rabbitmq, sc,
+# keycloak, shortas-api-postgres, shortas-api-elasticsearch,
+# shortas-safe-browsing) are resolved via extra_hosts to the data/platform
+# nodes' private IPs — the application configs otherwise assume a single
+# shared Docker network, which no longer exists once services span hosts.
+
+networks:
+  shortas-net:
+    name: shortas-net
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  cert_bot_data:
+
+x-peer-hosts: &peer-hosts
+  extra_hosts:
+    - "mongo:${DATA_NODE_IP}"
+    - "redis:${DATA_NODE_IP}"
+    - "clickhouse:${DATA_NODE_IP}"
+    - "shortas-rabbitmq:${DATA_NODE_IP}"
+    - "sc:${DATA_NODE_IP}"
+    - "shortas-api-postgres:${DATA_NODE_IP}"
+    - "shortas-api-elasticsearch:${DATA_NODE_IP}"
+    - "shortas-safe-browsing:${DATA_NODE_IP}"
+    - "keycloak:${PLATFORM_NODE_IP}"
+
+x-rust-logging: &rust-logging
+  RUST_LOG: warn
+  LOKI_URL: http://${PLATFORM_NODE_IP}:3100
+  APP_RUN_MODE: production
+
+services:
+  click-router:
+    image: ${IMAGE_REGISTRY}/click-router:${IMAGE_TAG}
+    container_name: shortas-click-router
+    restart: unless-stopped
+    <<: *peer-hosts
+    environment:
+      <<: *rust-logging
+      APP_METRICS_ADDR: 0.0.0.0:9092
+      APP_ENABLE_METRICS: "true"
+      APP__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
+      APP__REDIS__HOST: redis://:${REDIS_PASSWORD}@redis:6379
+      APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
+    ports:
+      - "4433:4433"
+      - "5800:5800"
+      - "9092:9092"
+    depends_on:
+      - pages
+    networks:
+      - shortas-net
+
+  click-router-api:
+    image: ${IMAGE_REGISTRY}/click-router-api:${IMAGE_TAG}
+    container_name: shortas-click-router-api
+    restart: unless-stopped
+    <<: *peer-hosts
+    environment:
+      <<: *rust-logging
+      APP__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
+      APP__REDIS__HOST: redis://:${REDIS_PASSWORD}@redis:6379
+      APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
+    ports:
+      - "5810:5810"
+    networks:
+      - shortas-net
+
+  click-aggregator-api:
+    image: ${IMAGE_REGISTRY}/click-aggregator-api:${IMAGE_TAG}
+    container_name: shortas-click-aggregator-api
+    restart: unless-stopped
+    <<: *peer-hosts
+    environment:
+      <<: *rust-logging
+      APP__CLICKHOUSE__PASSWORD: ${CLICKHOUSE_PASSWORD}
+    # Internal-only: management-api reaches it on this same host. Not
+    # published to the host's public interface.
+    expose:
+      - "5820"
+    networks:
+      - shortas-net
+
+  management-api:
+    image: ${IMAGE_REGISTRY}/management-api:${IMAGE_TAG}
+    container_name: shortas-management-api
+    restart: unless-stopped
+    <<: *peer-hosts
+    environment:
+      RUST_LOG: info
+      APP_RUN_MODE: production
+      APP__SERVER__HOST: 0.0.0.0
+      APP__SERVER__PORT: 8080
+      APP__DATABASE__HOST: shortas-api-postgres
+      APP__DATABASE__PORT: 5432
+      APP__DATABASE__USERNAME: ${API_DB_USER}
+      APP__DATABASE__PASSWORD: ${API_DB_PASSWORD}
+      APP__DATABASE__DATABASE: ${API_DB_NAME}
+      APP__DATABASE__MAX_CONNECTIONS: 20
+      APP__JWT__ISSUER: https://${KEYCLOAK_HOSTNAME}/realms/${KEYCLOAK_REALM}
+      APP__JWT__AUDIENCE: shortas-api
+      APP__JWT__JWKS_URL: http://keycloak:8080/realms/${KEYCLOAK_REALM}/protocol/openid-connect/certs
+      APP__CLICK_ROUTER__BASE_URL: http://shortas-click-router-api:5810
+      APP__CLICK_ROUTER__TIMEOUT_MS: 5000
+      APP__CLICK_AGGREGATOR__BASE_URL: http://shortas-click-aggregator-api:5820
+      APP__CLICK_AGGREGATOR__TIMEOUT_MS: 10000
+      APP__ELASTICSEARCH__URL: http://shortas-api-elasticsearch:9200
+      APP__ELASTICSEARCH__ROUTES_INDEX: routes
+      APP__MINIO__ENDPOINT: ${S3_ENDPOINT}
+      APP__MINIO__PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
+      APP__MINIO__REGION: ${S3_REGION}
+      APP__MINIO__ACCESS_KEY: ${S3_ACCESS_KEY}
+      APP__MINIO__SECRET_KEY: ${S3_SECRET_KEY}
+      APP__MINIO__BUCKET: ${S3_ROUTE_IMAGES_BUCKET}
+      APP__RABBITMQ__URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672
+      APP__RABBITMQ__DOMAIN_VERIFICATION_QUEUE: domain-verification
+      APP__RABBITMQ__ROUTE_STATUS_QUEUE: route-status
+      APP__EMAIL__PROVIDER: ${EMAIL_PROVIDER}
+      APP__EMAIL__SMTP_HOST: ${SMTP_HOST}
+      APP__EMAIL__SMTP_PORT: ${SMTP_PORT}
+      APP__EMAIL__SMTP_USERNAME: ${SMTP_USERNAME}
+      APP__EMAIL__SMTP_PASSWORD: ${SMTP_PASSWORD}
+      APP__EMAIL__FROM_ADDRESS: ${EMAIL_FROM_ADDRESS}
+      APP__EMAIL__DASHBOARD_BASE_URL: https://${DASHBOARD_HOSTNAME}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    expose:
+      - "8080"
+    networks:
+      - shortas-net
+
+  notification-worker:
+    image: ${IMAGE_REGISTRY}/notification-worker:${IMAGE_TAG}
+    container_name: shortas-notification-worker
+    restart: unless-stopped
+    <<: *peer-hosts
+    depends_on:
+      notification-templates-sync:
+        condition: service_completed_successfully
+    environment:
+      RUST_LOG: info
+      APP_RUN_MODE: production
+      APP__DATABASE__HOST: shortas-api-postgres
+      APP__DATABASE__PORT: 5432
+      APP__DATABASE__USERNAME: ${API_DB_USER}
+      APP__DATABASE__PASSWORD: ${API_DB_PASSWORD}
+      APP__DATABASE__DATABASE: ${API_DB_NAME}
+      APP__DATABASE__MAX_CONNECTIONS: 5
+      APP__MINIO__ENDPOINT: ${S3_ENDPOINT}
+      APP__MINIO__PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
+      APP__MINIO__REGION: ${S3_REGION}
+      APP__MINIO__ACCESS_KEY: ${S3_ACCESS_KEY}
+      APP__MINIO__SECRET_KEY: ${S3_SECRET_KEY}
+      APP__MINIO__BUCKET: ${S3_ROUTE_IMAGES_BUCKET}
+      APP__RABBITMQ__URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672
+      APP__RABBITMQ__NOTIFICATIONS_EXCHANGE: notifications
+      APP__RABBITMQ__NOTIFICATIONS_QUEUE: notifications
+      APP__RABBITMQ__NOTIFICATIONS_RETRY_QUEUE: notifications.retry
+      APP__RABBITMQ__NOTIFICATIONS_DEAD_QUEUE: notifications.dead
+      APP__EMAIL__PROVIDER: ${EMAIL_PROVIDER}
+      APP__EMAIL__SMTP_HOST: ${SMTP_HOST}
+      APP__EMAIL__SMTP_PORT: ${SMTP_PORT}
+      APP__EMAIL__SMTP_USERNAME: ${SMTP_USERNAME}
+      APP__EMAIL__SMTP_PASSWORD: ${SMTP_PASSWORD}
+      APP__EMAIL__FROM_ADDRESS: ${EMAIL_FROM_ADDRESS}
+    networks:
+      - shortas-net
+
+  notification-templates-sync:
+    image: amazon/aws-cli:latest
+    container_name: shortas-notification-templates-sync
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      AWS_DEFAULT_REGION: ${S3_REGION}
+      AWS_ENDPOINT_URL: ${S3_ENDPOINT}
+    volumes:
+      - ../../notification-templates:/templates:ro
+    entrypoint: >
+      /bin/sh -c "
+        aws s3 sync /templates s3://${S3_ROUTE_IMAGES_BUCKET}/notification-templates/ --delete
+      "
+    networks:
+      - shortas-net
+
+  domain-verifier:
+    image: ${IMAGE_REGISTRY}/domain-verifier:${IMAGE_TAG}
+    container_name: shortas-domain-verifier
+    restart: unless-stopped
+    <<: *peer-hosts
+    environment:
+      <<: *rust-logging
+      APP__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
+      APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
+    ports:
+      - "5830:5830"
+    networks:
+      - shortas-net
+
+  route-icon-worker:
+    image: ${IMAGE_REGISTRY}/route-icon-worker:${IMAGE_TAG}
+    container_name: shortas-route-icon-worker
+    restart: unless-stopped
+    <<: *peer-hosts
+    environment:
+      <<: *rust-logging
+      APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
+      APP__MINIO__ENDPOINT: ${S3_ENDPOINT}
+      APP__MINIO__ACCESS_KEY: ${S3_ACCESS_KEY}
+      APP__MINIO__SECRET_KEY: ${S3_SECRET_KEY}
+      APP__MINIO__BUCKET: ${S3_ROUTE_IMAGES_BUCKET}
+    networks:
+      - shortas-net
+
+  route-verifier:
+    image: ${IMAGE_REGISTRY}/route-verifier:${IMAGE_TAG}
+    container_name: shortas-route-verifier
+    restart: unless-stopped
+    <<: *peer-hosts
+    depends_on:
+      - click-router-api
+    environment:
+      <<: *rust-logging
+      APP__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
+      APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
+      APP__SAFE_BROWSING__BASE_URL: http://shortas-safe-browsing:5000
+    ports:
+      - "5831:5831"
+    networks:
+      - shortas-net
+
+  pages:
+    image: ${IMAGE_REGISTRY}/pages:${IMAGE_TAG}
+    container_name: shortas-pages
+    hostname: pages
+    restart: unless-stopped
+    ports:
+      - "5801:5801"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5801/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - shortas-net
+
+  dashboard:
+    image: ${IMAGE_REGISTRY}/dashboard:${IMAGE_TAG}
+    container_name: shortas-dashboard
+    restart: unless-stopped
+    environment:
+      REACT_APP_KEYCLOAK_URL: https://${KEYCLOAK_HOSTNAME}
+      REACT_APP_KEYCLOAK_CLIENT_ID: shortas-dashboard
+      REACT_APP_PROXY_API_URL: https://${API_HOSTNAME}
+      REACT_APP_ROUTE_IMAGES_BASE_URL: ${S3_PUBLIC_ENDPOINT}
+    expose:
+      - "80"
+    networks:
+      - shortas-net
+
+  landing:
+    image: ${IMAGE_REGISTRY}/landing:${IMAGE_TAG}
+    container_name: shortas-landing
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - shortas-net
+
+  # Reverse-proxies + auto-TLS for this node's own public hostnames
+  # (dashboard, landing, api). Does NOT touch click-router's ports
+  # (4433/5800) — those go straight to the LB, since click-router terminates
+  # TLS itself per customer short-domain.
+  caddy:
+    image: caddy:2-alpine
+    container_name: shortas-caddy
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./Caddyfile.app:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DASHBOARD_HOSTNAME=${DASHBOARD_HOSTNAME}
+      - LANDING_HOSTNAME=${LANDING_HOSTNAME}
+      - API_HOSTNAME=${API_HOSTNAME}
+    depends_on:
+      - dashboard
+      - landing
+      - management-api
+    networks:
+      - shortas-net
+
+  # --- Singleton services: run with `--profile singleton`, on app-node-1 ONLY ---
+
+  click-tracker:
+    image: ${IMAGE_REGISTRY}/click-tracker:${IMAGE_TAG}
+    container_name: shortas-click-tracker
+    restart: unless-stopped
+    profiles: ["singleton"]
+    <<: *peer-hosts
+    environment:
+      <<: *rust-logging
+      APP__REDIS__HOST: redis://:${REDIS_PASSWORD}@redis:6379
+      APP__REDIS__PASSWORD: ${REDIS_PASSWORD}
+    networks:
+      - shortas-net
+
+  click-aggregator:
+    image: ${IMAGE_REGISTRY}/click-aggregator:${IMAGE_TAG}
+    container_name: shortas-click-aggregator
+    restart: unless-stopped
+    profiles: ["singleton"]
+    <<: *peer-hosts
+    environment:
+      <<: *rust-logging
+      METRICS_PORT: 9090
+      APP__CLICKHOUSE__CLICK_STREAM_STORE__PASSWORD: ${CLICKHOUSE_PASSWORD}
+      APP__CLICKHOUSE__CLICK_STREAM_STORE__URL: http://clickhouse:8123
+    ports:
+      - "9090:9090"
+    networks:
+      - shortas-net
+
+  cert-bot:
+    image: ${IMAGE_REGISTRY}/cert-bot:${IMAGE_TAG}
+    container_name: shortas-cert-bot
+    restart: unless-stopped
+    profiles: ["singleton"]
+    <<: *peer-hosts
+    depends_on:
+      - click-router-api
+    environment:
+      <<: *rust-logging
+      # Staging by default (see redirect/cert-bot/config/production.toml) —
+      # switch to the production ACME directory only once you've verified
+      # issuance end-to-end, to avoid burning Let's Encrypt's prod rate limits.
+      CERTBOT__ACME__ACCOUNT_EMAIL: ${ACME_ACCOUNT_EMAIL}
+      APP__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017
+      APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
+      APP__CLICK_ROUTER_API__BASE_URL: http://shortas-click-router-api:5810
+    volumes:
+      - cert_bot_data:/etc/cert-bot
+    networks:
+      - shortas-net

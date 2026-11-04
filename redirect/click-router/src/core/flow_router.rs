@@ -282,8 +282,9 @@ pub struct FlowRouterContext<'a> {
     pub client_ip: Option<IPInfo>,
     /// Raw user agent string from the request headers
     pub user_agent: Option<String>,
-    /// Parsed client language preferences
-    pub client_langs: Option<Vec<Language>>,
+    /// Lazily-initialized parsed client language preferences - only parsed
+    /// when a conditional route actually needs it (see `FlowRouter::load_langs`).
+    pub client_langs: InitOnce<Option<Vec<Language>>>,
     /// Protocol information (HTTP/HTTPS)
     pub protocol: Option<ProtoInfo>,
     /// The output route determined for this request (Arc to avoid cloning)
@@ -333,7 +334,7 @@ impl<'a> FlowRouterContext<'a> {
             in_route,
             user_agent: None,
             client_ip: None,
-            client_langs: None,
+            client_langs: InitOnce::default(None),
             host: None,
             protocol: None,
             out_route: None,
@@ -858,11 +859,14 @@ impl FlowRouter {
 
         let result = match &context.out_route {
             Some(route) => {
-                let destination = &route
+                // Parse straight from `&str` - no need to allocate an owned
+                // `String` just to hand it to `Uri::parse`, and
+                // `unwrap_or_else` avoids allocating the fallback on every
+                // redirect that already has a `dest`.
+                let destination = route
                     .dest
-                    .as_ref()
-                    .unwrap_or(&String::from("http://test.com"))
-                    .to_string();
+                    .as_deref()
+                    .unwrap_or_else(|| "http://test.com");
 
                 FlowRouterResult::Redirect(destination.parse().unwrap(), RedirectType::Temporary)
             }
@@ -887,7 +891,7 @@ impl FlowRouter {
         Ok(())
     }
 
-    pub async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
+    pub async fn get_user_settings(&self, user_id: &str) -> Result<Option<Arc<UserSettings>>> {
         let user_settings = self.settings_manager.get_user_settings(user_id).await?;
 
         Ok(user_settings)
@@ -897,7 +901,7 @@ impl FlowRouter {
         &self,
         path: &str,
         context: &FlowRouterContext<'_>,
-    ) -> Result<Option<Route>> {
+    ) -> Result<Option<Arc<Route>>> {
         let route = self
             .routes_manager
             .get_route(MAIN_SWITCH, context.in_route.host.as_str(), path)
@@ -910,7 +914,7 @@ impl FlowRouter {
         &self,
         switch: &str,
         context: &FlowRouterContext<'_>,
-    ) -> Result<Option<Route>> {
+    ) -> Result<Option<Arc<Route>>> {
         let route = self
             .routes_manager
             .get_route(
@@ -927,7 +931,7 @@ impl FlowRouter {
         &self,
         switch: &str,
         path: &str,
-    ) -> Result<Option<Route>> {
+    ) -> Result<Option<Arc<Route>>> {
         self.routes_manager.get_route_by_switch(switch, path).await
     }
 
@@ -947,9 +951,9 @@ impl FlowRouter {
         }
 
         if let None = context.main_route {
-            // Wrap route in Arc to avoid expensive cloning
-            if let Some(route) = self.get_route(MAIN_SWITCH, &context).await? {
-                let route_arc = Arc::new(route);
+            // Route already comes back as an Arc from the cache - no extra
+            // allocation needed here.
+            if let Some(route_arc) = self.get_route(MAIN_SWITCH, &context).await? {
                 context.main_route = Some(route_arc.clone());
                 context.out_route = Some(route_arc);
             }
@@ -1068,6 +1072,17 @@ impl FlowRouter {
         context.client_device.init_with(Some(device));
     }
 
+    pub fn load_langs(&self, context: &mut FlowRouterContext) {
+        if context.client_langs.has_value() {
+            return;
+        }
+
+        let debug = self.allow_debug(context);
+        let langs = self.language_extractor.detect(&context.request, debug);
+
+        context.client_langs.init_with(langs);
+    }
+
     fn replace_debug_data(&self, context: &mut FlowRouterContext) {
         if !self.allow_debug(context) {
             return;
@@ -1079,7 +1094,7 @@ impl FlowRouter {
         context.user_agent = self
             .user_agent_string_extractor
             .detect(&context.request, true);
-        context.client_langs = self.language_extractor.detect(&context.request, true);
+        // client_langs is loaded lazily via `load_langs` - see there for why.
     }
 
     fn build_context<'a>(
@@ -1099,7 +1114,7 @@ impl FlowRouter {
             in_route: self.build_route_uri(req),
             user_agent: None,
             client_ip: None,
-            client_langs: None,
+            client_langs: InitOnce::default(None),
             host: None,
             protocol: None,
             out_route: None,
@@ -1117,7 +1132,10 @@ impl FlowRouter {
         context.user_agent = self
             .user_agent_string_extractor
             .detect(&context.request, false);
-        context.client_langs = self.language_extractor.detect(&context.request, false);
+        // client_langs is loaded lazily via `load_langs` - most requests
+        // never evaluate a conditional route with a `lang` clause, so
+        // parsing Accept-Language into Vec<Language> up front wastes an
+        // allocation per language entry on every request.
 
         context
     }

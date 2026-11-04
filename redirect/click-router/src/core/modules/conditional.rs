@@ -7,7 +7,6 @@ use crate::{
     model::route::RoutingPolicy,
 };
 use anyhow::Result;
-use std::sync::Arc;
 
 const IS_CONDITIONAL: &'static str = "is_conditional";
 
@@ -35,10 +34,13 @@ impl FlowModule for ConditionalModule {
             return Ok(FlowStepContinuation::Continue);
         }
 
+        // Clone the Arc (cheap refcount bump, not a deep clone of the route)
+        // so `conditions` doesn't keep `context` borrowed while we need
+        // `&mut context` below to preload UA/OS/device/country.
+        let main_route = context.main_route.as_ref().unwrap().clone();
+
         //preload heavy stuff if needed
-        if let RoutingPolicy::Conditional(conditions) =
-            &context.main_route.as_ref().unwrap().policy.clone()
-        {
+        if let RoutingPolicy::Conditional(conditions) = &main_route.policy {
             if conditions
                 .iter()
                 .any(|routing| routing.condition.needs_ua())
@@ -63,6 +65,12 @@ impl FlowModule for ConditionalModule {
             {
                 router.load_country(context);
             }
+            if conditions
+                .iter()
+                .any(|routing| routing.condition.needs_lang())
+            {
+                router.load_langs(context);
+            }
 
             //println!("IS_CONDITIONAL");
             context.add_bool(IS_CONDITIONAL, true);
@@ -84,8 +92,8 @@ impl FlowModule for ConditionalModule {
                     .await?;
 
                 if let Some(route) = out_route {
-                    // Wrap route in Arc to avoid expensive cloning later
-                    context.out_route = Some(Arc::new(route));
+                    // Already an Arc<Route> from the cache.
+                    context.out_route = Some(route);
 
                     return Ok(FlowStepContinuation::Continue);
                 }

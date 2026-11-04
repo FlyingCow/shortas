@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
@@ -12,14 +13,11 @@ use super::settings::UserSettingsCacheSettings;
 
 const KEY_PREFIX: &'static str = "settings";
 
-#[derive(Clone, Debug)]
-pub struct UserSettingsCacheItem {
-    value: Option<UserSettings>,
-}
-
 #[derive(Clone)]
 pub struct MokaUserSettingsCache {
-    cache: Cache<String, UserSettingsCacheItem>,
+    // `Option<Arc<UserSettings>>` so a cache hit is a refcount bump instead
+    // of a deep clone of the settings struct.
+    cache: Cache<String, Option<Arc<UserSettings>>>,
     user_settings_store: UserSettingsStoreType,
 }
 
@@ -52,21 +50,22 @@ fn get_key(user_id: &str) -> String {
 
 #[async_trait::async_trait()]
 impl UserSettingsCache for MokaUserSettingsCache {
-    async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
+    async fn get_user_settings(&self, user_id: &str) -> Result<Option<Arc<UserSettings>>> {
         let key = get_key(user_id);
 
+        // `get_with` also dedupes concurrent misses for the same key; since
+        // the cached value is now `Option<Arc<UserSettings>>`, both the hit
+        // and miss paths only ever clone an `Arc`, never the settings struct.
         let cache_result = self
             .cache
             .get_with(key, async move {
                 let user_settings_result =
                     self.user_settings_store.get_user_settings(user_id).await;
-                UserSettingsCacheItem {
-                    value: user_settings_result.unwrap(),
-                }
+                user_settings_result.unwrap().map(Arc::new)
             })
             .await;
 
-        Ok(cache_result.value)
+        Ok(cache_result)
     }
 
     async fn invalidate(&self, user_id: &str) -> Result<()> {

@@ -18,11 +18,18 @@
 
 use clap::Parser;
 use http::StatusCode;
+use mimalloc::MiMalloc;
 use rustls::server::ClientHello;
 use std::{
     io::{Error as IoError, Result as IoResult},
     sync::Arc,
 };
+
+/// mimalloc is faster than the system allocator for the small, frequent
+/// allocations this service does on every request (route lookups, header
+/// parsing, string formatting, etc.).
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 use axum::{
     body::Body,

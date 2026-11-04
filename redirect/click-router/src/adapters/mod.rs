@@ -59,6 +59,7 @@
 //! `adapters/adapter_enum.rs` to reduce boilerplate.
 
 use std::net::IpAddr;
+use std::sync::Arc;
 
 use anyhow::{Error, Result};
 use aws::dynamo::{
@@ -290,7 +291,7 @@ pub enum UserSettingsCacheType {
 
 #[async_trait::async_trait]
 impl UserSettingsCache for UserSettingsCacheType {
-    async fn get_user_settings(&self, user_id: &str) -> Result<Option<UserSettings>> {
+    async fn get_user_settings(&self, user_id: &str) -> Result<Option<Arc<UserSettings>>> {
         match self {
             UserSettingsCacheType::Moka(cache) => cache.get_user_settings(user_id).await,
         }
@@ -362,7 +363,7 @@ pub enum RoutesCacheType {
 
 #[async_trait::async_trait]
 impl RoutesCache for RoutesCacheType {
-    async fn get_route(&self, switch: &str, path: &str) -> Result<Option<Route>> {
+    async fn get_route(&self, switch: &str, path: &str) -> Result<Option<Arc<Route>>> {
         match self {
             RoutesCacheType::Moka(cache) => cache.get_route(switch, path).await,
         }

@@ -58,8 +58,8 @@ impl ExpressionEvaluator {
         false
     }
 
-    fn eval_lang(&self, client_langs: &Option<Vec<Language>>, lang: &LangExpr) -> bool {
-        if let Some(client_langs) = client_langs {
+    fn eval_lang(&self, client_langs: &InitOnce<Option<Vec<Language>>>, lang: &LangExpr) -> bool {
+        if let Some(client_langs) = client_langs.as_ref().as_ref() {
             if let Some(top_lang) = client_langs.first() {
                 let top_lang = &top_lang.name[..2];
 
@@ -232,50 +232,65 @@ impl ExpressionEvaluator {
     }
 
     fn eval_expression(&self, router_context: &FlowRouterContext, expr: &Expression) -> bool {
-        let mut result = Vec::new();
+        // Accumulate inline instead of collecting into a Vec<bool> - this
+        // runs once per ConditionalRouting entry, so a heap allocation here
+        // is pure overhead on every request that evaluates a conditional
+        // route.
+        // Matches the empty-expression behavior of the old `Vec<bool>`
+        // version: `[].any() == false`, `[].all() == true`.
+        let mut any = false;
+        let mut all = true;
+
+        macro_rules! eval {
+            ($value:expr) => {{
+                let result = $value;
+                any = any || result;
+                all = all && result;
+            }};
+        }
 
         if let Some(country) = &expr.country {
-            result.push(self.eval_country(&router_context.client_country, country));
+            eval!(self.eval_country(&router_context.client_country, country));
         };
 
         if let Some(lang) = &expr.lang {
-            result.push(self.eval_lang(&router_context.client_langs, lang));
+            eval!(self.eval_lang(&router_context.client_langs, lang));
         };
 
         if let Some(ua) = &expr.ua {
-            result.push(self.eval_ua(&router_context.client_ua, ua));
+            eval!(self.eval_ua(&router_context.client_ua, ua));
         };
 
         if let Some(os) = &expr.os {
-            result.push(self.eval_os(&router_context.client_os, os));
+            eval!(self.eval_os(&router_context.client_os, os));
         };
 
         if let Some(dev) = &expr.device {
-            result.push(self.eval_device(&router_context.client_device, dev));
+            eval!(self.eval_device(&router_context.client_device, dev));
         };
 
         if let Some(rnd) = &expr.rnd {
-            result.push(self.eval_rnd(rnd));
+            eval!(self.eval_rnd(rnd));
         };
 
         if let Some(day) = &expr.day_of_month {
-            result.push(self.eval_day_of_month(&router_context.utc, day));
+            eval!(self.eval_day_of_month(&router_context.utc, day));
         };
 
         if let Some(day) = &expr.day_of_week {
-            result.push(self.eval_day_of_week(&router_context.utc, day));
+            eval!(self.eval_day_of_week(&router_context.utc, day));
         };
 
         if let Some(date) = &expr.date {
-            result.push(self.eval_date(&router_context.utc, date));
+            eval!(self.eval_date(&router_context.utc, date));
         };
 
         match &expr.default_operator {
             //or by default
-            None => result.iter().any(|&i| i),
+            None => any,
             Some(op) => match op {
-                DefaultOperator::And => result.iter().all(|&i| i),
-                DefaultOperator::Or => result.iter().any(|&i| i),
+                DefaultOperator::And => all,
+                DefaultOperator::Or => any,
             },
         }
     }
