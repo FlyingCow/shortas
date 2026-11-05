@@ -40,7 +40,7 @@ impl Settings {
             .add_source(File::with_name(&format!("{}/local", path)).required(false))
             // Add in settings from the environment (with a prefix of APP)
             // Eg.. `APP_DEBUG=1 ./target/app` would set the `debug` key
-            .add_source(Environment::with_prefix("app"))
+            .add_source(Environment::with_prefix("app").separator("__"))
             // You may also programmatically change settings
             //.set_override("database.url", "postgres://")?
             .build()?;

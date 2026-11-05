@@ -67,7 +67,7 @@ services:
     <<: *peer-hosts
     environment:
       <<: *rust-logging
-      APP__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
+      APP__MONGODB__CONNECTION_STRING: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
       APP__REDIS__HOST: redis://:${REDIS_PASSWORD}@redis:6379
       APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
     ports:
@@ -203,7 +203,7 @@ services:
     <<: *peer-hosts
     environment:
       <<: *rust-logging
-      APP__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
+      APP__MONGODB__CONNECTION_STRING: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
       APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
     ports:
       - "5830:5830"
@@ -234,7 +234,7 @@ services:
       - click-router-api
     environment:
       <<: *rust-logging
-      APP__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
+      APP__MONGODB__CONNECTION_STRING: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
       APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
       APP__SAFE_BROWSING__BASE_URL: http://shortas-safe-browsing:5000
     ports:
@@ -351,10 +351,12 @@ services:
       # Staging by default (see redirect/cert-bot/config/production.toml) —
       # switch to the production ACME directory only once you've verified
       # issuance end-to-end, to avoid burning Let's Encrypt's prod rate limits.
+      # cert-bot's config loader uses prefix "CERTBOT", not "APP" like every
+      # other service — see redirect/cert-bot/src/settings.rs.
       CERTBOT__ACME__ACCOUNT_EMAIL: ${ACME_ACCOUNT_EMAIL}
-      APP__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017
-      APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
-      APP__CLICK_ROUTER_API__BASE_URL: http://shortas-click-router-api:5810
+      CERTBOT__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017
+      CERTBOT__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
+      CERTBOT__CLICK_ROUTER_API__BASE_URL: http://shortas-click-router-api:5810
     volumes:
       - cert_bot_data:/etc/cert-bot
     networks:
