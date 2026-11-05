@@ -170,10 +170,8 @@ the LB health check will drain the one being updated).
 
 ## Budget single-node
 
-For a demo/low-traffic deploy, skip all of the above and run everything on
-one CX43, from `infra/custom/docker-compose.yml` (the existing all-in-one
-compose file) rather than this directory — it already runs all services on
-one Docker network with container-name DNS, no cross-host wiring needed.
-Drop `mongo-express`, `shortas-mailhog`, and `vault` from it to save RAM,
-and still do the "things you must change" list above (ACME directory,
-SMTP, secrets, GSB key) before calling it live.
+For a demo/low-traffic deploy, skip all of the above — see
+`../hetzner-budget/` for a dedicated single-VM layout (one CX43, prebuilt
+GHCR images, self-hosted MinIO, ~€20/mo). It's the direct downgrade path
+from this directory: same application images, same env var shapes, just
+one node instead of four and no HA.
