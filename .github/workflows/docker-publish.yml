@@ -64,6 +64,14 @@ jobs:
           - service: landing
             dockerfile: ui/landing/Dockerfile
             context: ui/landing
+          # fluvio-run (infinyon/fluvio:stable) only contains the SPU/SC
+          # server runner, not the fluvio client CLI — this image is for the
+          # sc-setup/topic-setup one-off jobs in infra/hetzner*/ that need
+          # `fluvio profile|cluster|topic` commands, which that image can't
+          # run at all.
+          - service: fluvio-cli
+            dockerfile: redirect/Dockerfile
+            context: .
     steps:
       - uses: actions/checkout@v4
 

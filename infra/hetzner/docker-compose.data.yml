@@ -202,12 +202,15 @@ services:
       - shortas-net
 
   sc-setup:
-    image: infinyon/fluvio:stable
+    # infinyon/fluvio:stable only ships the SPU/SC server runner, not the
+    # fluvio client CLI this script needs — see fluvio-cli in
+    # .github/workflows/docker-publish.yml, built from redirect/Dockerfile.
+    image: ${IMAGE_REGISTRY}/fluvio-cli:${IMAGE_TAG}
     container_name: sc-setup
     depends_on:
       - sc
     command: >
-      sh -c "
+      bash -c "
         for i in $$(seq 1 10); do
           fluvio profile add docker sc:9003 docker 2>/dev/null && break
           echo \"Attempt $$i: SC not ready, retrying in 3s...\"; sleep 3
@@ -238,12 +241,12 @@ services:
       - shortas-net
 
   topic-setup:
-    image: infinyon/fluvio:stable
+    image: ${IMAGE_REGISTRY}/fluvio-cli:${IMAGE_TAG}
     container_name: topic-setup
     depends_on:
       - spu
     command: >
-      sh -c "
+      bash -c "
         fluvio profile add docker sc:9003 docker &&
         for i in $$(seq 1 10); do
           fluvio cluster spu list 2>/dev/null | grep -q 'Online' && break
