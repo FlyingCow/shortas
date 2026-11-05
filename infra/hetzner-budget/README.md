@@ -51,28 +51,130 @@ under real traffic.
   detail — if you need to not have this conversation at 3am, use
   `../hetzner/` instead.
 
-## Setup
+## Setup from zero (no Hetzner account yet)
 
-1. Create a Hetzner CX43 (or CX33 if you're comfortable with the RAM risk),
-   install Docker + Compose plugin (`curl -fsSL https://get.docker.com | sh`).
-2. Point DNS A records for `DASHBOARD_HOSTNAME`, `LANDING_HOSTNAME`,
-   `API_HOSTNAME`, `S3_PUBLIC_HOSTNAME`, `KEYCLOAK_HOSTNAME` (and
-   `GRAFANA_HOSTNAME` if you'll enable observability) at the box's public
-   IP, plus whatever short-link domain(s) click-router will serve.
-3. Hetzner Cloud Firewall: allow 22 (SSH, your IP only), 80/443 (public),
-   and leave everything else closed — all the data ports (27017, 5432,
-   6379, 8123, 5672, 9200, 9000...) have no business being internet-facing;
-   Docker's published ports on this box are for container-to-container
-   traffic model simplicity, not for public access, so firewall them even
-   though compose publishes them.
-4. `git clone` this repo onto the box (compose references sibling paths
-   like `../../notification-templates` and `../custom/keycloak/...`).
-5. `cd infra/hetzner-budget && cp .env.example .env` and fill in every
-   `changeme-*` with real random values, plus your real hostnames/SMTP
-   creds.
-6. Make the GHCR packages public, or `docker login ghcr.io` on the box with
-   a `read:packages` PAT.
-7. `docker compose pull && docker compose up -d`
+### 1. Account + SSH key
+
+1. Sign up at **console.hetzner.com** (needs a payment method).
+2. On your own machine, check for an existing SSH key or make one:
+   ```bash
+   ls ~/.ssh/id_ed25519.pub 2>/dev/null || ssh-keygen -t ed25519 -C "your-email"
+   ```
+3. Hetzner Console → **Security → SSH Keys → Add SSH Key** → paste the
+   contents of `~/.ssh/id_ed25519.pub`.
+
+### 2. Create the server
+
+1. **Projects → New Project**.
+2. **Servers → Add Server**: Location closest to your users; Image
+   **Ubuntu 24.04**; Type **Shared vCPU → CX43** (8 vCPU/16GB — don't go
+   smaller for a first attempt, see "Sizing / cost" above); SSH key: select
+   the one you just added (this is the step that's easy to miss — if you
+   skip it, Hetzner falls back to emailing you a one-time root password
+   instead of key auth, which is a worse starting position, not a blocker).
+3. Note the server's public IPv4 once it's created.
+
+### 3. DNS
+
+Add **A records**, replacing `yourdomain.com` with your real domain, all
+pointing at the server's IP:
+
+| Host | Points to |
+|---|---|
+| `dashboard.yourdomain.com` | server IP |
+| `api.yourdomain.com` | server IP |
+| `auth.yourdomain.com` | server IP |
+| `images.yourdomain.com` | server IP |
+| `yourdomain.com` (apex) | server IP |
+
+Propagation can take minutes to hours — fine to continue while it settles.
+
+### 4. SSH in
+
+```bash
+ssh root@<server-ip>
+```
+
+Two things commonly trip people up here:
+
+- **It asks for a password even though you added a key.** Check your
+  email for a one-time root password Hetzner sends when no key was
+  attached to the server (easy to miss selecting it in step 2). Log in
+  with that password, then add your key so you don't need it again. On
+  YOUR machine, get the key's contents: `cat ~/.ssh/id_ed25519.pub`. Then,
+  on the server:
+  ```bash
+  mkdir -p ~/.ssh && chmod 700 ~/.ssh
+  echo "PASTE_THE_KEY_LINE_HERE" >> ~/.ssh/authorized_keys
+  chmod 600 ~/.ssh/authorized_keys
+  ```
+- **"WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!"** — routine on a
+  freshly created cloud server; Hetzner reuses IPs, so your machine's
+  memory of who last held that IP's SSH key is stale, not a sign of
+  tampering. Fix and retry:
+  ```bash
+  ssh-keygen -R <server-ip>
+  ssh root@<server-ip>
+  ```
+
+### 5. Prep the box
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+Then, from the Hetzner **Console** (not just `ufw` on the box, so a mistake
+doesn't lock you out): **Firewalls → Create Firewall** — allow inbound TCP
+22 (SSH), 80, 443, 4433, 5800 from `0.0.0.0/0`; deny everything else; attach
+it to the server. All the data ports (27017, 5432, 6379, 8123, 5672,
+9200, 9000...) have no business being internet-facing — Docker publishing
+them on this box is for simplicity, not public access, so the firewall is
+what actually keeps them private.
+
+### 6. Get the code and make images pullable
+
+```bash
+git clone https://github.com/FlyingCow/shortas.git
+cd shortas/infra/hetzner-budget
+```
+
+Images are built by CI into GHCR (`ghcr.io/flyingcow/shortas/*`), but
+**GitHub packages default to private** — `docker compose pull` will fail
+with an auth error until you either make the 14 packages public (GitHub →
+your account's **Packages** tab → each package's settings → Change
+visibility → Public) or `docker login ghcr.io` on the server with a PAT
+that has `read:packages` scope. Public is simpler for a single budget box
+with nothing sensitive in the images.
+
+### 7. Configure secrets
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Fill in every `changeme-*` with real random values (`openssl rand -hex 24`
+run on your own machine, paste the output in) and the hostnames from step
+3. Leave `IMAGE_TAG=latest` for now.
+
+### 8. Launch
+
+```bash
+docker compose pull
+docker compose up -d
+docker compose ps
+```
+
+Give it a couple of minutes — Mongo/ClickHouse/Elasticsearch/Fluvio all
+need to come up before the app services connect successfully;
+`docker compose ps` will show some containers restarting until their
+dependencies are ready.
+
+### 9. First login
+
+- `https://auth.yourdomain.com` — Keycloak admin console, log in with
+  `KEYCLOAK_ADMIN_USER`/`PASSWORD` from `.env`.
+- `https://dashboard.yourdomain.com` — the app itself.
 
 ## Before calling this live
 
