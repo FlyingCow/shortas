@@ -281,7 +281,7 @@ services:
     depends_on:
       - sc
     command: >
-      bash -c "
+      sh -c "
         for i in $$(seq 1 10); do
           fluvio profile add docker sc:9003 docker 2>/dev/null && break
           sleep 3
@@ -312,7 +312,7 @@ services:
     depends_on:
       - spu
     command: >
-      bash -c "
+      sh -c "
         fluvio profile add docker sc:9003 docker &&
         for i in $$(seq 1 10); do
           fluvio cluster spu list 2>/dev/null | grep -q 'Online' && break
