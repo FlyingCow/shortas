@@ -25,7 +25,12 @@ services:
     image: quay.io/keycloak/keycloak:23.0.6
     container_name: keycloak
     restart: unless-stopped
-    command: ["start", "--optimized"]
+    # Not --optimized: that skips Keycloak's build step and trusts a
+    # previous `kc.sh build`, which this stock image never ran — it would
+    # silently keep defaulting to H2 instead of picking up KC_DB=postgres
+    # below. Plain `start` re-runs the build step from env vars every boot
+    # (slightly slower startup, correct DB).
+    command: ["start"]
     # Resolve the hostname Keycloak's KC_DB_URL expects to the data node's
     # private IP (cross-host container-name DNS does not otherwise exist).
     extra_hosts:
