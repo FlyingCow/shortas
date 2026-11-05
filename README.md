@@ -186,7 +186,6 @@ shortas/
 │   ├── dashboard/           React admin dashboard
 │   ├── landing/             React landing page
 │   └── docker-compose.yml   Dashboard + landing page
-├── salvo/                   Salvo web framework fork (git submodule)
 ├── docs/                    Jekyll documentation site
 ├── Cargo.toml                Root workspace (management-api, notification-worker, redirect/shortas-common)
 └── Makefile                  Root build orchestration

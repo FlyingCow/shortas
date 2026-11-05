@@ -36,7 +36,6 @@ COPY redirect/domain-verifier/ ./redirect/domain-verifier/
 COPY redirect/route-icon-worker/ ./redirect/route-icon-worker/
 COPY redirect/route-verifier/ ./redirect/route-verifier/
 COPY redirect/shortas-common/ ./redirect/shortas-common/
-COPY salvo/ ./salvo/
 COPY redirect/data/ ./redirect/data/
 
 # Build application

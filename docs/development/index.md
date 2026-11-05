@@ -14,7 +14,6 @@ cd shortas
 ```
 
 Git submodules:
-- `salvo/` — custom fork of the Salvo web framework
 - `redirect/data/ua-parser/` — UA parser regex database
 
 There are **two Cargo workspaces** in this repo:

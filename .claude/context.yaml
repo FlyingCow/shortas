@@ -93,7 +93,7 @@ architecture:
 
 stack:
   rust_services:
-    framework: salvo-0.84 (custom fork in /salvo)
+    framework: salvo-0.84
     runtime: tokio-1.47
     workspace: /redirect/Cargo.toml (9 members)
 
@@ -302,9 +302,6 @@ directories:
   # Infrastructure
   terraform: infra/aws/terraform/
   docker: infra/custom/
-
-  # Shared
-  salvo_fork: salvo/ (git submodule)
 
 # ============================================================================
 # CONFIGURATION FILES

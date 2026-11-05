@@ -78,7 +78,7 @@ Services are configured via TOML files in each crate's `config/` directory with 
 The workspace `Cargo.toml` centralizes dependency versions. Key shared crates:
 
 - `tokio` 1.47 — async runtime
-- `salvo` 0.84 — web framework (custom fork in `../salvo/`)
+- `salvo` 0.84 — web framework
 - `mongodb` 3.3 — document store driver
 - `clickhouse` 0.13 — analytics driver
 - `redis` 0.32 — cache driver

@@ -32,8 +32,6 @@ COPY redirect/route-icon-worker/ ./redirect/route-icon-worker/
 COPY redirect/route-verifier/ ./redirect/route-verifier/
 COPY redirect/shortas-common/ ./redirect/shortas-common/
 
-# Copy external salvo dependency (needed for workspace resolution)
-COPY salvo/ ./salvo/
 
 # Build the application from the redirect workspace
 WORKDIR /app/redirect

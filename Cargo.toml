@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = ["management-api", "notification-worker", "redirect/shortas-common"]
-exclude = ["salvo"]
 
 [workspace.package]
 version = "0.1.0"
