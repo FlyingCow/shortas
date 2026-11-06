@@ -1,6 +1,7 @@
 import React from 'react';
 import './Hero.css';
 import { GithubIcon, ArrowRightIcon, ZapIcon, CodeIcon, ServerIcon } from './Icons';
+import { getDashboardUrl } from '../config/runtimeEnv';
 
 const Hero: React.FC = () => {
   return (
@@ -23,7 +24,7 @@ const Hero: React.FC = () => {
               own custom domains.
             </p>
             <div className="hero-actions">
-              <a href="https://shortas.work/getting-started/" target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-large">
+              <a href={getDashboardUrl()} className="btn btn-primary btn-large">
                 Get Started
                 <ArrowRightIcon width={18} height={18} />
               </a>

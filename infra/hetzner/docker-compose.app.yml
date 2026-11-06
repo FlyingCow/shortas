@@ -276,6 +276,8 @@ services:
     image: ${IMAGE_REGISTRY}/landing:${IMAGE_TAG}
     container_name: shortas-landing
     restart: unless-stopped
+    environment:
+      REACT_APP_DASHBOARD_URL: https://${DASHBOARD_HOSTNAME}
     expose:
       - "80"
     networks:

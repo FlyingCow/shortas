@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './Header.css';
 import { GithubIcon, MenuIcon, CloseIcon } from './Icons';
+import { getDashboardUrl } from '../config/runtimeEnv';
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -38,7 +39,7 @@ const Header: React.FC = () => {
             >
               <GithubIcon width={20} height={20} />
             </a>
-            <a href="https://shortas.work/getting-started/" target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+            <a href={getDashboardUrl()} className="btn btn-primary">
               Get Started
             </a>
           </div>
