@@ -81,14 +81,34 @@ standard ports 443/80. Short-link domains (whatever you shorten URLs
 under — e.g. `shortas.space`) are served the same way, but by
 `click-router`, which does its own per-domain TLS. Two different programs
 can't both bind port 443 on the same IP, so this box needs a **second
-IPv4 address**: Hetzner Console → your server → **Networking → Primary
-IPs → Add primary IP** (a few €/mo). Note it once assigned — it's the
-`SHORTLINK_IP` you'll put in `.env` in step 8.
+IPv4 address**. A server only ever has one *Primary IP* — the feature you
+actually want is a **Floating IP**, a separate addressable resource you
+create once and attach to a server:
 
-Check it actually shows up on the box once you're SSH'd in (step 5):
-`ip -4 addr show` should list both IPs on the main interface. If it
-doesn't, Hetzner's docs on attaching additional Primary IPs cover the
-(usually automatic) network config step.
+1. Hetzner Console → **Floating IPs → Create Floating IP** — same
+   location/datacenter as your server, type IPv4, attach it to this
+   server. Note the address — it's `SHORTLINK_IP` in `.env` (step 8).
+2. Unlike the Primary IP, a Floating IP is **not** auto-configured on the
+   box — you have to tell the OS about it yourself (do this once you're
+   SSH'd in, step 5):
+   ```bash
+   ip -4 addr show   # confirm your real interface name — don't assume eth0
+   nano /etc/netplan/60-floating-ip.yaml
+   ```
+   ```yaml
+   network:
+     version: 2
+     renderer: networkd
+     ethernets:
+       eth0:              # ← the interface name from `ip -4 addr show`
+         addresses:
+           - YOUR.FLOATING.IP.HERE/32
+   ```
+   ```bash
+   sudo netplan apply   # briefly resets networking — don't do this over a
+                        # connection you can't afford to drop for a few seconds
+   ip -4 addr show      # confirm both IPs now show up
+   ```
 
 ### 4. DNS
 
