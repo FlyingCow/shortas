@@ -437,9 +437,13 @@ services:
       APP__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
       APP__REDIS__HOST: redis://:${REDIS_PASSWORD}@redis:6379
       APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
+    # Bound to a SECOND server IP (not the default/all-interfaces bind) so
+    # it can own standard ports 443/80 for short-link domains without
+    # colliding with Caddy, which owns 443/80 on the primary IP for the
+    # app's own hostnames. See README.md "Two IPs on one server".
     ports:
-      - "4433:4433"
-      - "5800:5800"
+      - "${SHORTLINK_IP}:443:4433"
+      - "${SHORTLINK_IP}:80:5800"
     depends_on:
       pages:
         condition: service_healthy
@@ -684,9 +688,13 @@ services:
     image: caddy:2-alpine
     container_name: shortas-caddy
     restart: unless-stopped
+    # Bound to the PRIMARY IP explicitly, not left on the default
+    # all-interfaces bind — that would collide with click-router's bind
+    # on the second IP (same port, can't have both a wildcard and a
+    # specific bind). See README.md "Two IPs on one server".
     ports:
-      - "443:443"
-      - "80:80"
+      - "${PRIMARY_IP}:443:443"
+      - "${PRIMARY_IP}:80:80"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

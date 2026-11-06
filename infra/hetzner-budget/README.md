@@ -72,24 +72,40 @@ under real traffic.
    the one you just added (this is the step that's easy to miss — if you
    skip it, Hetzner falls back to emailing you a one-time root password
    instead of key auth, which is a worse starting position, not a blocker).
-3. Note the server's public IPv4 once it's created.
+3. Note the server's public IPv4 (its **primary IP**) once it's created.
 
-### 3. DNS
+### 3. Add a second IP
 
-Add **A records**, replacing `yourdomain.com` with your real domain, all
-pointing at the server's IP:
+The app's own hostnames (dashboard/api/auth/images) are served by Caddy on
+standard ports 443/80. Short-link domains (whatever you shorten URLs
+under — e.g. `shortas.space`) are served the same way, but by
+`click-router`, which does its own per-domain TLS. Two different programs
+can't both bind port 443 on the same IP, so this box needs a **second
+IPv4 address**: Hetzner Console → your server → **Networking → Primary
+IPs → Add primary IP** (a few €/mo). Note it once assigned — it's the
+`SHORTLINK_IP` you'll put in `.env` in step 8.
+
+Check it actually shows up on the box once you're SSH'd in (step 5):
+`ip -4 addr show` should list both IPs on the main interface. If it
+doesn't, Hetzner's docs on attaching additional Primary IPs cover the
+(usually automatic) network config step.
+
+### 4. DNS
+
+Add **A records**, replacing `yourdomain.com` with your real domain:
 
 | Host | Points to |
 |---|---|
-| `dashboard.yourdomain.com` | server IP |
-| `api.yourdomain.com` | server IP |
-| `auth.yourdomain.com` | server IP |
-| `images.yourdomain.com` | server IP |
-| `yourdomain.com` (apex) | server IP |
+| `dashboard.yourdomain.com` | primary IP |
+| `api.yourdomain.com` | primary IP |
+| `auth.yourdomain.com` | primary IP |
+| `images.yourdomain.com` | primary IP |
+| `yourdomain.com` (apex, landing) | primary IP |
+| your short-link domain(s), e.g. `shortas.space` | **second** IP |
 
 Propagation can take minutes to hours — fine to continue while it settles.
 
-### 4. SSH in
+### 5. SSH in
 
 ```bash
 ssh root@<server-ip>
@@ -117,7 +133,7 @@ Two things commonly trip people up here:
   ssh root@<server-ip>
   ```
 
-### 5. Prep the box
+### 6. Prep the box
 
 ```bash
 curl -fsSL https://get.docker.com | sh
@@ -125,13 +141,15 @@ curl -fsSL https://get.docker.com | sh
 
 Then, from the Hetzner **Console** (not just `ufw` on the box, so a mistake
 doesn't lock you out): **Firewalls → Create Firewall** — allow inbound TCP
-22 (SSH), 80, 443, 4433, 5800 from `0.0.0.0/0`; deny everything else; attach
-it to the server. All the data ports (27017, 5432, 6379, 8123, 5672,
-9200, 9000...) have no business being internet-facing — Docker publishing
-them on this box is for simplicity, not public access, so the firewall is
-what actually keeps them private.
+22 (SSH) and 80/443 from `0.0.0.0/0`; deny everything else; attach it to
+the server. Firewall rules apply to the server regardless of which of its
+two IPs traffic arrives on, so this one rule covers both. All the data
+ports (27017, 5432, 6379, 8123, 5672, 9200, 9000...) have no business
+being internet-facing — Docker publishing them on this box is for
+simplicity, not public access, so the firewall is what actually keeps
+them private.
 
-### 6. Get the code and make images pullable
+### 7. Get the code and make images pullable
 
 ```bash
 git clone https://github.com/FlyingCow/shortas.git
@@ -146,7 +164,7 @@ visibility → Public) or `docker login ghcr.io` on the server with a PAT
 that has `read:packages` scope. Public is simpler for a single budget box
 with nothing sensitive in the images.
 
-### 7. Configure secrets
+### 8. Configure secrets
 
 ```bash
 cp .env.example .env
@@ -154,10 +172,11 @@ nano .env
 ```
 
 Fill in every `changeme-*` with real random values (`openssl rand -hex 24`
-run on your own machine, paste the output in) and the hostnames from step
-3. Leave `IMAGE_TAG=latest` for now.
+run on your own machine, paste the output in), the hostnames from step 4,
+and `PRIMARY_IP`/`SHORTLINK_IP` from steps 2-3. Leave `IMAGE_TAG=latest`
+for now.
 
-### 8. Launch
+### 9. Launch
 
 ```bash
 docker compose pull
@@ -170,7 +189,7 @@ need to come up before the app services connect successfully;
 `docker compose ps` will show some containers restarting until their
 dependencies are ready.
 
-### 9. First login
+### 10. First login
 
 `keycloak-realm-setup` (a one-shot container that runs automatically on
 every `docker compose up`) already took care of the realm for you:
