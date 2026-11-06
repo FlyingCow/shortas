@@ -337,8 +337,11 @@ services:
     # previous `kc.sh build`, which this stock image never ran — it would
     # silently keep defaulting to H2 instead of picking up KC_DB=postgres
     # below. Plain `start` re-runs the build step from env vars every boot
-    # (slightly slower startup, correct DB).
-    command: ["start"]
+    # (slightly slower startup, correct DB). --import-realm is required
+    # here too (dropped by mistake when --optimized was removed) — without
+    # it Keycloak only ever has the default "master" realm; realm-export.json
+    # never gets imported at all.
+    command: ["start", "--import-realm"]
     depends_on:
       postgres:
         condition: service_healthy
