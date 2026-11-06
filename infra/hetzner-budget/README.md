@@ -140,7 +140,7 @@ cd shortas/infra/hetzner-budget
 
 Images are built by CI into GHCR (`ghcr.io/flyingcow/shortas/*`), but
 **GitHub packages default to private** — `docker compose pull` will fail
-with an auth error until you either make the 14 packages public (GitHub →
+with an auth error until you either make the 15 packages public (GitHub →
 your account's **Packages** tab → each package's settings → Change
 visibility → Public) or `docker login ghcr.io` on the server with a PAT
 that has `read:packages` scope. Public is simpler for a single budget box
@@ -172,9 +172,21 @@ dependencies are ready.
 
 ### 9. First login
 
+`keycloak-realm-setup` (a one-shot container that runs automatically on
+every `docker compose up`) already took care of the realm for you:
+pointed the dashboard's OIDC redirect URIs at `DASHBOARD_HOSTNAME`
+(they default to `localhost:3000` in `realm-export.json`, which would
+otherwise break login with "Invalid parameter: redirect_uri"), configured
+real SMTP so password-reset emails send, and deleted the seeded
+`testuser`/`testpassword` account (fine for local dev, not something to
+leave on an internet-facing box). Check its logs
+(`docker compose logs keycloak-realm-setup`) if any of that seems off.
+
 - `https://auth.yourdomain.com` — Keycloak admin console, log in with
   `KEYCLOAK_ADMIN_USER`/`PASSWORD` from `.env`.
-- `https://dashboard.yourdomain.com` — the app itself.
+- `https://dashboard.yourdomain.com` — the app itself. Register a real
+  account from here (`testuser` is gone) — registration is open by
+  default (`registrationAllowed: true`).
 
 ## Before calling this live
 

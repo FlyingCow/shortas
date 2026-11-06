@@ -361,13 +361,20 @@ services:
     networks:
       - shortas-net
 
-  # Realm-export.json ships with NO smtpServer configured, so without this,
-  # "forgot password" / "change password" emails are silently never sent —
-  # the realm itself has nowhere to send them from. Idempotent: just PUTs
-  # the smtpServer block on every boot, safe to re-run.
-  keycloak-smtp-setup:
+  # One-time (but idempotent, safe to re-run every boot) fixes to the
+  # imported realm that only matter once you're off localhost:
+  #   1. SMTP — realm-export.json ships with none configured at all, so
+  #      "forgot password" emails were silently never sent.
+  #   2. shortas-dashboard client's redirectUris/webOrigins default to
+  #      localhost:3000 — without updating them to the real dashboard
+  #      domain, login redirects back from Keycloak fail with
+  #      "Invalid parameter: redirect_uri".
+  #   3. Deletes the seeded "testuser" (password: "testpassword",
+  #      committed in plaintext in realm-export.json) — fine for local
+  #      dev, not something to leave sitting on an internet-facing box.
+  keycloak-realm-setup:
     image: alpine:latest
-    container_name: shortas-keycloak-smtp-setup
+    container_name: shortas-keycloak-realm-setup
     depends_on:
       - keycloak
     environment:
@@ -380,21 +387,37 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${EMAIL_FROM_ADDRESS}
+      DASHBOARD_HOSTNAME: ${DASHBOARD_HOSTNAME}
     command:
       - /bin/sh
       - -c
       - |
-        apk add --no-cache curl
+        apk add --no-cache curl jq
         for i in $$(seq 1 30); do
           curl -sf "$$KEYCLOAK_URL/realms/master" >/dev/null 2>&1 && break
           echo "Waiting for Keycloak..."; sleep 3
         done
-        TOKEN=$$(curl -s -d "client_id=admin-cli" -d "username=$$KEYCLOAK_ADMIN_USER" -d "password=$$KEYCLOAK_ADMIN_PASSWORD" -d "grant_type=password" "$$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
-        if [ -z "$$TOKEN" ]; then echo "Failed to get Keycloak admin token"; exit 1; fi
-        curl -sf -X PUT "$$KEYCLOAK_URL/admin/realms/$$KEYCLOAK_REALM" \
+        TOKEN=$$(curl -s -d "client_id=admin-cli" -d "username=$$KEYCLOAK_ADMIN_USER" -d "password=$$KEYCLOAK_ADMIN_PASSWORD" -d "grant_type=password" "$$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" | jq -r .access_token)
+        if [ -z "$$TOKEN" ] || [ "$$TOKEN" = "null" ]; then echo "Failed to get Keycloak admin token"; exit 1; fi
+
+        curl -sf -o /dev/null -X PUT "$$KEYCLOAK_URL/admin/realms/$$KEYCLOAK_REALM" \
           -H "Authorization: Bearer $$TOKEN" -H "Content-Type: application/json" \
-          -d "{\"smtpServer\":{\"host\":\"$$SMTP_HOST\",\"port\":\"$$SMTP_PORT\",\"from\":\"$$SMTP_FROM\",\"fromDisplayName\":\"Shortas\",\"auth\":\"true\",\"user\":\"$$SMTP_USERNAME\",\"password\":\"$$SMTP_PASSWORD\",\"starttls\":\"true\",\"ssl\":\"false\"}}"
-        echo "Keycloak SMTP configured"
+          -d "{\"smtpServer\":{\"host\":\"$$SMTP_HOST\",\"port\":\"$$SMTP_PORT\",\"from\":\"$$SMTP_FROM\",\"fromDisplayName\":\"Shortas\",\"auth\":\"true\",\"user\":\"$$SMTP_USERNAME\",\"password\":\"$$SMTP_PASSWORD\",\"starttls\":\"true\",\"ssl\":\"false\"}}" \
+          && echo "SMTP configured"
+
+        CLIENT_UUID=$$(curl -s "$$KEYCLOAK_URL/admin/realms/$$KEYCLOAK_REALM/clients?clientId=shortas-dashboard" -H "Authorization: Bearer $$TOKEN" | jq -r '.[0].id')
+        if [ -n "$$CLIENT_UUID" ] && [ "$$CLIENT_UUID" != "null" ]; then
+          curl -sf -o /dev/null -X PUT "$$KEYCLOAK_URL/admin/realms/$$KEYCLOAK_REALM/clients/$$CLIENT_UUID" \
+            -H "Authorization: Bearer $$TOKEN" -H "Content-Type: application/json" \
+            -d "{\"redirectUris\":[\"https://$$DASHBOARD_HOSTNAME/*\"],\"webOrigins\":[\"https://$$DASHBOARD_HOSTNAME\"]}" \
+            && echo "shortas-dashboard redirect URIs updated"
+        fi
+
+        USER_UUID=$$(curl -s "$$KEYCLOAK_URL/admin/realms/$$KEYCLOAK_REALM/users?username=testuser" -H "Authorization: Bearer $$TOKEN" | jq -r '.[0].id // empty')
+        if [ -n "$$USER_UUID" ]; then
+          curl -sf -o /dev/null -X DELETE "$$KEYCLOAK_URL/admin/realms/$$KEYCLOAK_REALM/users/$$USER_UUID" -H "Authorization: Bearer $$TOKEN" \
+            && echo "seeded testuser deleted"
+        fi
     networks:
       - shortas-net
 

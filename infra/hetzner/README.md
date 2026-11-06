@@ -152,9 +152,17 @@ the LB health check will drain the one being updated).
   untrusted by browsers.
 - **Mailhog is dev-only.** Fill in real SMTP/SES credentials in
   `.env.app`'s `EMAIL_*`/`SMTP_*` vars before invites/notifications matter.
-- **GHCR package visibility**: either make the 14 packages public or set up
+- **GHCR package visibility**: either make the 15 packages public or set up
   a pull credential on every node — `docker compose pull` will fail
   otherwise.
+
+`keycloak-realm-setup` (platform node, runs automatically on every
+`docker compose up`) already handles the two things that would otherwise
+bite you in production: it points the `shortas-dashboard` client's OIDC
+redirect URIs at `DASHBOARD_HOSTNAME` (they default to `localhost:3000`
+in `realm-export.json`), and deletes the seeded `testuser`/`testpassword`
+account. Check `docker compose logs keycloak-realm-setup` if login or
+SMTP seem off.
 
 ## Backups
 
