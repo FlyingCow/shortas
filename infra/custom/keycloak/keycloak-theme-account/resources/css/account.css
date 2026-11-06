@@ -1,0 +1,48 @@
+/* Shortas Account Console theme — light brand pass over keycloak.v2's
+   compiled PatternFly 4 React app. Deliberately NOT chasing PatternFly's
+   internal CSS-variable chains (many components re-declare them locally
+   per-selector rather than cascading from :root, so a variable-only
+   override isn't reliable) — these are direct, high-specificity
+   overrides of the few classes a visitor actually notices: primary
+   buttons, links, and the active nav/tab indicator. Loaded after
+   PatternFly's own CSS (see theme.properties), so normal cascade order
+   already favors this file; !important is extra insurance given how
+   many pseudo-class variants (:hover/:focus/:active) redeclare these
+   properties internally. */
+
+:root {
+  --shortas-primary: #3b82f6;
+  --shortas-primary-hover: #2563eb;
+}
+
+.pf-c-button.pf-m-primary {
+  background-color: var(--shortas-primary) !important;
+  color: #ffffff !important;
+}
+
+.pf-c-button.pf-m-primary:hover,
+.pf-c-button.pf-m-primary:focus,
+.pf-c-button.pf-m-primary:active {
+  background-color: var(--shortas-primary-hover) !important;
+}
+
+a,
+a:visited {
+  color: var(--shortas-primary);
+}
+
+a:hover {
+  color: var(--shortas-primary-hover);
+}
+
+.pf-c-nav__link.pf-m-current,
+.pf-c-nav__link.pf-m-current::before,
+.pf-c-tabs__link.pf-m-current,
+.pf-c-tabs__item.pf-m-current .pf-c-tabs__link::before {
+  color: var(--shortas-primary) !important;
+  border-color: var(--shortas-primary) !important;
+}
+
+.pf-c-page__header-brand-link .brand {
+  filter: none;
+}

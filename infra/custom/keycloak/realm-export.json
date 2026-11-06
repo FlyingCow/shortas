@@ -2,6 +2,7 @@
   "realm": "shortas-dev",
   "enabled": true,
   "loginTheme": "shortas",
+  "accountTheme": "shortas",
   "sslRequired": "none",
   "registrationAllowed": true,
   "registrationEmailAsUsername": true,
