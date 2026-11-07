@@ -74,6 +74,12 @@ jobs:
             context: .
     steps:
       - uses: actions/checkout@v4
+        with:
+          # redirect/data/ua-parser is a git submodule (click-router and
+          # click-tracker load regexes.yaml from it at startup) — without
+          # this, Docker COPYs an empty directory and both panic on boot
+          # with "Parser creation failed: ... NotFound".
+          submodules: true
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
