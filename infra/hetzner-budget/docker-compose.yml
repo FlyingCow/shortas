@@ -470,6 +470,7 @@ services:
       <<: *rust-logging
       APP__REDIS__HOST: redis://:${REDIS_PASSWORD}@redis:6379
       APP__REDIS__PASSWORD: ${REDIS_PASSWORD}
+      APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
     depends_on:
       topic-setup:
         condition: service_completed_successfully
