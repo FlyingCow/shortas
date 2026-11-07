@@ -223,9 +223,9 @@ GROUP BY
 -- Fast aggregation for real-time dashboards
 CREATE MATERIALIZED VIEW IF NOT EXISTS click_stream_realtime_mv
 ENGINE = AggregatingMergeTree()
-PARTITION BY toYYYYMMDD(created)
-ORDER BY (owner_id, route_id, toStartOfMinute(created))
-TTL created + INTERVAL 7 DAY
+PARTITION BY toYYYYMMDD(minute)
+ORDER BY (owner_id, route_id, minute)
+TTL minute + INTERVAL 7 DAY
 SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
@@ -298,7 +298,7 @@ GROUP BY
 CREATE MATERIALIZED VIEW IF NOT EXISTS click_stream_session_mv
 ENGINE = AggregatingMergeTree()
 PARTITION BY toYYYYMM(date)
-ORDER BY (owner_id, route_id, date)
+ORDER BY (owner_id, creator_id, route_id, workspace_id, date)
 SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,

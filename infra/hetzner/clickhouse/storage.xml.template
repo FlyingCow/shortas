@@ -1,0 +1,22 @@
+<clickhouse>
+    <storage_configuration>
+        <disks>
+            <s3>
+                <type>s3</type>
+                <endpoint>__S3_ENDPOINT__/__S3_BUCKET__/clickhouse-data/</endpoint>
+                <access_key_id>__S3_ACCESS_KEY__</access_key_id>
+                <secret_access_key>__S3_SECRET_KEY__</secret_access_key>
+                <metadata_path>/var/lib/clickhouse/disks/s3/</metadata_path>
+            </s3>
+        </disks>
+        <policies>
+            <s3_main>
+                <volumes>
+                    <main>
+                        <disk>s3</disk>
+                    </main>
+                </volumes>
+            </s3_main>
+        </policies>
+    </storage_configuration>
+</clickhouse>

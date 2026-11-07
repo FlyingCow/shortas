@@ -298,7 +298,6 @@ ORDER BY (owner_id, route_id, cohort_date, conversion_date)
 SETTINGS storage_policy = 's3_main'
 AS SELECT
     owner_id,
-    creator_id,
     route_id,
     workspace_id,
     toDate(funnel_started) AS cohort_date,
@@ -312,7 +311,6 @@ FROM conversion_funnels
 WHERE step_completed = 1
 GROUP BY
     owner_id,
-    creator_id,
     route_id,
     workspace_id,
     cohort_date,

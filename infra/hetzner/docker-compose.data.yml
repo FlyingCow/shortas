@@ -85,11 +85,26 @@ services:
     restart: unless-stopped
     environment:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_ROUTE_IMAGES_BUCKET}
+    # Migrations 001-004 all create tables/views with
+    # SETTINGS storage_policy = 's3_main' — that policy only exists if this
+    # storage.xml is in place before clickhouse-server starts, so render it
+    # from the template (real credentials, not baked in) before exec'ing
+    # the image's own entrypoint.
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        sed "s|__S3_ENDPOINT__|${S3_ENDPOINT}|g; s|__S3_BUCKET__|${S3_ROUTE_IMAGES_BUCKET}|g; s|__S3_ACCESS_KEY__|${S3_ACCESS_KEY}|g; s|__S3_SECRET_KEY__|${S3_SECRET_KEY}|g" /tmp/storage.xml.template > /etc/clickhouse-server/config.d/storage.xml
+        exec /entrypoint.sh
     ports:
       - "8123:8123"
       - "9000:9000"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/storage.xml.template:/tmp/storage.xml.template:ro
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O /dev/null http://localhost:8123/ping || exit 1"]
       interval: 5s

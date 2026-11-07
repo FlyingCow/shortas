@@ -90,8 +90,21 @@ services:
     restart: unless-stopped
     environment:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+    # Migration 001 creates click_stream with SETTINGS storage_policy =
+    # 's3_main' — that policy only exists if this storage.xml is in place
+    # before clickhouse-server starts, so render it from the template
+    # (real credentials, not baked in) before exec'ing the image's own
+    # entrypoint.
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        sed "s|__S3_ACCESS_KEY__|${S3_ACCESS_KEY}|g; s|__S3_SECRET_KEY__|${S3_SECRET_KEY}|g" /tmp/storage.xml.template > /etc/clickhouse-server/config.d/storage.xml
+        exec /entrypoint.sh
     volumes:
       - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/storage.xml.template:/tmp/storage.xml.template:ro
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O /dev/null http://localhost:8123/ping || exit 1"]
       interval: 5s

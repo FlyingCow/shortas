@@ -24,11 +24,16 @@ MIGRATION_DIR="${SCRIPT_DIR}/../migrations"
 # Function to execute query
 execute_query() {
     local query="$1"
+    # -f/--fail is required: ClickHouse's HTTP interface returns the error
+    # text as a normal 200/4xx response BODY (e.g. "Code: 60 UNKNOWN_TABLE"),
+    # not as a curl-level failure — without -f, curl exits 0 as long as it
+    # reached the server at all, so every "if ! execute_query" check below
+    # silently passed even when the statement itself failed.
     if [ -n "$CLICKHOUSE_PASSWORD" ]; then
-        curl -sS "${CLICKHOUSE_HOST}:${CLICKHOUSE_PORT}/?database=${CLICKHOUSE_DATABASE}&user=${CLICKHOUSE_USER}&password=${CLICKHOUSE_PASSWORD}" \
+        curl -sSf "${CLICKHOUSE_HOST}:${CLICKHOUSE_PORT}/?database=${CLICKHOUSE_DATABASE}&user=${CLICKHOUSE_USER}&password=${CLICKHOUSE_PASSWORD}" \
             --data-binary "$query"
     else
-        curl -sS "${CLICKHOUSE_HOST}:${CLICKHOUSE_PORT}/?database=${CLICKHOUSE_DATABASE}&user=${CLICKHOUSE_USER}" \
+        curl -sSf "${CLICKHOUSE_HOST}:${CLICKHOUSE_PORT}/?database=${CLICKHOUSE_DATABASE}&user=${CLICKHOUSE_USER}" \
             --data-binary "$query"
     fi
 }
