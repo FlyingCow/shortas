@@ -218,10 +218,17 @@ services:
     environment:
       <<: *rust-logging
       APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
-      APP__MINIO__ENDPOINT: ${S3_ENDPOINT}
-      APP__MINIO__ACCESS_KEY: ${S3_ACCESS_KEY}
-      APP__MINIO__SECRET_KEY: ${S3_SECRET_KEY}
-      APP__MINIO__BUCKET: ${S3_ROUTE_IMAGES_BUCKET}
+      # route-icon-worker's own crate reads [s3], not [minio] like
+      # management-api — APP__MINIO__* here was silently inert, leaving it
+      # on default.toml's hardcoded "minioadmin"/"minioadmin" (and
+      # use_path_style=true, wrong for Hetzner Object Storage) the whole
+      # time. Confirmed against the real compiled Settings::new().
+      APP__S3__ENDPOINT: ${S3_ENDPOINT}
+      APP__S3__ACCESS_KEY: ${S3_ACCESS_KEY}
+      APP__S3__SECRET_KEY: ${S3_SECRET_KEY}
+      APP__S3__BUCKET: ${S3_ROUTE_IMAGES_BUCKET}
+      APP__S3__REGION: ${S3_REGION}
+      APP__S3__USE_PATH_STYLE: "false"
     networks:
       - shortas-net
 
