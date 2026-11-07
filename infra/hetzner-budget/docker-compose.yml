@@ -220,6 +220,7 @@ services:
         create_bucket() { aws s3api head-bucket --bucket \"\$1\" >/dev/null 2>&1 || aws s3 mb \"s3://\$1\"; }
         create_bucket ${S3_ROUTE_IMAGES_BUCKET}
         create_bucket loki
+        create_bucket clickhouse
         printf '%s' '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::${S3_ROUTE_IMAGES_BUCKET}/*\"}]}' > /tmp/policy.json
         aws s3api put-bucket-policy --bucket ${S3_ROUTE_IMAGES_BUCKET} --policy file:///tmp/policy.json
         printf '%s' '{\"CORSRules\":[{\"AllowedHeaders\":[\"*\"],\"AllowedMethods\":[\"GET\",\"PUT\",\"POST\",\"DELETE\"],\"AllowedOrigins\":[\"*\"],\"ExposeHeaders\":[\"ETag\",\"Content-Length\",\"Content-Type\"]}]}' > /tmp/cors.json
