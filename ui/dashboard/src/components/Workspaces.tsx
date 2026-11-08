@@ -245,10 +245,6 @@ const workspaceStyles = `
   color: var(--text-muted);
 }
 
-.wm-role-select {
-  font-size: 0.75rem;
-}
-
 .wm-add-row {
   display: flex;
   gap: 0.5rem;
@@ -655,7 +651,6 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, isOwn
                       <>
                         {isOwnerViewer ? (
                           <Dropdown
-                            compact
                             align="right"
                             value={member.role}
                             disabled={isBusy}
@@ -745,7 +740,6 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, isOwn
                 )}
               </div>
               <Dropdown
-                compact
                 value={inviteRole}
                 onChange={setInviteRole}
                 disabled={inviting}

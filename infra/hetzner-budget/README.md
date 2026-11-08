@@ -243,3 +243,19 @@ If traffic outgrows one box, `../hetzner/` is the direct upgrade path: same
 application images, same env var shapes (the production compose files are
 literally this same service set, split across 4 nodes with HA on the app
 tier). You don't re-architect anything, you just add nodes.
+
+## Demo data
+
+cd ~/shortas/infra/hetzner-budget
+export CH_PASS=$(grep -E '^CLICKHOUSE_PASSWORD=' .env | cut -d= -f2-)
+
+docker run --rm --network shortas-net \
+  -v "$(pwd)/../custom/seed-dashboard-data.py:/seed.py:ro" \
+  python:3.12-alpine python3 /seed.py \
+  --keycloak-url http://keycloak:8080 \
+  --api-url http://management-api:8080 \
+  --ch-url http://clickhouse:8123 \
+  --ch-password "$CH_PASS" \
+  --username your@email.com \
+  --password psswd \
+  --days 30
