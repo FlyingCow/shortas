@@ -398,7 +398,7 @@ const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ show, workspace, onClos
       <div className="modal" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{workspace ? 'Edit Workspace' : 'Create Workspace'}</h3>
-          <button className="btn btn-outline btn-icon btn-sm" onClick={() => !saving && onClose()}>
+          <button className="modal-close" onClick={() => !saving && onClose()}>
             <X size={16} />
           </button>
         </div>
@@ -619,7 +619,7 @@ const MembersModal: React.FC<MembersModalProps> = ({ workspace, canManage, isOwn
       <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>Members — {workspace.name}</h3>
-          <button className="btn btn-outline btn-icon btn-sm" onClick={onClose}>
+          <button className="modal-close" onClick={onClose}>
             <X size={16} />
           </button>
         </div>

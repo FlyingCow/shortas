@@ -2759,6 +2759,28 @@ body {
   color: var(--text-primary);
 }
 
+/* Modal close button — flat square, not the circular .btn-icon, so it
+   doesn't compete visually with the title next to it. */
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.modal-close:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
 .modal-body {
   padding: var(--space-lg);
   flex: 1;

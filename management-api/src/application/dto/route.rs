@@ -454,47 +454,44 @@ impl RoutePropertiesDto {
 }
 
 /// QR settings DTO.
+///
+/// Field names here are the wire contract with the dashboard's QR designer
+/// (ui/dashboard/src/services/api.ts QrCodeSettingsDto) - keep them in sync,
+/// a mismatch here means settings silently fail to round-trip (deserialize
+/// as None) and the designer resets to defaults on reload.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct QrSettingsDto {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub foreground_color: Option<String>,
+    pub dot_style: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub background_color: Option<String>,
+    pub fg_color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub logo_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub logo_size: Option<f32>,
+    pub bg_color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub margin: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_correction: Option<String>,
+    pub center_image_url: Option<String>,
 }
 
 impl QrSettingsDto {
     pub fn from_entity(settings: &QrSettings) -> Self {
         Self {
-            foreground_color: settings.foreground_color.clone(),
-            background_color: settings.background_color.clone(),
-            logo_url: settings.logo_url.clone(),
-            logo_size: settings.logo_size,
+            dot_style: settings.dot_style.clone(),
+            fg_color: settings.fg_color.clone(),
+            bg_color: settings.bg_color.clone(),
             size: settings.size,
-            margin: settings.margin,
-            error_correction: settings.error_correction.clone(),
+            center_image_url: settings.center_image_url.clone(),
         }
     }
 
     pub fn to_entity(self) -> QrSettings {
         QrSettings {
-            foreground_color: self.foreground_color,
-            background_color: self.background_color,
-            logo_url: self.logo_url,
-            logo_size: self.logo_size,
+            dot_style: self.dot_style,
+            fg_color: self.fg_color,
+            bg_color: self.bg_color,
             size: self.size,
-            margin: self.margin,
-            error_correction: self.error_correction,
+            center_image_url: self.center_image_url,
         }
     }
 }

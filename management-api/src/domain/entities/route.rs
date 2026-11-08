@@ -115,19 +115,15 @@ impl RouteStatus {
 #[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct QrSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub foreground_color: Option<String>,
+    pub dot_style: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub background_color: Option<String>,
+    pub fg_color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub logo_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub logo_size: Option<f32>,
+    pub bg_color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub margin: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_correction: Option<String>,
+    pub center_image_url: Option<String>,
 }
 
 /// Route properties containing metadata and configuration.

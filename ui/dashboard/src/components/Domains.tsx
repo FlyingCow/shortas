@@ -247,27 +247,6 @@ const domainStyles = `
   margin-top: 1px;
 }
 
-/* Modal chrome not covered by the shared .modal system */
-.dom-modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
-}
-
-.dom-modal-close:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
 /* DNS Setup steps (shown inside the Add Domain modal) */
 .dom-setup-info {
   margin-top: 1.5rem;
@@ -887,7 +866,7 @@ const Domains: React.FC = () => {
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h3>Add Domain</h3>
-                <button className="dom-modal-close" onClick={() => !saving && setShowModal(false)}>
+                <button className="modal-close" onClick={() => !saving && setShowModal(false)}>
                   <X size={16} />
                 </button>
               </div>
@@ -951,7 +930,7 @@ const Domains: React.FC = () => {
               <div className="modal-header">
                 <h3>Custom Pages for {selectedDomainForCustomPages.name}</h3>
                 <button
-                  className="dom-modal-close"
+                  className="modal-close"
                   onClick={() => { if (!savingCustomPages) { setShowCustomPagesModal(false); setSelectedDomainForCustomPages(null); } }}
                 >
                   <X size={16} />
