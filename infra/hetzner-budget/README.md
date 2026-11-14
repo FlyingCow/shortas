@@ -244,8 +244,26 @@ application images, same env var shapes (the production compose files are
 literally this same service set, split across 4 nodes with HA on the app
 tier). You don't re-architect anything, you just add nodes.
 
-## Demo data
+## Test data
 
+### Demo analytics data
+
+The dashboard's charts and stats stay empty until routes actually get
+clicks. To populate them without waiting on real traffic,
+`infra/custom/seed-dashboard-data.py` logs in as a real user, creates (or
+reuses) a workspace and routes via the Management API, and backfills
+clickstream history directly into ClickHouse. It's safe to re-run — routes
+and the workspace are reused by name, so running it again just adds more
+history on top.
+
+It needs a real account to log in as: `keycloak-realm-setup` deletes the
+seeded `testuser`/`testpassword` on every boot (see "First login" above), so
+register a real account from the dashboard first and pass its credentials
+below. Also note that neither Keycloak nor ClickHouse publishes a port to
+the host in this tier, so run the script from a throwaway container on
+`shortas-net` rather than from your own machine:
+
+```bash
 cd ~/shortas/infra/hetzner-budget
 export CH_PASS=$(grep -E '^CLICKHOUSE_PASSWORD=' .env | cut -d= -f2-)
 
@@ -257,5 +275,29 @@ docker run --rm --network shortas-net \
   --ch-url http://clickhouse:8123 \
   --ch-password "$CH_PASS" \
   --username your@email.com \
-  --password psswd \
+  --password yourpassword \
   --days 30
+```
+
+Run `python3 seed-dashboard-data.py --help` for the full flag list (workspace
+name, domain ID, day count, `--skip-clickhouse`, etc.) — the defaults for
+realm/client ID/secret already match this deployment's `realm-export.json`,
+so only the credentials and endpoints above need overriding.
+
+### Safe Browsing test URLs
+
+To verify the `route-verifier` → `safe-browsing` blocking flow without a real
+malicious link, point a route's destination at one of Google's official Safe
+Browsing test URLs — permanent entries in the real threat lists, published
+specifically for this purpose:
+
+- `http://testsafebrowsing.appspot.com/s/malware.html`
+- `http://testsafebrowsing.appspot.com/s/phishing.html`
+- `http://testsafebrowsing.appspot.com/s/unwanted.html`
+
+`route-verifier` checks on its usual interval (`check_interval_seconds`,
+default 5 minutes — see `redirect/route-verifier/README.md`); the route
+should flip to `Blocked` with a reason like `Safe Browsing: MALWARE`. If it
+never does, check the `safe-browsing` service's logs first — it needs its
+own `GSB_API_KEY` to have finished syncing Google's threat list data before
+it can flag anything.
