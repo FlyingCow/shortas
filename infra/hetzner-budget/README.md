@@ -123,6 +123,15 @@ Add **A records**, replacing `yourdomain.com` with your real domain:
 | `yourdomain.com` (apex, landing) | primary IP |
 | your short-link domain(s), e.g. `shortas.space` | **second** IP |
 
+Then set `DOMAIN_ALLOWED_IPV4` in `.env` to that **second** IP. It's the
+list of IPs custom short-link domains may point at: domain-verifier marks a
+domain verified when at least one of its A records is in the list, and the
+dashboard's DNS instructions show every IP in it. It's comma-separated, so
+if you later add another IP or node for click traffic, append it
+(`DOMAIN_ALLOWED_IPV4=1.2.3.4,5.6.7.8`) and recreate the
+`domain-verifier` container. `DOMAIN_ALLOWED_IPV6` works the same way and
+can stay empty.
+
 Propagation can take minutes to hours — fine to continue while it settles.
 
 ### 5. SSH in

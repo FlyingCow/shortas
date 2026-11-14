@@ -5,7 +5,7 @@
 //! the right IPs) and reports status back over RabbitMQ.
 
 use reqwest::{Client, StatusCode};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 use crate::settings::DomainVerifierSettings;
@@ -15,6 +15,19 @@ struct CreateDomainRequest {
     id: String,
     name: String,
     owner_id: String,
+}
+
+/// DNS records a custom domain must have, as configured on domain-verifier
+/// (its `[dns]` section / `APP__DNS__*` env). domain-verifier is the single
+/// source of truth: it's also what checks these, so showing anything else in
+/// the dashboard would tell users to set records that then fail verification.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct DnsConfig {
+    pub txt_record_name: String,
+    pub allowed_ipv4: Vec<String>,
+    #[serde(default)]
+    pub allowed_ipv6: Vec<String>,
 }
 
 /// Domain Verifier API client.
@@ -72,6 +85,20 @@ impl DomainVerifierClient {
         }
 
         Ok(())
+    }
+
+    /// Fetch the DNS records (TXT name + allowed A/AAAA IPs) domains must use.
+    pub async fn get_dns_config(&self) -> anyhow::Result<DnsConfig> {
+        let url = format!("{}/v1/dns-config", self.base_url);
+        let response = self.client.get(&url).send().await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            anyhow::bail!("Domain Verifier API error: {} - {}", status, text);
+        }
+
+        Ok(response.json().await?)
     }
 }
 
@@ -151,5 +178,40 @@ mod tests {
         let client = test_client(server.uri());
         let err = client.trigger_verification("unknown").await.unwrap_err();
         assert!(err.to_string().contains("404"));
+    }
+
+    #[tokio::test]
+    async fn test_get_dns_config_returns_all_ips() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/dns-config"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "txt_record_name": "_shortas-domain-challenge",
+                "allowed_ipv4": ["203.0.113.10", "203.0.113.11"],
+                "allowed_ipv6": []
+            })))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        let cfg = client.get_dns_config().await.unwrap();
+        assert_eq!(cfg.allowed_ipv4, vec!["203.0.113.10", "203.0.113.11"]);
+
+        // Re-serialized for the dashboard in camelCase.
+        let json = serde_json::to_value(&cfg).unwrap();
+        assert_eq!(json["txtRecordName"], "_shortas-domain-challenge");
+        assert_eq!(json["allowedIpv4"][1], "203.0.113.11");
+    }
+
+    #[tokio::test]
+    async fn test_get_dns_config_errors_on_failure() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(503))
+            .mount(&server)
+            .await;
+
+        let client = test_client(server.uri());
+        assert!(client.get_dns_config().await.is_err());
     }
 }

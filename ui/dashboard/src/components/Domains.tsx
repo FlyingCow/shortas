@@ -358,6 +358,7 @@ const Domains: React.FC = () => {
   const [verifyingDomains, setVerifyingDomains] = useState<Set<string>>(new Set());
   const [dnsConfig, setDnsConfig] = useState<DnsConfigDto | null>(null);
   const [dnsConfigLoading, setDnsConfigLoading] = useState(false);
+  const [dnsConfigError, setDnsConfigError] = useState(false);
   const [copiedRecord, setCopiedRecord] = useState<string | null>(null);
 
   // Custom pages modal state
@@ -391,17 +392,15 @@ const Domains: React.FC = () => {
   const fetchDnsConfig = async () => {
     if (dnsConfig || dnsConfigLoading) return;
     setDnsConfigLoading(true);
+    setDnsConfigError(false);
     try {
       const config = await apiService.domains.getDnsConfig();
       setDnsConfig(config);
     } catch (err) {
+      // No hardcoded fallback: showing a stale IP would have users set an A
+      // record that can never pass verification.
       console.error('Failed to fetch DNS config:', err);
-      // Use defaults if not available
-      setDnsConfig({
-        txtRecordName: '_shortas-domain-challenge',
-        allowedIpv4: ['203.0.113.10'],
-        allowedIpv6: []
-      });
+      setDnsConfigError(true);
     } finally {
       setDnsConfigLoading(false);
     }
@@ -737,6 +736,12 @@ const Domains: React.FC = () => {
                       Loading DNS configuration...
                     </div>
                   )}
+                  {expandedDomains.has(domain.id) && dnsConfigError && !dnsConfig && !dnsConfigLoading && (
+                    <div className="dom-dns-content" style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
+                      Couldn't load the DNS configuration.{' '}
+                      <button className="btn btn-outline btn-sm" onClick={fetchDnsConfig}>Retry</button>
+                    </div>
+                  )}
                   {expandedDomains.has(domain.id) && dnsConfig && (
                     <div className="dom-dns-content">
                       <div className="dom-dns-section">
@@ -776,7 +781,7 @@ const Domains: React.FC = () => {
                       </div>
 
                       <div className="dom-dns-section">
-                        <h4>2. Point Domain to Our Servers (A Record)</h4>
+                        <h4>2. Point Domain to Our Servers (A Record{dnsConfig.allowedIpv4.length > 1 ? 's' : ''})</h4>
                         <div className="dom-dns-record">
                           <div className="dom-dns-record-row">
                             <span className="dom-dns-record-label">Name:</span>
@@ -788,7 +793,7 @@ const Domains: React.FC = () => {
                           </div>
                           {dnsConfig.allowedIpv4.map((ip, idx) => (
                             <div key={idx} className="dom-dns-record-row">
-                              <span className="dom-dns-record-label">Value:</span>
+                              <span className="dom-dns-record-label">{dnsConfig.allowedIpv4.length > 1 ? `Value ${idx + 1}:` : 'Value:'}</span>
                               <span className="dom-dns-record-value">{ip}</span>
                               <button
                                 className={`dom-dns-record-copy ${copiedRecord === `a-${domain.id}-${idx}` ? 'copied' : ''}`}
@@ -802,7 +807,9 @@ const Domains: React.FC = () => {
                         </div>
                         <p className="dom-dns-note">
                           <Info size={12} />
-                          This A record routes traffic to our servers.
+                          {dnsConfig.allowedIpv4.length > 1
+                            ? 'Add an A record for each IP above (recommended, for redundancy), or at least one of them. Verification passes when at least one A record points to one of these IPs.'
+                            : 'This A record routes traffic to our servers.'}
                         </p>
                       </div>
 
@@ -820,7 +827,7 @@ const Domains: React.FC = () => {
                             </div>
                             {dnsConfig.allowedIpv6.map((ip, idx) => (
                               <div key={idx} className="dom-dns-record-row">
-                                <span className="dom-dns-record-label">Value:</span>
+                                <span className="dom-dns-record-label">{dnsConfig.allowedIpv6.length > 1 ? `Value ${idx + 1}:` : 'Value:'}</span>
                                 <span className="dom-dns-record-value">{ip}</span>
                                 <button
                                   className={`dom-dns-record-copy ${copiedRecord === `aaaa-${domain.id}-${idx}` ? 'copied' : ''}`}
@@ -899,7 +906,7 @@ const Domains: React.FC = () => {
                     <div className="dom-setup-step">
                       <span className="dom-setup-step-num">2</span>
                       <div className="dom-setup-step-content">
-                        <p>Add an <code>A</code> record pointing to our servers.</p>
+                        <p>Add <code>A</code> record(s) pointing to our server IPs — at least one is required.</p>
                       </div>
                     </div>
                     <div className="dom-setup-step">

@@ -112,6 +112,9 @@ services:
       APP__CLICK_ROUTER__BASE_URL: http://shortas-click-router-api:5810
       APP__CLICK_ROUTER__TIMEOUT_MS: 5000
       APP__CLICK_AGGREGATOR__BASE_URL: http://shortas-click-aggregator-api:5820
+      # Without this it falls back to default.toml's localhost:5830, so
+      # registering/verifying domains and the dashboard's DNS config all fail.
+      APP__DOMAIN_VERIFIER__BASE_URL: http://shortas-domain-verifier:5830
       APP__CLICK_AGGREGATOR__TIMEOUT_MS: 10000
       APP__ELASTICSEARCH__URL: http://shortas-api-elasticsearch:9200
       APP__ELASTICSEARCH__ROUTES_INDEX: routes
@@ -205,6 +208,11 @@ services:
       <<: *rust-logging
       APP__MONGODB__CONNECTION_STRING: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
       APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
+      # Comma-separated public IPs custom domains may point at. A domain
+      # verifies when at least one of its A records is in this list; the
+      # dashboard shows every IP here as the records to set.
+      APP__DNS__ALLOWED_IPV4: ${DOMAIN_ALLOWED_IPV4:?set DOMAIN_ALLOWED_IPV4 in .env}
+      APP__DNS__ALLOWED_IPV6: ${DOMAIN_ALLOWED_IPV6:-}
     ports:
       - "5830:5830"
     networks:

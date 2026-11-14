@@ -146,16 +146,29 @@ pub async fn get_domains_attention(depot: &mut Depot, res: &mut Response) {
     description = "Get DNS configuration for domain verification",
     tags("Domains"),
     responses(
-        (status_code = 200, description = "DNS configuration")
+        (status_code = 200, description = "DNS configuration"),
+        (status_code = 500, description = "domain-verifier unreachable")
     )
 )]
-pub async fn get_global_dns_config(res: &mut Response) {
-    // Return DNS config from settings or defaults
-    render_success(res, serde_json::json!({
-        "txtRecordName": "_shortas-domain-challenge",
-        "allowedIpv4": ["203.0.113.10"],
-        "allowedIpv6": []
-    }));
+pub async fn get_global_dns_config(depot: &mut Depot, res: &mut Response) {
+    let app_state = match depot.app_state() {
+        Ok(state) => state,
+        Err(e) => {
+            render_error(res, ApiError::internal(e.to_string()));
+            return;
+        }
+    };
+
+    // Proxied from domain-verifier so the IPs shown are exactly the ones it
+    // accepts. No hardcoded fallback: a stale IP would send users off to set
+    // records that can never verify.
+    match app_state.domain_verifier.get_dns_config().await {
+        Ok(config) => render_success(res, config),
+        Err(e) => {
+            tracing::error!("Failed to fetch DNS config from domain-verifier: {}", e);
+            render_error(res, ApiError::internal("DNS configuration is temporarily unavailable"));
+        }
+    }
 }
 
 /// List shared domains.

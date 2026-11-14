@@ -23,7 +23,7 @@ reconnect_seconds = 5
 
 [dns]
 txt_record_name = "_shortas-domain-challenge"
-allowed_ipv4 = ["203.0.113.10"]  # Replace with actual click-router IPs
+allowed_ipv4 = ["203.0.113.10"]  # Placeholder — set APP__DNS__ALLOWED_IPV4="ip1,ip2" in the task env
 allowed_ipv6 = []
 
 [worker]

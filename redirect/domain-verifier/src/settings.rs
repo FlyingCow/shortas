@@ -1,4 +1,5 @@
 use config::{Config, ConfigError, Environment, File};
+use serde::{Deserialize as _, Deserializer};
 use serde_derive::Deserialize;
 
 use crate::adapters::aws::settings::AwsSettings;
@@ -22,11 +23,49 @@ pub struct RabbitMqSettings {
     pub reconnect_seconds: u64,
 }
 
+/// DNS verification settings.
+///
+/// `allowed_ipv4` / `allowed_ipv6` are the full set of public IPs a custom
+/// domain may point at (e.g. every click-router node or load balancer). A
+/// domain passes the A check when at least one of its A records is in the
+/// list. Both accept a TOML array or, so deployments can set them from a
+/// single env var, a comma-separated string:
+/// `APP__DNS__ALLOWED_IPV4="203.0.113.10,203.0.113.11"`.
 #[derive(Debug, Deserialize, Clone)]
 pub struct DnsSettings {
     pub txt_record_name: String,
+    #[serde(deserialize_with = "string_or_list")]
     pub allowed_ipv4: Vec<String>,
+    #[serde(default, deserialize_with = "string_or_list")]
     pub allowed_ipv6: Vec<String>,
+}
+
+/// Accept either a list of strings or one comma/whitespace-separated string.
+/// Empty entries are dropped, so an empty env var yields an empty list.
+fn string_or_list<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(serde_derive::Deserialize)]
+    #[serde(untagged)]
+    enum StringOrList {
+        One(String),
+        Many(Vec<String>),
+    }
+
+    let items = match StringOrList::deserialize(deserializer)? {
+        StringOrList::One(s) => s
+            .split(|c: char| c == ',' || c.is_whitespace())
+            .map(str::to_owned)
+            .collect(),
+        StringOrList::Many(v) => v,
+    };
+
+    Ok(items
+        .into_iter()
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+        .collect())
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -122,6 +161,52 @@ mod tests {
     #[should_panic(expected = "No configuration folder specified")]
     fn test_settings_panics_without_path() {
         let _ = Settings::new(Some("development"), None);
+    }
+
+    #[test]
+    fn test_dns_ip_lists_accept_comma_separated_string() {
+        #[derive(serde_derive::Deserialize)]
+        struct Wrapper {
+            dns: DnsSettings,
+        }
+        let cfg = Config::builder()
+            .set_override("dns.txt_record_name", "_c")
+            .unwrap()
+            .set_override("dns.allowed_ipv4", "203.0.113.10, 203.0.113.11,,198.51.100.7")
+            .unwrap()
+            .set_override("dns.allowed_ipv6", "")
+            .unwrap()
+            .build()
+            .unwrap();
+        let w: Wrapper = cfg.try_deserialize().unwrap();
+        assert_eq!(
+            w.dns.allowed_ipv4,
+            vec!["203.0.113.10", "203.0.113.11", "198.51.100.7"]
+        );
+        assert!(w.dns.allowed_ipv6.is_empty());
+    }
+
+    #[test]
+    fn test_dns_ip_list_env_var_overrides_toml_array() {
+        // Unique prefix so this can't race other tests reading APP__*.
+        std::env::set_var("DVTEST__DNS__ALLOWED_IPV4", "198.51.100.1,198.51.100.2");
+        let cfg = Config::builder()
+            .add_source(File::with_name("./config/default"))
+            .add_source(Environment::with_prefix("dvtest").separator("__"))
+            .build()
+            .unwrap();
+        #[derive(serde_derive::Deserialize)]
+        struct Wrapper {
+            dns: DnsSettings,
+        }
+        let w: Wrapper = cfg.try_deserialize().unwrap();
+        assert_eq!(w.dns.allowed_ipv4, vec!["198.51.100.1", "198.51.100.2"]);
+    }
+
+    #[test]
+    fn test_dns_ip_lists_accept_toml_array() {
+        let s = Settings::new(Some("development"), Some("./config")).unwrap();
+        assert!(s.dns.allowed_ipv4.len() >= 2);
     }
 
     #[test]

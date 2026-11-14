@@ -157,24 +157,21 @@ impl DnsVerifier {
         match self.resolver.ipv4_lookup(domain_name).await {
             Ok(response) => {
                 let ips: Vec<Ipv4Addr> = response.iter().map(|a| a.0).collect();
-
-                if ips.is_empty() {
-                    warn!("No A records found for domain: {}", domain_name);
-                    return Err(VerificationReason::ARecordMissing);
-                }
-
-                for ip in &ips {
-                    if !self.allowed_ipv4.contains(ip) {
-                        warn!(
-                            "Invalid A record for domain {}: {} not in allowed list",
-                            domain_name, ip
-                        );
-                        return Err(VerificationReason::ARecordInvalid);
+                let result = evaluate_records(&ips, &self.allowed_ipv4).map_err(|e| match e {
+                    RecordCheck::Missing => VerificationReason::ARecordMissing,
+                    RecordCheck::NoMatch => VerificationReason::ARecordInvalid,
+                });
+                match &result {
+                    Ok(()) => info!("A records valid for domain: {} ({:?})", domain_name, ips),
+                    Err(VerificationReason::ARecordMissing) => {
+                        warn!("No A records found for domain: {}", domain_name)
                     }
+                    Err(_) => warn!(
+                        "Invalid A records for domain {}: none of {:?} in allowed list {:?}",
+                        domain_name, ips, self.allowed_ipv4
+                    ),
                 }
-
-                info!("A records valid for domain: {} ({:?})", domain_name, ips);
-                Ok(())
+                result
             }
             Err(e) => match e.kind() {
                 ResolveErrorKind::NoRecordsFound { .. } => {
@@ -209,25 +206,25 @@ impl DnsVerifier {
             Ok(response) => {
                 let ips: Vec<Ipv6Addr> = response.iter().map(|aaaa| aaaa.0).collect();
 
-                // If no AAAA records, that's fine
-                if ips.is_empty() {
-                    debug!("No AAAA records for domain (OK): {}", domain_name);
-                    return Ok(());
-                }
-
-                // If AAAA records exist, they must be in the allowed list
-                for ip in &ips {
-                    if !self.allowed_ipv6.contains(ip) {
+                // AAAA is optional: no records is fine; if present, at
+                // least one must be one of ours (same rule as A records).
+                match evaluate_records(&ips, &self.allowed_ipv6) {
+                    Ok(()) => {
+                        info!("AAAA records valid for domain: {} ({:?})", domain_name, ips);
+                        Ok(())
+                    }
+                    Err(RecordCheck::Missing) => {
+                        debug!("No AAAA records for domain (OK): {}", domain_name);
+                        Ok(())
+                    }
+                    Err(RecordCheck::NoMatch) => {
                         warn!(
-                            "Invalid AAAA record for domain {}: {} not in allowed list",
-                            domain_name, ip
+                            "Invalid AAAA records for domain {}: none of {:?} in allowed list {:?}",
+                            domain_name, ips, self.allowed_ipv6
                         );
-                        return Err(VerificationReason::AaaaRecordInvalid);
+                        Err(VerificationReason::AaaaRecordInvalid)
                     }
                 }
-
-                info!("AAAA records valid for domain: {} ({:?})", domain_name, ips);
-                Ok(())
             }
             Err(e) => {
                 // No AAAA records is fine
@@ -247,6 +244,28 @@ impl DnsVerifier {
                 }
             }
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum RecordCheck {
+    /// The name resolved to no records of this type.
+    Missing,
+    /// Records exist but none of them is one of our IPs.
+    NoMatch,
+}
+
+/// A domain may point at any subset of our IPs (one node, several, or all of
+/// them), and may even keep extra records of its own during a migration —
+/// so it passes when **at least one** resolved address is in `allowed`.
+fn evaluate_records<T: PartialEq>(resolved: &[T], allowed: &[T]) -> Result<(), RecordCheck> {
+    if resolved.is_empty() {
+        return Err(RecordCheck::Missing);
+    }
+    if resolved.iter().any(|ip| allowed.contains(ip)) {
+        Ok(())
+    } else {
+        Err(RecordCheck::NoMatch)
     }
 }
 
@@ -335,6 +354,42 @@ mod tests {
         let cloned = result.clone();
         assert_eq!(cloned.status, VerificationStatus::Failed);
         assert_eq!(cloned.reason, VerificationReason::ARecordMissing);
+    }
+
+    fn v4(s: &str) -> Ipv4Addr {
+        s.parse().unwrap()
+    }
+
+    #[test]
+    fn test_evaluate_records_single_match() {
+        let allowed = [v4("203.0.113.10"), v4("203.0.113.11")];
+        assert_eq!(evaluate_records(&[v4("203.0.113.11")], &allowed), Ok(()));
+    }
+
+    #[test]
+    fn test_evaluate_records_passes_when_at_least_one_matches() {
+        let allowed = [v4("203.0.113.10"), v4("203.0.113.11")];
+        let resolved = [v4("198.51.100.1"), v4("203.0.113.10")];
+        assert_eq!(evaluate_records(&resolved, &allowed), Ok(()));
+    }
+
+    #[test]
+    fn test_evaluate_records_all_of_ours() {
+        let allowed = [v4("203.0.113.10"), v4("203.0.113.11")];
+        assert_eq!(evaluate_records(&allowed, &allowed), Ok(()));
+    }
+
+    #[test]
+    fn test_evaluate_records_none_match() {
+        let allowed = [v4("203.0.113.10")];
+        let resolved = [v4("198.51.100.1"), v4("198.51.100.2")];
+        assert_eq!(evaluate_records(&resolved, &allowed), Err(RecordCheck::NoMatch));
+    }
+
+    #[test]
+    fn test_evaluate_records_empty() {
+        let allowed = [v4("203.0.113.10")];
+        assert_eq!(evaluate_records(&[], &allowed), Err(RecordCheck::Missing));
     }
 
     #[tokio::test]

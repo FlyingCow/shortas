@@ -111,6 +111,12 @@ breakdown already discussed in chat (~€220-250/mo for this layout).
 7. **DNS**: short-link domains / `shortas.space` equivalent → LB "click"'s
    IP. `dashboard.`/`api.`/apex → LB "app"'s IP. `auth.`/`grafana.` → the
    platform node's own public IP directly (single instance, no LB).
+   Then put LB "click"'s public IP (and any other click IPs, comma-separated)
+   in `DOMAIN_ALLOWED_IPV4` in `.env` on **both** app nodes — that list is
+   what domain-verifier accepts for customers' custom domains (a domain
+   passes if at least one of its A records is in it) and what the dashboard
+   shows them as the A records to create. `deploy.sh app` refuses to run
+   without it.
 
 ## Deploying
 

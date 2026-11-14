@@ -13,7 +13,7 @@ reconnect_seconds = 5
 
 [dns]
 txt_record_name = "_shortas-domain-challenge"
-allowed_ipv4 = ["203.0.113.10"]
+allowed_ipv4 = ["203.0.113.10"]  # Placeholder — deployments set APP__DNS__ALLOWED_IPV4="ip1,ip2" (any one A record must match)
 allowed_ipv6 = []
 
 [worker]
