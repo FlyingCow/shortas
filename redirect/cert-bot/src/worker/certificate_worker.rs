@@ -12,6 +12,12 @@ use crate::core::OrderStore;
 use crate::model::{CertificateOrder, OrderStatus};
 use crate::settings::Settings;
 
+#[derive(serde::Serialize, serde::Deserialize)]
+struct StoredAccount {
+    directory_url: String,
+    credentials: instant_acme::AccountCredentials,
+}
+
 pub struct CertificateWorker {
     settings: Settings,
     order_store: OrderStoreType,
@@ -31,11 +37,24 @@ impl CertificateWorker {
         })
     }
 
-    /// Initialize ACME account
+    /// Initialize ACME account.
+    ///
+    /// Credentials are persisted to `acme.account_key_path` so the same account
+    /// survives restarts — ACME orders are scoped to the account that created
+    /// them, so a fresh account per start orphans every in-flight order.
     async fn init_account(&mut self) -> Result<()> {
-        info!("Initializing ACME account with Let's Encrypt");
+        let path = std::path::Path::new(&self.settings.acme.account_key_path);
+        let directory_url = &self.settings.acme.directory_url;
 
-        let (account, _credentials) = Account::builder()
+        if let Some(account) = self.load_account(path, directory_url).await {
+            info!("ACME account loaded from {}", path.display());
+            self.account = Some(account);
+            return Ok(());
+        }
+
+        info!("Creating new ACME account at {}", directory_url);
+
+        let (account, credentials) = Account::builder()
             .context("ACME Account::builder failed")?
             .create(
                 &NewAccount {
@@ -43,15 +62,74 @@ impl CertificateWorker {
                     terms_of_service_agreed: true,
                     only_return_existing: false,
                 },
-                self.settings.acme.directory_url.clone(),
+                directory_url.clone(),
                 None,
             )
             .await
             .context("ACME Account::create failed")?;
 
-        info!("ACME account created/loaded successfully");
-        self.account = Some(account);
+        let stored = StoredAccount {
+            directory_url: directory_url.clone(),
+            credentials,
+        };
+        if let Err(e) = Self::save_account(path, &stored) {
+            warn!(
+                "Failed to persist ACME account to {} (in-flight orders will be lost on restart): {:?}",
+                path.display(),
+                e
+            );
+        }
 
+        self.account = Some(account);
+        Ok(())
+    }
+
+    async fn load_account(&self, path: &std::path::Path, directory_url: &str) -> Option<Account> {
+        let data = std::fs::read(path).ok()?;
+        let stored: StoredAccount = match serde_json::from_slice(&data) {
+            Ok(stored) => stored,
+            Err(e) => {
+                warn!("Ignoring unreadable ACME account file {}: {}", path.display(), e);
+                return None;
+            }
+        };
+        if stored.directory_url != directory_url {
+            info!(
+                "Stored ACME account is for {}, configured directory is {} — creating a new account",
+                stored.directory_url, directory_url
+            );
+            return None;
+        }
+        match Account::builder().ok()?.from_credentials(stored.credentials).await {
+            Ok(account) => Some(account),
+            Err(e) => {
+                warn!("Failed to restore ACME account from {}: {}", path.display(), e);
+                None
+            }
+        }
+    }
+
+    fn save_account(path: &std::path::Path, stored: &StoredAccount) -> Result<()> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, serde_json::to_vec(stored)?)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+        }
+        Ok(())
+    }
+
+    /// Put an order back to Pending so the next tick creates a fresh ACME order.
+    async fn restart_order(&self, order: &mut CertificateOrder, reason: &str) -> Result<()> {
+        warn!("Restarting certificate order for domain {}: {}", order.domain, reason);
+        order.status = OrderStatus::Pending;
+        order.acme_order_url = None;
+        order.error_message = Some(reason.to_string());
+        order.updated_at = Utc::now();
+        self.order_store.update_order(order).await?;
         Ok(())
     }
 
@@ -200,7 +278,16 @@ impl CertificateWorker {
 
         // Get the existing order
         let order_url = order.acme_order_url.as_ref().ok_or_else(|| anyhow::anyhow!("No ACME order URL"))?;
-        let mut acme_order = account.order(order_url.to_string()).await?;
+        let mut acme_order = match account.order(order_url.to_string()).await {
+            Ok(acme_order) => acme_order,
+            Err(e) => {
+                // Typically "No order found for account ID": the order was
+                // created by a different ACME account or has expired.
+                return self
+                    .restart_order(order, &format!("ACME order no longer retrievable: {}", e))
+                    .await;
+            }
+        };
 
         // Check order status
         let acme_status = acme_order.state().status;
@@ -274,6 +361,13 @@ impl CertificateWorker {
                         }
                     }
                 }
+            }
+            AcmeOrderStatus::Valid => {
+                // Already finalized, but the certificate's private key only
+                // lived in memory during that attempt (e.g. storing it failed
+                // or the bot restarted), so the certificate is unusable.
+                self.restart_order(order, "ACME order already valid but private key was lost")
+                    .await?;
             }
             _ => {
                 // Processing or other state, will check again next iteration
