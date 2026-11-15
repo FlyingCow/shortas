@@ -93,10 +93,11 @@ impl KeycertDto {
 
     /// Check if the DTO has valid PEM data
     /// 
-    /// Returns true if all fields contain non-empty strings
+    /// Returns true if key and cert contain PEM data. The OCSP response is
+    /// optional: Let's Encrypt (and other CAs) no longer provide OCSP.
     #[inline]
     pub fn is_valid(&self) -> bool {
-        !self.key.is_empty() && !self.cert.is_empty() && !self.ocsp_resp.is_empty()
+        self.has_valid_key() && self.has_valid_cert()
     }
 
     /// Check if the DTO has a valid private key
