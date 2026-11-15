@@ -33,6 +33,18 @@ pub struct CertificateResponse {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
+impl CertificateResponse {
+    /// Expiry of the certificate: the API's `expires_at` if present,
+    /// otherwise the leaf certificate's notAfter parsed from the PEM.
+    pub fn expiry(&self) -> Option<DateTime<Utc>> {
+        self.expires_at.or_else(|| {
+            let (_, pem) = x509_parser::pem::parse_x509_pem(self.cert.as_bytes()).ok()?;
+            let cert = pem.parse_x509().ok()?;
+            DateTime::from_timestamp(cert.validity().not_after.timestamp(), 0)
+        })
+    }
+}
+
 /// Information about a certificate that needs renewal
 #[derive(Debug, Clone)]
 pub struct CertificateExpiryInfo {
@@ -323,5 +335,39 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].domain, "example.com");
         assert_eq!(result[0].owner_id, Some("owner-1".to_string()));
+    }
+}
+
+#[cfg(test)]
+mod expiry_tests {
+    use super::*;
+
+    #[test]
+    fn expiry_falls_back_to_cert_not_after() {
+        let mut params = rcgen::CertificateParams::new(vec!["shrs.online".to_string()]).unwrap();
+        params.not_after = rcgen::date_time_ymd(2027, 2, 13);
+        let key = rcgen::KeyPair::generate().unwrap();
+        let cert = params.self_signed(&key).unwrap();
+
+        let resp = CertificateResponse {
+            key: key.serialize_pem(),
+            cert: cert.pem(),
+            ocsp_resp: String::new(),
+            expires_at: None,
+        };
+
+        let expiry = resp.expiry().expect("expiry parsed from PEM");
+        assert_eq!(expiry.date_naive().to_string(), "2027-02-13");
+    }
+
+    #[test]
+    fn expiry_none_for_garbage_cert() {
+        let resp = CertificateResponse {
+            key: String::new(),
+            cert: "not a cert".into(),
+            ocsp_resp: String::new(),
+            expires_at: None,
+        };
+        assert!(resp.expiry().is_none());
     }
 }

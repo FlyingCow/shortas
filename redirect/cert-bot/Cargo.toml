@@ -29,6 +29,7 @@ lapin.workspace = true
 
 # Crypto for CSR generation
 rcgen.workspace = true
+x509-parser.workspace = true
 
 # Common utilities
 anyhow.workspace = true

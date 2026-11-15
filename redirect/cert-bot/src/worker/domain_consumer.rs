@@ -88,7 +88,7 @@ impl DomainMessageHandler {
         {
             Ok(Some(cert)) => {
                 // Check if certificate expires within renewal window
-                cert.expires_at.map_or(true, |exp| {
+                cert.expiry().map_or(true, |exp| {
                     exp < Utc::now() + Duration::days(self.settings.renewal.renewal_days_before)
                 })
             }
