@@ -181,8 +181,11 @@ pub async fn get_initialization_status(depot: &mut Depot, res: &mut Response) {
     // User settings not implemented yet, assume true for now
     let has_user_settings = true;
 
-    // User needs initialization if they have no workspaces OR no domains OR no user settings
-    let needs_initialization = !has_workspaces || !has_domains || !has_user_settings;
+    // A custom domain is optional: users without one create links on the
+    // shared domain(s) and can add their own later from the Domains page, so
+    // having no domain must not keep sending them back to the setup wizard.
+    // `has_domains` is still reported for the dashboard's information.
+    let needs_initialization = !has_workspaces || !has_user_settings;
 
     tracing::info!(
         "User {} initialization status: needs_initialization={}, has_workspaces={}, has_domains={}, has_user_settings={}",

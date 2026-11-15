@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, ChevronLeft, ChevronRight, Rocket, Globe, CheckCircle } from 'lucide-react';
 import { apiService, CreateDomainDto } from '../services/api';
@@ -269,11 +269,24 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete 
 
   // Form data
   const [domainName, setDomainName] = useState('');
+  // A custom domain is optional — without one, links are created on the
+  // shared domain(s) and a domain can be added later from the Domains page.
+  const [skipDomain, setSkipDomain] = useState(false);
+  const [sharedDomains, setSharedDomains] = useState<string[]>([]);
+
+  useEffect(() => {
+    apiService.domains
+      .listShared()
+      .then((domains) => setSharedDomains(domains.map((d) => d.name)))
+      .catch(() => setSharedDomains([]));
+  }, []);
+
+  const sharedDomainLabel = sharedDomains.length > 0 ? sharedDomains.join(', ') : 'the shared domain';
 
   const canProceed = () => {
     switch (currentStep) {
       case 1:
-        return domainName.trim().length > 0;
+        return skipDomain || domainName.trim().length > 0;
       default:
         return true;
     }
@@ -303,14 +316,16 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete 
       const initResponse = await apiService.user.initialize();
       console.log('User initialization completed:', initResponse.message);
 
-      // Step 2: Create the domain
-      console.log('Creating domain:', domainName);
-      const domainData: CreateDomainDto = {
-        name: domainName,
-      };
+      // Step 2: Create the domain (optional)
+      if (!skipDomain) {
+        console.log('Creating domain:', domainName);
+        const domainData: CreateDomainDto = {
+          name: domainName.trim().toLowerCase(),
+        };
 
-      await apiService.domains.create(domainData);
-      console.log('Domain created successfully');
+        await apiService.domains.create(domainData);
+        console.log('Domain created successfully');
+      }
 
       setCompleted(true);
       setLoading(false);
@@ -351,20 +366,36 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete 
               Configure Your Domain
             </h2>
             <p className="wizard-step-description">
-              Enter your primary domain name. This will be used for creating short links.
+              Enter your own domain to use for short links, or skip this step and start with {sharedDomainLabel}.
             </p>
 
             <div className="form-group">
-              <label htmlFor="domain-name">Domain Name *</label>
+              <label htmlFor="domain-name">Domain Name{skipDomain ? '' : ' *'}</label>
               <input
                 id="domain-name"
                 type="text"
                 value={domainName}
                 onChange={(e) => setDomainName(e.target.value)}
                 placeholder="example.com"
+                disabled={skipDomain}
                 autoFocus
               />
               <small>Enter your domain without http:// or https://</small>
+            </div>
+
+            <div className="checkbox-group">
+              <input
+                id="skip-domain"
+                type="checkbox"
+                checked={skipDomain}
+                onChange={(e) => setSkipDomain(e.target.checked)}
+              />
+              <label htmlFor="skip-domain">
+                I don't have a spare domain — use {sharedDomainLabel} for now
+                <small style={{ display: 'block', marginTop: '0.25rem', color: 'var(--text-tertiary)' }}>
+                  You can add your own domain any time later from the Domains page.
+                </small>
+              </label>
             </div>
 
             {error && (
@@ -392,7 +423,18 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete 
               <div style={{ display: 'grid', gap: '0.75rem' }}>
                 <div>
                   <strong style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>Domain:</strong>
-                  <div style={{ marginTop: '0.25rem', color: 'var(--text-primary)' }}>{domainName}</div>
+                  <div style={{ marginTop: '0.25rem', color: 'var(--text-primary)' }}>
+                    {skipDomain ? (
+                      <>
+                        No custom domain — links will use {sharedDomainLabel}
+                        <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginTop: '0.25rem' }}>
+                          You can add your own domain later from the Domains page.
+                        </div>
+                      </>
+                    ) : (
+                      domainName.trim()
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
