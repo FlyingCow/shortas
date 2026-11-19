@@ -15,8 +15,14 @@ interface CountryData {
 
 interface WorldMapProps {
   data: CountryData[];
+  /** Maximum rendered height in px. The map otherwise scales with its
+   *  container's width at the projection's 2:1 aspect ratio. */
   height?: number;
 }
+
+/** The ComposableMap viewBox below is 800x400. */
+const MAP_ASPECT_RATIO = '2 / 1';
+const TOOLTIP_INSET = 10;
 
 interface GeographyFeature {
   properties: {
@@ -24,6 +30,25 @@ interface GeographyFeature {
     [key: string]: any;
   };
   rsmKey: string;
+}
+
+/**
+ * Place the tooltip in the quadrant opposite the pointer so it never covers
+ * the hovered country, using the container's measured size (not the height
+ * prop, which is only a maximum).
+ */
+export function getTooltipPlacement(
+  pointer: { x: number; y: number },
+  container: { width: number; height: number }
+): React.CSSProperties {
+  const inRightHalf = pointer.x > container.width / 2;
+  const inBottomHalf = pointer.y > container.height / 2;
+  return {
+    left: inRightHalf ? TOOLTIP_INSET : 'auto',
+    right: inRightHalf ? 'auto' : TOOLTIP_INSET,
+    top: inBottomHalf ? TOOLTIP_INSET : 'auto',
+    bottom: inBottomHalf ? 'auto' : TOOLTIP_INSET,
+  };
 }
 
 /** Key for map lookup: topology name (lowercase). Uses shared country util. */
@@ -60,7 +85,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ data, height = 400 }) => {
     <div
       ref={containerRef}
       className="world-map-container"
-      style={{ height: `${height}px`, width: '100%', minHeight: 'auto' }}
+      style={{ width: '100%', aspectRatio: MAP_ASPECT_RATIO, maxHeight: `${height}px` }}
     >
       <ComposableMap
         projection="geoEqualEarth"
@@ -123,10 +148,10 @@ const WorldMap: React.FC<WorldMapProps> = ({ data, height = 400 }) => {
         <div
           style={{
             position: 'absolute',
-            left: mousePosition.x > (containerRef.current?.clientWidth ?? 0) / 2 ? '10px' : 'auto',
-            right: mousePosition.x <= (containerRef.current?.clientWidth ?? 0) / 2 ? '10px' : 'auto',
-            top: mousePosition.y > height / 2 ? '10px' : 'auto',
-            bottom: mousePosition.y <= height / 2 ? '10px' : 'auto',
+            ...getTooltipPlacement(mousePosition, {
+              width: containerRef.current?.clientWidth ?? 0,
+              height: containerRef.current?.clientHeight ?? 0,
+            }),
             zIndex: 1000,
             backgroundColor: 'var(--bg-primary)',
             border: '1px solid var(--border-primary)',
@@ -134,8 +159,11 @@ const WorldMap: React.FC<WorldMapProps> = ({ data, height = 400 }) => {
             padding: '0.75rem',
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
             pointerEvents: 'none',
-            minWidth: '180px'
+            boxSizing: 'border-box',
+            minWidth: `min(180px, calc(100% - ${2 * TOOLTIP_INSET}px))`,
+            maxWidth: `calc(100% - ${2 * TOOLTIP_INSET}px)`
           }}
+          data-testid="world-map-tooltip"
         >
           <div style={{
             fontSize: '0.9rem',

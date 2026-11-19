@@ -40,7 +40,6 @@
 
   /* Sidebar layout */
   --sidebar-width: 224px;
-  --sidebar-width-collapsed: 0px;
   --topbar-height: 56px;
 }
 
@@ -1665,6 +1664,7 @@ body {
   overflow: hidden;
   position: relative;
   padding: var(--space-lg);
+  min-width: 0;
 }
 
 .chart-card:hover {
@@ -1700,23 +1700,24 @@ body {
 
 .section-row {
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax(0, 1fr), not 1fr: a bare 1fr track can't shrink below its content */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-lg);
   margin-bottom: var(--space-lg);
 }
 
 .section-row.two-cols {
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .section-row.three-cols {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 @media (max-width: 1100px) {
   .section-row.two-cols,
   .section-row.three-cols {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -3008,7 +3009,8 @@ body {
 /* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 768px) {
   .container {
-    padding: 0 var(--space-sm);
+    /* Keep vertical breathing room below the sticky topbar; only tighten the sides */
+    padding: var(--space-md) var(--space-sm) var(--space-lg);
   }
 
   .app-topbar {
@@ -3406,17 +3408,16 @@ body {
 
 /* World Map Styling */
 .world-map-container {
+  /* Sized by WorldMap's inline aspect-ratio + max-height, not by its parent's
+     height, so it scales down on narrow cards instead of letterboxing. */
   width: 100%;
-  height: 100%;
   position: relative;
   background: transparent;
   border-radius: var(--radius-md);
-  overflow: visible;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 200px;
-  padding-bottom: 1rem;
 }
 
 .world-map-container svg {
@@ -4512,20 +4513,64 @@ body {
   overflow: hidden;
 }
 
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  height: var(--topbar-height);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-primary);
+}
+
 .sidebar-logo {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   padding: 0 var(--space-lg);
-  height: var(--topbar-height);
+  height: 100%;
+  flex: 1;
+  min-width: 0;
   text-decoration: none;
   color: var(--text-primary);
   font-weight: 700;
   font-size: var(--font-size-lg);
-  flex-shrink: 0;
   white-space: nowrap;
   overflow: hidden;
-  border-bottom: 1px solid var(--border-primary);
+}
+
+/* Drawer close button and topbar menu button: only shown on narrow viewports */
+.sidebar-close,
+.topbar-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.sidebar-close {
+  margin-right: var(--space-sm);
+}
+
+.sidebar-close:hover,
+.topbar-menu-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.sidebar-close:focus-visible,
+.topbar-menu-btn:focus-visible {
+  outline: 2px solid var(--color-primary-light);
+  outline-offset: 2px;
+}
+
+.app-sidebar-backdrop {
+  display: none;
 }
 
 .sidebar-logo-text {
@@ -4602,6 +4647,9 @@ body {
 .app-main-wrapper {
   margin-left: var(--sidebar-width);
   flex: 1;
+  /* Flex items default to min-width: auto, which lets wide content (charts
+     that size to their parent) hold the whole shell wider than the viewport. */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -4633,6 +4681,29 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+/* Let the workspace switcher shrink (and ellipsize) before the topbar overflows */
+.topbar-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.topbar-workspace {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.topbar-workspace .app-select,
+.topbar-workspace .app-select-trigger {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* The 768px rule makes every .btn full-width; topbar buttons must stay compact */
+.app-topbar .btn {
+  width: auto;
 }
 
 .app-main {
@@ -4670,23 +4741,70 @@ body {
   gap: var(--space-md);
 }
 
-/* Responsive sidebar — off-canvas below tablet width */
+/* Responsive sidebar — off-canvas drawer below tablet width */
 @media (max-width: 900px) {
   .app-sidebar {
-    width: var(--sidebar-width-collapsed);
-    border-right: none;
+    max-width: 85vw;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
+    z-index: var(--z-modal);
   }
 
-  .app-sidebar:hover,
-  .app-sidebar:focus-within {
-    width: var(--sidebar-width);
+  .app-sidebar.is-open {
+    transform: translateX(0);
+    visibility: visible;
     box-shadow: var(--shadow-lg);
-    transition: width 0.15s ease;
+    transition: transform 0.2s ease, visibility 0s linear 0s;
+  }
+
+  .app-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: var(--theme-bg-overlay, rgba(0, 0, 0, 0.5));
+    z-index: var(--z-modal-backdrop);
+  }
+
+  .sidebar-close,
+  .topbar-menu-btn {
+    display: inline-flex;
+  }
+
+  /* No physical keyboard on phones/tablets */
+  .sidebar-shortcuts-item {
+    display: none !important;
   }
 
   .app-main-wrapper {
     margin-left: 0;
   }
+
+  .app-topbar {
+    gap: var(--space-sm);
+  }
+
+  /* Icon-only account button; the email stays in its accessible name and in the menu */
+  .topbar-user-label,
+  .topbar-user-chevron {
+    display: none;
+  }
+
+  .topbar-user-btn {
+    /* .btn's base min-width: 80px is for labelled buttons; this one is icon-only here */
+    min-width: 40px;
+    padding-left: var(--space-sm);
+    padding-right: var(--space-sm);
+  }
+
+  .app-select-menu {
+    max-width: calc(100vw - 2 * var(--space-sm));
+  }
+}
+
+/* Lock background scroll while the navigation drawer is open */
+body.nav-drawer-open {
+  overflow: hidden;
 }
 
 /* ===== PRINT STYLES ===== */
@@ -4936,20 +5054,6 @@ body {
   margin: 0 0 1rem 0;
 }
 
-/* Chart Grid Layouts */
-
-.dashboard-row-geo {
-  display: grid;
-  grid-template-columns: 3fr 2fr;
-  gap: 0.75rem;
-}
-
-.dashboard-row-distribution {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-}
-
 /* Custom Tooltip */
 
 .dashboard-tooltip {
@@ -5092,16 +5196,6 @@ body {
 @media (max-width: 1200px) {
   .dashboard-stats {
     grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 1024px) {
-  .dashboard-row-geo {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard-row-distribution {
-    grid-template-columns: 1fr;
   }
 }
 

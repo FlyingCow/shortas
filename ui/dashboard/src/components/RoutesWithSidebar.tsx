@@ -1528,7 +1528,7 @@ const RoutesWithSidebar: React.FC = () => {
                       </h3>
                       <p className="chart-desc">Hover to see details</p>
                     </div>
-                    <div className="chart-body" style={{ height: '300px' }}>
+                    <div className="chart-body">
                       <WorldMap data={analytics.topCountries} height={300} />
                     </div>
                   </div>

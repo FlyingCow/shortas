@@ -12,7 +12,9 @@ import {
   Globe,
   Briefcase,
   ChevronDown,
-  Keyboard
+  Keyboard,
+  Menu,
+  X
 } from 'lucide-react';
 import { logout, getUserInfo } from '../config/keycloak';
 import { useTheme } from '../contexts/ThemeContext';
@@ -36,6 +38,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { workspaces, currentWorkspaceId, setCurrentWorkspaceId } = useWorkspace();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+  // Off-canvas navigation drawer (only reachable on narrow viewports, where the
+  // sidebar is hidden and a menu button is shown in the topbar).
+  const [isNavOpen, setIsNavOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const sharedRoleLabel = (role?: string) => (role === 'Member' ? 'User' : role);
   const myWorkspaces = workspaces.filter((ws) => ws.userRole !== 'Admin' && ws.userRole !== 'Member');
@@ -58,6 +63,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   ];
 
   const isActive = (path: string) => location.pathname === path;
+
+  // Close the drawer whenever the route changes (nav links, logo, programmatic navigation).
+  useEffect(() => {
+    setIsNavOpen(false);
+  }, [location.pathname]);
+
+  // Lock background scrolling while the drawer is open.
+  useEffect(() => {
+    if (!isNavOpen) return;
+    document.body.classList.add('nav-drawer-open');
+    return () => {
+      document.body.classList.remove('nav-drawer-open');
+    };
+  }, [isNavOpen]);
 
   // Close the user dropdown when clicking outside (the workspace switcher
   // manages its own open/close via the shared Dropdown component).
@@ -90,6 +109,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         if (showShortcutHelp) {
           setShowShortcutHelp(false);
           e.preventDefault();
+        } else if (isNavOpen) {
+          setIsNavOpen(false);
+          e.preventDefault();
         } else if (isUserMenuOpen) {
           setIsUserMenuOpen(false);
         }
@@ -119,18 +141,28 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [navigate, isUserMenuOpen, showShortcutHelp, navigation]);
+  }, [navigate, isUserMenuOpen, showShortcutHelp, isNavOpen, navigation]);
 
   return (
     <>
       <DevelopmentBanner />
       <div className="app-layout">
         {/* Sidebar */}
-        <aside className="app-sidebar">
-          <Link to="/dashboard" className="sidebar-logo">
-            <Logo size={22} />
-            <span className="sidebar-logo-text">SHORTAS</span>
-          </Link>
+        <aside id="app-sidebar" className={`app-sidebar ${isNavOpen ? 'is-open' : ''}`}>
+          <div className="sidebar-header">
+            <Link to="/dashboard" className="sidebar-logo">
+              <Logo size={22} />
+              <span className="sidebar-logo-text">SHORTAS</span>
+            </Link>
+            <button
+              type="button"
+              className="sidebar-close"
+              onClick={() => setIsNavOpen(false)}
+              aria-label="Close navigation"
+            >
+              <X size={18} />
+            </button>
+          </div>
 
           <nav className="sidebar-nav">
             {navigation.map((item) => {
@@ -157,7 +189,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <span className="sidebar-nav-label">Settings</span>
             </Link>
             <button
-              className="sidebar-nav-item"
+              className="sidebar-nav-item sidebar-shortcuts-item"
               onClick={() => setShowShortcutHelp(true)}
               title="Keyboard shortcuts (?)"
               style={{ border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}
@@ -179,13 +211,32 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
         </aside>
 
+        {isNavOpen && (
+          <div
+            className="app-sidebar-backdrop"
+            data-testid="nav-backdrop"
+            aria-hidden="true"
+            onClick={() => setIsNavOpen(false)}
+          />
+        )}
+
         {/* Main content wrapper */}
         <div className="app-main-wrapper">
           {/* Top bar */}
           <header className="app-topbar">
             <div className="topbar-left">
+              <button
+                type="button"
+                className="topbar-menu-btn"
+                onClick={() => setIsNavOpen(true)}
+                aria-label="Open navigation"
+                aria-expanded={isNavOpen}
+                aria-controls="app-sidebar"
+              >
+                <Menu size={20} />
+              </button>
               {/* Workspace switcher */}
-              <div>
+              <div className="topbar-workspace">
                 <Dropdown
                   icon={<Briefcase size={14} />}
                   value={currentWorkspaceId ?? ''}
@@ -200,13 +251,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               {/* User Dropdown */}
               <div ref={userMenuRef} style={{ position: 'relative' }}>
                 <button
-                  className="btn btn-outline btn-sm"
+                  className="btn btn-outline btn-sm topbar-user-btn"
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  aria-label={`Account menu: ${userInfo?.email || userInfo?.username || 'User'}`}
+                  aria-haspopup="menu"
+                  aria-expanded={isUserMenuOpen}
                   style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                 >
                   <User size={16} />
-                  <span>{userInfo?.email || userInfo?.username || 'User'}</span>
-                  <ChevronDown size={14} />
+                  <span className="topbar-user-label">{userInfo?.email || userInfo?.username || 'User'}</span>
+                  <ChevronDown size={14} className="topbar-user-chevron" />
                 </button>
 
                 {isUserMenuOpen && (
