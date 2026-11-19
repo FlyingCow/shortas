@@ -1,6 +1,6 @@
 # redirect
 
-The Rust workspace for the click path and background workers. See [Architecture](https://shortas.work/architecture/) for how the services fit together.
+The Rust workspace for the click path. Background workers live in [`workers/`](../workers). See [Architecture](https://shortas.work/architecture/) for how the services fit together.
 
 | Crate | Role |
 |---|---|
@@ -9,11 +9,7 @@ The Rust workspace for the click path and background workers. See [Architecture]
 | `click-tracker` | Enriches click events (geo, user agent, session) |
 | `click-aggregator` | Writes enriched events to ClickHouse |
 | `click-aggregator-api` | Internal analytics query API (ClickHouse) |
-| `route-verifier` | Safe Browsing checks |
-| `route-icon-worker` | Fetches destination favicons |
-| `domain-verifier` | DNS ownership checks for custom domains |
-| `cert-bot` | Let's Encrypt issuance and renewal |
-| `shortas-common` | Types shared with `management-api` |
+| `shortas-common` | Types shared with `api` (a member of the root workspace) |
 
 `infra/pages/` is the nginx container for branded not-found and blocked pages. `monitoring/` holds the Prometheus, Grafana and Loki stack.
 
@@ -25,7 +21,7 @@ From the repository root:
 make build            # or make build-<crate>
 make test             # or make test-<crate>
 make clippy fmt
-make up               # start this directory's docker-compose.yml
+make up               # start this directory's docker-compose.yml (click path + workers)
 ```
 
 `make up` starts only this workspace's services and their databases. For the full stack, use `infra/custom` (see [Getting Started](https://shortas.work/getting-started/)).

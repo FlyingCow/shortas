@@ -1,15 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "cert-bot",
     "click-router",
     "click-aggregator",
     "click-aggregator-api",
     "click-router-api",
     "click-tracker",
-    "domain-verifier",
-    "route-icon-worker",
-    "route-verifier",
 ]
 
 [workspace.package]
@@ -55,7 +51,6 @@ dotenv = "0.15.0"
 aws-config = "1.3.0"
 aws-sdk-dynamodb = "1.25.0"
 aws-sdk-kinesis = "1.25.0"
-aws-sdk-s3 = "1.25.0"
 
 # HTTP and web framework
 salvo = { version = "0.84.0", features = ["oapi"] }
@@ -109,8 +104,6 @@ lazy_static = "1.4.0"
 # Security and crypto
 jsonwebtoken = "9.3.0"
 sha2 = "0.10.8"
-instant-acme = { version = "0.8.5", default-features = false, features = ["ring", "hyper-rustls"] }
-rcgen = "0.13"
 x509-parser = "0.16"
 
 # Validation and utilities
@@ -124,17 +117,11 @@ signal-hook = "0.3.17"
 qrcode = "0.14.1"
 image = "0.25.5"
 
-# HTML parsing
-scraper = "0.22.0"
-
 # Tower ecosystem
 tower = { version = "0.5.2", features = ["full"] }
 
 # HTTP body utilities
 http-body-util = "0.1.1"
-
-# DNS resolution
-hickory-resolver = "0.24"
 
 # Database
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono", "json"] }

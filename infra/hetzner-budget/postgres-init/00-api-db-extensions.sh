@@ -2,7 +2,7 @@
 # Runs against $POSTGRES_DB/$POSTGRES_USER, which the official postgres
 # image already created from this container's POSTGRES_DB/POSTGRES_USER/
 # POSTGRES_PASSWORD env vars (see docker-compose.yml). This just adds what
-# management-api/scripts/init-db.sql does, parameterized instead of
+# api/scripts/init-db.sql does, parameterized instead of
 # hardcoded to "shortas_dev_db"/"shortas_user".
 set -euo pipefail
 

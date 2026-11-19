@@ -34,7 +34,7 @@ output "clickhouse_endpoint" {
 }
 
 output "opensearch_endpoint" {
-  description = "OpenSearch domain URL (management-api's APP__ELASTICSEARCH__URL)"
+  description = "OpenSearch domain URL (api's APP__ELASTICSEARCH__URL)"
   value       = module.opensearch.url
 }
 

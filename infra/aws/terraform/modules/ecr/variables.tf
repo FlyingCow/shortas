@@ -16,7 +16,7 @@ variable "service_names" {
     "route-verifier",
     "route-icon-worker",
     "cert-bot",
-    "management-api",
+    "api",
     "dashboard",
     "landing",
     "pages"

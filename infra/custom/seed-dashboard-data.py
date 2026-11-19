@@ -2,7 +2,7 @@
 """Seed the dashboard with test routes and clickstream stats.
 
 Logs in as the dev Keycloak test user, creates (or reuses) a workspace and a
-handful of routes under the shared domain via the real management-api, then
+handful of routes under the shared domain via the real `api` service, then
 (re)generates ClickHouse clickstream data for those routes spanning the last
 N days - so the dashboard charts have something to show.
 
@@ -106,7 +106,7 @@ def ensure_domain(args, token):
     if shared:
         return shared[0]["id"], shared[0]["name"]
     raise RuntimeError(
-        "No shared domain found (expected one from shared_domains in management-api config). "
+        "No shared domain found (expected one from shared_domains in the api config). "
         "Pass --domain-id to use a specific domain instead."
     )
 

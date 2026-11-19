@@ -252,7 +252,7 @@ services:
       AWS_DEFAULT_REGION: us-east-1
       AWS_ENDPOINT_URL: http://minio:9000
     volumes:
-      - ../../notification-templates:/templates:ro
+      - ../../workers/notification-templates:/templates:ro
     entrypoint: >
       /bin/sh -c "aws s3 sync /templates s3://${S3_ROUTE_IMAGES_BUCKET}/notification-templates/ --delete"
     networks:
@@ -518,9 +518,9 @@ services:
     networks:
       - shortas-net
 
-  management-api:
-    image: ${IMAGE_REGISTRY}/management-api:${IMAGE_TAG}
-    container_name: shortas-management-api
+  api:
+    image: ${IMAGE_REGISTRY}/api:${IMAGE_TAG}
+    container_name: shortas-api
     restart: unless-stopped
     environment:
       RUST_LOG: info
@@ -627,7 +627,7 @@ services:
       <<: *rust-logging
       APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
       # route-icon-worker's own crate reads [s3], not [minio] like
-      # management-api — APP__MINIO__* here was silently inert, leaving it
+      # api — APP__MINIO__* here was silently inert, leaving it
       # on default.toml's hardcoded "minioadmin"/"minioadmin" the whole
       # time. Confirmed against the real compiled Settings::new().
       APP__S3__ENDPOINT: http://minio:9000
@@ -662,7 +662,7 @@ services:
       <<: *rust-logging
       # Staging ACME directory by default — see README.md before going live.
       # cert-bot's config loader uses prefix "CERTBOT", not "APP" like every
-      # other service — see redirect/cert-bot/src/settings.rs.
+      # other service — see workers/cert-bot/src/settings.rs.
       CERTBOT__ACME__ACCOUNT_EMAIL: ${ACME_ACCOUNT_EMAIL}
       CERTBOT__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017
       CERTBOT__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
@@ -736,7 +736,7 @@ services:
     depends_on:
       - dashboard
       - landing
-      - management-api
+      - api
       - keycloak
       - minio-nginx
     networks:

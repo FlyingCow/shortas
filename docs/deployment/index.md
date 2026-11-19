@@ -46,7 +46,7 @@ infra/aws/scripts/deploy-services.sh dev
 
 These apply to every target:
 
-- **Certificates**: Cert Bot defaults to the Let's Encrypt *staging* directory. Once issuance works, switch to production with `CERTBOT__ACME__DIRECTORY_URL` (or `directory_url` in `redirect/cert-bot/config/production.toml`).
+- **Certificates**: Cert Bot defaults to the Let's Encrypt *staging* directory. Once issuance works, switch to production with `CERTBOT__ACME__DIRECTORY_URL` (or `directory_url` in `workers/cert-bot/config/production.toml`).
 - **Email**: configure real SMTP or SES credentials. MailHog exists only in the local stack.
 - **Safe Browsing**: use your own Google Safe Browsing API key.
-- **Notification templates**: the deploy syncs `notification-templates/` to object storage. On AWS, `deploy-services.sh` does this whenever `notification-worker` is deployed.
+- **Notification templates**: the deploy syncs `workers/notification-templates/` to object storage. On AWS, `deploy-services.sh` does this whenever `notification-worker` is deployed.

@@ -172,7 +172,7 @@ resource "aws_cognito_user_pool_client" "dashboard" {
 
 # App Client for API (confidential client)
 resource "aws_cognito_user_pool_client" "api" {
-  name         = "${var.environment}-management-api"
+  name         = "${var.environment}-api"
   user_pool_id = aws_cognito_user_pool.main.id
 
   # OAuth configuration
@@ -205,6 +205,9 @@ resource "aws_cognito_user_pool_client" "api" {
 
 # Resource Server for API scopes
 resource "aws_cognito_resource_server" "api" {
+  # OAuth identifier, intentionally still "management-api" after the service
+  # was renamed to "api": changing it would change scope strings and
+  # invalidate issued tokens (APP__JWT__AUDIENCE must match it).
   identifier   = "management-api"
   name         = "Shortas API"
   user_pool_id = aws_cognito_user_pool.main.id

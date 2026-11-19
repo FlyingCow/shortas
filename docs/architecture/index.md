@@ -89,7 +89,7 @@ Click Router terminates TLS itself. It reads certificates from MongoDB by server
 
 When an action needs to notify someone (currently a workspace invitation), the Management API writes an event to its outbox in the same transaction. The outbox publishes it to RabbitMQ. Notification Worker then renders Handlebars templates from object storage and delivers the result in-app (PostgreSQL), by email, or both. Failed deliveries are retried with a delay and then dead-lettered.
 
-Templates live in the repo under `notification-templates/` and are synced to object storage on deploy. See [Development](/development/#notification-templates).
+Templates live in the repo under `workers/notification-templates/` and are synced to object storage on deploy. See [Development](/development/#notification-templates).
 
 ## Data stores
 

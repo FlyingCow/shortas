@@ -7,7 +7,7 @@ A four-node layout with a redundant app tier, about €220–250 a month. It is 
    |-- LB "click" (TCP 443->4433, 80->5800) --+
    |                                          v
    |-- LB "app"   (TCP 443, 80) ------> app-node-1, app-node-2
-   |                                    click-router(-api), management-api,
+   |                                    click-router(-api), api,
    |                                    click-aggregator-api, notification-worker,
    |                                    verifiers, route-icon-worker,
    |                                    dashboard, landing, pages, Caddy
@@ -64,7 +64,7 @@ Deploy in this order: the data node, then the platform node, then both app nodes
 
 - Replace every `changeme-*` with `openssl rand -hex 24`. A shared secret must have the same value in every node's `.env`.
 - Put your own Google Safe Browsing key in `.env.data`'s `GSB_API_KEY`.
-- Cert Bot uses the Let's Encrypt **staging** directory. Once issuance works, set `CERTBOT__ACME__DIRECTORY_URL` on the `cert-bot` container (or change `redirect/cert-bot/config/production.toml` and rebuild).
+- Cert Bot uses the Let's Encrypt **staging** directory. Once issuance works, set `CERTBOT__ACME__DIRECTORY_URL` on the `cert-bot` container (or change `workers/cert-bot/config/production.toml` and rebuild).
 - Configure real SMTP or SES credentials (`EMAIL_*`, `SMTP_*` in `.env.app`).
 
 `keycloak-realm-setup` runs on the platform node at every start. It points the dashboard's redirect URIs at `DASHBOARD_HOSTNAME` and deletes the dev `testuser`. Check its logs if login fails.

@@ -1,7 +1,7 @@
 version: "3.8"
 include:
   - ../../redirect/docker-compose.yml
-  - ../../management-api/docker-compose.yml
+  - ../../api/docker-compose.yml
   - ../../ui/docker-compose.yml
 
 networks:
@@ -56,7 +56,7 @@ services:
 
   # Realm-export.json ships with NO smtpServer configured, so without this,
   # "forgot password" / "change password" emails are silently never sent.
-  # Points at the Mailhog instance management-api/docker-compose.yml
+  # Points at the Mailhog instance api/docker-compose.yml
   # already brings up — view sent mail at http://localhost:8025. Idempotent:
   # just PUTs the smtpServer block on every boot, safe to re-run.
   keycloak-smtp-setup:
@@ -195,7 +195,7 @@ services:
       AWS_DEFAULT_REGION: us-east-1
       AWS_ENDPOINT_URL: http://minio:9000
     volumes:
-      - ../../notification-templates:/templates:ro
+      - ../../workers/notification-templates:/templates:ro
     entrypoint: >
       /bin/sh -c "
         echo 'Syncing notification templates to s3://route-images/notification-templates/...'

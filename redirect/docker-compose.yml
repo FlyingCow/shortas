@@ -298,7 +298,7 @@ services:
       dockerfile: redirect/click-aggregator-api/Dockerfile
     container_name: shortas-click-aggregator-api
     restart: unless-stopped
-    # Internal-only: reached by management-api over shortas-net at
+    # Internal-only: reached by api over shortas-net at
     # http://shortas-click-aggregator-api:5820. Not exposed to the host —
     # this service has no auth of its own.
     environment:
@@ -314,7 +314,7 @@ services:
   domain-verifier:
     build:
       context: ..
-      dockerfile: redirect/domain-verifier/Dockerfile
+      dockerfile: workers/domain-verifier/Dockerfile
     container_name: shortas-domain-verifier
     restart: unless-stopped
     ports:
@@ -334,7 +334,7 @@ services:
   route-icon-worker:
     build:
       context: ..
-      dockerfile: redirect/route-icon-worker/Dockerfile
+      dockerfile: workers/route-icon-worker/Dockerfile
     container_name: shortas-route-icon-worker
     restart: unless-stopped
     environment:
@@ -348,7 +348,7 @@ services:
       - shortas-net
 
   safe-browsing:
-    env_file: "./route-verifier/.env"
+    env_file: "../workers/route-verifier/.env"
     image: mlsecproject/gglsbl-rest:latest
     container_name: shortas-safe-browsing
     restart: unless-stopped
@@ -368,7 +368,7 @@ services:
   route-verifier:
     build:
       context: ..
-      dockerfile: redirect/route-verifier/Dockerfile
+      dockerfile: workers/route-verifier/Dockerfile
     container_name: shortas-route-verifier
     restart: unless-stopped
     ports:
@@ -410,11 +410,11 @@ services:
   cert-bot:
     build:
       context: ..
-      dockerfile: redirect/cert-bot/Dockerfile
+      dockerfile: workers/cert-bot/Dockerfile
     container_name: shortas-cert-bot
     restart: unless-stopped
     env_file:
-      - ./cert-bot/.env
+      - ../workers/cert-bot/.env
     environment:
       - RUST_LOG=warn
       - LOKI_URL=http://shortas-loki:3100

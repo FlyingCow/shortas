@@ -18,13 +18,13 @@ This runs the full stack on one machine with Docker Compose: every service, data
 ```bash
 git clone --recurse-submodules https://github.com/FlyingCow/shortas.git
 cd shortas
-cp redirect/route-verifier/.env.example redirect/route-verifier/.env
-cp redirect/cert-bot/.env.example redirect/cert-bot/.env
+cp workers/route-verifier/.env.example workers/route-verifier/.env
+cp workers/cert-bot/.env.example workers/cert-bot/.env
 cd infra/custom
 docker compose up -d
 ```
 
-Put your own [Google Safe Browsing API key](https://developers.google.com/safe-browsing/v4/get-started) in `GSB_API_KEY` in `redirect/route-verifier/.env`.
+Put your own [Google Safe Browsing API key](https://developers.google.com/safe-browsing/v4/get-started) in `GSB_API_KEY` in `workers/route-verifier/.env`.
 
 The first start builds every Rust service image, so expect several minutes. One-off setup containers (buckets, Fluvio topics, ClickHouse migrations, notification templates) run on their own and exit.
 

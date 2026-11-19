@@ -8,46 +8,48 @@ permalink: /development/
 ## Repository layout
 
 ```
-redirect/               Rust workspace: the click path and background workers
+api/                    Rust: the dashboard's backend (Management API)
+workers/                Rust: background workers
+  notification-worker/    renders and delivers notifications
+  notification-templates/ Handlebars templates, one directory per notification
+  route-verifier/         Safe Browsing checks
+  route-icon-worker/      favicon fetcher
+  domain-verifier/        DNS ownership checks
+  cert-bot/               Let's Encrypt automation
+redirect/               Rust workspace: the click path
   click-router/           public redirect server
   click-router-api/       internal route/cert API (MongoDB)
   click-tracker/          click enrichment
   click-aggregator/       ClickHouse writer
   click-aggregator-api/   analytics query API
-  route-verifier/         Safe Browsing checks
-  route-icon-worker/      favicon fetcher
-  domain-verifier/        DNS ownership checks
-  cert-bot/               Let's Encrypt automation
-  shortas-common/         types shared with the management side
+  shortas-common/         types shared with the API
   monitoring/             Prometheus, Grafana, Loki
-management-api/         Rust: the dashboard's backend
-notification-worker/    Rust: renders and delivers notifications
-notification-templates/ Handlebars templates, one directory per notification
 ui/dashboard/           React admin app
 ui/landing/             React marketing site
 infra/                  local compose stack and deployment targets
 docs/                   this site
 ```
 
-There are two Cargo workspaces. `redirect/Cargo.toml` holds the click-path services. The root `Cargo.toml` holds `management-api`, `notification-worker` and `shortas-common`.
+There are two Cargo workspaces. `redirect/Cargo.toml` holds the click-path services. The root `Cargo.toml` holds `api`, everything under `workers/`, and `shortas-common`.
 
 ## Build, test, lint
 
-Redirect workspace, through the root `Makefile`:
+Both workspaces, through the root `Makefile`:
 
 ```bash
-make build                 # all redirect services (debug)
-make build-click-router    # one service; same pattern for test-, release-, bench-
+make build                 # every Rust crate in both workspaces (debug)
+make build-click-router    # one crate, from whichever workspace owns it;
+make test-api              # same pattern for build-, test-, release-, bench-
 make test
 make clippy                # warnings are errors
 make fmt
 ```
 
-Root workspace, with cargo:
+Or with cargo directly (root workspace):
 
 ```bash
-cargo build -p management-api
-cargo test  -p management-api
+cargo build -p api
+cargo test  -p api
 cargo run   -p notification-worker
 ```
 
@@ -72,7 +74,7 @@ Start the full stack (see [Getting Started](/getting-started/)), stop the contai
 
 ## Notification templates
 
-Each notification type is a directory under `notification-templates/<id>/`:
+Each notification type is a directory under `workers/notification-templates/<id>/`:
 
 | File | Purpose |
 |---|---|

@@ -26,15 +26,11 @@ WORKDIR /app
 
 # Copy workspace structure
 COPY redirect/Cargo.toml redirect/Cargo.lock ./redirect/
-COPY redirect/cert-bot/ ./redirect/cert-bot/
 COPY redirect/click-router/ ./redirect/click-router/
 COPY redirect/click-router-api/ ./redirect/click-router-api/
 COPY redirect/click-tracker/ ./redirect/click-tracker/
 COPY redirect/click-aggregator/ ./redirect/click-aggregator/
 COPY redirect/click-aggregator-api/ ./redirect/click-aggregator-api/
-COPY redirect/domain-verifier/ ./redirect/domain-verifier/
-COPY redirect/route-icon-worker/ ./redirect/route-icon-worker/
-COPY redirect/route-verifier/ ./redirect/route-verifier/
 COPY redirect/shortas-common/ ./redirect/shortas-common/
 COPY redirect/data/ ./redirect/data/
 

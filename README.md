@@ -20,8 +20,8 @@ A self-hostable URL shortener with custom domains, conditional routing and real-
 ```bash
 git clone --recurse-submodules https://github.com/FlyingCow/shortas.git
 cd shortas
-cp redirect/route-verifier/.env.example redirect/route-verifier/.env   # set GSB_API_KEY
-cp redirect/cert-bot/.env.example redirect/cert-bot/.env
+cp workers/route-verifier/.env.example workers/route-verifier/.env   # set GSB_API_KEY
+cp workers/cert-bot/.env.example workers/cert-bot/.env
 cd infra/custom && docker compose up -d
 ```
 
