@@ -1,29 +1,21 @@
 ---
-layout: professional-theme
 title: About
 permalink: /about/
 ---
 
-# About Shortas
+# About
 
-Shortas is an open-source URL shortener and click analytics platform designed for high throughput and real-time insights.
+Shortas is an open-source URL shortener built to explore what a fast, event-driven link platform looks like end to end. It covers the redirect hot path, streaming analytics, custom domains with automatic TLS, and multi-tenant management.
 
-## Goals
+## Design goals
 
-- **Performance** — Rust-based redirect path for minimal latency
-- **Scalability** — event-driven architecture with Fluvio streaming and ClickHouse analytics
-- **Multi-tenancy** — workspace-based isolation with Keycloak authentication
-- **Extensibility** — modular pipeline with pluggable enrichment stages
+- **Fast redirects**: a small Rust service with cached lookups and no synchronous writes on the hot path.
+- **Analytics without slowing clicks**: every click is streamed, enriched and aggregated asynchronously.
+- **Self-hostable**: the whole platform runs from a single Compose file and scales out to more hosts without changes.
 
-## Author
+## Author and license
 
-Built by Max Cechina.
+Built by Max Cechina. MIT licensed.
 
-## License
-
-MIT — see [LICENSE](https://github.com/FlyingCow/shortas/blob/main/LICENSE) for details.
-
-## Links
-
-- [GitHub Repository](https://github.com/FlyingCow/shortas)
-- [Documentation](https://shortas.work/)
+- Source: [github.com/FlyingCow/shortas](https://github.com/FlyingCow/shortas)
+- Issues: [github.com/FlyingCow/shortas/issues](https://github.com/FlyingCow/shortas/issues)

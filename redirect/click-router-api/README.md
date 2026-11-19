@@ -1,54 +1,22 @@
 # click-router-api
 
-REST API for managing short link routes. Built on Salvo with OpenAPI support.
+An internal API over the route store (MongoDB or DynamoDB). It manages routes, TLS certificates, ACME challenges, user settings and custom pages. After every write it publishes a cache-invalidation message so all Click Router instances drop stale entries.
 
-## Endpoints
+It has **no authentication**. Only the Management API, Cert Bot and Route Verifier call it, and it must not be exposed publicly.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/routes` | List routes |
-| GET | `/routes/{id}` | Get route by ID |
-| POST | `/routes` | Create a route |
-| PUT | `/routes/{id}` | Update a route |
-| DELETE | `/routes/{id}` | Delete a route |
-
-## Features
-
-- CRUD operations on routes
-- Short URL generation
-- Route configuration and routing policies
-- OpenAPI/Swagger documentation
-- JWT authentication
-
-## Port
-
-Runs on port 5810.
-
-## Logging & Monitoring
-
-Warning and error logs are sent to Grafana Loki for centralized log aggregation.
-
-| Environment Variable | Description | Default |
-|---------------------|-------------|---------|
-| `LOKI_URL` | Loki push endpoint | `http://shortas-loki:3100` |
-| `RUST_LOG` | Log level filter | `warn` |
-
-View logs in Grafana:
-```logql
-{service="click-router-api"}
-```
-
-## Dependencies
-
-- MongoDB — route storage
-- Redis — caching
-
-## Build
+## Run
 
 ```bash
-# From the repository root
 make build-click-router-api
-
-# Or directly
-cargo build --manifest-path redirect/Cargo.toml -p click-router-api
+make test-click-router-api
 ```
+
+It listens on 5810 (the `production` profile; `server.port`). Endpoints are under `/v1`, documented at `/swagger-ui`.
+
+## Config
+
+| Section | Purpose |
+|---|---|
+| `mongodb` / `aws.dynamo` | Route store |
+| `rabbitmq` | Cache-invalidation exchanges |
+| `server` | Port |

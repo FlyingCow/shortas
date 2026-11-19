@@ -1,111 +1,76 @@
 ---
-layout: professional-theme
 title: Getting Started
 permalink: /getting-started/
 ---
 
 # Getting Started
 
+This runs the full stack on one machine with Docker Compose: every service, database and the monitoring stack.
+
 ## Prerequisites
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Rust | stable | Redirect services and Management API |
-| Node.js | >= 18 | Dashboard and landing page |
-| Docker | latest | Infrastructure services |
-| Docker Compose | v2 | Service orchestration |
+- Docker with Compose v2
+- About 10 GB of free RAM. Mongo, ClickHouse, Elasticsearch and Keycloak are the heavy parts.
+- Python 3, only for the optional seed script
 
-The `.NET 9 SDK` is only needed if you want to build the legacy `api/` project (superseded by `management-api/`, kept for reference).
-
-## Clone the Repository
+## Start the stack
 
 ```bash
 git clone --recurse-submodules https://github.com/FlyingCow/shortas.git
 cd shortas
-```
-
-The `--recurse-submodules` flag pulls the Salvo web framework fork and the UA parser data.
-
-## Option 1: Docker Compose (Recommended)
-
-Start the entire stack with a single command, from the top-level orchestrator:
-
-```bash
+cp redirect/route-verifier/.env.example redirect/route-verifier/.env
+cp redirect/cert-bot/.env.example redirect/cert-bot/.env
 cd infra/custom
 docker compose up -d
 ```
 
-This file `include`s the Rust redirect stack, the Management API stack, and the UI stack, and directly starts a few shared pieces of infrastructure. In total it brings up:
+Put your own [Google Safe Browsing API key](https://developers.google.com/safe-browsing/v4/get-started) in `GSB_API_KEY` in `redirect/route-verifier/.env`.
 
-- **Shared infra**: Keycloak (+ its Postgres DB), Vault (dev mode), RabbitMQ, MinIO/RustFS (+ bucket setup + nginx CORS proxy)
-- **Redirect infra**: MongoDB, ClickHouse, Redis, Fluvio (SC + SPU), gglsbl-rest (Safe Browsing), Prometheus/Grafana/Loki
-- **Redirect services**: click-router, click-router-api, click-tracker, click-aggregator, click-aggregator-api, route-verifier, route-icon-worker, domain-verifier, cert-bot, pages
-- **Management API infra + service**: its own Postgres, Elasticsearch, and the `management-api` container
-- **UI**: dashboard, landing
+The first start builds every Rust service image, so expect several minutes. One-off setup containers (buckets, Fluvio topics, ClickHouse migrations, notification templates) run on their own and exit.
 
-ClickHouse and topic/bucket setup run automatically as init containers.
+## Sign in
 
-## Option 2: Local Development
+Open the dashboard at <http://localhost:3000> and sign in with the Keycloak dev user:
 
-### 1. Start Infrastructure
+- user: `testuser`
+- password: `testpassword`
 
-```bash
-make up
-```
+## Add sample data
 
-This runs the redirect workspace's infrastructure and application services in Docker containers (see [Deployment](/deployment/) for what's not covered here, like Keycloak/Vault/Management API — start those via `infra/custom` instead if you need them).
-
-### 2. Build Rust Services
+The seed script creates a workspace and a few routes through the real APIs, then generates click history so the charts have something to show:
 
 ```bash
-make build
+python3 infra/custom/seed-dashboard-data.py            # last 21 days
+python3 infra/custom/seed-dashboard-data.py --days 60
 ```
 
-### 3. Run the Management API
+It is safe to re-run, because it replaces this user's previous sample clicks. Run it with `--help` for connection options.
+
+## Local URLs
+
+| What | URL |
+|---|---|
+| Dashboard | <http://localhost:3000> |
+| Landing page | <http://localhost:3002> |
+| Management API (Swagger UI) | <http://localhost:8090/swagger-ui> |
+| Short links (Click Router) | <http://localhost:5800>, <https://localhost:4433> |
+| Keycloak admin | <http://localhost:8080> |
+| Grafana | <http://localhost:3001> |
+| Prometheus | <http://localhost:9091> |
+| RabbitMQ admin | <http://localhost:15672> |
+| MailHog (outgoing email) | <http://localhost:8025> |
+| MinIO console | <http://localhost:9001> |
+| Mongo Express | <http://localhost:8081> |
+
+Databases are also published on their default ports: Mongo 27017, ClickHouse 8123/9000, Redis 6379, Elasticsearch 9200, and Management API Postgres 5433.
+
+## Stop
 
 ```bash
-cargo run -p management-api
+docker compose down        # keep data
+docker compose down -v     # also delete volumes
 ```
 
-The API starts on port 8080 by default (`config/default.toml`); the Docker Compose setup maps it to host port 8090.
+Keycloak's database lives in `infra/custom/fs/` (a bind mount), so `-v` does not reset it.
 
-### 4. Build & Run the Dashboard
-
-```bash
-make build-ui
-cd ui/dashboard && npm start
-```
-
-The dashboard opens at `http://localhost:3000`.
-
-## Service Ports
-
-| Service | Port |
-|---------|------|
-| Click Router | 5800 (HTTP), 4433 (TLS) |
-| Click Router API | 5810 |
-| Click Aggregator API | 5820 |
-| Domain Verifier | 5830 |
-| Route Verifier | 5831 |
-| Pages (static branded pages) | 5801 |
-| Management API | 8090 (host) / 8080 (container) |
-| Dashboard | 3000 |
-| Landing Page | 3002 |
-| Keycloak | 8080 |
-| Vault | 8200 |
-| MongoDB | 27017 |
-| PostgreSQL (Management API) | 5433 |
-| Elasticsearch | 9200 |
-| ClickHouse (HTTP / native) | 8123 / 9000 |
-| Redis | 6379 |
-| MinIO / RustFS (API) | 9002 |
-| MinIO / RustFS (Console) | 9001 |
-| MinIO nginx proxy (CORS) | 9003 |
-| RabbitMQ | 5672 |
-| RabbitMQ (Management) | 15672 |
-
-## Next Steps
-
-- Read the [Architecture](/architecture/) guide to understand the data flow
-- See the [API Reference](/api/) for endpoint details
-- Check [Development](/development/) for build and test workflows
+To run services from source instead of containers, see [Development](/development/).

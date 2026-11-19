@@ -1,59 +1,20 @@
 # click-aggregator-api
 
-REST API for querying click analytics stored in ClickHouse. Built on Salvo.
+An internal analytics API over ClickHouse. It serves clickstream statistics (daily and hourly, geography, devices, browsers, traffic types, top routes and destinations) and conversions (rates, revenue, attribution, funnels). The Management API proxies it for the dashboard, and it has no authentication of its own.
 
-## Endpoints
+## Run
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/analytics` | Query click data with time range and dimension filters |
-| GET | `/analytics/summary` | Aggregated summary statistics |
-| GET | `/health` | Health check |
-
-## Features
-
-- Time-range queries over click event data
-- Geographic distribution breakdowns
-- Device and browser analytics
-- Aggregated summary statistics
-
-## Port
-
-Runs on port 5820.
-
-## Logging & Monitoring
-
-Warning and error logs are sent to Grafana Loki for centralized log aggregation.
-
-| Environment Variable | Description | Default |
-|---------------------|-------------|---------|
-| `LOKI_URL` | Loki push endpoint | `http://shortas-loki:3100` |
-| `RUST_LOG` | Log level filter | `warn` |
-
-View logs in Grafana:
-```logql
-{service="click-aggregator-api"}
+```bash
+make build-click-aggregator-api
+make test-click-aggregator-api
 ```
 
-## Dependencies
-
-- ClickHouse — analytics data store
+It listens on 5820 (the `production` profile; `server.port`). Endpoints are under `/v1`, documented at `/swagger-ui`.
 
 ## Migrations
 
-ClickHouse schema migrations are in the `migrations/` directory and applied automatically by the `clickhouse-migrations` init container in Docker Compose. To run manually:
+The ClickHouse schema lives in `migrations/`. Compose applies it automatically. To apply it by hand:
 
 ```bash
-cd scripts
-bash apply_migrations.sh
-```
-
-## Build
-
-```bash
-# From the repository root
-make build-click-aggregator-api
-
-# Or directly
-cargo build --manifest-path redirect/Cargo.toml -p click-aggregator-api
+bash scripts/apply_migrations.sh      # CLICKHOUSE_HOST etc. override the defaults
 ```

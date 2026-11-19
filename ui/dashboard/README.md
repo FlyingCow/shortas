@@ -1,48 +1,25 @@
-# Shortas Dashboard
+# dashboard
 
-React admin interface for managing short links and viewing click analytics.
+The React admin app for links, QR codes, domains, workspaces and analytics. It talks only to the Management API and signs in through Keycloak or Cognito with `keycloak-js`.
 
-## Features
-
-- Link management (create, edit, delete short URLs)
-- Conditional routing configuration (geo, device, browser, OS targeting)
-- QR code designer with customizable colors, logos, and patterns
-- Click analytics with interactive charts (Recharts)
-- Geographic click distribution map (React Simple Maps)
-- Route blocking/unblocking for Safe Browsing violations
-- Automatic favicon display for destination URLs
-- Workspace management with role-based member access (Owner/Admin/Member) and email-based invitations
-- Keyboard shortcuts for common actions
-- Keycloak-based authentication
-
-## Tech Stack
-
-- React 18 with TypeScript
-- Bootstrap 5 / React-Bootstrap
-- Recharts for data visualization
-- Axios for API calls
-- Keycloak JS for authentication
-- React Router for navigation
-
-## Development
+## Run
 
 ```bash
+cp .env.example .env.local    # then adjust
 npm install
-npm start
-```
-
-Runs on `http://localhost:3000`. API requests are proxied to `http://localhost:8080` (see `proxy` in `package.json`).
-
-## Build
-
-```bash
+npm start                     # http://localhost:3000
+npm test
 npm run build
 ```
 
-## Docker
+In the full compose stack the dashboard is served by nginx on port 3000.
 
-```bash
-docker compose -f ../docker-compose.yml up dashboard
-```
+## Config
 
-Serves the built app on port 80 (mapped to 3000).
+| Variable | Purpose |
+|---|---|
+| `REACT_APP_PROXY_API_URL` | Management API base URL (`http://localhost:8090` locally) |
+| `REACT_APP_KEYCLOAK_URL`, `REACT_APP_KEYCLOAK_CLIENT_ID` | OIDC provider and client |
+| `REACT_APP_ROUTE_IMAGES_BASE_URL` | Where favicons and QR assets are served (`minio-nginx`, `http://localhost:9003`) |
+| `REACT_APP_LANDING_URL` | Link back to the landing page |
+| `REACT_APP_USE_MOCK_DATA` | `true` uses mock data and skips sign-in |

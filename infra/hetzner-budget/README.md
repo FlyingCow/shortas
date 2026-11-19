@@ -1,211 +1,118 @@
 # Hetzner budget deployment
 
-A single-VM deployment for a demo, low-traffic launch, or anything where
-€20/month beats HA. For the multi-node, no-single-point-of-failure-on-the-
-hot-path layout, see `../hetzner/` instead — read its README's topology
-section for the trade-offs this tier deliberately gives up (no replication
-on any database, one copy of every app service, one VM is a full outage).
+The whole stack on one Hetzner VM for about €20 a month, suitable for a demo or low traffic. There is no redundancy: if the VM goes down, everything is down. For the multi-node layout, see [`../hetzner`](../hetzner). It uses the same images and the same env var names, so moving up means adding nodes.
 
-## Sizing / cost
-
-| Item | Spec | Price/mo (excl. VAT) |
+| Item | Spec | Price / month (excl. VAT) |
 |---|---|---|
-| Server | Hetzner CX43 — 8 vCPU / 16GB / 160GB NVMe | ~€16 |
+| Server | CX43: 8 vCPU, 16 GB, 160 GB NVMe | ~€16 |
 | Automated backups | 20% of server price | ~€3 |
-| **Total** | | **~€19-20** |
 
-16GB is the realistic floor: Mongo + ClickHouse + Elasticsearch +
-Keycloak(JVM) + Fluvio together idle around 6-10GB, with ClickHouse/ES
-spiking under load. CX33 (8GB, ~€8.50/mo) is possible but tight — leave the
-`observability` profile off and watch `docker stats` before trusting it
-under real traffic.
+16 GB is the practical minimum. The databases plus Keycloak and Fluvio idle at 6–10 GB. A CX33 (8 GB) can work if you leave monitoring off.
 
-## What's different from `../hetzner/` (production)
+Compared with the local stack, this tier:
 
-- **One Docker network, no cross-host wiring.** All 25+ containers run on
-  one box, so container-name DNS just works — no `extra_hosts`, no private
-  network, no per-node `.env` files to keep in sync.
-- **Prebuilt GHCR images, not `build:`.** Compiling 9+ Rust crates with
-  `cargo build --release` needs real RAM per crate; doing that on the same
-  box serving traffic risks OOM-killing the database containers mid-build.
-  Images come from `.github/workflows/docker-publish.yml`, same as the
-  production tier.
-- **Self-hosted MinIO/RustFS, not Hetzner Object Storage.** On a single box
-  there's no durability win from paying ~€6.50/mo for Object Storage — this
-  tier stays free beyond the one VM. `minio-nginx` (copied from
-  `infra/custom/minio-nginx.conf`) handles the presigned-URL CORS proxying,
-  same as local dev.
-- **One Postgres instance, two databases.** `postgres-init/` creates both
-  the API database and Keycloak's database in the same container to save
-  RAM/overhead — see those two scripts for exactly what they do.
-- **Vault, mongo-express, and Mailhog are dropped entirely** (unused by the
-  app / dev-only) to keep headroom for the services that matter.
-- **Monitoring is opt-in.** Prometheus/Grafana/Loki are behind the
-  `observability` Compose profile, off by default. Enable with
-  `docker compose --profile observability up -d` once you've confirmed the
-  box has RAM to spare — Loki here uses local filesystem storage, not S3,
-  so there's no Object Storage dependency either.
-- **No HA, anywhere.** One Mongo, one Postgres, one ClickHouse, one Redis,
-  one RabbitMQ, one Fluvio SC/SPU, one copy of every app service. This VM
-  going down is a full outage. That's the actual budget trade-off, not a
-  detail — if you need to not have this conversation at 3am, use
-  `../hetzner/` instead.
+- pulls prebuilt images from GHCR instead of building them on the box;
+- runs one Postgres for both the API and Keycloak (`postgres-init/`);
+- keeps object storage on the box (RustFS behind `minio-nginx`);
+- drops Vault, Mongo Express and MailHog;
+- puts Prometheus, Grafana and Loki behind the `observability` profile, off by default.
 
-## Setup from zero (no Hetzner account yet)
+## 1. Account and SSH key
 
-### 1. Account + SSH key
+Sign up at console.hetzner.com, then add your public key under **Security → SSH Keys**:
 
-1. Sign up at **console.hetzner.com** (needs a payment method).
-2. On your own machine, check for an existing SSH key or make one:
+```bash
+ls ~/.ssh/id_ed25519.pub 2>/dev/null || ssh-keygen -t ed25519 -C "your-email"
+```
+
+## 2. Server
+
+**Servers → Add Server**: Ubuntu 24.04, **Shared vCPU → CX43**, and select your SSH key. Note the server's public IPv4. This is the *primary IP*.
+
+## 3. Second IP for short links
+
+Caddy serves the app's hostnames on ports 443 and 80. Click Router serves the short-link domains with its own TLS, so it needs a second IP.
+
+1. **Floating IPs → Create Floating IP**: IPv4, same location, assigned to this server. This is `SHORTLINK_IP`.
+2. After you SSH in (step 5), configure it on the interface:
+
    ```bash
-   ls ~/.ssh/id_ed25519.pub 2>/dev/null || ssh-keygen -t ed25519 -C "your-email"
-   ```
-3. Hetzner Console → **Security → SSH Keys → Add SSH Key** → paste the
-   contents of `~/.ssh/id_ed25519.pub`.
-
-### 2. Create the server
-
-1. **Projects → New Project**.
-2. **Servers → Add Server**: Location closest to your users; Image
-   **Ubuntu 24.04**; Type **Shared vCPU → CX43** (8 vCPU/16GB — don't go
-   smaller for a first attempt, see "Sizing / cost" above); SSH key: select
-   the one you just added (this is the step that's easy to miss — if you
-   skip it, Hetzner falls back to emailing you a one-time root password
-   instead of key auth, which is a worse starting position, not a blocker).
-3. Note the server's public IPv4 (its **primary IP**) once it's created.
-
-### 3. Add a second IP
-
-The app's own hostnames (dashboard/api/auth/images) are served by Caddy on
-standard ports 443/80. Short-link domains (whatever you shorten URLs
-under — e.g. `shortas.space`) are served the same way, but by
-`click-router`, which does its own per-domain TLS. Two different programs
-can't both bind port 443 on the same IP, so this box needs a **second
-IPv4 address**. A server only ever has one *Primary IP* — the feature you
-actually want is a **Floating IP**, a separate addressable resource you
-create once and attach to a server:
-
-1. Hetzner Console → **Floating IPs → Create Floating IP** — same
-   location/datacenter as your server, type IPv4, attach it to this
-   server. Note the address — it's `SHORTLINK_IP` in `.env` (step 8).
-2. Unlike the Primary IP, a Floating IP is **not** auto-configured on the
-   box — you have to tell the OS about it yourself (do this once you're
-   SSH'd in, step 5):
-   ```bash
-   ip -4 addr show   # confirm your real interface name — don't assume eth0
+   ip -4 addr show                       # find the interface name
    nano /etc/netplan/60-floating-ip.yaml
    ```
+
    ```yaml
    network:
      version: 2
      renderer: networkd
      ethernets:
-       eth0:              # ← the interface name from `ip -4 addr show`
+       eth0:                 # the interface name from above
          addresses:
            - YOUR.FLOATING.IP.HERE/32
    ```
+
    ```bash
-   sudo netplan apply   # briefly resets networking — don't do this over a
-                        # connection you can't afford to drop for a few seconds
-   ip -4 addr show      # confirm both IPs now show up
+   sudo netplan apply        # briefly drops networking
+   ip -4 addr show           # both IPs should be listed
    ```
 
-### 4. DNS
+## 4. DNS
 
-Add **A records**, replacing `yourdomain.com` with your real domain:
-
-| Host | Points to |
+| Host | A record |
 |---|---|
-| `dashboard.yourdomain.com` | primary IP |
-| `api.yourdomain.com` | primary IP |
-| `auth.yourdomain.com` | primary IP |
-| `images.yourdomain.com` | primary IP |
-| `yourdomain.com` (apex, landing) | primary IP |
-| your short-link domain(s), e.g. `shortas.space` | **second** IP |
+| `yourdomain.com`, `dashboard.`, `api.`, `auth.`, `images.` | primary IP |
+| short-link domains, e.g. `shortas.space` | Floating IP |
 
-Then set `DOMAIN_ALLOWED_IPV4` in `.env` to that **second** IP. It's the
-list of IPs custom short-link domains may point at: domain-verifier marks a
-domain verified when at least one of its A records is in the list, and the
-dashboard's DNS instructions show every IP in it. It's comma-separated, so
-if you later add another IP or node for click traffic, append it
-(`DOMAIN_ALLOWED_IPV4=1.2.3.4,5.6.7.8`) and recreate the
-`domain-verifier` container. `DOMAIN_ALLOWED_IPV6` works the same way and
-can stay empty.
+Set `DOMAIN_ALLOWED_IPV4` in `.env` to the Floating IP. Domain Verifier accepts a custom domain when one of its A records is in this comma-separated list, and the dashboard shows these IPs in its DNS instructions. `DOMAIN_ALLOWED_IPV6` works the same way and can stay empty.
 
-Propagation can take minutes to hours — fine to continue while it settles.
-
-### 5. SSH in
+## 5. SSH in
 
 ```bash
 ssh root@<server-ip>
 ```
 
-Two things commonly trip people up here:
+If it asks for a password, no key was attached. Use the root password Hetzner emailed you, then add your key:
 
-- **It asks for a password even though you added a key.** Check your
-  email for a one-time root password Hetzner sends when no key was
-  attached to the server (easy to miss selecting it in step 2). Log in
-  with that password, then add your key so you don't need it again. On
-  YOUR machine, get the key's contents: `cat ~/.ssh/id_ed25519.pub`. Then,
-  on the server:
-  ```bash
-  mkdir -p ~/.ssh && chmod 700 ~/.ssh
-  echo "PASTE_THE_KEY_LINE_HERE" >> ~/.ssh/authorized_keys
-  chmod 600 ~/.ssh/authorized_keys
-  ```
-- **"WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!"** — routine on a
-  freshly created cloud server; Hetzner reuses IPs, so your machine's
-  memory of who last held that IP's SSH key is stale, not a sign of
-  tampering. Fix and retry:
-  ```bash
-  ssh-keygen -R <server-ip>
-  ssh root@<server-ip>
-  ```
+```bash
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+echo "PASTE_THE_KEY_LINE_HERE" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
 
-### 6. Prep the box
+If you see `REMOTE HOST IDENTIFICATION HAS CHANGED`, it's because Hetzner reuses IPs:
+
+```bash
+ssh-keygen -R <server-ip>
+ssh root@<server-ip>
+```
+
+## 6. Docker and firewall
 
 ```bash
 curl -fsSL https://get.docker.com | sh
 ```
 
-Then, from the Hetzner **Console** (not just `ufw` on the box, so a mistake
-doesn't lock you out): **Firewalls → Create Firewall** — allow inbound TCP
-22 (SSH) and 80/443 from `0.0.0.0/0`; deny everything else; attach it to
-the server. Firewall rules apply to the server regardless of which of its
-two IPs traffic arrives on, so this one rule covers both. All the data
-ports (27017, 5432, 6379, 8123, 5672, 9200, 9000...) have no business
-being internet-facing — Docker publishing them on this box is for
-simplicity, not public access, so the firewall is what actually keeps
-them private.
+In the Hetzner console, go to **Firewalls → Create Firewall**. Allow inbound TCP 22, 80 and 443, deny everything else, and attach the firewall to the server. It covers both IPs and keeps the database ports private.
 
-### 7. Get the code and make images pullable
+## 7. Code and images
 
 ```bash
 git clone https://github.com/FlyingCow/shortas.git
 cd shortas/infra/hetzner-budget
 ```
 
-Images are built by CI into GHCR (`ghcr.io/flyingcow/shortas/*`), but
-**GitHub packages default to private** — `docker compose pull` will fail
-with an auth error until you either make the 15 packages public (GitHub →
-your account's **Packages** tab → each package's settings → Change
-visibility → Public) or `docker login ghcr.io` on the server with a PAT
-that has `read:packages` scope. Public is simpler for a single budget box
-with nothing sensitive in the images.
+GHCR packages (`ghcr.io/flyingcow/shortas/*`) are private by default. Either make them public in GitHub's package settings, or run `docker login ghcr.io` with a token that has `read:packages`.
 
-### 8. Configure secrets
+## 8. Secrets
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-Fill in every `changeme-*` with real random values (`openssl rand -hex 24`
-run on your own machine, paste the output in), the hostnames from step 4,
-and `PRIMARY_IP`/`SHORTLINK_IP` from steps 2-3. Leave `IMAGE_TAG=latest`
-for now.
+Replace every `changeme-*` with output from `openssl rand -hex 24`. Then fill in the hostnames, `PRIMARY_IP`, `SHORTLINK_IP`, `DOMAIN_ALLOWED_IPV4`, SMTP settings, `ACME_ACCOUNT_EMAIL` and your own `GSB_API_KEY`. Keep `IMAGE_TAG=latest`.
 
-### 9. Launch
+## 9. Launch
 
 ```bash
 docker compose pull
@@ -213,64 +120,29 @@ docker compose up -d
 docker compose ps
 ```
 
-Give it a couple of minutes — Mongo/ClickHouse/Elasticsearch/Fluvio all
-need to come up before the app services connect successfully;
-`docker compose ps` will show some containers restarting until their
-dependencies are ready.
+Some containers restart for a few minutes until Mongo, ClickHouse, Elasticsearch and Fluvio are ready. Monitoring is optional:
 
-### 10. First login
+```bash
+docker compose --profile observability up -d
+```
 
-`keycloak-realm-setup` (a one-shot container that runs automatically on
-every `docker compose up`) already took care of the realm for you:
-pointed the dashboard's OIDC redirect URIs at `DASHBOARD_HOSTNAME`
-(they default to `localhost:3000` in `realm-export.json`, which would
-otherwise break login with "Invalid parameter: redirect_uri"), configured
-real SMTP so password-reset emails send, and deleted the seeded
-`testuser`/`testpassword` account (fine for local dev, not something to
-leave on an internet-facing box). Check its logs
-(`docker compose logs keycloak-realm-setup`) if any of that seems off.
+## 10. First login
 
-- `https://auth.yourdomain.com` — Keycloak admin console, log in with
-  `KEYCLOAK_ADMIN_USER`/`PASSWORD` from `.env`.
-- `https://dashboard.yourdomain.com` — the app itself. Register a real
-  account from here (`testuser` is gone) — registration is open by
-  default (`registrationAllowed: true`).
+On every start, the one-shot `keycloak-realm-setup` container points the dashboard's redirect URIs at `DASHBOARD_HOSTNAME`, configures SMTP, and deletes the dev `testuser`. Check `docker compose logs keycloak-realm-setup` if login fails.
 
-## Before calling this live
+- `https://auth.yourdomain.com`: Keycloak admin, using `KEYCLOAK_ADMIN_USER` / `KEYCLOAK_ADMIN_PASSWORD`
+- `https://dashboard.yourdomain.com`: register an account (registration is open)
 
-Same checklist as `../hetzner/README.md`:
-- Rotate the Google Safe Browsing API key — don't reuse the one committed
-  in `redirect/route-verifier/.env`.
-- cert-bot defaults to the Let's Encrypt **staging** ACME directory
-  (`redirect/cert-bot/config/production.toml`) — verify issuance works,
-  then switch to production.
-- Real SMTP/SES credentials — Mailhog isn't in this tier at all.
+## Before going live
 
-## Growing out of this tier
-
-If traffic outgrows one box, `../hetzner/` is the direct upgrade path: same
-application images, same env var shapes (the production compose files are
-literally this same service set, split across 4 nodes with HA on the app
-tier). You don't re-architect anything, you just add nodes.
+- Cert Bot uses the Let's Encrypt **staging** directory (`redirect/cert-bot/config/production.toml`). Switch to production once issuance works.
+- Use your own Google Safe Browsing key and real SMTP credentials.
 
 ## Test data
 
-### Demo analytics data
+### Demo analytics
 
-The dashboard's charts and stats stay empty until routes actually get
-clicks. To populate them without waiting on real traffic,
-`infra/custom/seed-dashboard-data.py` logs in as a real user, creates (or
-reuses) a workspace and routes via the Management API, and backfills
-clickstream history directly into ClickHouse. It's safe to re-run — routes
-and the workspace are reused by name, so running it again just adds more
-history on top.
-
-It needs a real account to log in as: `keycloak-realm-setup` deletes the
-seeded `testuser`/`testpassword` on every boot (see "First login" above), so
-register a real account from the dashboard first and pass its credentials
-below. Also note that neither Keycloak nor ClickHouse publishes a port to
-the host in this tier, so run the script from a throwaway container on
-`shortas-net` rather than from your own machine:
+The seed script needs a registered account, because `testuser` is deleted. Keycloak and ClickHouse aren't published to the host, so run it inside the Docker network:
 
 ```bash
 cd ~/shortas/infra/hetzner-budget
@@ -288,25 +160,12 @@ docker run --rm --network shortas-net \
   --days 30
 ```
 
-Run `python3 seed-dashboard-data.py --help` for the full flag list (workspace
-name, domain ID, day count, `--skip-clickhouse`, etc.) — the defaults for
-realm/client ID/secret already match this deployment's `realm-export.json`,
-so only the credentials and endpoints above need overriding.
-
 ### Safe Browsing test URLs
 
-To verify the `route-verifier` → `safe-browsing` blocking flow without a real
-malicious link, point a route's destination at one of Google's official Safe
-Browsing test URLs — permanent entries in the real threat lists, published
-specifically for this purpose:
+To check that blocking works, point a route at one of Google's permanent test URLs and wait for the next Route Verifier pass (5 minutes by default). The route should switch to `Blocked`.
 
 - `http://testsafebrowsing.appspot.com/s/malware.html`
 - `http://testsafebrowsing.appspot.com/s/phishing.html`
 - `http://testsafebrowsing.appspot.com/s/unwanted.html`
 
-`route-verifier` checks on its usual interval (`check_interval_seconds`,
-default 5 minutes — see `redirect/route-verifier/README.md`); the route
-should flip to `Blocked` with a reason like `Safe Browsing: MALWARE`. If it
-never does, check the `safe-browsing` service's logs first — it needs its
-own `GSB_API_KEY` to have finished syncing Google's threat list data before
-it can flag anything.
+If nothing happens, check the `safe-browsing` logs. It has to finish syncing Google's threat lists first.
