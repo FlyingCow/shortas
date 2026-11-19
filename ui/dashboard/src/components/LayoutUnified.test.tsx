@@ -77,6 +77,13 @@ describe('LayoutUnified', () => {
     expect(screen.getByText('jane@example.com')).toBeInTheDocument();
   });
 
+  it("keeps the user's email in the account button's accessible name (label is hidden on mobile)", () => {
+    renderLayout();
+    const btn = screen.getByRole('button', { name: /account menu: jane@example.com/i });
+    expect(btn).toHaveClass('topbar-user-btn');
+    expect(screen.getByText('jane@example.com')).toHaveClass('topbar-user-label');
+  });
+
   it('falls back to username when no email is available', () => {
     (getUserInfo as jest.Mock).mockReturnValue({ username: 'jane' });
     renderLayout();
@@ -244,6 +251,95 @@ describe('LayoutUnified', () => {
 
       fireEvent.click(dialog);
       expect(screen.queryByRole('dialog', { name: /keyboard shortcuts/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('mobile navigation drawer', () => {
+    const menuButton = () => screen.getByRole('button', { name: /open navigation/i });
+    const sidebar = () => document.getElementById('app-sidebar') as HTMLElement;
+
+    afterEach(() => {
+      document.body.classList.remove('nav-drawer-open');
+    });
+
+    it('renders a menu button that controls the sidebar, closed by default', () => {
+      renderLayout();
+      expect(menuButton()).toHaveAttribute('aria-expanded', 'false');
+      expect(menuButton()).toHaveAttribute('aria-controls', 'app-sidebar');
+      expect(sidebar().className).not.toContain('is-open');
+      expect(screen.queryByTestId('nav-backdrop')).not.toBeInTheDocument();
+    });
+
+    it('opens the drawer when the menu button is clicked', () => {
+      renderLayout();
+      fireEvent.click(menuButton());
+      expect(menuButton()).toHaveAttribute('aria-expanded', 'true');
+      expect(sidebar().className).toContain('is-open');
+      expect(screen.getByTestId('nav-backdrop')).toBeInTheDocument();
+    });
+
+    it('closes the drawer when the backdrop is clicked', () => {
+      renderLayout();
+      fireEvent.click(menuButton());
+      fireEvent.click(screen.getByTestId('nav-backdrop'));
+      expect(menuButton()).toHaveAttribute('aria-expanded', 'false');
+      expect(sidebar().className).not.toContain('is-open');
+    });
+
+    it('closes the drawer via its close button', () => {
+      renderLayout();
+      fireEvent.click(menuButton());
+      fireEvent.click(screen.getByRole('button', { name: /close navigation/i }));
+      expect(sidebar().className).not.toContain('is-open');
+    });
+
+    it('closes the drawer when navigating to another page', () => {
+      renderLayout('/dashboard');
+      fireEvent.click(menuButton());
+      fireEvent.click(screen.getByRole('link', { name: /routes/i }));
+      expect(screen.getByTestId('current-path')).toHaveTextContent('/routes');
+      expect(sidebar().className).not.toContain('is-open');
+    });
+
+    it('closes the drawer on Escape', () => {
+      renderLayout();
+      fireEvent.click(menuButton());
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(sidebar().className).not.toContain('is-open');
+    });
+
+    it('Escape closes the shortcuts dialog before the drawer', () => {
+      renderLayout();
+      fireEvent.click(menuButton());
+      fireEvent.keyDown(document, { key: '?' });
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('dialog', { name: /keyboard shortcuts/i })).not.toBeInTheDocument();
+      expect(sidebar().className).toContain('is-open');
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(sidebar().className).not.toContain('is-open');
+    });
+
+    it('locks body scroll while open and releases it on close', () => {
+      renderLayout();
+      expect(document.body).not.toHaveClass('nav-drawer-open');
+      fireEvent.click(menuButton());
+      expect(document.body).toHaveClass('nav-drawer-open');
+      fireEvent.click(screen.getByTestId('nav-backdrop'));
+      expect(document.body).not.toHaveClass('nav-drawer-open');
+    });
+
+    it('releases the body scroll lock when unmounted while open', () => {
+      const { unmount } = renderLayout();
+      fireEvent.click(menuButton());
+      expect(document.body).toHaveClass('nav-drawer-open');
+      unmount();
+      expect(document.body).not.toHaveClass('nav-drawer-open');
+    });
+
+    it('marks the Shortcuts entry so it can be hidden on narrow viewports', () => {
+      renderLayout();
+      expect(screen.getByTitle('Keyboard shortcuts (?)')).toHaveClass('sidebar-shortcuts-item');
     });
   });
 });

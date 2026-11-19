@@ -565,6 +565,7 @@ const Dashboard: React.FC = () => {
       { name: 'Bot', value: botStat?.total_clicks || 0 },
     ];
   })();
+  const trafficTotal = trafficData.reduce((sum, d) => sum + d.value, 0);
 
   const needsAttentionCount = blockedRouteCount + unverifiedDomainCount;
 
@@ -773,6 +774,8 @@ const Dashboard: React.FC = () => {
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
+                    interval="preserveStartEnd"
+                    minTickGap={16}
                   />
                   <YAxis
                     stroke="var(--text-muted)"
@@ -809,7 +812,7 @@ const Dashboard: React.FC = () => {
               </h3>
               <p className="chart-desc">Hover to see details</p>
             </div>
-            <div className="chart-body" style={{ height: '300px' }}>
+            <div className="chart-body">
               <WorldMap
                 data={(analytics?.clicks_by_country || []).map(country => {
                   const totalClicks = stats?.totalClicks || 1;
@@ -888,8 +891,8 @@ const Dashboard: React.FC = () => {
                         data={analytics?.clicks_by_device || []}
                         cx="50%"
                         cy="50%"
-                        outerRadius={70}
-                        innerRadius={45}
+                        outerRadius="70%"
+                        innerRadius="45%"
                         dataKey="clicks"
                         nameKey="device"
                         paddingAngle={2}
@@ -903,12 +906,6 @@ const Dashboard: React.FC = () => {
                       <Tooltip content={<CustomTooltip />} />
                     </PieChart>
                   </ResponsiveContainer>
-                  <PieLegend
-                    items={(analytics?.clicks_by_device || []).map((entry, i) => ({
-                      name: entry.device,
-                      color: CHART_COLORS[i % CHART_COLORS.length],
-                    }))}
-                  />
                 </>
               ) : (
                 <div className="empty-state">
@@ -919,6 +916,14 @@ const Dashboard: React.FC = () => {
                 </div>
               )}
             </div>
+            {(analytics?.clicks_by_device || []).length > 0 && (
+              <PieLegend
+                items={(analytics?.clicks_by_device || []).map((entry, i) => ({
+                  name: entry.device,
+                  color: CHART_COLORS[i % CHART_COLORS.length],
+                }))}
+              />
+            )}
           </div>
 
           {/* Browser Distribution */}
@@ -939,8 +944,8 @@ const Dashboard: React.FC = () => {
                         data={analytics?.clicks_by_browser || []}
                         cx="50%"
                         cy="50%"
-                        outerRadius={70}
-                        innerRadius={45}
+                        outerRadius="70%"
+                        innerRadius="45%"
                         dataKey="clicks"
                         nameKey="browser"
                         paddingAngle={2}
@@ -954,12 +959,6 @@ const Dashboard: React.FC = () => {
                       <Tooltip content={<CustomTooltip />} />
                     </PieChart>
                   </ResponsiveContainer>
-                  <PieLegend
-                    items={(analytics?.clicks_by_browser || []).map((entry, i) => ({
-                      name: entry.browser,
-                      color: CHART_COLORS[i % CHART_COLORS.length],
-                    }))}
-                  />
                 </>
               ) : (
                 <div className="empty-state">
@@ -970,6 +969,14 @@ const Dashboard: React.FC = () => {
                 </div>
               )}
             </div>
+            {(analytics?.clicks_by_browser || []).length > 0 && (
+              <PieLegend
+                items={(analytics?.clicks_by_browser || []).map((entry, i) => ({
+                  name: entry.browser,
+                  color: CHART_COLORS[i % CHART_COLORS.length],
+                }))}
+              />
+            )}
           </div>
 
           {/* Traffic Type */}
@@ -989,10 +996,8 @@ const Dashboard: React.FC = () => {
                       data={trafficData}
                       cx="50%"
                       cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => percent > 0.05 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
-                      outerRadius={70}
-                      innerRadius={45}
+                      outerRadius="70%"
+                      innerRadius="45%"
                       dataKey="value"
                       paddingAngle={3}
                       stroke="var(--bg-primary)"
@@ -1016,7 +1021,9 @@ const Dashboard: React.FC = () => {
             {trafficTypeStats.length > 0 && (
               <PieLegend
                 items={trafficData.map((entry, i) => ({
-                  name: entry.name,
+                  name: trafficTotal > 0
+                    ? `${entry.name} ${Math.round((entry.value / trafficTotal) * 100)}%`
+                    : entry.name,
                   color: TRAFFIC_COLORS[i],
                 }))}
               />

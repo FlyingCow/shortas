@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import WorldMap from './WorldMap';
+import WorldMap, { getTooltipPlacement } from './WorldMap';
 
 // react-simple-maps renders real geography/projection logic over large
 // topology data; WorldMap's own logic (color intensity, tooltip content) is
@@ -64,5 +64,54 @@ describe('WorldMap', () => {
     expect(screen.getByText('atlantis')).toBeInTheDocument();
     expect(screen.getByText('0')).toBeInTheDocument();
     expect(screen.getByText('0%')).toBeInTheDocument();
+  });
+
+  describe('sizing and tooltip placement on narrow containers', () => {
+    it('sizes the map by aspect ratio, capped by the height prop, and clips overflow', () => {
+      const { container } = render(<WorldMap data={[]} height={300} />);
+      const map = container.querySelector('.world-map-container') as HTMLElement;
+      expect(map.style.width).toBe('100%');
+      expect(map.style.aspectRatio).toBe('2 / 1');
+      expect(map.style.maxHeight).toBe('300px');
+      expect(map.style.height).toBe('');
+    });
+
+    it('places the tooltip in the quadrant opposite the pointer', () => {
+      expect(getTooltipPlacement({ x: 50, y: 20 }, { width: 300, height: 150 })).toEqual({
+        left: 'auto', right: 10, top: 'auto', bottom: 10,
+      });
+      expect(getTooltipPlacement({ x: 250, y: 120 }, { width: 300, height: 150 })).toEqual({
+        left: 10, right: 'auto', top: 10, bottom: 'auto',
+      });
+    });
+
+    it("uses the container's measured height rather than the height prop", () => {
+      // A narrow map: 160px wide renders 80px tall even though height=400.
+      const widthSpy = jest.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(160);
+      const heightSpy = jest.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(80);
+      try {
+        render(<WorldMap data={[{ name: 'us', clicks: 10, percentage: 100 }]} height={400} />);
+        // The stubbed Geography reports the pointer at (100, 50); the container rect is at 0,0 in jsdom.
+        fireEvent.mouseEnter(screen.getByTestId('geo-united states of america'));
+        const tooltip = screen.getByTestId('world-map-tooltip');
+        // y=50 is in the bottom half of the measured 80px -> tooltip at the top.
+        // (Against the 400px prop it would wrongly count as the top half.)
+        expect(tooltip.style.top).toBe('10px');
+        expect(tooltip.style.bottom).not.toBe('10px');
+        // x=100 is in the right half of 160 -> tooltip on the left.
+        expect(tooltip.style.left).toBe('10px');
+      } finally {
+        widthSpy.mockRestore();
+        heightSpy.mockRestore();
+      }
+    });
+
+    it('caps the tooltip width to the map container', () => {
+      render(<WorldMap data={[{ name: 'us', clicks: 10, percentage: 100 }]} />);
+      fireEvent.mouseEnter(screen.getByTestId('geo-united states of america'));
+      const tooltip = screen.getByTestId('world-map-tooltip');
+      expect(tooltip.style.maxWidth).toBe('calc(100% - 20px)');
+      expect(tooltip.style.minWidth).toBe('min(180px, calc(100% - 20px))');
+    });
   });
 });
