@@ -16,9 +16,9 @@
 
 ## 3. Docker images
 
-- [ ] 3.1 Rewrite `api/Dockerfile` and `workers/notification-worker/Dockerfile` for the new paths and `api` binary. Verify `docker build -f api/Dockerfile .` and `docker build -f workers/notification-worker/Dockerfile .` succeed
-- [ ] 3.2 Rewrite the four moved worker Dockerfiles to build from the root workspace (design D3). Verify `docker build -f workers/<name>/Dockerfile .` succeeds for each
-- [ ] 3.3 Remove the moved crates from the `COPY` lists in every `redirect/*/Dockerfile` and `redirect/Dockerfile`. Verify `docker build` succeeds for each `click-*` image
+- [x] 3.1 Rewrite `api/Dockerfile` and `workers/notification-worker/Dockerfile` for the new paths and `api` binary. Verify `docker build -f api/Dockerfile .` and `docker build -f workers/notification-worker/Dockerfile .` succeed
+- [x] 3.2 Rewrite the four moved worker Dockerfiles to build from the root workspace (design D3). Verify `docker build -f workers/<name>/Dockerfile .` succeeds for each
+- [x] 3.3 Remove the moved crates from the `COPY` lists in every `redirect/*/Dockerfile` and `redirect/Dockerfile`. Verify `docker build` succeeds for each `click-*` image
 - [x] 3.4 Update `.github/workflows/docker-publish.yml` (service `api`, new Dockerfile paths). Verify every matrix `dockerfile:` path exists on disk
 
 ## 4. Compose and Hetzner
@@ -41,7 +41,7 @@
 ## 7. Final verification
 
 - [x] 7.1 Repo-wide grep (excluding `target/`, `node_modules/`, `openspec/changes/archive/`) for `management-api`, `management_api`, `redirect/(cert-bot|domain-verifier|route-icon-worker|route-verifier)`, and root-level `notification-worker/` or `notification-templates/` paths. Verify the only hits are the design D2 exceptions and the S3 `notification-templates/` prefix
-- [ ] 7.2 Bring up the local stack (`infra/custom`) and verify `api`, `notification-worker` and the four moved workers start and pass health checks
+- [x] 7.2 Bring up the local stack (`infra/custom`) and verify `api`, `notification-worker` and the four moved workers start and pass health checks
 
 ## Workflow follow-up
 
