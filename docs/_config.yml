@@ -1,57 +1,24 @@
-# Shortas Documentation Configuration
-# GitHub Pages compatible Jekyll configuration
-
-# Site settings
-title: Shortas Documentation
-email: docs@shortas.com
-description: >- 
-  Comprehensive documentation for Shortas - a fast and scalable URL shortener 
-  with advanced analytics, multi-tenancy, and real-time click tracking capabilities.
-baseurl: "" # the subpath of your site, e.g. /blog
-url: "https://flyingcow.github.io" # the base hostname & protocol for your site
-twitter_username: shortas
+title: Shortas
+description: >-
+  Self-hostable URL shortener with custom domains, conditional routing,
+  and real-time click analytics.
+url: "https://shortas.work"
+baseurl: ""
 github_username: FlyingCow
 
-# Build settings
 markdown: kramdown
 theme: minima
 plugins:
-  - jekyll-feed
   - jekyll-sitemap
   - jekyll-seo-tag
 
-# GitHub Pages specific settings
-github: [metadata]
-
-# Theme: professional (slate blue, clean typography)
-# Collections
-collections:
-  guides:
-    output: true
-    permalink: /:collection/:name/
-  api:
-    output: true
-    permalink: /:collection/:name/
-
-# Defaults
 defaults:
   - scope:
       path: ""
       type: "pages"
     values:
       layout: "professional-theme"
-  - scope:
-      path: ""
-      type: "guides"
-    values:
-      layout: "professional-theme"
-  - scope:
-      path: ""
-      type: "api"
-    values:
-      layout: "professional-theme"
 
-# Navigation
 navigation:
   - title: Home
     url: /
@@ -59,25 +26,17 @@ navigation:
     url: /getting-started/
   - title: Architecture
     url: /architecture/
-  - title: API Reference
-    url: /api/
   - title: Deployment
     url: /deployment/
   - title: Development
     url: /development/
+  - title: API
+    url: /api/
   - title: About
     url: /about/
 
-# Exclude from processing.
 exclude:
   - Gemfile
   - Gemfile.lock
-  - node_modules
-  - vendor/bundle/
-  - vendor/cache/
-  - vendor/gems/
-  - vendor/ruby/
   - vendor/
   - README.md
-  - LICENSE
-  - .gitignore

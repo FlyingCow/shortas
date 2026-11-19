@@ -1,46 +1,36 @@
 ---
-layout: professional-theme
 title: Home
 permalink: /
 ---
 
-# Shortas Documentation
+# Shortas
 
-Shortas is a high-performance URL shortener and analytics platform built entirely on Rust microservices (including the Management API) and a React dashboard.
+Shortas is a self-hostable URL shortener with custom domains and real-time click analytics. The redirect path is a set of small Rust services built for low latency. The dashboard and its API manage everything else.
 
-## Core Capabilities
+## What it does
 
-- **URL shortening** with custom domains and routing policies
-- **Conditional routing** based on geography, device, browser, or OS
-- **Real-time click tracking** through a Fluvio-based event pipeline
-- **Geographic, device, and conversion analytics** powered by ClickHouse
-- **Multi-tenant workspaces** with Keycloak authentication
-- **QR code generation** with customizable design options
-- **Route safety verification** via Google Safe Browsing integration
-- **Automatic favicon extraction** for destination URLs
-- **Domain ownership verification** for custom domains
-- **Automatic TLS certificates** via Let's Encrypt (ACME HTTP-01)
+- **Short links on your own domains**: ownership is verified through DNS, and Let's Encrypt certificates are issued automatically.
+- **Conditional routing**: send visitors to different destinations by country, device, browser, OS or language.
+- **Click analytics**: geography, devices, browsers, traffic sources and conversions, stored in ClickHouse and visible within seconds.
+- **QR codes** for every link, with custom styling.
+- **Link safety**: destinations are checked against Google Safe Browsing and unsafe ones are blocked.
+- **Workspaces**: invite teammates with roles; invitations arrive in-app and by email.
 
-## System Components
+## How it fits together
 
-| Component | Stack | Role |
-|-----------|-------|------|
-| Click Router | Rust / Salvo | Handles redirects (incl. conditional), QR codes & ACME challenges, emits click events |
-| Click Tracker | Rust / Tokio | Enriches events with geo, UA, session data |
-| Click Aggregator | Rust / Tokio | Stores enriched events in ClickHouse |
-| Route Verifier | Rust / Tokio | Checks routes against Safe Browsing |
-| Route Icon Worker | Rust / Tokio | Scrapes favicons from destination URLs |
-| Domain Verifier | Rust / Tokio | Verifies custom domain ownership via DNS |
-| Cert Bot | Rust / instant-acme | Issues and renews TLS certificates via Let's Encrypt |
-| Management API | Rust / Salvo | Workspace, route, domain, and user management |
-| Dashboard | React 18 / TypeScript | Admin interface with analytics charts |
+```
+ visitor --> Click Router --> Click Tracker --> Click Aggregator --> ClickHouse
+                 ^                                                      |
+                 | routes                                     analytics |
+                 |                                                      v
+            Click Router API <---- Management API <---- Dashboard <--- user
+```
 
-> The Management API was previously an ASP.NET Core / C# service (still present at `api/` for reference) and has been fully rewritten in Rust — see [Architecture](/architecture/) for details.
+The [Architecture](/architecture/) page covers each piece.
 
-## Quick Links
+## Where to go next
 
-- [Getting Started](/getting-started/) — set up a local development environment
-- [Architecture](/architecture/) — system design and data flow
-- [API Reference](/api/) — REST endpoint documentation
-- [Deployment](/deployment/) — Docker Compose and production setup
-- [Development](/development/) — build, test, and contribute
+- [Getting Started](/getting-started/): run the whole stack on your machine.
+- [Deployment](/deployment/): run it on Hetzner or AWS.
+- [Development](/development/): build, test, and find your way around the repo.
+- [API](/api/): the Management API the dashboard uses.

@@ -1,57 +1,22 @@
 # click-tracker
 
-Stream consumer that reads raw click events from Fluvio and enriches them with contextual metadata.
+Consumes raw clicks from `hit-stream-main` and enriches each one with geolocation (MaxMind), parsed user agent, and a Redis-backed session. It publishes the result to `click-aggs-main`. See [Architecture → Click path](https://shortas.work/architecture/#click-path).
 
-## Enrichment Pipeline
-
-Events pass through these modules in sequence:
-
-1. **Init** — event initialization and validation
-2. **Location** — geographic enrichment via MaxMind GeoIP database
-3. **Session** — session identification using Redis
-4. **User-Agent** — browser, OS, and device detection via UA Parser
-5. **Aggregate** — batches events for downstream processing
-
-Enriched events are published to the `click-aggs-main` Fluvio topic.
-
-## Event Flow
-
-```
-Fluvio (hit-stream-main) → click-tracker → Fluvio (click-aggs-main)
-```
-
-## Configuration
-
-- Configurable channel-based parallelism
-- Supports both Fluvio (primary) and Kafka (fallback) as event sources
-
-## Logging & Monitoring
-
-Warning and error logs are sent to Grafana Loki for centralized log aggregation.
-
-| Environment Variable | Description | Default |
-|---------------------|-------------|---------|
-| `LOKI_URL` | Loki push endpoint | `http://shortas-loki:3100` |
-| `RUST_LOG` | Log level filter | `warn` |
-
-View logs in Grafana:
-```logql
-{service="click-tracker"}
-```
-
-## Dependencies
-
-- Fluvio — event consumption and publishing
-- Redis — session tracking
-- MaxMind GeoIP database — geographic data
-- UA Parser data — user-agent parsing
-
-## Build
+## Run
 
 ```bash
-# From the repository root
 make build-click-tracker
-
-# Or directly
-cargo build --manifest-path redirect/Cargo.toml -p click-tracker
+make test-click-tracker
 ```
+
+It has no HTTP port.
+
+## Config
+
+| Section | Purpose |
+|---|---|
+| `fluvio.hit_stream`, `fluvio.click_aggs` | Input and output topics (`kafka.*` is an alternative) |
+| `pipeline` | Parallelism |
+| `geo_ip` | MaxMind database path |
+| `uaparser` | Regex file from the `redirect/data/ua-parser` submodule |
+| `redis` | Session store |

@@ -1,87 +1,41 @@
-# Shortas Redirect System
+# redirect
 
-Rust workspace containing the high-performance URL redirect and click analytics pipeline.
+The Rust workspace for the click path and background workers. See [Architecture](https://shortas.work/architecture/) for how the services fit together.
 
-## Workspace Members
+| Crate | Role |
+|---|---|
+| `click-router` | Public redirect server; also serves QR codes and ACME challenges, and terminates TLS |
+| `click-router-api` | Internal API for routes, certificates and user settings (MongoDB) |
+| `click-tracker` | Enriches click events (geo, user agent, session) |
+| `click-aggregator` | Writes enriched events to ClickHouse |
+| `click-aggregator-api` | Internal analytics query API (ClickHouse) |
+| `route-verifier` | Safe Browsing checks |
+| `route-icon-worker` | Fetches destination favicons |
+| `domain-verifier` | DNS ownership checks for custom domains |
+| `cert-bot` | Let's Encrypt issuance and renewal |
+| `shortas-common` | Types shared with `management-api` |
 
-| Crate | Type | Description |
-|-------|------|-------------|
-| `click-router` | HTTP server | Handles short URL redirects (incl. conditional) and emits click events |
-| `click-router-api` | REST API | CRUD operations for routes and short links |
-| `click-tracker` | Consumer | Enriches click events with geo, UA, and session data |
-| `click-aggregator` | Consumer | Ingests aggregated events into ClickHouse |
-| `click-aggregator-api` | REST API | Analytics queries over ClickHouse |
-| `route-verifier` | Worker | Checks routes against Google Safe Browsing |
-| `route-icon-worker` | Worker | Scrapes and stores favicons from destination URLs |
-| `domain-verifier` | Worker | Verifies custom domain ownership via DNS |
-| `infra/pages` | Static | Custom error and status pages (nginx) |
+`infra/pages/` is the nginx container for branded not-found and blocked pages. `monitoring/` holds the Prometheus, Grafana and Loki stack.
 
-## Data Flow
+## Run
 
-```
-HTTP request → click-router → Fluvio (hit-stream-main)
-                                    ↓
-                              click-tracker (enrich)
-                                    ↓
-                              Fluvio (click-aggs-main)
-                                    ↓
-                              click-aggregator → ClickHouse
-```
-
-## Infrastructure
-
-The `docker-compose.yml` in this directory brings up the full stack:
-
-- **MongoDB 7** — route storage (port 27017)
-- **ClickHouse** — analytics warehouse (port 8123)
-- **Redis 7** — session tracking and cache (port 6379)
-- **MinIO** — object storage for ClickHouse data and route icons (port 9002)
-- **Fluvio** — event streaming (SC port 9103, SPU ports 9110-9111)
-- **RabbitMQ** — cache invalidation and route events (port 5672, management UI port 15672)
-- **gglsbl-rest** — local Google Safe Browsing mirror for route verification
-
-## Build
-
-All `make` targets run from the repository root (`../`).
+From the repository root:
 
 ```bash
-# Debug build
-make build
-
-# Release build
-make release
-
-# Run tests
-make test
-
-# Clippy
-make clippy
-
-# Format
-make fmt
+make build            # or make build-<crate>
+make test             # or make test-<crate>
+make clippy fmt
+make up               # start this directory's docker-compose.yml
 ```
 
-## Docker
+`make up` starts only this workspace's services and their databases. For the full stack, use `infra/custom` (see [Getting Started](https://shortas.work/getting-started/)).
 
-```bash
-docker compose up -d
-```
+## Config
 
-This starts all infrastructure and application services. ClickHouse migrations run automatically via the `clickhouse-migrations` init container.
+Each crate reads `config/default.toml`, then `config/<APP_RUN_MODE>.toml`, then `APP__SECTION__KEY` environment variables. Every service also honours:
 
-## Configuration
-
-Services are configured via TOML files in each crate's `config/` directory with environment-specific overrides (`development.toml`, `production.toml`). The `APP_RUN_MODE` environment variable selects the active config profile.
-
-## Shared Dependencies
-
-The workspace `Cargo.toml` centralizes dependency versions. Key shared crates:
-
-- `tokio` 1.47 — async runtime
-- `salvo` 0.84 — web framework
-- `mongodb` 3.3 — document store driver
-- `clickhouse` 0.13 — analytics driver
-- `redis` 0.32 — cache driver
-- `fluvio` 0.50 — event streaming client
-- `moka` 0.12 — in-memory cache
-- `prometheus` 0.13 — metrics export
+| Variable | Purpose |
+|---|---|
+| `APP_RUN_MODE` | Config profile (`development`, `production`, …) |
+| `RUST_LOG` | Log filter, `warn` in containers |
+| `LOKI_URL` | Loki push endpoint; warnings and errors are shipped there |

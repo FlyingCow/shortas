@@ -1,23 +1,13 @@
-# Shortas Landing Page
+# landing
 
-Public marketing site for Shortas.
+The public marketing site (React). It links to the docs at shortas.work.
 
-## Tech Stack
-
-- React 19 with TypeScript
-- React Scripts
-
-## Development
+## Run
 
 ```bash
 npm install
-npm start
-```
-
-Runs on `http://localhost:3001`.
-
-## Build
-
-```bash
+npm start          # port 3000 by default; react-scripts offers another if it is taken
 npm run build
 ```
+
+In the full compose stack it is served by nginx on port 3002.
