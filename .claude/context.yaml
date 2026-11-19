@@ -16,9 +16,10 @@ architecture:
   overview: |
     User Click → click-router → click-tracker → click-aggregator → ClickHouse
                      ↓
-              Management API (ASP.NET) ← Dashboard (React)
+              api (Management API, Rust) ← Dashboard (React)
 
-    Background Workers: route-verifier, domain-verifier, cert-bot, route-icon-worker
+    Background Workers (workers/): notification-worker, route-verifier, domain-verifier,
+    cert-bot, route-icon-worker
 
   services:
     # Core redirect path
@@ -68,6 +69,10 @@ architecture:
       purpose: Favicon scraping and storage
       tech: Rust consumer with scraper/reqwest
 
+    notification-worker:
+      purpose: Renders notification templates and delivers in-app/email notifications
+      tech: Rust consumer (RabbitMQ), Handlebars; reuses the api crate as a library
+
     # Management layer
     api:
       port: 8080 (8090 on the host locally)
@@ -100,10 +105,9 @@ stack:
       - /redirect/Cargo.toml (click-* crates)
 
   api:
-    language: csharp
-    framework: aspnet-core-9
-    orm: entity-framework-core-8
-    database: postgresql
+    language: rust
+    framework: salvo-0.84
+    database: postgresql (sqlx)
     search: elasticsearch
 
   frontend:
@@ -193,63 +197,10 @@ rust_patterns:
           .build()?;
 
   naming:
-    traits: "{Name}Store" or "{Name}Cache" (RoutesStore, CryptoCache)
-    implementations: "{Backend}{Name}Store" (MongodbRoutesStore, DynamoRoutesStore)
+    traits: '"{Name}Store" or "{Name}Cache" (RoutesStore, CryptoCache)'
+    implementations: '"{Backend}{Name}Store" (MongodbRoutesStore, DynamoRoutesStore)'
     modules: snake_case (flow_router, routes_store)
     adapters_dir: /src/adapters/{backend}/
-
-# ============================================================================
-# C# API PATTERNS
-# ============================================================================
-
-csharp_patterns:
-  architecture:
-    style: clean-architecture
-    layers:
-      Presentation: Controllers, Middleware
-      Application: DTOs, Services, Extensions
-      Domain: Entities, Interfaces, Common
-      Infrastructure: Data, HttpClients, Services, BackgroundServices
-
-  service_interfaces:
-    # Use these instead of combined interfaces when possible
-    IRouteCommandService: Write operations (create, update, delete)
-    IRouteQueryService: Read operations (get, list)
-    IRouteService: Combined (for EfRouteService only)
-
-    implementations:
-      EfRouteService: Database (implements IRouteService)
-      RouteService: HTTP client (implements IRouteCommandService only)
-      ClickRouterApiService: HTTP client to click-router-api
-
-  error_handling:
-    pattern: Result<T> with Error factory
-    location: Domain/Common/Result.cs, Domain/Common/Error.cs
-    usage: |
-      return Result<Route>.Success(route);
-      return Result<Route>.Failure(Error.NotFound("Route", id));
-
-    factories:
-      - Error.NotFound(resource, identifier)
-      - Error.Validation(message, details?)
-      - Error.Unauthorized()
-      - Error.Forbidden()
-      - Error.Internal(message, details?)
-      - Error.Network(message)
-      - Error.Timeout(service, seconds)
-
-  json_serialization:
-    config: Domain/Common/JsonConfig.cs
-    usage: "JsonSerializer.Serialize(obj, JsonConfig.Default)"
-    rule: Never create new JsonSerializerOptions in services
-
-  naming:
-    interfaces: I{Name}Service
-    ef_services: Ef{Name}Service
-    api_clients: {Name}ApiClient
-    entities: "{Name}" (no suffix)
-    dtos: "{Name}Dto"
-    controllers: "{Plural}Controller"
 
 # ============================================================================
 # FRONTEND PATTERNS
@@ -273,7 +224,7 @@ frontend_patterns:
       - ConditionsEditor.tsx (conditional routing)
       - InitializationWizard.tsx (onboarding)
 
-    api_proxy: "http://localhost:8080" (to ASP.NET API)
+    api_proxy: http://localhost:8090 (api, via REACT_APP_PROXY_API_URL)
 
   landing:
     location: /ui/landing
@@ -343,13 +294,6 @@ avoid:
     - Blocking in async context (use spawn_blocking)
     - Unwrap in production code (use ? operator)
 
-  csharp:
-    - Throwing exceptions from services (use Result<T>)
-    - Mixing HTTP client and database in same service
-    - Creating new JsonSerializerOptions (use JsonConfig.Default)
-    - Implementing interfaces with NotImplementedException
-    - Hardcoding secrets in appsettings.json
-
   frontend:
     - Direct API calls outside services/ directory
     - Hardcoding API URLs (use config)
@@ -361,21 +305,19 @@ avoid:
 
 new_feature:
   rust_service:
-    1: Create crate in redirect/{service-name}/
-    2: Add to workspace members in redirect/Cargo.toml
+    1: Create crate in redirect/{service-name}/ (click path) or workers/{service-name}/ (background worker)
+    2: Add to workspace members in redirect/Cargo.toml or the root Cargo.toml respectively
     3: Implement adapters in src/adapters/
     4: Add config in config/default.toml
     5: Add Dockerfile if needed
     6: Add to docker-compose.yml
 
   api_endpoint:
-    1: Create interface in Domain/Interfaces/
-    2: Create entity in Domain/Entities/ if needed
-    3: Create DTO in Application/DTOs/
-    4: Implement service in Infrastructure/Services/
-    5: Register in Program.cs
-    6: Add controller in Presentation/Controllers/
-    7: Always return Result<T>
+    1: Add entity in api/src/domain/entities/ if needed
+    2: Add repository trait in api/src/domain/traits/ and its sqlx implementation in api/src/infrastructure/repositories/
+    3: Add DTOs in api/src/application/dto/
+    4: Add handlers in api/src/presentation/controllers/
+    5: Mount the controller in api_routes() (api/src/presentation/controllers/mod.rs), under the JWT-protected api/v1 router unless it is public
 
   dashboard_feature:
     1: Create component in components/
