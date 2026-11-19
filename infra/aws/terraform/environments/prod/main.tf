@@ -44,7 +44,7 @@ locals {
     "route-verifier",
     "route-icon-worker",
     "cert-bot",
-    "management-api",
+    "api",
     "notification-worker",
     "dashboard",
     "landing",
@@ -138,7 +138,7 @@ module "elasticache" {
   alarm_actions            = [module.cloudwatch.sns_topic_arn]
 }
 
-# OpenSearch (route search index for management-api)
+# OpenSearch (route search index for api)
 module "opensearch" {
   source = "../../modules/opensearch"
 
@@ -453,14 +453,14 @@ module "ecs" {
       ]
     },
     {
-      name               = "management-api"
+      name               = "api"
       cpu                = 1024
       memory             = 2048
       desired_count      = 3
       min_count          = 2
       max_count          = 10
       container_port     = 8080
-      target_group_arn   = module.alb.management_api_target_group_arn
+      target_group_arn   = module.alb.api_target_group_arn
       enable_autoscaling = true
       health_check = {
         command      = ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
@@ -472,6 +472,8 @@ module "ecs" {
       environment_variables = [
         { name = "APP__DATABASE__MAX_CONNECTIONS", value = "20" },
         { name = "APP__JWT__ISSUER", value = module.cognito.issuer_url },
+        # Matches the Cognito resource-server identifier (modules/cognito) - an
+        # OAuth contract, intentionally still "management-api" after the rename.
         { name = "APP__JWT__AUDIENCE", value = "management-api" },
         { name = "APP__JWT__JWKS_URL", value = module.cognito.jwks_url },
         { name = "APP__CLICK_ROUTER__BASE_URL", value = "http://click-router-api.${local.environment}.shortas.local:5810" },
@@ -492,7 +494,7 @@ module "ecs" {
     },
     {
       # Renders notification templates (S3) and delivers them (Postgres
-      # in-app rows + SES email) for events management-api publishes to
+      # in-app rows + SES email) for events api publishes to
       # the "notifications" exchange. No ALB target group - pure consumer.
       name          = "notification-worker"
       cpu           = 256

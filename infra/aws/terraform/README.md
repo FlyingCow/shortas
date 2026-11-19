@@ -53,7 +53,7 @@ infra/aws/scripts/       deploy-infra, setup-secrets, build-push-images,
    ./deploy-services.sh dev                # optionally: [image_tag] [services…]
    ```
 
-   `./setup-secrets.sh dev` creates any missing Secrets Manager entries (RDS, Redis, RabbitMQ, ClickHouse, Keycloak) and keeps existing values. `deploy-services.sh` also syncs `notification-templates/` to S3 whenever it deploys `notification-worker`.
+   `./setup-secrets.sh dev` creates any missing Secrets Manager entries (RDS, Redis, RabbitMQ, ClickHouse, Keycloak) and keeps existing values. `deploy-services.sh` also syncs `workers/notification-templates/` to S3 whenever it deploys `notification-worker`.
 
 The `budget` environment isn't handled by the scripts. Apply it directly:
 

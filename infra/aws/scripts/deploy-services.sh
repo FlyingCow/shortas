@@ -37,7 +37,7 @@ DEPLOYMENT_ORDER=(
     "route-icon-worker"
     "cert-bot"
     # API and frontend
-    "management-api"
+    "api"
     "notification-worker"
     "dashboard"
     "landing"
@@ -62,7 +62,7 @@ get_cluster_name() {
     echo "${ENVIRONMENT}-shortas-cluster"
 }
 
-# Mirrors notification-templates/ (repo root) into the S3 bucket
+# Mirrors workers/notification-templates/ into the S3 bucket
 # notification-worker reads from, so a deploy always ships the templates
 # matching the commit being deployed. Skipped (with a warning, not a
 # failure) if the bucket name can't be resolved, e.g. when running outside
@@ -77,7 +77,7 @@ sync_notification_templates() {
     fi
 
     log_step "Syncing notification templates to s3://${bucket}/notification-templates/"
-    aws s3 sync "${SCRIPT_DIR}/../../../notification-templates/" "s3://${bucket}/notification-templates/" --delete
+    aws s3 sync "${SCRIPT_DIR}/../../../workers/notification-templates/" "s3://${bucket}/notification-templates/" --delete
 }
 
 update_service() {

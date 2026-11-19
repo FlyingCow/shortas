@@ -7,5 +7,5 @@
 }
 
 {$API_HOSTNAME} {
-	reverse_proxy management-api:8080
+	reverse_proxy api:8080
 }

@@ -31,7 +31,7 @@ ALL_SERVICES=(
     "route-verifier"
     "route-icon-worker"
     "cert-bot"
-    "management-api"
+    "api"
     "notification-worker"
     "dashboard"
     "landing"
@@ -95,14 +95,14 @@ build_service() {
     local context="${PROJECT_ROOT}"
 
     case "${service}" in
-        click-router|click-router-api|click-tracker|click-aggregator|click-aggregator-api|domain-verifier|route-verifier|route-icon-worker|cert-bot)
+        click-router|click-router-api|click-tracker|click-aggregator|click-aggregator-api)
             dockerfile="${REDIRECT_DIR}/${service}/Dockerfile"
             ;;
-        management-api)
-            dockerfile="${PROJECT_ROOT}/management-api/Dockerfile"
+        domain-verifier|route-verifier|route-icon-worker|cert-bot|notification-worker)
+            dockerfile="${PROJECT_ROOT}/workers/${service}/Dockerfile"
             ;;
-        notification-worker)
-            dockerfile="${PROJECT_ROOT}/notification-worker/Dockerfile"
+        api)
+            dockerfile="${PROJECT_ROOT}/api/Dockerfile"
             ;;
         dashboard)
             dockerfile="${PROJECT_ROOT}/ui/dashboard/Dockerfile"

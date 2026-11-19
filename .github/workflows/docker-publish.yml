@@ -38,25 +38,25 @@ jobs:
             dockerfile: redirect/click-aggregator-api/Dockerfile
             context: .
           - service: domain-verifier
-            dockerfile: redirect/domain-verifier/Dockerfile
+            dockerfile: workers/domain-verifier/Dockerfile
             context: .
           - service: route-verifier
-            dockerfile: redirect/route-verifier/Dockerfile
+            dockerfile: workers/route-verifier/Dockerfile
             context: .
           - service: route-icon-worker
-            dockerfile: redirect/route-icon-worker/Dockerfile
+            dockerfile: workers/route-icon-worker/Dockerfile
             context: .
           - service: cert-bot
-            dockerfile: redirect/cert-bot/Dockerfile
+            dockerfile: workers/cert-bot/Dockerfile
             context: .
           - service: pages
             dockerfile: redirect/infra/pages/Dockerfile
             context: .
-          - service: management-api
-            dockerfile: management-api/Dockerfile
+          - service: api
+            dockerfile: api/Dockerfile
             context: .
           - service: notification-worker
-            dockerfile: notification-worker/Dockerfile
+            dockerfile: workers/notification-worker/Dockerfile
             context: .
           - service: dashboard
             dockerfile: ui/dashboard/Dockerfile

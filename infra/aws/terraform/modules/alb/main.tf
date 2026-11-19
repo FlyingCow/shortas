@@ -187,8 +187,8 @@ resource "aws_lb_target_group" "aggregator_api" {
 }
 
 # Management API (Rust/Salvo)
-resource "aws_lb_target_group" "management_api" {
-  name        = "${var.environment}-management-api"
+resource "aws_lb_target_group" "api" {
+  name        = "${var.environment}-api"
   port        = 8080
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
@@ -207,9 +207,9 @@ resource "aws_lb_target_group" "management_api" {
   }
 
   tags = {
-    Name        = "${var.environment}-management-api-tg"
+    Name        = "${var.environment}-api-tg"
     Environment = var.environment
-    Service     = "management-api"
+    Service     = "api"
   }
 }
 
@@ -365,7 +365,7 @@ resource "aws_lb_listener_rule" "api" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.management_api.arn
+    target_group_arn = aws_lb_target_group.api.arn
   }
 
   condition {
@@ -455,10 +455,10 @@ resource "aws_lb_listener_rule" "keycloak" {
 }
 
 # click-router-api and click-aggregator-api are intentionally NOT routed
-# through the public listener — management-api is the only service that
+# through the public listener — api is the only service that
 # calls them, and it does so over internal Cloud Map service discovery
 # (see APP__CLICK_ROUTER_API__BASE_URL / APP__CLICK_AGGREGATOR__BASE_URL in
-# each environment's management-api service definition), not through
+# each environment's api service definition), not through
 # either ALB. Their target groups (below) stay, purely so ECS still has a
 # health check to gate deployments on; nothing should ever add a public
 # listener rule forwarding to them.

@@ -69,10 +69,10 @@ architecture:
       tech: Rust consumer with scraper/reqwest
 
     # Management layer
-    management-api:
-      port: 5050
-      purpose: Admin API for routes, domains, workspaces
-      tech: ASP.NET Core 9, EF Core, PostgreSQL
+    api:
+      port: 8080 (8090 on the host locally)
+      purpose: Admin API (Management API) for routes, domains, workspaces
+      tech: Rust/Salvo, sqlx, PostgreSQL
       location: /api
 
     # Frontend
@@ -95,7 +95,9 @@ stack:
   rust_services:
     framework: salvo-0.84
     runtime: tokio-1.47
-    workspace: /redirect/Cargo.toml (9 members)
+    workspaces:
+      - /Cargo.toml (api, workers/*, redirect/shortas-common)
+      - /redirect/Cargo.toml (click-* crates)
 
   api:
     language: csharp
@@ -131,18 +133,23 @@ stack:
 # ============================================================================
 
 rust_patterns:
-  workspace:
-    location: /redirect/Cargo.toml
-    members:
-      - click-router
-      - click-router-api
-      - click-tracker
-      - click-aggregator
-      - click-aggregator-api
-      - cert-bot
-      - domain-verifier
-      - route-verifier
-      - route-icon-worker
+  workspaces:
+    - location: /Cargo.toml
+      members:
+        - api
+        - workers/notification-worker
+        - workers/cert-bot
+        - workers/domain-verifier
+        - workers/route-verifier
+        - workers/route-icon-worker
+        - redirect/shortas-common
+    - location: /redirect/Cargo.toml
+      members:
+        - click-router
+        - click-router-api
+        - click-tracker
+        - click-aggregator
+        - click-aggregator-api
 
   adapter_pattern:
     description: |
@@ -279,21 +286,23 @@ frontend_patterns:
 
 directories:
   # Rust services
-  rust_workspace: redirect/
+  redirect_workspace: redirect/
   click_router: redirect/click-router/src/
   click_router_api: redirect/click-router-api/src/
   click_tracker: redirect/click-tracker/src/
   click_aggregator: redirect/click-aggregator/src/
-  workers: redirect/{cert-bot,domain-verifier,route-verifier,route-icon-worker}/src/
+  workers: workers/{notification-worker,cert-bot,domain-verifier,route-verifier,route-icon-worker}/src/
+  notification_templates: workers/notification-templates/
 
-  # C# API
+  # API (Rust)
   api_root: api/
-  controllers: api/Presentation/Controllers/
-  services: api/Application/Services/ and api/Infrastructure/Services/
-  entities: api/Domain/Entities/
-  interfaces: api/Domain/Interfaces/
-  dtos: api/Application/DTOs/
-  common: api/Domain/Common/
+  controllers: api/src/presentation/controllers/
+  middleware: api/src/presentation/middleware/
+  services: api/src/application/services/
+  dtos: api/src/application/dto/
+  entities: api/src/domain/entities/
+  traits: api/src/domain/traits/
+  infrastructure: api/src/infrastructure/
 
   # Frontend
   dashboard: ui/dashboard/src/
@@ -312,11 +321,8 @@ config_files:
     - redirect/{service}/config/default.toml
     - redirect/{service}/config/production.toml
     - redirect/{service}/config/development.toml
-
-  csharp:
-    - api/appsettings.json
-    - api/appsettings.Development.json
-    - api/appsettings.Aws.json
+    - workers/{worker}/config/default.toml
+    - api/config/default.toml
 
   frontend:
     - ui/dashboard/package.json

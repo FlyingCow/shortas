@@ -3,7 +3,7 @@
 # VPC-only domain, access controlled purely by security group membership
 # (same trust model as RDS/ElastiCache/Amazon MQ in this stack) - no
 # fine-grained access control, no master user, no SigV4 signing required.
-# management-api's Elasticsearch client talks to it over plain HTTPS.
+# api's Elasticsearch client talks to it over plain HTTPS.
 
 resource "aws_opensearch_domain" "main" {
   domain_name    = "${var.environment}-shortas-search"

@@ -135,7 +135,7 @@ On every start, the one-shot `keycloak-realm-setup` container points the dashboa
 
 ## Before going live
 
-- Cert Bot uses the Let's Encrypt **staging** directory (`redirect/cert-bot/config/production.toml`). Switch to production once issuance works.
+- Cert Bot uses the Let's Encrypt **staging** directory (`workers/cert-bot/config/production.toml`). Switch to production once issuance works.
 - Use your own Google Safe Browsing key and real SMTP credentials.
 
 ## Test data
@@ -152,7 +152,7 @@ docker run --rm --network shortas-net \
   -v "$(pwd)/../custom/seed-dashboard-data.py:/seed.py:ro" \
   python:3.12-alpine python3 /seed.py \
   --keycloak-url http://keycloak:8080 \
-  --api-url http://management-api:8080 \
+  --api-url http://api:8080 \
   --ch-url http://clickhouse:8123 \
   --ch-password "$CH_PASS" \
   --username your@email.com \

@@ -1,77 +1,79 @@
-RUST_DIR := redirect
-API_DIR := api
+ROOT_MANIFEST := Cargo.toml
+REDIRECT_MANIFEST := redirect/Cargo.toml
 UI_DIR := ui/dashboard
-COMPOSE := docker compose -f $(RUST_DIR)/docker-compose.yml
+COMPOSE := docker compose -f redirect/docker-compose.yml
 
-SERVICES := click-router click-router-api click-tracker click-aggregator click-aggregator-api
+# Crates in the redirect workspace; everything else lives in the root workspace
+# (api, workers/*, redirect/shortas-common).
+REDIRECT_PKGS := click-router click-router-api click-tracker click-aggregator click-aggregator-api
+
+# Manifest that owns package $(1)
+manifest_for = $(if $(filter $(1),$(REDIRECT_PKGS)),$(REDIRECT_MANIFEST),$(ROOT_MANIFEST))
+
+# Run `cargo $(1)` against both workspaces
+define both
+	cargo $(1) --manifest-path $(ROOT_MANIFEST) $(2)
+	cargo $(1) --manifest-path $(REDIRECT_MANIFEST) $(2)
+endef
 
 # ── Build ─────────────────────────────────────────────────
 
-.PHONY: build build-api build-ui build-rust
+.PHONY: build build-rust build-ui
 build: build-rust
 
 build-rust:
-	cargo build --manifest-path $(RUST_DIR)/Cargo.toml
-
-build-api:
-	dotnet build $(API_DIR)/api.sln
+	$(call both,build,--workspace)
 
 build-ui:
 	npm --prefix $(UI_DIR) install
 	npm --prefix $(UI_DIR) run build
 
 build-%:
-	cargo build --manifest-path $(RUST_DIR)/Cargo.toml -p $*
+	cargo build --manifest-path $(call manifest_for,$*) -p $*
 
 # ── Release ───────────────────────────────────────────────
 
-.PHONY: release release-api
+.PHONY: release
 release:
-	cargo build --release --manifest-path $(RUST_DIR)/Cargo.toml
-
-release-api:
-	dotnet publish $(API_DIR)/api.sln -c Release
+	$(call both,build,--release --workspace)
 
 release-%:
-	cargo build --release --manifest-path $(RUST_DIR)/Cargo.toml -p $*
+	cargo build --release --manifest-path $(call manifest_for,$*) -p $*
 
 # ── Test ──────────────────────────────────────────────────
 
-.PHONY: test test-api test-ui test-rust
+.PHONY: test test-rust test-ui
 test: test-rust
 
 test-rust:
-	cargo test --manifest-path $(RUST_DIR)/Cargo.toml
-
-test-api:
-	dotnet test $(API_DIR)/api.sln
+	$(call both,test,--workspace)
 
 test-ui:
 	npm --prefix $(UI_DIR) test
 
 test-%:
-	cargo test --manifest-path $(RUST_DIR)/Cargo.toml -p $*
+	cargo test --manifest-path $(call manifest_for,$*) -p $*
 
 # ── Lint / Check ──────────────────────────────────────────
 
 .PHONY: check clippy fmt
 check:
-	cargo check --manifest-path $(RUST_DIR)/Cargo.toml
+	$(call both,check,--workspace)
 
 clippy:
-	cargo clippy --manifest-path $(RUST_DIR)/Cargo.toml -- -D warnings
+	$(call both,clippy,--workspace -- -D warnings)
 
 fmt:
-	cargo fmt --manifest-path $(RUST_DIR)/Cargo.toml --all
+	$(call both,fmt,--all)
 
 # ── Bench ─────────────────────────────────────────────────
 
 .PHONY: bench
 bench:
-	cargo bench --manifest-path $(RUST_DIR)/Cargo.toml
+	$(call both,bench,--workspace)
 
 bench-%:
-	cargo bench --manifest-path $(RUST_DIR)/Cargo.toml -p $*
+	cargo bench --manifest-path $(call manifest_for,$*) -p $*
 
 # ── Docker ────────────────────────────────────────────────
 
@@ -92,4 +94,4 @@ ps:
 
 .PHONY: clean
 clean:
-	cargo clean --manifest-path $(RUST_DIR)/Cargo.toml
+	$(call both,clean,)

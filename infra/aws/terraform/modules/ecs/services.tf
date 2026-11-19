@@ -84,7 +84,7 @@ resource "aws_ecs_task_definition" "services" {
         [
           { name = "APP_ENVIRONMENT", value = var.environment },
           # Selects each service's config/aws.toml or config/aws-dev.toml profile
-          # (see redirect/*/config/ and management-api/config/) - NOT "RUN_MODE",
+          # (see redirect/*/config/ and api/config/) - NOT "RUN_MODE",
           # the config loader's env binding is specifically APP_RUN_MODE.
           { name = "APP_RUN_MODE", value = var.app_run_mode },
           { name = "AWS_REGION", value = var.region },

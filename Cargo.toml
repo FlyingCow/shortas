@@ -1,6 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["management-api", "notification-worker", "redirect/shortas-common"]
+members = [
+    "api",
+    "workers/cert-bot",
+    "workers/domain-verifier",
+    "workers/notification-worker",
+    "workers/route-icon-worker",
+    "workers/route-verifier",
+    "redirect/shortas-common",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -80,6 +88,22 @@ handlebars = "6.3"
 
 # Caching
 moka = { version = "0.12.7", features = ["future"] }
+
+# Workers (moved from the redirect workspace)
+aws-sdk-dynamodb = "1.25.0"
+dyn-clone = "1.0.17"
+env_logger = "0.11.3"
+hickory-resolver = "0.24"
+instant-acme = { version = "0.8.5", default-features = false, features = ["ring", "hyper-rustls"] }
+mongodb = "3.3.0"
+rcgen = "0.13"
+rustls = "0.23.9"
+scraper = "0.22.0"
+serde_derive = "1.0.200"
+tokio-graceful-shutdown = "0.16.0"
+tracing-loki = "0.2"
+urlencoding = "2.1.3"
+x509-parser = "0.16"
 
 # Test-only: trait mocking and HTTP mocking
 mockall = "0.13"
