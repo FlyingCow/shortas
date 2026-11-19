@@ -177,7 +177,7 @@ function AppContent() {
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/routes" element={<RoutesPage />} />
+                  <Route path="/routes/*" element={<RoutesPage />} />
                   <Route path="/domains" element={<Domains />} />
                   <Route path="/workspaces" element={<Workspaces />} />
                   <Route path="/clickstream" element={<Clickstream />} />

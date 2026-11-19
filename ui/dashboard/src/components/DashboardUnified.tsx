@@ -714,7 +714,7 @@ const Dashboard: React.FC = () => {
             ) : (
               <div className="db-attention-list">
                 {blockedRoutes.map((route) => (
-                  <Link key={route.id} to="/routes" className="db-attention-row">
+                  <Link key={route.id} to={`/routes/${encodeURIComponent(route.id)}`} className="db-attention-row">
                     <span className="badge badge-error">
                       <Ban size={12} style={{ marginRight: 4 }} />
                       Blocked

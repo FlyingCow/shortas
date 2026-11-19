@@ -13,8 +13,10 @@ import {
   RefreshCw,
   Copy,
   QrCode,
-  ShieldOff
+  ShieldOff,
+  ChevronLeft
 } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   XAxis,
   YAxis,
@@ -502,6 +504,13 @@ const routeStatsStyles = `
   opacity: 1;
 }
 
+/* Touch devices have no hover: keep card actions visible */
+@media (hover: none) {
+  .rs-route-actions {
+    opacity: 1;
+  }
+}
+
 .rs-action-btn {
   width: 28px;
   height: 28px;
@@ -676,6 +685,87 @@ const routeStatsStyles = `
   opacity: 0.3;
   pointer-events: none;
 }
+
+/* Back-to-list control: only needed when one pane is shown at a time */
+.rs-mobile-back {
+  display: none;
+}
+
+/* ===== NARROW VIEWPORTS: one pane at a time ===== */
+@media (max-width: 900px) {
+  .routes-with-sidebar {
+    flex-direction: column;
+    height: auto;
+  }
+
+  /* List view fills the viewport below the topbar so the list scrolls
+     internally and the Create Route footer stays in reach. */
+  .routes-with-sidebar:not(.has-detail) {
+    height: calc(100vh - var(--topbar-height));
+    height: calc(100dvh - var(--topbar-height));
+  }
+
+  .routes-with-sidebar .rs-sidebar {
+    width: 100%;
+    border-right: none;
+  }
+
+  .routes-with-sidebar.has-detail .rs-sidebar,
+  .routes-with-sidebar:not(.has-detail) .main-content {
+    display: none;
+  }
+
+  /* The list isn't visible while editing, so the desktop fade doesn't apply */
+  .routes-with-sidebar.editing .rs-sidebar {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .routes-with-sidebar .main-content {
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .rs-mobile-back {
+    display: flex;
+    padding: 0.75rem 1rem 0;
+  }
+
+  /* Route detail header: let long links wrap and controls flow onto rows */
+  .routes-with-sidebar .analytics-header {
+    padding: 1rem;
+  }
+
+  .routes-with-sidebar .route-info {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .routes-with-sidebar .route-info h2,
+  .routes-with-sidebar .route-info .route-destination {
+    overflow-wrap: anywhere;
+  }
+
+  .routes-with-sidebar .route-actions-header {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 0.5rem;
+  }
+
+  .routes-with-sidebar .route-actions-header .btn {
+    width: auto;
+  }
+
+  .routes-with-sidebar .route-analytics-body,
+  .routes-with-sidebar .route-qr-content {
+    padding: 1rem !important;
+  }
+
+  /* The 768px rule makes every .btn full-width */
+  .rs-mobile-back .btn {
+    width: auto;
+  }
+}
 `;
 
 const CHART_COLORS = [
@@ -732,6 +822,29 @@ const PieLegend: React.FC<{ items: { name: string; color: string }[] }> = ({ ite
   </div>
 );
 
+export type RoutesView = 'list' | 'new' | 'detail' | 'edit' | 'qr';
+
+// Maps a /routes/* pathname to the view it addresses. Returns null for
+// paths that don't correspond to any view (the page redirects to /routes).
+export const parseRoutesPath = (
+  pathname: string
+): { view: RoutesView; routeId: string | null } | null => {
+  const rest = pathname.replace(/^\/routes\/?/, '').replace(/\/+$/, '');
+  if (!rest) return { view: 'list', routeId: null };
+  const parts = rest.split('/');
+  if (parts.length === 1) {
+    if (parts[0] === 'new') return { view: 'new', routeId: null };
+    return { view: 'detail', routeId: decodeURIComponent(parts[0]) };
+  }
+  if (parts.length === 2 && (parts[1] === 'edit' || parts[1] === 'qr')) {
+    return { view: parts[1], routeId: decodeURIComponent(parts[0]) };
+  }
+  return null;
+};
+
+export const routePath = (id: string, sub?: 'edit' | 'qr') =>
+  `/routes/${encodeURIComponent(id)}${sub ? `/${sub}` : ''}`;
+
 const RoutesWithSidebar: React.FC = () => {
   const { workspaces, currentWorkspaceId } = useWorkspace();
   const [routes, setRoutes] = useState<RouteDto[]>([]);
@@ -740,9 +853,6 @@ const RoutesWithSidebar: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedRoute, setSelectedRoute] = useState<RouteDto | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingRoute, setEditingRoute] = useState<RouteDto | null>(null);
   const [analytics, setAnalytics] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [timeRange, setTimeRange] = useState('7d');
@@ -752,8 +862,28 @@ const RoutesWithSidebar: React.FC = () => {
   const [copiedRouteId, setCopiedRouteId] = useState<string | null>(null);
   const [iconRefreshKey, setIconRefreshKey] = useState(0);
   const iconRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [qrDesignerRoute, setQrDesignerRoute] = useState<RouteDto | null>(null);
   const { showToast, showConfirm } = useAlert();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // The URL is the single source of truth for which view is shown.
+  const parsedPath = parseRoutesPath(location.pathname);
+  const view: RoutesView = parsedPath?.view ?? 'list';
+  const routeId = parsedPath?.routeId ?? null;
+
+  // Full route fetched by id when the URL points at a route that isn't in the
+  // loaded list (deep link, beyond the first page, or only in search results,
+  // whose entries are partial and unsuitable for editing).
+  const [fetchedRoute, setFetchedRoute] = useState<RouteDto | null>(null);
+  const activeRoute: RouteDto | null = routeId
+    ? routes.find((r) => r.id === routeId) ?? (fetchedRoute?.id === routeId ? fetchedRoute : null)
+    : null;
+
+  const selectedRoute = view === 'detail' ? activeRoute : null;
+  const editingRoute = view === 'edit' ? activeRoute : null;
+  const qrDesignerRoute = view === 'qr' ? activeRoute : null;
+  const isEditing = view === 'new' || view === 'edit';
+  const hasDetail = view !== 'list';
 
   // Memoized on currentWorkspaceId so callers that depend on it (e.g.
   // scheduleIconRefresh below) always re-fetch with the current workspace
@@ -798,16 +928,50 @@ const RoutesWithSidebar: React.FC = () => {
     };
   }, []);
 
+  // currentWorkspaceId starts as null and resolves asynchronously, so only a
+  // change from one real workspace to another counts as a user switch — the
+  // initial resolution must not wipe out a deep link.
+  const prevWorkspaceIdRef = useRef(currentWorkspaceId);
   useEffect(() => {
     fetchRoutes();
-    // The previously selected/edited route may no longer be in the
-    // workspace-filtered list — clear its detail/analytics panel rather
-    // than leaving stale stats on screen for a route that's gone.
-    setSelectedRoute(null);
-    setIsEditing(false);
-    setEditingRoute(null);
-    setAnalytics(null);
+    const prev = prevWorkspaceIdRef.current;
+    prevWorkspaceIdRef.current = currentWorkspaceId;
+    if (prev !== null && prev !== currentWorkspaceId) {
+      // The previously selected/edited route may no longer be in the
+      // workspace-filtered list — return to the list rather than leaving
+      // stale stats on screen for a route that's gone.
+      setAnalytics(null);
+      setFetchedRoute(null);
+      navigate('/routes');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWorkspaceId]);
+
+  // Unknown /routes/* sub-paths fall back to the list.
+  useEffect(() => {
+    if (!parsedPath) navigate('/routes', { replace: true });
+  }, [parsedPath, navigate]);
+
+  // Resolve a route id that isn't in the loaded list by fetching it.
+  useEffect(() => {
+    if (!routeId || loading) return;
+    if (routes.some((r) => r.id === routeId)) return;
+    if (fetchedRoute?.id === routeId) return;
+    let cancelled = false;
+    apiService.routes
+      .get(routeId)
+      .then((route: RouteDto) => {
+        if (cancelled) return;
+        if (route?.id) setFetchedRoute(route);
+        else navigate('/routes', { replace: true });
+      })
+      .catch(() => {
+        if (!cancelled) navigate('/routes', { replace: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [routeId, routes, loading, fetchedRoute, navigate]);
 
   // Debounced Elasticsearch search
   useEffect(() => {
@@ -891,8 +1055,9 @@ const RoutesWithSidebar: React.FC = () => {
     try {
       await apiService.routes.delete(route.id);
       await fetchRoutes();
-      if (selectedRoute?.id === route.id) {
-        setSelectedRoute(null);
+      if (routeId === route.id) {
+        setFetchedRoute(null);
+        navigate('/routes');
       }
     } catch (err: any) {
       console.error('Failed to delete route:', err);
@@ -901,8 +1066,11 @@ const RoutesWithSidebar: React.FC = () => {
   };
 
   const handleEditRoute = (route: RouteDto) => {
-    setEditingRoute(route);
-    setIsEditing(true);
+    if (route.id) navigate(routePath(route.id, 'edit'));
+  };
+
+  const handleOpenQr = (route: RouteDto) => {
+    if (route.id) navigate(routePath(route.id, 'qr'));
   };
 
   const handleCopyRouteUrl = async (route: RouteDto, e: React.MouseEvent) => {
@@ -918,27 +1086,32 @@ const RoutesWithSidebar: React.FC = () => {
     }
   };
 
+  // Parent of the current view: edit/qr return to the route's analytics,
+  // new/detail return to the list.
+  const parentPath =
+    (view === 'edit' || view === 'qr') && routeId ? routePath(routeId) : '/routes';
+
   const handleCancelEdit = () => {
-    setEditingRoute(null);
-    setIsEditing(false);
+    navigate(parentPath);
   };
 
   useEffect(() => {
-    if (!qrDesignerRoute && !isEditing) return;
+    if (view !== 'qr' && !isEditing) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (qrDesignerRoute) setQrDesignerRoute(null);
-        else handleCancelEdit();
+        // An open navigation drawer takes priority over leaving the view.
+        if (document.body.classList.contains('nav-drawer-open')) return;
+        navigate(parentPath);
         e.preventDefault();
         e.stopImmediatePropagation();
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [qrDesignerRoute, isEditing]);
+  }, [view, isEditing, parentPath, navigate]);
 
   useEffect(() => {
-    if (isEditing || qrDesignerRoute) return;
+    if (isEditing || view === 'qr') return;
     const isInputFocused = () => {
       const el = document.activeElement as HTMLElement | null;
       if (!el || el === document.body) return false;
@@ -948,25 +1121,22 @@ const RoutesWithSidebar: React.FC = () => {
     const onKey = (e: KeyboardEvent) => {
       if (isInputFocused()) return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
-        setEditingRoute(null);
-        setIsEditing(true);
+        navigate('/routes/new');
         e.preventDefault();
       } else if (e.altKey && e.key.toLowerCase() === 'n') {
-        setEditingRoute(null);
-        setIsEditing(true);
+        navigate('/routes/new');
         e.preventDefault();
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [isEditing, qrDesignerRoute]);
+  }, [isEditing, view, navigate]);
 
   const handleCreateRoute = () => {
-    setEditingRoute(null);
-    setIsEditing(true);
+    navigate('/routes/new');
   };
 
-  const fetchAnalytics = useCallback(async (route: RouteDto) => {
+  const fetchAnalytics = useCallback(async (route: Pick<RouteDto, 'id'>) => {
     try {
       setAnalyticsLoading(true);
 
@@ -1044,15 +1214,17 @@ const RoutesWithSidebar: React.FC = () => {
     }
   }, [timeRange]);
 
-  // Refetch analytics when route or time range changes
+  // Refetch analytics when the selected route id or time range changes.
+  // Keyed on the id (not the object) so list refreshes don't refetch.
+  const selectedRouteId = selectedRoute?.id ?? null;
   useEffect(() => {
-    if (selectedRoute) {
-      fetchAnalytics(selectedRoute);
+    if (selectedRouteId) {
+      fetchAnalytics({ id: selectedRouteId });
     }
-  }, [selectedRoute, fetchAnalytics]);
+  }, [selectedRouteId, fetchAnalytics]);
 
   const handleSelectRoute = (route: RouteDto) => {
-    setSelectedRoute(route);
+    if (route.id) navigate(routePath(route.id));
   };
 
   // Helper functions for blocked status handling
@@ -1129,7 +1301,9 @@ const RoutesWithSidebar: React.FC = () => {
   return (
     <>
       <style>{routeStatsStyles}</style>
-      <div className={`routes-with-sidebar ${isEditing || qrDesignerRoute ? 'editing' : ''}`}>
+      <div
+        className={`routes-with-sidebar${isEditing || view === 'qr' ? ' editing' : ''}${hasDetail ? ' has-detail' : ''}`}
+      >
         {/* Redesigned Sidebar */}
         <div className="rs-sidebar">
           {/* Header */}
@@ -1212,7 +1386,7 @@ const RoutesWithSidebar: React.FC = () => {
                       className="rs-action-btn qr"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setQrDesignerRoute(route);
+                        handleOpenQr(route);
                       }}
                       title="QR Code"
                     >
@@ -1296,7 +1470,23 @@ const RoutesWithSidebar: React.FC = () => {
 
       {/* Main Content */}
       <div className="main-content">
-        {qrDesignerRoute ? (() => {
+        {hasDetail && (
+          <div className="rs-mobile-back">
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => navigate('/routes')}
+            >
+              <ChevronLeft size={16} />
+              Routes
+            </button>
+          </div>
+        )}
+        {routeId && !activeRoute ? (
+          <div className="welcome-content">
+            <LoadingSpinner />
+          </div>
+        ) : qrDesignerRoute ? (() => {
           const domain = qrDesignerRoute.domain?.name ?? '';
           const link = (qrDesignerRoute.link ?? '').replace(/^\//, '');
           const qrUrl = domain ? `http://${domain}/${link}` : '';
@@ -1321,7 +1511,7 @@ const RoutesWithSidebar: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => setQrDesignerRoute(null)}
+                  onClick={() => navigate(parentPath)}
                 >
                   Cancel
                 </button>
@@ -1344,14 +1534,17 @@ const RoutesWithSidebar: React.FC = () => {
               workspaces={workspaces}
               showWorkspace
               onSave={async (data) => {
+                let savedId: string | undefined;
                 if (editingRoute?.id) {
                   await apiService.routes.update(editingRoute.id, data);
+                  savedId = editingRoute.id;
                 } else {
-                  await apiService.routes.create(data);
+                  const created = await apiService.routes.create(data);
+                  savedId = created?.id;
                 }
+                setFetchedRoute(null);
                 await fetchRoutes();
-                setEditingRoute(null);
-                setIsEditing(false);
+                navigate(savedId ? routePath(savedId) : '/routes');
                 scheduleIconRefresh();
               }}
               onCancel={handleCancelEdit}
@@ -1371,6 +1564,14 @@ const RoutesWithSidebar: React.FC = () => {
                   >
                     <Edit size={16} />
                     Edit Route
+                  </button>
+
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={() => handleOpenQr(selectedRoute)}
+                  >
+                    <QrCode size={16} />
+                    QR Code
                   </button>
 
                   <div className="range-group">
@@ -1492,6 +1693,8 @@ const RoutesWithSidebar: React.FC = () => {
                             fontSize={11}
                             tickLine={false}
                             axisLine={false}
+                            interval="preserveStartEnd"
+                            minTickGap={16}
                           />
                           <YAxis
                             stroke="var(--text-muted)"
@@ -1591,8 +1794,8 @@ const RoutesWithSidebar: React.FC = () => {
                               data={analytics.topBrowsers}
                               cx="50%"
                               cy="50%"
-                              outerRadius={70}
-                              innerRadius={45}
+                              outerRadius="70%"
+                              innerRadius="45%"
                               dataKey="clicks"
                               nameKey="name"
                               paddingAngle={2}
@@ -1642,8 +1845,8 @@ const RoutesWithSidebar: React.FC = () => {
                               data={analytics.topDevices}
                               cx="50%"
                               cy="50%"
-                              outerRadius={70}
-                              innerRadius={45}
+                              outerRadius="70%"
+                              innerRadius="45%"
                               dataKey="clicks"
                               nameKey="device"
                               paddingAngle={2}
@@ -1693,10 +1896,8 @@ const RoutesWithSidebar: React.FC = () => {
                               data={analytics.trafficType}
                               cx="50%"
                               cy="50%"
-                              labelLine={false}
-                              label={({ name, percent }) => percent > 0.05 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
-                              outerRadius={70}
-                              innerRadius={45}
+                              outerRadius="70%"
+                              innerRadius="45%"
                               dataKey="value"
                               paddingAngle={3}
                               stroke="var(--bg-primary)"

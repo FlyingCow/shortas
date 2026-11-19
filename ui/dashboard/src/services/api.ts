@@ -581,7 +581,8 @@ export const apiService = {
       return response.data;
     },
 
-    create: async (route: Partial<RouteDto>) => {
+    // POST /routes responds 201 with the created RouteDto (api crate, render_created).
+    create: async (route: Partial<RouteDto>): Promise<RouteDto> => {
       const response = await routerApi.post('/routes', route);
       return response.data;
     },
