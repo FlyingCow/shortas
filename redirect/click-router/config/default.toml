@@ -75,3 +75,8 @@ reconnect_seconds = 5
 threads = 8
 listen_os_signals = true
 exit = true
+
+[tls]
+sni_enabled = true
+# fallback_cert_path = "/etc/shortas/tls/cert.pem"
+# fallback_key_path = "/etc/shortas/tls/key.pem"

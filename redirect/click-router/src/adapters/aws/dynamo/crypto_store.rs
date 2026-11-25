@@ -24,20 +24,29 @@ impl DynamoCryptoStore {
         }
     }
 
-    fn to_entity(&self, model: GetItemOutput) -> Option<Keycert> {
-        model.item.map_or(None, |item| {
-            let mut result = Keycert::new();
+    fn to_entity(&self, model: GetItemOutput) -> Result<Option<Keycert>> {
+        let Some(item) = model.item else {
+            return Ok(None);
+        };
 
-            if let Some(key) = item.get("key") {
-                result = result.key(key.as_s().unwrap().as_bytes());
-            }
+        let text = |name: &str| -> Result<Option<&String>> {
+            item.get(name)
+                .map(|value| value.as_s())
+                .transpose()
+                .map_err(|_| anyhow::anyhow!("certificate attribute {name} is not a string"))
+        };
 
-            if let Some(cert) = item.get("cert") {
-                result = result.cert(cert.as_s().unwrap().as_bytes());
-            }
+        let mut result = Keycert::new();
 
-            Some(result)
-        })
+        if let Some(key) = text("key")? {
+            result = result.key(key.as_bytes());
+        }
+
+        if let Some(cert) = text("cert")? {
+            result = result.cert(cert.as_bytes());
+        }
+
+        Ok(Some(result))
     }
 }
 
@@ -55,11 +64,6 @@ impl CryptoStore for DynamoCryptoStore {
             .send()
             .await;
 
-        let result = match item {
-            Ok(item_output) => Ok(self.to_entity(item_output)),
-            Err(e) => Err(e),
-        };
-
-        Ok(result?)
+        self.to_entity(item?)
     }
 }

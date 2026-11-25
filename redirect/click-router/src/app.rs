@@ -233,6 +233,7 @@ impl AppBuilder {
                     rmq_settings.clone(),
                     routes_cache.clone(),
                     user_settings_cache.clone(),
+                    self.crypto_cache.clone(),
                 );
             } else {
                 tracing::warn!(

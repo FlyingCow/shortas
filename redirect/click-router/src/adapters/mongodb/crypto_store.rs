@@ -41,9 +41,12 @@ impl CryptoStore for MongodbCryptoStore {
     async fn get_certificate(&self, server_name: &str) -> Result<Option<Keycert>> {
         let filter = doc! { "hostname": server_name };
 
-        Ok(match self.collection.find_one(filter).await? {
-            Some(cert) => Some(cert),
-            None => None,
-        })
+        // Older renewals added a second row per domain; the one that expires
+        // last is the current one.
+        Ok(self
+            .collection
+            .find_one(filter)
+            .sort(doc! { "expires_at": -1 })
+            .await?)
     }
 }

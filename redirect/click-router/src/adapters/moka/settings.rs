@@ -6,6 +6,27 @@ pub struct CryptoCacheSettings {
     pub max_capacity: u64,
     pub time_to_live_minutes: u64,
     pub time_to_idle_minutes: u64,
+    /// How many names without a certificate to remember.
+    #[serde(default = "default_miss_max_capacity")]
+    pub miss_max_capacity: u64,
+    /// How long to remember that a name has no certificate.
+    #[serde(default = "default_miss_time_to_live_seconds")]
+    pub miss_time_to_live_seconds: u64,
+    /// Concurrent certificate store lookups.
+    #[serde(default = "default_max_concurrent_lookups")]
+    pub max_concurrent_lookups: usize,
+}
+
+fn default_miss_max_capacity() -> u64 {
+    10_000
+}
+
+fn default_miss_time_to_live_seconds() -> u64 {
+    30
+}
+
+fn default_max_concurrent_lookups() -> usize {
+    64
 }
 
 #[derive(Default, Debug, Deserialize, Clone)]

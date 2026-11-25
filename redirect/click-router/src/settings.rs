@@ -26,9 +26,40 @@ pub struct Server {
     pub listen_os_signals: bool,
     pub exit: bool,
 }
+/// HTTPS listener settings.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct Tls {
+    /// Pick the certificate by requested server name. When off, every
+    /// connection gets the fallback certificate.
+    pub sni_enabled: bool,
+    /// PEM files of the fallback certificate. A self-signed one is generated
+    /// at startup when neither is set.
+    pub fallback_cert_path: Option<String>,
+    pub fallback_key_path: Option<String>,
+    /// How long a handshake waits for a certificate before using the fallback.
+    pub lookup_timeout_millis: u64,
+    /// How long a client gets to finish the handshake.
+    pub handshake_timeout_seconds: u64,
+}
+
+impl Default for Tls {
+    fn default() -> Self {
+        Self {
+            sni_enabled: false,
+            fallback_cert_path: None,
+            fallback_key_path: None,
+            lookup_timeout_millis: 2_000,
+            handshake_timeout_seconds: 10,
+        }
+    }
+}
+
 #[derive(Default, Debug, Deserialize, Clone)]
 #[allow(unused)]
 pub struct Settings {
+    #[serde(default)]
+    pub tls: Tls,
     pub aws: AWS,
     pub mongodb: Mongodb,
     pub fluvio: Fluvio,

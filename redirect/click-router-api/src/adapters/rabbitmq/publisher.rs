@@ -9,7 +9,7 @@ use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use super::{
-    messages::{RouteChangedMessage, UserSettingsChangedMessage},
+    messages::{CertificateChangedMessage, RouteChangedMessage, UserSettingsChangedMessage},
     settings::RabbitMqSettings,
 };
 
@@ -100,6 +100,18 @@ impl RabbitMqPublisher {
         channel
             .exchange_declare(
                 &self.settings.user_settings_exchange,
+                ExchangeKind::Fanout,
+                ExchangeDeclareOptions {
+                    durable: true,
+                    ..Default::default()
+                },
+                FieldTable::default(),
+            )
+            .await?;
+
+        channel
+            .exchange_declare(
+                &self.settings.certificate_exchange,
                 ExchangeKind::Fanout,
                 ExchangeDeclareOptions {
                     durable: true,
@@ -202,6 +214,36 @@ impl RabbitMqPublisher {
             }
         } else {
             warn!("RabbitMQ publisher not connected, skipping user settings changed message");
+        }
+    }
+
+    pub async fn publish_certificate_changed(&self, message: &CertificateChangedMessage) {
+        let payload = match serde_json::to_vec(message) {
+            Ok(p) => p,
+            Err(e) => {
+                warn!("Failed to serialize certificate changed message: {}", e);
+                return;
+            }
+        };
+
+        let properties = BasicProperties::default().with_delivery_mode(1); // non-persistent
+
+        let channel = self.channel.read().await;
+        if let Some(ref ch) = *channel {
+            if let Err(e) = ch
+                .basic_publish(
+                    &self.settings.certificate_exchange,
+                    "",
+                    BasicPublishOptions::default(),
+                    &payload,
+                    properties,
+                )
+                .await
+            {
+                warn!("Failed to publish certificate changed message: {}", e);
+            }
+        } else {
+            warn!("RabbitMQ publisher not connected, skipping certificate changed message");
         }
     }
 }

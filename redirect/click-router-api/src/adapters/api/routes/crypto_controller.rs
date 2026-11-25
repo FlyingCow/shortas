@@ -4,10 +4,23 @@ use salvo::oapi::ToSchema;
 use salvo::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::adapters::rabbitmq::messages::{CertificateChangedMessage, ChangeAction};
 use crate::adapters::api::{app_state::AppState, error_presenter::ErrorResponse as ErrorPresenter, openapi_schemas::ErrorResponse};
 use crate::dto::KeycertDto;
 use crate::model::error::{ApiError, RouteError, ValidationError};
 use crate::model::keycert::Keycert;
+
+/// Tells every router to drop its cached copy of the domain's certificate.
+async fn publish_change(app_state: &AppState, domain: &str, action: ChangeAction) {
+    if let Some(ref publisher) = app_state.rabbitmq_publisher {
+        publisher
+            .publish_certificate_changed(&CertificateChangedMessage {
+                domain: domain.to_string(),
+                action,
+            })
+            .await;
+    }
+}
 
 /// Query parameters for certificate listing
 #[derive(Debug, Deserialize)]
@@ -246,6 +259,7 @@ pub async fn create_certificate(req: &mut Request, depot: &mut Depot, res: &mut 
         .await
     {
         Ok(_) => {
+            publish_change(app_state, &domain, ChangeAction::Created).await;
             res.status_code(StatusCode::CREATED);
             res.render(Json(serde_json::json!({
                 "message": "Certificate created successfully",
@@ -335,6 +349,7 @@ pub async fn update_certificate(req: &mut Request, depot: &mut Depot, res: &mut 
         .await
     {
         Ok(_) => {
+            publish_change(app_state, &domain, ChangeAction::Updated).await;
             res.status_code(StatusCode::OK);
             res.render(Json(serde_json::json!({
                 "message": "Certificate updated successfully",
@@ -389,6 +404,7 @@ pub async fn delete_certificate(req: &mut Request, depot: &mut Depot, res: &mut 
     // Delete the certificate
     match app_state.crypto_store.delete_certificate(&domain).await {
         Ok(_) => {
+            publish_change(app_state, &domain, ChangeAction::Deleted).await;
             res.status_code(StatusCode::OK);
             res.render(Json(serde_json::json!({
                 "message": "Certificate deleted successfully",

@@ -112,7 +112,8 @@ pub mod mongodb;
 pub mod rabbitmq;
 pub mod rdkafka;
 pub mod axum;
-// pub mod salvo; // Temporarily commented out during migration to Axum
+// pub mod salvo;
+pub mod tls; // Temporarily commented out during migration to Axum
 pub mod uaparser;
 
 #[derive(Clone)]
@@ -307,6 +308,8 @@ impl UserSettingsCache for UserSettingsCacheType {
 pub enum CryptoStoreType {
     Dynamo(DynamoCryptoStore),
     Mongodb(MongodbCryptoStore),
+    #[cfg(test)]
+    Test(Arc<dyn CryptoStore + Send + Sync>),
 }
 
 #[async_trait::async_trait]
@@ -315,6 +318,8 @@ impl CryptoStore for CryptoStoreType {
         match self {
             CryptoStoreType::Dynamo(store) => store.get_certificate(server_name).await,
             CryptoStoreType::Mongodb(store) => store.get_certificate(server_name).await,
+            #[cfg(test)]
+            CryptoStoreType::Test(store) => store.get_certificate(server_name).await,
         }
     }
 }
@@ -326,7 +331,7 @@ pub enum CryptoCacheType {
 
 #[async_trait::async_trait]
 impl CryptoCache for CryptoCacheType {
-    async fn get_certificate(&self, server_name: &str) -> Result<Option<Keycert>> {
+    async fn get_certificate(&self, server_name: &str) -> Result<Option<Arc<Keycert>>> {
         match self {
             CryptoCacheType::Moka(store) => store.get_certificate(server_name).await,
         }

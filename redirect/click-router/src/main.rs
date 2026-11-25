@@ -19,7 +19,6 @@
 use clap::Parser;
 use http::StatusCode;
 use mimalloc::MiMalloc;
-use rustls::server::ClientHello;
 use std::{
     io::{Error as IoError, Result as IoResult},
     sync::Arc,
@@ -39,9 +38,6 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use axum_server::tls_rustls::RustlsConfig;
-use rustls::server::ResolvesServerCert;
-use rustls::sign::CertifiedKey;
 use tower_cookies::{CookieManagerLayer, Cookies};
 use tower_http::trace::TraceLayer;
 use tokio::time::{timeout, Duration};
@@ -50,11 +46,11 @@ use click_router::{
     adapters::{
         api::conversion_routes,
         axum::{axum_proxy::{Client, hyper_client::HyperClient}, parse_queries, AxumRequest, AxumResponse},
-        CryptoCacheType, RequestType, ResponseType,
+        tls::SniAcceptor,
+        RequestType, ResponseType,
     },
     app::AppBuilder,
     core::{
-        crypto::CryptoCache,
         flow_router::{FlowRouterResult, RedirectType},
         metrics::{Timer, METRICS},
         metrics_endpoint::create_metrics_router,
@@ -237,18 +233,6 @@ async fn redirect_handler(
     response
 }
 
-/// Create a default TLS configuration from embedded certificates
-async fn create_default_tls_config() -> RustlsConfig {
-    // TODO: Implement dynamic certificate resolution for SNI
-    // For now, using static embedded certificates
-    RustlsConfig::from_pem_file(
-        "certs/cert.pem",
-        "certs/key.pem"
-    )
-    .await
-    .expect("Failed to load TLS certificates")
-}
-
 /// Main entry point for the Click Router application
 ///
 /// This function initializes the application, sets up the flow router with all
@@ -316,6 +300,8 @@ async fn main() {
     )
     .unwrap();
 
+    let tls_settings = settings.tls.clone();
+
     let app_builder = AppBuilder::new(settings)
         .with_geo_ip()
         .with_ua_parser()
@@ -331,7 +317,7 @@ async fn main() {
         app_builder.with_mongodb().await
     };
 
-    let mut app_builder = app_builder.with_rabbitmq().with_default_modules();
+    let app_builder = app_builder.with_rabbitmq().with_default_modules();
 
     // Get crypto cache for dynamic certificate resolution before building
     let crypto_cache = app_builder.get_crypto_cache();
@@ -393,18 +379,20 @@ async fn main() {
     }
 
     // Start main application server
-    if crypto_cache.is_some() {
-        tracing::info!("🔐 Dynamic TLS certificate resolution enabled (will be implemented)");
+    if tls_settings.sni_enabled && crypto_cache.is_some() {
+        tracing::info!("🔐 Certificates are selected by server name");
     } else {
-        tracing::warn!("⚠️ Crypto cache not available");
+        tracing::warn!("⚠️ Every HTTPS connection gets the fallback certificate");
     }
 
     // Start HTTPS server on port 4433
+    let acceptor =
+        SniAcceptor::new(&tls_settings, crypto_cache).expect("Failed to set up the TLS certificate");
     let app_clone = app.clone();
     tokio::spawn(async move {
-        let tls_config = create_default_tls_config().await;
         tracing::info!("🔐 HTTPS server listening on https://0.0.0.0:4433");
-        axum_server::bind_rustls("0.0.0.0:4433".parse().unwrap(), tls_config)
+        axum_server::bind("0.0.0.0:4433".parse().unwrap())
+            .acceptor(acceptor)
             .serve(app_clone)
             .await
             .expect("HTTPS server failed");
