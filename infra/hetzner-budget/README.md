@@ -135,7 +135,7 @@ On every start, the one-shot `keycloak-realm-setup` container points the dashboa
 
 ## Before going live
 
-- Cert Bot uses the Let's Encrypt **staging** directory (`workers/cert-bot/config/production.toml`). Switch to production once issuance works.
+- Cert Bot uses the Let's Encrypt **staging** directory, whose certificates browsers reject. Once issuance works, set `ACME_DIRECTORY_URL=https://acme-v02.api.letsencrypt.org/directory` in `.env` and run `docker compose up -d cert-bot`. Cert Bot creates a production account by itself.
 - Use your own Google Safe Browsing key and real SMTP credentials.
 
 ## Test data

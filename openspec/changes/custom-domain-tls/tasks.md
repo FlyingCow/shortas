@@ -2,8 +2,8 @@
 
 ## 1. Baseline
 
-- [ ] 1.1 Find out which certificate production serves for a custom domain and whether the committed key is deployed; verify by recording `openssl s_client -servername` output and fingerprints in the PR
-- [ ] 1.2 If the committed key is deployed, agree on rotation with the owner; verify the new fingerprint differs
+- [x] 1.1 Find out which certificate production serves and whether the committed key is deployed; settled by the user: nothing is live, so neither applies (`shortas.space` was unreachable when checked)
+- [x] 1.2 If the committed key is deployed, agree on rotation; not applicable, see 1.1
 - [x] 1.3 Make the fallback configurable, generate one when unset, and document it; verify tests for configured, generated and unreadable
 
 ## 2. Certificate cache

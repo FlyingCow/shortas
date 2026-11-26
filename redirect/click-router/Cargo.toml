@@ -67,6 +67,9 @@ prometheus.workspace = true
 lazy_static.workspace = true
 qrcode.workspace = true
 image.workspace = true
+sha2.workspace = true
+subtle = "2.6"
+ipnet = "2.11"
 
 # Project-specific dependencies
 axum = "0.7"

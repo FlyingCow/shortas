@@ -269,6 +269,7 @@ services:
         done &&
         (fluvio topic create hit-stream-main || true) &&
         (fluvio topic create click-aggs-main || true) &&
+        (fluvio topic create conversion-stream-main || true) &&
         fluvio topic list
       "
     networks:

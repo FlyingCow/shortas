@@ -280,7 +280,7 @@ export function AlertProvider({ children }: AlertProviderProps) {
           `}</style>
           <div className="toast-container">
             {toasts.map((toast) => (
-              <div key={toast.id} className={`toast toast-${toast.variant}`}>
+              <div key={toast.id} className={`toast show toast-${toast.variant}`}>
                 <span className="toast-icon">
                   {toast.variant === 'success' && (
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">

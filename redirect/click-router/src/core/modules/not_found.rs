@@ -47,7 +47,7 @@ impl FlowModule for NotFoundModule {
             {
                 if let Some(ref dest) = route.dest {
                     context.result = Some(FlowRouterResult::Redirect(
-                        Uri::from_str(dest).unwrap(),
+                        dest.clone(),
                         RedirectType::Temporary,
                     ));
                     context.current_step = FlowStep::End;
@@ -115,6 +115,7 @@ mod tests {
             not_found_url: "https://example.com/404".to_string(),
             blocked_url: "https://example.com/blocked".to_string(),
             qr_images_base_url: None,
+            click_ids_enabled: false,
         };
         let module = NotFoundModule::new(redirect.clone());
 
@@ -128,6 +129,7 @@ mod tests {
             not_found_url: "https://example.com/404".to_string(),
             blocked_url: "https://example.com/blocked".to_string(),
             qr_images_base_url: None,
+            click_ids_enabled: false,
         };
         let module = NotFoundModule::new(redirect);
         let cloned = module.clone();

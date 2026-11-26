@@ -96,12 +96,62 @@ impl RoutesCache for MokaRoutesCache {
         let route_result = self.routes_store.get_route(switch, path).await;
         db_timer.observe_duration_seconds(&METRICS.db_query_duration);
 
-        let value: Option<Arc<Route>> = route_result.unwrap().map(Arc::new);
+        let value: Option<Arc<Route>> = route_result?.map(Arc::new);
 
+        // Errors are not cached, so the next request tries again.
         // Store in cache (cheap: cloning Option<Arc<Route>> is a refcount bump)
         self.cache.insert(key, value.clone()).await;
         cache_timer.observe_duration_seconds(&METRICS.cache_lookup_duration);
 
         Ok(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::adapters::aws::dynamo::{routes_store::DynamoRoutesStore, user_settings_store::DynamoUserSettingsStore};
+    use crate::adapters::moka::{settings::UserSettingsCacheSettings, user_settings_cache::MokaUserSettingsCache};
+    use crate::adapters::{RoutesCacheType, UserSettingsCacheType, UserSettingsStoreType};
+    use crate::core::{routes::RoutesManager, user_settings::UserSettingsManager};
+    use wiremock::matchers::method;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    /// A failing store is an error, and works again once the store does.
+    #[tokio::test]
+    async fn store_errors_are_returned_and_not_cached() {
+        let server = MockServer::start().await;
+        let config = aws_config::SdkConfig::builder()
+            .behavior_version(aws_config::BehaviorVersion::latest())
+            .region(aws_config::Region::new("us-east-1"))
+            .credentials_provider(aws_sdk_dynamodb::config::SharedCredentialsProvider::new(
+                aws_sdk_dynamodb::config::Credentials::new("x", "x", None, None, "test"),
+            ))
+            .endpoint_url(server.uri())
+            .build();
+        let routes = RoutesManager::new(RoutesCacheType::Moka(MokaRoutesCache::new(
+            RoutesStoreType::Dynamo(DynamoRoutesStore::new(&config, "routes".into())),
+            RoutesCacheSettings { max_capacity: 10, time_to_live_minutes: 1, time_to_idle_minutes: 1 },
+        )));
+        let users = UserSettingsManager::new(UserSettingsCacheType::Moka(MokaUserSettingsCache::new(
+            UserSettingsStoreType::Dynamo(DynamoUserSettingsStore::new(&config, "users".into())),
+            UserSettingsCacheSettings { max_capacity: 10, time_to_live_minutes: 1, time_to_idle_minutes: 1 },
+        )));
+
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(400).set_body_string("{}"))
+            .mount(&server)
+            .await;
+        assert!(routes.get_route("main", "e.com", "a").await.is_err());
+        assert!(routes.get_route_by_switch("main", "a").await.is_err());
+        assert!(users.get_user_settings("u").await.is_err());
+
+        server.reset().await;
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(200).set_body_raw("{}", "application/x-amz-json-1.0"))
+            .mount(&server)
+            .await;
+        assert!(routes.get_route("main", "e.com", "a").await.unwrap().is_none());
+        assert!(users.get_user_settings("u").await.unwrap().is_none());
     }
 }

@@ -14,6 +14,7 @@ encryption_collection = "core_routes_encryption_test"
 routes_collection = "core_routes_test"
 hostname_mappings_collection = "core_routes_hostname_mapping_test"
 user_settings_collection = "core_user_settings_test"
+conversions_collection = "core_conversions_test"
 
 [aws]
 local = true
@@ -23,6 +24,7 @@ encryption_table = "core-routes-encryption-test"
 routes_table = "core-routes-test"
 hostname_mappings_table = "core-routes-hostname-mapping-test"
 user_settings_table = "core-user-settings-test"
+conversions_table = "core-conversions-test"
 
 [fluvio]
 [fluvio.hit_stream]

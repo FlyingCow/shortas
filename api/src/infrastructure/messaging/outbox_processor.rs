@@ -7,8 +7,8 @@ use tokio::time::interval;
 use tracing::{error, info, warn};
 
 use crate::domain::entities::OutboxMessageType;
-use crate::domain::traits::{DomainRepository, InvitationRepository, OutboxRepository};
-use crate::infrastructure::http_clients::{DomainVerifierClient, RouteVerifierClient};
+use crate::domain::traits::{ConversionRepository, DomainRepository, InvitationRepository, OutboxRepository};
+use crate::infrastructure::http_clients::{ClickRouterClient, DomainVerifierClient, RouteVerifierClient};
 use crate::infrastructure::search::ElasticsearchService;
 
 use super::NotificationPublisher;
@@ -23,6 +23,8 @@ pub struct OutboxProcessor {
     notification_publisher: Arc<NotificationPublisher>,
     route_verifier_client: Arc<RouteVerifierClient>,
     domain_verifier_client: Arc<DomainVerifierClient>,
+    conversion_repo: Arc<dyn ConversionRepository>,
+    click_router: Arc<ClickRouterClient>,
 }
 
 impl OutboxProcessor {
@@ -36,6 +38,8 @@ impl OutboxProcessor {
         notification_publisher: Arc<NotificationPublisher>,
         route_verifier_client: Arc<RouteVerifierClient>,
         domain_verifier_client: Arc<DomainVerifierClient>,
+        conversion_repo: Arc<dyn ConversionRepository>,
+        click_router: Arc<ClickRouterClient>,
     ) -> Self {
         Self {
             outbox_repo,
@@ -46,6 +50,8 @@ impl OutboxProcessor {
             notification_publisher,
             route_verifier_client,
             domain_verifier_client,
+            conversion_repo,
+            click_router,
         }
     }
 
@@ -56,6 +62,12 @@ impl OutboxProcessor {
         let mut invitation_expiry_interval = interval(Duration::from_secs(3600)); // Hourly
 
         info!("Started outbox processor");
+
+        match self.outbox_repo.requeue_interrupted().await {
+            Ok(0) => {}
+            Ok(count) => info!("Requeued {} interrupted conversion messages", count),
+            Err(e) => error!("Failed to requeue interrupted messages: {}", e),
+        }
 
         loop {
             tokio::select! {
@@ -119,6 +131,9 @@ impl OutboxProcessor {
                 }
                 OutboxMessageType::PublishNotificationEvent => {
                     self.notification_publisher.publish(&message.payload).await
+                }
+                OutboxMessageType::PropagateConversion => {
+                    self.process_propagate_conversion(&message.payload).await
                 }
             };
 
@@ -249,6 +264,22 @@ impl OutboxProcessor {
 
         info!("Removed route {} from route-verifier", route_id);
         Ok(())
+    }
+
+    /// Send the conversion as it is now, so a delayed message never carries
+    /// an outdated definition.
+    async fn process_propagate_conversion(&self, payload: &serde_json::Value) -> anyhow::Result<()> {
+        let id = |field: &str| -> anyhow::Result<uuid::Uuid> {
+            Ok(serde_json::from_value(payload[field].clone())?)
+        };
+
+        match self.conversion_repo.get(id("workspace_id")?, id("conversion_id")?).await? {
+            Some(conversion) => self.click_router.put_conversion(&conversion).await,
+            None => {
+                let public_key: String = serde_json::from_value(payload["public_key"].clone())?;
+                self.click_router.delete_conversion(&public_key).await
+            }
+        }
     }
 
     /// Expire any pending invitations past their expiry date.

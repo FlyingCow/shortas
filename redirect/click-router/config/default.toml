@@ -5,6 +5,7 @@ encryption_table = "core-routes-encryption-main"
 routes_table = "core-routes-main"
 hostname_mappings_table = "core-routes-hostname-mapping-main"
 user_settings_table = "core-user-settings-main"
+conversions_table = "core-conversions-main"
 
 [mongodb]
 uri = "mongodb://root:example@mongo:27017/"
@@ -13,6 +14,7 @@ encryption_collection = "core_routes_encryption_main"
 routes_collection = "core_routes_main"
 hostname_mappings_collection = "core_routes_hostname_mapping_main"
 user_settings_collection = "core_user_settings_main"
+conversions_collection = "core_conversions_main"
 challenges_collection = "acme_challenges"
 
 
@@ -64,6 +66,24 @@ not_found_url = "http://pages:5801/not-found?domain={}"
 index_url = "http://pages:5801/index?domain={}"
 blocked_url = "http://pages:5801/blocked?reason={}"
 qr_images_base_url = "http://minio-nginx/route-images"
+# Add shortas_cid to the destinations of routes covered by conversions
+click_ids_enabled = false
+
+[conversions]
+enabled = false
+# Networks whose X-Forwarded-For is believed, for limits per client address
+trusted_proxies = []
+max_concurrent_requests = 256
+# Per client address. Servers with a valid secret key are exempt.
+address_rate = { per_second = 20.0, burst = 100.0 }
+# Per conversion, separately for browsers and servers
+key_rate = { per_second = 200.0, burst = 1000.0 }
+
+[conversions.stream]
+host = "sc:9003"
+topic = "conversion-stream-main"
+batch_size = 100000
+linger = 5
 
 [rabbitmq]
 uri = "amqp://guest:guest@rabbitmq:5672/%2f"

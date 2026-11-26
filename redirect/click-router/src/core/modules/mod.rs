@@ -1,10 +1,10 @@
 use anyhow::Result;
 use acme_challenge::AcmeChallengeModule;
 use blocked::BlockedModule;
-use conditional::ConditionalModule;
+pub use conditional::ConditionalModule;
 use not_found::NotFoundModule;
 use qr_code::QrCodeModule;
-use redirect_only::RedirectOnlyModule;
+pub use redirect_only::RedirectOnlyModule;
 use root::RootModule;
 
 use super::{

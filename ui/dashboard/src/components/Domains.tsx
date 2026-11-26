@@ -450,8 +450,18 @@ const Domains: React.FC = () => {
   };
 
   const handleDelete = async (domain: DomainDto) => {
+    let warning: string;
+    try {
+      const affected = await apiService.domains.listConversions(domain.id);
+      warning = affected.length
+        ? ` These conversions will stop receiving events: ${affected.map((c) => c.name).join(', ')}.`
+        : '';
+    } catch (err) {
+      console.error('Failed to check conversions:', err);
+      warning = ' Conversions using it could not be checked; any will stop receiving events.';
+    }
     const confirmed = await showConfirm(
-      `Delete "${domain.name}"? Routes using this domain will be affected.`,
+      `Delete "${domain.name}"? Routes using this domain will be affected.${warning}`,
       'Delete domain',
       { confirmLabel: 'Delete', variant: 'danger' }
     );

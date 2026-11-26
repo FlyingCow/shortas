@@ -5,16 +5,16 @@ use salvo::prelude::*;
 use sqlx::PgPool;
 use std::sync::Arc;
 
-use crate::application::services::RouteService;
+use crate::application::services::{ConversionService, CoverageSignal, CoverageSync, RouteService};
 use crate::domain::traits::{
-    CertificateRepository, DomainRepository, InvitationRepository, NotificationRepository,
+    CertificateRepository, ConversionRepository, DomainRepository, InvitationRepository, NotificationRepository,
     OutboxRepository, RouteRepository, UserRepository, WorkspaceRepository,
 };
 use crate::infrastructure::{
     email::{build_email_sender, EmailSender},
     http_clients::{ClickAggregatorClient, ClickRouterClient, DomainVerifierClient, RouteVerifierClient},
     repositories::{
-        PgCertificateRepository, PgDomainRepository, PgInvitationRepository,
+        PgCertificateRepository, PgConversionRepository, PgDomainRepository, PgInvitationRepository,
         PgNotificationRepository, PgOutboxRepository, PgRouteRepository, PgUserRepository,
         PgWorkspaceRepository,
     },
@@ -36,6 +36,12 @@ pub struct AppState {
     pub notification_repo: Arc<dyn NotificationRepository>,
     pub email_sender: Arc<dyn EmailSender>,
     pub route_service: Arc<RouteService>,
+    pub conversion_repo: Arc<dyn ConversionRepository>,
+    pub conversion_service: Arc<ConversionService>,
+    /// Sends conversion coverage to the router; `main` runs it.
+    pub coverage_sync: Arc<CoverageSync>,
+    /// Wakes `coverage_sync` after a write that may change coverage.
+    pub coverage_signal: CoverageSignal,
     pub click_router: Arc<ClickRouterClient>,
     pub route_verifier: Arc<RouteVerifierClient>,
     pub domain_verifier: Arc<DomainVerifierClient>,
@@ -83,6 +89,22 @@ impl AppState {
             workspace_repo.clone(),
         ));
 
+        let conversion_repo: Arc<dyn ConversionRepository> =
+            Arc::new(PgConversionRepository::new(pool.clone()));
+        let coverage_signal = CoverageSignal::default();
+        let conversion_service = Arc::new(ConversionService::new(
+            conversion_repo.clone(),
+            workspace_repo.clone(),
+            domain_repo.clone(),
+            click_router.clone(),
+            coverage_signal.clone(),
+        ));
+        let coverage_sync = Arc::new(CoverageSync::new(
+            route_service.clone(),
+            conversion_repo.clone(),
+            coverage_signal.clone(),
+        ));
+
         Ok(Self {
             route_repo,
             domain_repo,
@@ -94,6 +116,10 @@ impl AppState {
             notification_repo,
             email_sender,
             route_service,
+            conversion_repo,
+            conversion_service,
+            coverage_sync,
+            coverage_signal,
             click_router,
             route_verifier,
             domain_verifier,

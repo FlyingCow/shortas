@@ -153,6 +153,7 @@ services:
         (fluvio topic create hit-stream-main || echo 'Topic hit-stream-main already exists') &&
         echo 'Topic hit-stream-main created' &&
         (fluvio topic create click-aggs-main || echo 'Topic click-aggs-main already exists') &&
+        (fluvio topic create conversion-stream-main || echo 'Topic conversion-stream-main already exists') &&
         echo 'Topic click-aggs-main created' &&
         fluvio topic list
       "

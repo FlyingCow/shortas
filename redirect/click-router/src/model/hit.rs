@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 
 use super::Route;
 use crate::core::trace::HitTrace;
-use crate::core::{ConversionEvent, ConversionFunnelStep};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Click<'a> {
@@ -21,8 +20,6 @@ pub struct Event<'a> {
 pub enum HitData<'a> {
     Click(&'a Click<'a>),
     Event(&'a Event<'a>),
-    Conversion(ConversionEvent),
-    FunnelStep(ConversionFunnelStep),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -58,6 +55,8 @@ pub struct Hit<'a> {
     pub user_agent: Option<&'a str>,
     pub ip: Option<IpAddr>,
     pub utc: DateTime<Utc>,
+    /// Whether the destination got this click's ID
+    pub trackable: bool,
     /// Optional trace data for debug routes (only present when allow_debug=true)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trace: Option<HitTrace>,
@@ -76,6 +75,11 @@ impl<'a> Event<'a> {
 }
 
 impl<'a> Hit<'a> {
+    pub fn trackable(mut self, trackable: bool) -> Self {
+        self.trackable = trackable;
+        self
+    }
+
     pub fn click(
         id: &'a str,
         utc: DateTime<Utc>,
@@ -90,6 +94,7 @@ impl<'a> Hit<'a> {
             user_agent,
             ip,
             route,
+            trackable: false,
             data: HitData::Click(&click),
             trace: None,
         }
@@ -110,6 +115,7 @@ impl<'a> Hit<'a> {
             user_agent,
             ip,
             route,
+            trackable: false,
             data: HitData::Click(&click),
             trace,
         }
@@ -129,45 +135,8 @@ impl<'a> Hit<'a> {
             user_agent,
             ip,
             route,
+            trackable: false,
             data: HitData::Event(&event),
-            trace: None,
-        }
-    }
-
-    pub fn conversion(
-        id: &'a str,
-        utc: DateTime<Utc>,
-        user_agent: Option<&'a str>,
-        ip: Option<IpAddr>,
-        conversion: ConversionEvent,
-        route: Option<HitRoute>,
-    ) -> Self {
-        Self {
-            id,
-            utc,
-            user_agent,
-            ip,
-            route,
-            data: HitData::Conversion(conversion),
-            trace: None,
-        }
-    }
-
-    pub fn funnel_step(
-        id: &'a str,
-        utc: DateTime<Utc>,
-        user_agent: Option<&'a str>,
-        ip: Option<IpAddr>,
-        funnel_step: ConversionFunnelStep,
-        route: Option<HitRoute>,
-    ) -> Self {
-        Self {
-            id,
-            utc,
-            user_agent,
-            ip,
-            route,
-            data: HitData::FunnelStep(funnel_step),
             trace: None,
         }
     }

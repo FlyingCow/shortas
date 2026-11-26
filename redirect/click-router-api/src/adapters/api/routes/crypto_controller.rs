@@ -4,6 +4,7 @@ use salvo::oapi::ToSchema;
 use salvo::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::core::crypto_store::certificate_expiry;
 use crate::adapters::rabbitmq::messages::{CertificateChangedMessage, ChangeAction};
 use crate::adapters::api::{app_state::AppState, error_presenter::ErrorResponse as ErrorPresenter, openapi_schemas::ErrorResponse};
 use crate::dto::KeycertDto;
@@ -51,7 +52,8 @@ pub fn api_routes() -> Router {
                 .get(get_certificate)
                 .post(create_certificate)
                 .put(update_certificate)
-                .delete(delete_certificate),
+                .delete(delete_certificate)
+                .push(Router::with_path("/status").get(get_certificate_status)),
         )
 }
 
@@ -124,6 +126,40 @@ pub async fn list_expiring_certificates(req: &mut Request, depot: &mut Depot, re
             res.render(error_response);
         }
     }
+}
+
+/// Get a certificate's expiry without its key material
+#[endpoint(
+    operation_id = "get_certificate_status",
+    summary = "Get certificate expiry",
+    parameters(("domain" = String, Path, description = "The domain name", example = "example.com")),
+    responses(
+        (status_code = 200, description = "Expiry", body = CertificateExpiryRecord),
+        (status_code = 404, description = "No certificate", body = ErrorResponse)
+    )
+)]
+pub async fn get_certificate_status(req: &mut Request, depot: &mut Depot, res: &mut Response) {
+    let domain = req.param::<String>("domain").unwrap_or_default();
+    let app_state = depot.obtain::<std::sync::Arc<AppState>>().unwrap();
+
+    let error_response = match app_state.crypto_store.get_certificate(&domain).await {
+        Ok(Some(certificate)) => {
+            res.render(Json(CertificateExpiryRecord {
+                domain,
+                owner_id: None,
+                expires_at: certificate_expiry(&certificate.cert),
+            }));
+            return;
+        }
+        Ok(None) => ErrorPresenter::from_api_error(&ApiError::Route(RouteError::NotFound {
+            switch: "certificate".to_string(),
+            domain,
+            path: "".to_string(),
+        })),
+        Err(e) => ErrorPresenter::map_error(e),
+    };
+    res.status_code(error_response.status_code);
+    res.render(error_response);
 }
 
 /// Get SSL certificate for a domain

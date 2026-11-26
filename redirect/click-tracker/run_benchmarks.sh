@@ -89,7 +89,6 @@ if ! cargo check --benches 2>&1 | grep -q "Finished"; then
     echo -e "${RED}Error: Project does not compile. Please fix compilation errors first.${NC}"
     echo ""
     echo "Common issues:"
-    echo "  - Check src/core/conversion.rs for missing module declarations"
     echo "  - Run 'cargo check' for detailed error messages"
     exit 1
 fi

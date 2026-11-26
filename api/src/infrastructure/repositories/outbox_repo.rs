@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
-use crate::domain::entities::{ApiError, OutboxMessage, OutboxMessageType, OutboxStatus, Result};
+use crate::domain::entities::{retry_delay_seconds, ApiError, OutboxMessage, OutboxMessageType, OutboxStatus, Result};
 use crate::domain::traits::OutboxRepository;
 
 /// PostgreSQL outbox repository.
@@ -80,6 +80,33 @@ impl OutboxRepository for PgOutboxRepository {
             .ok_or_else(|| ApiError::internal("Failed to retrieve created outbox message"))
     }
 
+    async fn create_unless_pending(&self, message: &OutboxMessage) -> Result<bool> {
+        let payload_str = serde_json::to_string(&message.payload).unwrap_or_else(|_| "{}".to_string());
+
+        let result = sqlx::query(
+            r#"
+            INSERT INTO outbox_messages (id, message_type, payload, status, retry_count, max_retries, created_at)
+            SELECT $1, $2, $3, $4, $5, $6, $7
+            WHERE NOT EXISTS (
+                SELECT 1 FROM outbox_messages
+                WHERE message_type = $2 AND payload = $3 AND status = 'Pending'
+            )
+            "#,
+        )
+        .bind(message.id)
+        .bind(message.message_type.as_str())
+        .bind(&payload_str)
+        .bind(message.status.as_str())
+        .bind(message.retry_count)
+        .bind(message.max_retries)
+        .bind(Utc::now())
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(result.rows_affected() == 1)
+    }
+
     async fn get_pending(&self, limit: i32) -> Result<Vec<OutboxMessage>> {
         let rows = sqlx::query(
             r#"
@@ -96,6 +123,18 @@ impl OutboxRepository for PgOutboxRepository {
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
         Ok(rows.iter().filter_map(|r| Self::map_row(r).ok()).collect())
+    }
+
+    async fn requeue_interrupted(&self) -> Result<i64> {
+        let result = sqlx::query(
+            "UPDATE outbox_messages SET status = 'Pending' \
+             WHERE status = 'Processing' AND message_type = 'PropagateConversion'",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+        Ok(result.rows_affected() as i64)
     }
 
     async fn mark_processing(&self, id: Uuid) -> Result<()> {
@@ -133,7 +172,7 @@ impl OutboxRepository for PgOutboxRepository {
             };
 
             // Exponential backoff
-            let delay_seconds = 2_i64.pow(new_retry_count as u32);
+            let delay_seconds = retry_delay_seconds(new_retry_count);
             let next_retry = Utc::now() + chrono::Duration::seconds(delay_seconds);
 
             sqlx::query(

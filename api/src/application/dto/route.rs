@@ -395,6 +395,11 @@ pub struct RoutePropertiesDto {
     pub opengraph: bool,
     #[serde(default)]
     pub allow_debug: bool,
+    /// Never add a click ID to this route. Unchanged when absent.
+    pub conversion_opt_out: Option<bool>,
+    /// Whether redirects add a click ID. Read-only.
+    #[serde(default, skip_deserializing)]
+    pub track_conversions: bool,
 }
 
 impl RoutePropertiesDto {
@@ -413,6 +418,8 @@ impl RoutePropertiesDto {
             qr_settings: props.qr_settings.as_ref().map(QrSettingsDto::from_entity),
             opengraph: props.opengraph,
             allow_debug: props.allow_debug,
+            conversion_opt_out: Some(props.conversion_opt_out),
+            track_conversions: props.track_conversions,
         }
     }
 
@@ -431,6 +438,8 @@ impl RoutePropertiesDto {
             qr_settings: self.qr_settings.map(|q| q.to_entity()),
             opengraph: self.opengraph,
             allow_debug: self.allow_debug,
+            conversion_opt_out: self.conversion_opt_out.unwrap_or(false),
+            track_conversions: false,
         }
     }
 
@@ -449,6 +458,8 @@ impl RoutePropertiesDto {
             qr_settings: self.qr_settings.map(|q| q.to_entity()).or(existing.qr_settings),
             opengraph: self.opengraph,
             allow_debug: self.allow_debug,
+            conversion_opt_out: self.conversion_opt_out.unwrap_or(existing.conversion_opt_out),
+            track_conversions: existing.track_conversions,
         }
     }
 }
@@ -749,6 +760,8 @@ mod tests {
                 qr_settings: None,
                 opengraph: true,
                 allow_debug: false,
+                conversion_opt_out: None,
+                track_conversions: false,
             }),
             conditions: None,
         };
@@ -824,5 +837,26 @@ mod tests {
 
         let empty = PaginatedRoutesDto::new(vec![], 1, 10, 0);
         assert_eq!(empty.pagination.total_pages, 0);
+    }
+
+    #[test]
+    fn conversion_flags_from_clients() {
+        let dto = |json| serde_json::from_value::<RoutePropertiesDto>(json).unwrap();
+        let sent = dto(serde_json::json!({ "trackConversions": true, "conversionOptOut": true }));
+        let created = sent.clone().to_entity();
+        assert!(created.conversion_opt_out && !created.track_conversions);
+
+        let existing = RouteProperties { track_conversions: false, ..Default::default() };
+        let merged = sent.merge_with(existing);
+        assert!(merged.conversion_opt_out && !merged.track_conversions);
+        let merged = dto(serde_json::json!({ "trackConversions": false })).merge_with(RouteProperties {
+            track_conversions: true,
+            ..merged
+        });
+        assert!(merged.conversion_opt_out && merged.track_conversions, "absent keeps, client value ignored");
+
+        let shown = serde_json::to_value(RoutePropertiesDto::from_entity(&merged)).unwrap();
+        assert_eq!(shown["trackConversions"], true);
+        assert_eq!(shown["conversionOptOut"], true);
     }
 }

@@ -7,17 +7,15 @@ use http::{
 };
 use indexmap::IndexMap;
 use multimap::MultiMap;
-use rand;
-use std::sync::{
-    atomic::{AtomicU64, Ordering},
-    Arc,
-};
+use std::sync::Arc;
 use std::{
     self,
     collections::HashMap,
     fmt::{self, Display, Formatter, Result as FmtResult},
     net::SocketAddr,
 };
+
+use ulid::Ulid;
 
 use crate::{
     adapters::{
@@ -26,11 +24,13 @@ use crate::{
     },
     model::{
         hit::{Click, HitRoute},
+        route::DestinationFormat,
         Hit, Route, UserSettings,
     },
 };
 
 use super::{
+    click_id::add_click_id,
     flow_module::{FlowModule, FlowStepContinuation},
     hits_register::HitRegistrar,
     host::{HostExtractor, HostInfo},
@@ -47,6 +47,9 @@ use super::{
     user_settings::UserSettingsManager,
     InitOnce,
 };
+
+/// The device brand click-tracker counts as a bot too.
+const BOT_DEVICE_BRAND: &str = "Spider";
 
 /// Represents the type of HTTP redirect to be performed
 ///
@@ -78,8 +81,9 @@ pub enum FlowRouterResult {
     Image(Vec<u8>, String, StatusCode),
     /// Proxy the request to another URI and return the response with the specified status code
     Proxied(Uri, StatusCode),
-    /// Perform an HTTP redirect to the specified URI with the given redirect type
-    Redirect(Uri, RedirectType),
+    /// Perform an HTTP redirect to the destination as written. Not a `Uri`,
+    /// which would drop the fragment.
+    Redirect(String, RedirectType),
     /// Handle retargeting with a primary URI and fallback URIs
     Retargeting(Uri, Vec<Uri>),
     /// Indicates an error occurred during processing
@@ -297,6 +301,8 @@ pub struct FlowRouterContext<'a> {
     pub request: &'a RequestType<'a>,
     /// Reference to the response being built
     pub response: &'a ResponseType<'a>,
+    /// The destination with the click ID, when this click was given one
+    pub tracked_destination: Option<String>,
     /// The final result of processing this request
     pub result: Option<FlowRouterResult>,
     /// Debug trace collector (only active when allow_debug=true)
@@ -311,19 +317,8 @@ impl<'a> FlowRouterContext<'a> {
         request: &'a RequestType<'a>,
         response: &'a ResponseType<'a>,
     ) -> Self {
-        // Optimized ID generation with pre-allocation
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs(); // Use seconds instead of nanos to avoid u128
-        let random = rand::random::<u32>();
-
-        let mut id = String::with_capacity(24);
-        use std::fmt::Write;
-        let _ = write!(id, "{}_{}", timestamp, random);
-
         Self {
-            id,
+            id: Ulid::new().to_string(),
             utc: Utc::now(),
             data: HashMap::new(),
             client_os: InitOnce::default(None),
@@ -339,6 +334,7 @@ impl<'a> FlowRouterContext<'a> {
             protocol: None,
             out_route: None,
             main_route: None,
+            tracked_destination: None,
             result: None,
             request,
             response,
@@ -477,8 +473,8 @@ pub struct FlowRouter {
     modules: Vec<FlowModules>,
     /// Metrics collection for monitoring and observability
     metrics: FlowRouterMetrics,
-    /// Atomic counter for generating unique request IDs
-    request_counter: AtomicU64,
+    /// Add click IDs to the destinations of covered routes
+    click_ids_enabled: bool,
 }
 
 impl FlowRouter {
@@ -515,7 +511,7 @@ impl FlowRouter {
             location_detector,
             modules,
             metrics: METRICS.clone(),
-            request_counter: AtomicU64::new(0),
+            click_ids_enabled: false,
         }
     }
 
@@ -542,8 +538,37 @@ impl FlowRouter {
             location_detector,
             modules,
             metrics,
-            request_counter: AtomicU64::new(0),
+            click_ids_enabled: false,
         }
+    }
+
+    /// Add click IDs to the destinations of covered routes.
+    pub fn with_click_ids(mut self, enabled: bool) -> Self {
+        self.click_ids_enabled = enabled;
+        self
+    }
+
+    /// The destination with this click's ID, if it should have one.
+    fn tracked_destination(&self, context: &mut FlowRouterContext) -> Option<String> {
+        if !self.click_ids_enabled {
+            return None;
+        }
+        let covered = context
+            .main_route
+            .as_ref()
+            .is_some_and(|r| r.properties.track_conversions && !r.properties.conversion_opt_out);
+        let route = context.out_route.clone()?;
+        if !covered || !matches!(route.dest_format, DestinationFormat::Http) {
+            return None;
+        }
+
+        self.load_device(context);
+        let device = context.client_device.as_ref().as_ref();
+        if device.and_then(|d| d.brand.as_deref()) == Some(BOT_DEVICE_BRAND) {
+            return None;
+        }
+
+        add_click_id(route.dest.as_deref()?, &context.id)
     }
 
     /// Get a reference to the hit registrar
@@ -554,27 +579,6 @@ impl FlowRouter {
     /// Get a reference to the metrics
     pub fn metrics(&self) -> &FlowRouterMetrics {
         &self.metrics
-    }
-
-    /// Generate an efficient request ID with minimal allocations
-    fn generate_request_id(&self) -> String {
-        // Use a simple counter-based ID instead of ULID for better performance
-        // Format: timestamp_counter (e.g., "1696234567_123")
-        let counter = self.request_counter.fetch_add(1, Ordering::Relaxed);
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-
-        // Pre-allocate capacity to avoid reallocations
-        // timestamp (10 digits) + '_' (1) + counter (10 digits max) = ~21 bytes
-        let mut id = String::with_capacity(24);
-
-        // Use write! macro which is faster than format! for this use case
-        use std::fmt::Write;
-        let _ = write!(id, "{}_{}", timestamp, counter);
-
-        id
     }
 
     /// Processes a request through the iterative flow state machine
@@ -667,6 +671,13 @@ impl FlowRouter {
                 (FlowStep::UrlExtract, true) => FlowStep::Register,
                 (FlowStep::Register, true) => FlowStep::BuildResult,
                 (FlowStep::BuildResult, true) => FlowStep::End,
+                // A module skipped the steps before the result
+                (step, false)
+                    if context.current_step == FlowStep::BuildResult
+                        && step != FlowStep::BuildResult =>
+                {
+                    FlowStep::BuildResult
+                }
                 (_, false) => break, // Flow was interrupted by a module
                 (FlowStep::Initial, true) => return Err(anyhow::anyhow!("Invalid initial state")),
                 (FlowStep::End, true) => break, // Should not reach here due to explicit break above
@@ -771,6 +782,8 @@ impl FlowRouter {
             None
         };
 
+        context.tracked_destination = self.tracked_destination(context);
+
         let click = Click::new(
             context
                 .out_route
@@ -790,7 +803,8 @@ impl FlowRouter {
             &click,
             HitRoute::from_route(&context.main_route),
             hit_trace.clone(),
-        );
+        )
+        .trackable(context.tracked_destination.is_some());
 
         // Log hit JSON for debug routes before sending to click-tracker
         if trace_enabled {
@@ -839,7 +853,11 @@ impl FlowRouter {
             }
         }
 
-        hit_result?;
+        // A lost click must not break the link, but can't be converted either.
+        if let Err(e) = hit_result {
+            tracing::error!(error = %e, "Failed to register a click");
+            context.tracked_destination = None;
+        }
 
         Ok(true) // Continue to next step
     }
@@ -859,16 +877,12 @@ impl FlowRouter {
 
         let result = match &context.out_route {
             Some(route) => {
-                // Parse straight from `&str` - no need to allocate an owned
-                // `String` just to hand it to `Uri::parse`, and
-                // `unwrap_or_else` avoids allocating the fallback on every
-                // redirect that already has a `dest`.
-                let destination = route
-                    .dest
-                    .as_deref()
-                    .unwrap_or_else(|| "http://test.com");
+                let destination = match context.tracked_destination.take() {
+                    Some(destination) => destination,
+                    None => route.dest.as_deref().unwrap_or("http://test.com").to_string(),
+                };
 
-                FlowRouterResult::Redirect(destination.parse().unwrap(), RedirectType::Temporary)
+                FlowRouterResult::Redirect(destination, RedirectType::Temporary)
             }
             None => FlowRouterResult::Empty(StatusCode::NOT_FOUND),
         };
@@ -1103,7 +1117,7 @@ impl FlowRouter {
         res: &'a ResponseType<'a>,
     ) -> FlowRouterContext<'a> {
         let mut context = FlowRouterContext {
-            id: self.generate_request_id(),
+            id: Ulid::new().to_string(),
             utc: Utc::now(),
             data: HashMap::new(),
             client_os: InitOnce::default(None),
@@ -1119,6 +1133,7 @@ impl FlowRouter {
             protocol: None,
             out_route: None,
             main_route: None,
+            tracked_destination: None,
             result: None,
             request: req,
             response: res,

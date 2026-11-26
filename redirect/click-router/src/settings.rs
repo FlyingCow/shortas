@@ -2,12 +2,14 @@ use config::{Config, ConfigError, Environment, File};
 use serde_derive::Deserialize;
 
 use crate::adapters::aws::settings::AWS;
-use crate::adapters::fluvio::settings::Fluvio;
+use crate::adapters::fluvio::settings::{Fluvio, HitStreamConfig};
 use crate::adapters::geo_ip::settings::GeoIP;
 use crate::adapters::moka::settings::Moka;
 use crate::adapters::mongodb::settings::Mongodb;
 use crate::adapters::rabbitmq::settings::RabbitMqSettings;
 use crate::adapters::uaparser::settings::UAParser;
+use crate::core::rate_limit::Rate;
+
 #[derive(Default, Debug, Deserialize, Clone)]
 #[allow(unused)]
 pub struct Redirect {
@@ -18,6 +20,9 @@ pub struct Redirect {
     /// QR images are fetched from: {qr_images_base_url}/{owner_id}/{route_id}/qr.svg
     #[serde(default)]
     pub qr_images_base_url: Option<String>,
+    /// Add `shortas_cid` to the destinations of routes covered by conversions.
+    #[serde(default)]
+    pub click_ids_enabled: bool,
 }
 #[derive(Default, Debug, Deserialize, Clone)]
 #[allow(unused)]
@@ -26,6 +31,40 @@ pub struct Server {
     pub listen_os_signals: bool,
     pub exit: bool,
 }
+/// Conversion endpoints.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct Conversions {
+    pub enabled: bool,
+    /// Must be acknowledged, so the linger time delays every response.
+    pub stream: HitStreamConfig,
+    /// Networks whose `X-Forwarded-For` is believed.
+    pub trusted_proxies: Vec<String>,
+    pub max_concurrent_requests: usize,
+    /// Per client address. Servers with a valid secret key are exempt.
+    pub address_rate: Rate,
+    /// Per conversion, separately for browsers and servers.
+    pub key_rate: Rate,
+}
+
+impl Default for Conversions {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            stream: HitStreamConfig {
+                host: "sc:9003".into(),
+                topic: "conversion-stream-main".into(),
+                batch_size: 100_000,
+                linger: 5,
+            },
+            trusted_proxies: vec![],
+            max_concurrent_requests: 256,
+            address_rate: Rate { per_second: 20.0, burst: 100.0 },
+            key_rate: Rate { per_second: 200.0, burst: 1_000.0 },
+        }
+    }
+}
+
 /// HTTPS listener settings.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(default)]
@@ -60,6 +99,8 @@ impl Default for Tls {
 pub struct Settings {
     #[serde(default)]
     pub tls: Tls,
+    #[serde(default)]
+    pub conversions: Conversions,
     pub aws: AWS,
     pub mongodb: Mongodb,
     pub fluvio: Fluvio,

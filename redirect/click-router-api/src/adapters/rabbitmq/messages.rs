@@ -79,6 +79,12 @@ pub struct CertificateChangedMessage {
     pub action: ChangeAction,
 }
 
+/// A conversion definition was stored. Routers reload it on next use.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversionChangedMessage {
+    pub public_key: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

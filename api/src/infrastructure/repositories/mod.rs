@@ -1,15 +1,18 @@
 //! Repository implementations using SQLx.
 
 pub mod certificate_repo;
+pub mod conversion_repo;
 pub mod domain_repo;
 pub mod invitation_repo;
 pub mod notification_repo;
 pub mod outbox_repo;
+mod route_coverage;
 pub mod route_repo;
 pub mod user_repo;
 pub mod workspace_repo;
 
 pub use certificate_repo::*;
+pub use conversion_repo::*;
 pub use domain_repo::*;
 pub use invitation_repo::*;
 pub use notification_repo::*;

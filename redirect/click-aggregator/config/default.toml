@@ -9,6 +9,15 @@ topic = "click-aggs-local"
 host = "fluvio:9103"
 consumer = "click_aggs"
 
+[conversions]
+enabled = true
+reconcile_millis = 5000
+
+[conversions.stream]
+topic = "conversion-stream-main"
+host = "sc:9003"
+consumer = "conversions"
+
 [clickhouse]
 [clickhouse.click_stream_store]
 url = "http://localhost:8123"

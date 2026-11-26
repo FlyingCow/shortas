@@ -589,6 +589,7 @@ mod tests {
                 route_exchange: "cache.invalidation.routes".into(),
                 user_settings_exchange: "cache.invalidation.user_settings".into(),
                 certificate_exchange: "cache.invalidation.certificates".into(),
+                conversion_exchange: "cache.invalidation.conversions".into(),
                 reconnect_seconds: 1,
             },
             RoutesCacheType::Moka(MokaRoutesCache::new(
@@ -600,6 +601,7 @@ mod tests {
                 UserSettingsCacheSettings { max_capacity: 1, time_to_live_minutes: 1, time_to_idle_minutes: 1 },
             )),
             Some(cache.clone()),
+            None,
         );
         tokio::time::sleep(Duration::from_secs(3)).await;
 

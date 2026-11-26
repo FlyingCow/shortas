@@ -51,6 +51,8 @@ pub enum OutboxMessageType {
     /// Publish a notification event to RabbitMQ for the notification-worker
     /// to render (from its S3 template set) and deliver.
     PublishNotificationEvent,
+    /// Send a conversion's current definition to Click Router API.
+    PropagateConversion,
 }
 
 impl OutboxMessageType {
@@ -62,6 +64,7 @@ impl OutboxMessageType {
             OutboxMessageType::CheckRouteSafety => "CheckRouteSafety",
             OutboxMessageType::DeleteRouteSafetyCheck => "DeleteRouteSafetyCheck",
             OutboxMessageType::PublishNotificationEvent => "PublishNotificationEvent",
+            OutboxMessageType::PropagateConversion => "PropagateConversion",
         }
     }
 
@@ -73,9 +76,15 @@ impl OutboxMessageType {
             "CheckRouteSafety" => Some(OutboxMessageType::CheckRouteSafety),
             "DeleteRouteSafetyCheck" => Some(OutboxMessageType::DeleteRouteSafetyCheck),
             "PublishNotificationEvent" => Some(OutboxMessageType::PublishNotificationEvent),
+            "PropagateConversion" => Some(OutboxMessageType::PropagateConversion),
             _ => None,
         }
     }
+}
+
+/// Exponential backoff of up to about five minutes.
+pub fn retry_delay_seconds(retry_count: i32) -> i64 {
+    2_i64.pow(retry_count.clamp(0, 8) as u32)
 }
 
 /// Outbox message entity.
@@ -134,6 +143,13 @@ impl OutboxMessage {
         )
     }
 
+    /// Like `verify_domain`, retried until delivered.
+    pub fn verify_shared_domain(domain_id: Uuid) -> Self {
+        let mut message = Self::verify_domain(domain_id);
+        message.max_retries = i32::MAX;
+        message
+    }
+
     /// Create a message to check route safety.
     pub fn check_route_safety(route_id: Uuid, url: String) -> Self {
         Self::new(
@@ -148,6 +164,24 @@ impl OutboxMessage {
             OutboxMessageType::DeleteRouteSafetyCheck,
             serde_json::json!({ "route_id": route_id }),
         )
+    }
+
+    /// Create a message to propagate a conversion. Retried until delivered.
+    pub fn propagate_conversion(
+        workspace_id: Uuid,
+        conversion_id: Uuid,
+        public_key: &str,
+    ) -> Self {
+        let mut message = Self::new(
+            OutboxMessageType::PropagateConversion,
+            serde_json::json!({
+                "workspace_id": workspace_id,
+                "conversion_id": conversion_id,
+                "public_key": public_key,
+            }),
+        );
+        message.max_retries = i32::MAX;
+        message
     }
 
     /// Create a message to publish a notification event. `idempotency_key`
@@ -195,7 +229,7 @@ impl OutboxMessage {
         } else {
             self.status = OutboxStatus::Pending;
             // Exponential backoff: 2^retry_count seconds
-            let delay = chrono::Duration::seconds(2_i64.pow(self.retry_count as u32));
+            let delay = chrono::Duration::seconds(retry_delay_seconds(self.retry_count));
             self.next_retry_at = Some(Utc::now() + delay);
         }
     }

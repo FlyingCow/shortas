@@ -155,6 +155,12 @@ pub struct RouteProperties {
     pub opengraph: bool,
     #[serde(default)]
     pub allow_debug: bool,
+    /// Set by users to keep click IDs off this route's destination.
+    #[serde(default)]
+    pub conversion_opt_out: bool,
+    /// Computed when the route is saved; see `route_coverage`.
+    #[serde(default)]
+    pub track_conversions: bool,
 }
 
 impl Default for RouteProperties {
@@ -173,6 +179,8 @@ impl Default for RouteProperties {
             qr_settings: None,
             opengraph: false,
             allow_debug: false,
+            conversion_opt_out: false,
+            track_conversions: false,
         }
     }
 }
@@ -214,6 +222,18 @@ impl Route {
             properties,
             ..Default::default()
         }
+    }
+
+    /// The router lowercases requested paths, so links are stored that way.
+    pub fn normalize_link(&mut self) {
+        self.link.make_ascii_lowercase();
+    }
+
+    /// Whether the link is under the path of the conversion endpoints.
+    pub fn link_is_reserved(&self) -> bool {
+        let link = self.link.trim_start_matches('/').to_ascii_lowercase();
+        link.strip_prefix(".well-known/shortas")
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
     }
 
     /// Build a route family from a conditional route.
@@ -410,6 +430,17 @@ mod tests {
                 assert!(conditions.iter().all(|c| c.dest.is_none()));
             }
             other => panic!("expected conditional policy on master, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn conversion_path_is_reserved() {
+        let reserved = |link: &str| Route { link: link.into(), ..Default::default() }.link_is_reserved();
+        for link in [".well-known/shortas", "/.well-known/shortas/x", ".Well-Known/Shortas/c/a.js"] {
+            assert!(reserved(link), "{link}");
+        }
+        for link in ["conversions/track", ".well-known/shortasx", ".well-known/other", "x/.well-known/shortas/"] {
+            assert!(!reserved(link), "{link}");
         }
     }
 }

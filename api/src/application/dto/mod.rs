@@ -1,6 +1,7 @@
 //! Data Transfer Objects for API requests and responses.
 
 pub mod certificate;
+pub mod conversion;
 pub mod domain;
 pub mod invitation;
 pub mod notification;
@@ -9,6 +10,7 @@ pub mod user;
 pub mod workspace;
 
 pub use certificate::*;
+pub use conversion::*;
 pub use domain::*;
 pub use invitation::*;
 pub use notification::*;

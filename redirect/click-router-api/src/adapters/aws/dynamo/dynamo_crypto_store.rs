@@ -8,6 +8,7 @@ use aws_sdk_dynamodb::operation::get_item::GetItemOutput;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 
+use crate::core::crypto_store::certificate_expiry;
 use crate::core::CryptoStore;
 use crate::model::{CertificateInfo, Keycert};
 
@@ -54,17 +55,6 @@ impl DynamoCryptoStore {
             Some(result)
         })
     }
-
-    /// Extract expiry date from PEM certificate
-    fn extract_expiry_from_cert(cert_pem: &[u8]) -> Option<DateTime<Utc>> {
-        use x509_parser::prelude::*;
-
-        let pem_str = std::str::from_utf8(cert_pem).ok()?;
-        let (_, pem) = x509_parser::pem::parse_x509_pem(pem_str.as_bytes()).ok()?;
-        let (_, cert) = X509Certificate::from_der(&pem.contents).ok()?;
-        let not_after = cert.validity().not_after;
-        DateTime::from_timestamp(not_after.timestamp(), 0)
-    }
 }
 
 #[async_trait::async_trait()]
@@ -98,7 +88,7 @@ impl CryptoStore for DynamoCryptoStore {
         }
 
         // Extract expiry from certificate
-        if let Some(expires_at) = Self::extract_expiry_from_cert(&certificate.cert) {
+        if let Some(expires_at) = certificate_expiry(&certificate.cert) {
             request = request.item("expires_at", AttributeValue::N(expires_at.timestamp_millis().to_string()));
         }
 
@@ -126,7 +116,7 @@ impl CryptoStore for DynamoCryptoStore {
         }
 
         // Extract expiry from certificate
-        if let Some(expires_at) = Self::extract_expiry_from_cert(&certificate.cert) {
+        if let Some(expires_at) = certificate_expiry(&certificate.cert) {
             request = request.item("expires_at", AttributeValue::N(expires_at.timestamp_millis().to_string()));
         }
 

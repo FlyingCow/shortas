@@ -3,7 +3,7 @@ use tracing::info;
 
 use crate::{
     adapters::mongodb::{
-        crypto_store::MongodbCryptoStore,
+        conversion_store::MongodbConversionStore, crypto_store::MongodbCryptoStore,
         routes_store::MongodbRoutesStore, user_settings_store::MongodbUserSettingsStore,
     },
     app_builder::AppBuilder,
@@ -34,6 +34,10 @@ impl AppBuilder {
             &self.settings.mongodb.user_settings_collection,
         )) as Box<_>);
 
+        self.conversion_store = Some(Box::new(MongodbConversionStore::new(
+            &database,
+            &self.settings.mongodb.conversions_collection,
+        )));
         self.routes_store = routes_store;
         self.crypto_store = crypto_store;
         self.user_settings_store = user_settings_store;

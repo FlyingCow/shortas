@@ -10,9 +10,9 @@ See proposal.md for motivation. `conversion_events` and the trackable-clicks vie
 
 **Non-Goals:** cohorts, multi-touch, goals, currency conversion, exports, referrer.
 
-## Assumptions (unconfirmed)
+## Confirmed with the user
 
-The chart list and the final-step revenue rule were proposed, not explicitly confirmed. Task 1.1 settles them.
+Revenue counts the final step only. The chart list is proposed and has not been confirmed separately; task 1.1 settles it.
 
 ## Decisions
 

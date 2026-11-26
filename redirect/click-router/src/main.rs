@@ -44,7 +44,6 @@ use tokio::time::{timeout, Duration};
 
 use click_router::{
     adapters::{
-        api::conversion_routes,
         axum::{axum_proxy::{Client, hyper_client::HyperClient}, parse_queries, AxumRequest, AxumResponse},
         tls::SniAcceptor,
         RequestType, ResponseType,
@@ -206,12 +205,16 @@ async fn redirect_handler(
                         RedirectType::Permanent => StatusCode::PERMANENT_REDIRECT,
                         RedirectType::Temporary => StatusCode::TEMPORARY_REDIRECT,
                     };
-                    (
-                        status,
-                        [(http::header::LOCATION, url.to_string())],
-                        "",
-                    )
-                        .into_response()
+                    // Bytes, because a destination may be UTF-8
+                    match http::HeaderValue::from_bytes(url.as_bytes()) {
+                        Ok(location) => {
+                            (status, [(http::header::LOCATION, location)], "").into_response()
+                        }
+                        Err(_) => {
+                            METRICS.requests_error.inc();
+                            (StatusCode::INTERNAL_SERVER_ERROR, "").into_response()
+                        }
+                    }
                 }
                 FlowRouterResult::Retargeting(url, _script_urls) => url.to_string().into_response(),
                 FlowRouterResult::Error => {
@@ -322,12 +325,16 @@ async fn main() {
     // Get crypto cache for dynamic certificate resolution before building
     let crypto_cache = app_builder.get_crypto_cache();
 
+    let conversion_endpoints = app_builder
+        .conversion_endpoints()
+        .expect("Invalid conversion settings");
+
     let flow_router = app_builder.build();
     init_flow_router(flow_router);
 
     // Create routers for HTTP and HTTPS servers
     let app = Router::new()
-        .merge(conversion_routes::conversion_routes())
+        .merge(conversion_endpoints)
         // Axum's "/*rest_path" wildcard requires at least one segment after
         // the slash to capture, so it never matches the bare root path "/" -
         // every domain's index page has been 404ing at this routing layer,

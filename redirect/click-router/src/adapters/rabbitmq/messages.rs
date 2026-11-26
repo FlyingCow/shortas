@@ -42,3 +42,9 @@ pub struct CertificateChangedMessage {
     pub domain: String,
     pub action: ChangeAction,
 }
+
+/// A conversion definition was stored.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversionChangedMessage {
+    pub public_key: String,
+}

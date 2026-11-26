@@ -22,6 +22,17 @@ const FILL_THRESHOLD: f64 = 0.3; // grow length when >30% of space is used
 const MAX_RETRIES: usize = 3;
 
 /// Route service for managing routes.
+/// How far [`RouteService::send_pending_coverage`] got.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoverageProgress {
+    /// Nothing is left after the starting point.
+    Done,
+    /// A full page was sent; continue after this route.
+    More(Uuid),
+    /// The router kept failing; retry later, after this route.
+    Stalled(Uuid),
+}
+
 pub struct RouteService {
     route_repo: Arc<dyn RouteRepository>,
     domain_repo: Arc<dyn DomainRepository>,
@@ -143,6 +154,9 @@ impl RouteService {
             route.link = self.suggest_link(domain_id).await?;
         }
 
+        route.normalize_link();
+        check_not_reserved(&route)?;
+
         // Check link uniqueness
         if self.route_repo.link_exists(domain_id, &route.link).await? {
             return Err(ApiError::conflict(format!(
@@ -190,6 +204,7 @@ impl RouteService {
         route.properties.owner_id = existing.properties.owner_id.clone();
         route.properties.creator_id = existing.properties.creator_id.clone();
         route.properties.route_id = existing.properties.route_id.clone();
+        self.check_workspace_move(&existing, &mut route, user_id).await?;
 
         let dest_changed = existing.dest != route.dest;
 
@@ -283,6 +298,8 @@ impl RouteService {
         // Validate all routes and resolve each one's effective owner (see
         // `resolve_route_owner` - same shared-workspace rules as `create`).
         for route in &mut routes {
+            route.normalize_link();
+            check_not_reserved(route)?;
             let Some(domain_id) = route.domain_id else {
                 return Err(ApiError::required("domain_id"));
             };
@@ -573,6 +590,29 @@ impl RouteService {
         }
     }
 
+    /// A route's clicks and conversions count in its workspace, so only an
+    /// Owner or Admin there may move one in.
+    async fn check_workspace_move(
+        &self,
+        existing: &Route,
+        route: &mut Route,
+        user_id: &str,
+    ) -> Result<()> {
+        let parse = |r: &Route| r.properties.workspace_id.as_deref().map(Uuid::parse_str);
+        let current = parse(existing).and_then(|id| id.ok());
+        let target = match parse(route) {
+            _ if route.properties.workspace_id == existing.properties.workspace_id => return Ok(()),
+            None => return Ok(()),
+            Some(Ok(target)) => target,
+            Some(Err(_)) => return Err(ApiError::validation("Invalid workspace ID")),
+        };
+        route.properties.workspace_id = Some(target.to_string());
+        if current == Some(target) || self.has_workspace_admin_access(route, user_id).await {
+            return Ok(());
+        }
+        Err(ApiError::forbidden())
+    }
+
     /// Determine who a new route should belong to, and that the caller is
     /// actually allowed to create one in the given context.
     ///
@@ -613,16 +653,83 @@ impl RouteService {
 
     /// Propagate route to click-router.
     async fn propagate_route(&self, route: &Route, domain_name: &str) -> Result<()> {
-        // Build route family for conditional routes
-        let family = route.clone().build_family();
+        let mut route = route.clone();
+        // Coverage can change while the route is being sent. Send it again
+        // then, so the router never keeps the older value.
+        for _ in 0..3 {
+            // Build route family for conditional routes
+            for r in route.clone().build_family() {
+                self.click_router
+                    .upsert_route(domain_name, &r)
+                    .await
+                    .map_err(|e| ApiError::external_service(e.to_string()))?;
+            }
 
-        for r in family {
-            self.click_router
-                .upsert_route(domain_name, &r)
-                .await
-                .map_err(|e| ApiError::external_service(e.to_string()))?;
+            let sent = route.properties.track_conversions;
+            match self.route_repo.mark_coverage_sent(route.id, sent).await? {
+                Some(wanted) if wanted != sent => route.properties.track_conversions = wanted,
+                _ => break,
+            }
         }
 
+        Ok(())
+    }
+
+    /// Send changed conversion coverage to the router, one page of routes
+    /// after `after`. What was sent is recorded per route, so an interrupted
+    /// run continues where it stopped.
+    pub async fn send_pending_coverage(&self, after: Uuid) -> Result<CoverageProgress> {
+        const PAGE: i64 = 200;
+        const MAX_FAILURES: u32 = 5;
+
+        let ids = self.route_repo.pending_coverage(after, PAGE).await?;
+        let mut failures = 0;
+        for id in &ids {
+            match self.send_coverage(*id).await {
+                Ok(()) => failures = 0,
+                Err(e) => {
+                    warn!(route_id = %id, error = %e, "Failed to send conversion coverage");
+                    failures += 1;
+                    // Probably an outage. Continue after this route next time,
+                    // so a few bad routes can't hold up the rest.
+                    if failures == MAX_FAILURES {
+                        return Ok(CoverageProgress::Stalled(*id));
+                    }
+                }
+            }
+        }
+        Ok(match ids.last() {
+            Some(last) if ids.len() as i64 == PAGE => CoverageProgress::More(*last),
+            _ => CoverageProgress::Done,
+        })
+    }
+
+    async fn send_coverage(&self, id: Uuid) -> Result<()> {
+        let Some(mut route) = self.route_repo.get_by_id(id).await? else {
+            return Ok(());
+        };
+        let domain = match route.domain_id {
+            Some(domain_id) => self.domain_repo.get_by_id(domain_id).await?,
+            None => None,
+        };
+        let Some(domain) = domain else {
+            // Unreachable without a domain, so there is nothing to send.
+            self.route_repo
+                .mark_coverage_sent(id, route.properties.track_conversions)
+                .await?;
+            return Ok(());
+        };
+
+        // The route may be edited or deleted meanwhile; don't leave the
+        // router with what was read here.
+        for _ in 0..3 {
+            self.propagate_route(&route, &domain.name).await?;
+            match self.route_repo.get_by_id(id).await? {
+                Some(current) if current == route => break,
+                Some(current) => route = current,
+                None => return self.delete_from_click_router(&route, &domain.name).await,
+            }
+        }
         Ok(())
     }
 
@@ -640,6 +747,15 @@ impl RouteService {
 
         Ok(())
     }
+}
+
+fn check_not_reserved(route: &Route) -> Result<()> {
+    if route.link_is_reserved() {
+        return Err(ApiError::validation(
+            "Links under '.well-known/shortas/' are reserved",
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -689,11 +805,14 @@ mod tests {
     }
 
     async fn service(
-        route_repo: MockRouteRepository,
+        mut route_repo: MockRouteRepository,
         domain_repo: MockDomainRepository,
         outbox_repo: MockOutboxRepository,
         workspace_repo: MockWorkspaceRepository,
     ) -> RouteService {
+        route_repo
+            .expect_mark_coverage_sent()
+            .returning(|_, sent| Ok(Some(sent)));
         RouteService::new(
             Arc::new(route_repo),
             Arc::new(domain_repo),
@@ -1162,5 +1281,111 @@ mod tests {
         let svc = service(route_repo, domain_repo, outbox_repo, MockWorkspaceRepository::new()).await;
 
         svc.delete(route_id, "owner-1").await.unwrap();
+    }
+
+    // --- workspace moves and conversion coverage ---
+
+    fn in_workspace(workspace: Uuid, owner: &str) -> Route {
+        let mut route = route_with_domain(Uuid::new_v4(), "a");
+        route.properties.owner_id = Some(owner.into());
+        route.properties.workspace_id = Some(workspace.to_string());
+        route
+    }
+
+    #[tokio::test]
+    async fn moving_a_route_needs_admin_in_the_target_workspace() {
+        let (from, to) = (Uuid::new_v4(), Uuid::new_v4());
+        for (role, allowed) in [(None, false), (Some("Member"), false), (Some("Admin"), true), (Some("Owner"), true)] {
+            let existing = in_workspace(from, "u");
+            let mut route_repo = MockRouteRepository::new();
+            let found = existing.clone();
+            route_repo.expect_get_by_id().returning(move |_| Ok(Some(found.clone())));
+            route_repo.expect_update().times(usize::from(allowed)).returning(|r| Ok(r.clone()));
+            let mut domain_repo = MockDomainRepository::new();
+            domain_repo.expect_get_by_id().returning(|_| Ok(Some(sample_domain("u"))));
+            let mut outbox = MockOutboxRepository::new();
+            outbox.expect_create().returning(|m| Ok(m.clone()));
+            let mut workspaces = MockWorkspaceRepository::new();
+            workspaces.expect_get_membership().returning(move |id, user| {
+                assert_eq!(id, to);
+                Ok(role.map(|r| UserWorkspace::new(user.to_string(), id, r.to_string())))
+            });
+            let svc = service(route_repo, domain_repo, outbox, workspaces).await;
+
+            let mut moved = existing.clone();
+            moved.properties.workspace_id = Some(to.to_string());
+            assert_eq!(svc.update(existing.id, moved, "u").await.is_ok(), allowed, "{role:?}");
+        }
+    }
+
+    /// Coverage changing while a route is sent makes it be sent again.
+    #[tokio::test]
+    async fn coverage_changed_while_sending_is_sent_again() {
+        let server = MockServer::start().await;
+        Mock::given(method("PUT")).respond_with(ResponseTemplate::new(200)).mount(&server).await;
+        let mut route_repo = MockRouteRepository::new();
+        route_repo.expect_mark_coverage_sent().times(2).returning(|_, _| Ok(Some(true)));
+        let svc = RouteService::new(
+            Arc::new(route_repo),
+            Arc::new(MockDomainRepository::new()),
+            Arc::new(MockOutboxRepository::new()),
+            Arc::new(ClickRouterClient::new(&ClickRouterSettings { base_url: server.uri(), timeout_ms: 5000 }).unwrap()),
+            Arc::new(MockWorkspaceRepository::new()),
+        );
+        let mut route = in_workspace(Uuid::new_v4(), "u");
+        route.properties.route_id = Some(route.id.to_string());
+        svc.propagate_route(&route, "example.com").await.unwrap();
+
+        let sent: Vec<bool> = server.received_requests().await.unwrap().iter()
+            .map(|r| r.body_json::<serde_json::Value>().unwrap()["properties"]["trackConversions"] == true)
+            .collect();
+        assert_eq!(sent, [false, true]);
+    }
+
+    /// An outage ends the run early, and the next one continues after it.
+    #[tokio::test]
+    async fn sending_coverage_stops_during_an_outage() {
+        let server = MockServer::start().await;
+        Mock::given(method("PUT")).respond_with(ResponseTemplate::new(503)).mount(&server).await;
+        let mut ids: Vec<Uuid> = (0..20).map(|_| Uuid::new_v4()).collect();
+        ids.sort();
+        let mut route_repo = MockRouteRepository::new();
+        let pending = ids.clone();
+        route_repo.expect_pending_coverage().returning(move |_, _| Ok(pending.clone()));
+        route_repo.expect_get_by_id().times(5).returning(|id| Ok(Some(Route { id, ..in_workspace(Uuid::new_v4(), "u") })));
+        route_repo.expect_mark_coverage_sent().never();
+        let mut domain_repo = MockDomainRepository::new();
+        domain_repo.expect_get_by_id().returning(|_| Ok(Some(sample_domain("u"))));
+        let svc = RouteService::new(
+            Arc::new(route_repo),
+            Arc::new(domain_repo),
+            Arc::new(MockOutboxRepository::new()),
+            Arc::new(ClickRouterClient::new(&ClickRouterSettings { base_url: server.uri(), timeout_ms: 5000 }).unwrap()),
+            Arc::new(MockWorkspaceRepository::new()),
+        );
+        assert_eq!(svc.send_pending_coverage(Uuid::nil()).await.unwrap(), CoverageProgress::Stalled(ids[4]));
+    }
+
+    /// The router only finds lowercase links.
+    #[tokio::test]
+    async fn links_are_saved_in_lowercase() {
+        for bulk in [false, true] {
+            let mut route_repo = MockRouteRepository::new();
+            route_repo.expect_link_exists().withf(|_, link| link == "sale-é").returning(|_, _| Ok(false));
+            route_repo.expect_create().returning(|r| Ok(r.clone()));
+            route_repo.expect_bulk_create().returning(|r| Ok(r.to_vec()));
+            let mut domain_repo = MockDomainRepository::new();
+            domain_repo.expect_get_by_id().returning(|_| Ok(Some(sample_domain("u"))));
+            let mut outbox = MockOutboxRepository::new();
+            outbox.expect_create().returning(|m| Ok(m.clone()));
+            let svc = service(route_repo, domain_repo, outbox, MockWorkspaceRepository::new()).await;
+            let route = route_with_domain(Uuid::new_v4(), "SALE-é");
+            let saved = if bulk {
+                svc.bulk_create(vec![route], "u").await.unwrap().remove(0)
+            } else {
+                svc.create(route, "u").await.unwrap()
+            };
+            assert_eq!(saved.link, "sale-é");
+        }
     }
 }

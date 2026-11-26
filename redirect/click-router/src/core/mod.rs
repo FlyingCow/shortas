@@ -1,4 +1,12 @@
 pub mod challenge;
+pub mod client_address;
+pub mod conversion_events;
+pub mod conversion_publisher;
+pub mod rate_limit;
+pub mod click_id;
+#[cfg(test)]
+mod click_tracking_tests;
+pub mod conversion_definitions;
 pub mod crypto;
 
 pub mod routes;
@@ -19,13 +27,11 @@ pub mod hits_register;
 pub mod location;
 pub mod metrics;
 pub mod metrics_endpoint;
-pub mod conversion;
 pub mod trace;
 
 pub use crypto::CryptoStore;
 pub use routes::RoutesStore;
 pub use user_settings::UserSettingsStore;
-pub use conversion::{ConversionEvent, ConversionFunnelStep};
 
 #[derive(Debug, Clone)]
 pub struct InitOnce<T> {

@@ -13,6 +13,7 @@ use tokio::sync::broadcast;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
+use api::application::services::shared_domains::seed_shared_domains;
 use api::infrastructure::messaging::{
     NotificationPublisher, OutboxProcessor, RabbitMqConsumer,
 };
@@ -69,12 +70,16 @@ async fn main() -> Result<()> {
         .await?;
     info!("Database migrations completed");
 
-    // Seed shared domains
-    seed_shared_domains(&pool, &settings.shared_domains.names).await?;
-
     // Create application state
     let app_state = AppState::new(settings.clone(), pool.clone()).await?;
     info!("Initialized application state");
+
+    seed_shared_domains(
+        app_state.domain_repo.as_ref(),
+        app_state.outbox_repo.as_ref(),
+        &settings.shared_domains.names,
+    )
+    .await?;
 
     // Create shutdown channel
     let (shutdown_tx, _) = broadcast::channel::<()>(1);
@@ -91,6 +96,8 @@ async fn main() -> Result<()> {
         notification_publisher,
         app_state.route_verifier.clone(),
         app_state.domain_verifier.clone(),
+        app_state.conversion_repo.clone(),
+        app_state.click_router.clone(),
     ));
 
     let outbox_shutdown = shutdown_tx.subscribe();
@@ -99,6 +106,11 @@ async fn main() -> Result<()> {
         outbox.start(outbox_shutdown).await;
     });
     info!("Started outbox processor");
+
+    // Send conversion coverage to the router and finish activations
+    let coverage_sync = app_state.coverage_sync.clone();
+    let coverage_shutdown = shutdown_tx.subscribe();
+    tokio::spawn(async move { coverage_sync.run(coverage_shutdown).await });
 
     // Start RabbitMQ consumers
     if let Ok(consumer) = RabbitMqConsumer::new(&settings.rabbitmq).await {
@@ -167,64 +179,5 @@ async fn main() -> Result<()> {
     }
 
     info!("Server shutdown complete");
-    Ok(())
-}
-
-/// Seed shared domains on startup.
-/// Creates any configured shared domains that don't already exist.
-async fn seed_shared_domains(pool: &sqlx::PgPool, domain_names: &[String]) -> Result<()> {
-    use sqlx::Row;
-    use uuid::Uuid;
-
-    if domain_names.is_empty() {
-        info!("No shared domains configured");
-        return Ok(());
-    }
-
-    info!("Seeding shared domains: {:?}", domain_names);
-
-    const SYSTEM_OWNER_ID: &str = "__system__";
-
-    for name in domain_names {
-        let normalized_name = name.to_lowercase();
-
-        // Check if domain exists
-        let existing = sqlx::query("SELECT id, is_shared FROM route_domains WHERE LOWER(name) = LOWER($1)")
-            .bind(&normalized_name)
-            .fetch_optional(pool)
-            .await?;
-
-        match existing {
-            Some(row) => {
-                let is_shared: bool = row.try_get("is_shared").unwrap_or(false);
-                if !is_shared {
-                    tracing::warn!(
-                        "Domain '{}' exists but is not marked as shared. Skipping.",
-                        normalized_name
-                    );
-                } else {
-                    tracing::debug!("Shared domain '{}' already exists", normalized_name);
-                }
-            }
-            None => {
-                let id = Uuid::new_v4();
-                sqlx::query(
-                    r#"
-                    INSERT INTO route_domains (id, name, owner_id, is_shared, verification_status, verification_reason, created_at, updated_at)
-                    VALUES ($1, $2, $3, true, 'Verified', 'shared_domain', NOW(), NOW())
-                    "#,
-                )
-                .bind(id)
-                .bind(&normalized_name)
-                .bind(SYSTEM_OWNER_ID)
-                .execute(pool)
-                .await?;
-
-                info!("Created shared domain: {} (ID: {})", normalized_name, id);
-            }
-        }
-    }
-
-    info!("Shared domain seeding completed");
     Ok(())
 }

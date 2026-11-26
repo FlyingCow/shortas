@@ -4,8 +4,8 @@ use futures::TryStreamExt;
 use mongodb::bson::{self, oid::ObjectId, Bson};
 use mongodb::{bson::doc, Collection, Database};
 use serde::{Deserialize, Serialize};
-use x509_parser::prelude::*;
 
+use crate::core::crypto_store::certificate_expiry;
 use crate::core::CryptoStore;
 use crate::model::{CertificateInfo, Keycert};
 
@@ -65,7 +65,7 @@ impl MongodbCryptoStore {
             cert: certificate.cert.clone(),
             ocsp_resp: certificate.ocsp_resp.clone(),
             owner_id: owner_id.map(str::to_string),
-            expires_at: Self::extract_expiry_from_cert(&certificate.cert).map(to_bson_date),
+            expires_at: certificate_expiry(&certificate.cert).map(to_bson_date),
         };
 
         self.collection
@@ -76,15 +76,6 @@ impl MongodbCryptoStore {
             .upsert(true)
             .await?;
         Ok(())
-    }
-
-    /// Extract expiry date from PEM certificate
-    fn extract_expiry_from_cert(cert_pem: &[u8]) -> Option<DateTime<Utc>> {
-        let pem_str = std::str::from_utf8(cert_pem).ok()?;
-        let (_, pem) = x509_parser::pem::parse_x509_pem(pem_str.as_bytes()).ok()?;
-        let (_, cert) = X509Certificate::from_der(&pem.contents).ok()?;
-        let not_after = cert.validity().not_after;
-        DateTime::from_timestamp(not_after.timestamp(), 0)
     }
 }
 

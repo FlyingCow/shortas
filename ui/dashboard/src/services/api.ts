@@ -195,6 +195,8 @@ export interface RouteDto {
     bundling?: Record<string, any>;
     opengraph: boolean;
     allowDebug: boolean;
+    /** Keeps the route out of conversion tracking. */
+    conversionOptOut?: boolean;
   };
 }
 
@@ -438,6 +440,80 @@ export interface DomainSummaryDto {
 export interface DomainAttentionDto {
   unverifiedCount: number;
   domains: DomainSummaryDto[];
+}
+
+// Conversion Types
+export type ConversionStatus = 'Draft' | 'Activating' | 'Active' | 'Paused' | 'Archived';
+export type CountingMode = 'OncePerClick' | 'Every';
+
+export interface ConversionStepDto {
+  key: string;
+  name: string;
+  /** Decimal string. */
+  defaultValue?: string;
+}
+
+export interface ConversionInputDto {
+  name: string;
+  currency: string;
+  windowDays: number;
+  counting: CountingMode;
+  domainId?: string | null;
+  allowedOrigins: string[];
+  serverValuesOnly: boolean;
+  /** The last one is the conversion. */
+  steps: ConversionStepDto[];
+  /** Missing or null covers the whole workspace. */
+  routeIds?: string[] | null;
+}
+
+export interface ConversionDto extends ConversionInputDto {
+  id: string;
+  workspaceId: string;
+  status: ConversionStatus;
+  version: number;
+  publicKey: string;
+  archivedSteps: ConversionStepDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Only returned when a secret key is created or rotated. */
+export interface ConversionWithSecretDto extends ConversionDto {
+  secretKey: string;
+}
+
+export interface ConversionDomainDto {
+  id: string;
+  name: string;
+  isShared: boolean;
+  verified: boolean;
+}
+
+export interface ConversionLogItem {
+  id: string;
+  kind: 'event' | 'refund';
+  status: string;
+  reason: string;
+  field: string;
+  source: string;
+  test: boolean;
+  step: string;
+  eventId: string;
+  externalId: string;
+  refundId: string;
+  clickId: string;
+  routeId: string;
+  value?: string | null;
+  applied?: string | null;
+  currency: string;
+  occurredAt: string;
+  receivedAt: string;
+}
+
+export interface ConversionLog {
+  items: ConversionLogItem[];
+  hasMore: boolean;
 }
 
 // Workspace Types
@@ -812,6 +888,12 @@ export const apiService = {
       return response.data;
     },
 
+    /** Activating and active conversions that removing the domain would stop. */
+    listConversions: async (id: string): Promise<ConversionDto[]> => {
+      const response = await routerApi.get(`/domains/${id}/conversions`);
+      return response.data;
+    },
+
     triggerVerification: async (id: string): Promise<DomainDto> => {
       const response = await routerApi.post(`/domains/${id}/verify`);
       return response.data;
@@ -840,6 +922,61 @@ export const apiService = {
 
     deleteCustomPages: async (domainName: string): Promise<void> => {
       await routerApi.delete(`/domains/${encodeURIComponent(domainName)}/custom-pages`);
+    },
+  },
+
+  // Conversions API
+  conversions: {
+    list: async (workspaceId: string): Promise<ConversionDto[]> => {
+      if (useMockData) return [];
+      const response = await routerApi.get(`/workspaces/${workspaceId}/conversions`);
+      return response.data;
+    },
+
+    get: async (workspaceId: string, id: string): Promise<ConversionDto> => {
+      const response = await routerApi.get(`/workspaces/${workspaceId}/conversions/${id}`);
+      return response.data;
+    },
+
+    create: async (workspaceId: string, input: ConversionInputDto): Promise<ConversionWithSecretDto> => {
+      const response = await routerApi.post(`/workspaces/${workspaceId}/conversions`, input);
+      return response.data;
+    },
+
+    update: async (workspaceId: string, id: string, version: number, input: ConversionInputDto): Promise<ConversionDto> => {
+      const response = await routerApi.put(`/workspaces/${workspaceId}/conversions/${id}`, { ...input, version });
+      return response.data;
+    },
+
+    changeStatus: async (workspaceId: string, id: string, action: 'activate' | 'pause' | 'archive'): Promise<ConversionDto> => {
+      const response = await routerApi.post(`/workspaces/${workspaceId}/conversions/${id}/${action}`);
+      return response.data;
+    },
+
+    rotateSecret: async (workspaceId: string, id: string): Promise<ConversionWithSecretDto> => {
+      const response = await routerApi.post(`/workspaces/${workspaceId}/conversions/${id}/rotate-secret`);
+      return response.data;
+    },
+
+    domains: async (workspaceId: string): Promise<ConversionDomainDto[]> => {
+      const response = await routerApi.get(`/workspaces/${workspaceId}/conversions/domains`);
+      return response.data;
+    },
+
+    events: async (workspaceId: string, id: string, limit: number, offset: number): Promise<ConversionLog> => {
+      const response = await routerApi.get(`/workspaces/${workspaceId}/conversions/${id}/events`, {
+        params: { limit, offset },
+      });
+      return response.data;
+    },
+
+    /** Sent like a page would, so it goes to the short domain without the user's token. */
+    sendTestEvent: async (domain: string, publicKey: string, step: string): Promise<void> => {
+      await axios.post(
+        `https://${domain}/.well-known/shortas/v1/events`,
+        JSON.stringify({ key: publicKey, step, test: true }),
+        { headers: { 'Content-Type': 'text/plain' }, timeout: 10000 }
+      );
     },
   },
 

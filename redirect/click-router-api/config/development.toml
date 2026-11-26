@@ -12,6 +12,7 @@ encryption_table = "core-routes-encryption-local"
 routes_table = "core-routes-local"
 hostname_mappings_table = "core-routes-hostname-mapping-local"
 user_settings_table = "core-user-settings-local"
+conversions_table = "core-conversions-local"
 
 [mongodb]
 connection_string = "mongodb://root:example@mongo:27017/"
@@ -19,3 +20,4 @@ database_name = "shortas"
 routes_collection = "core_routes_local"
 crypto_collection = "core_routes_encryption_local"
 user_settings_collection = "core_user_settings_local"
+conversions_collection = "core_conversions_local"

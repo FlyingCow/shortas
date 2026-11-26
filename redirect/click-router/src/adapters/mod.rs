@@ -121,6 +121,9 @@ pub enum HitRegistrarType {
     Kafka(KafkaHitRegistrar),
     Fluvio(FluvioHitRegistrar),
     None(),
+    /// Keeps the serialized hits
+    #[cfg(test)]
+    Recording(Arc<std::sync::Mutex<Vec<serde_json::Value>>>),
 }
 
 #[async_trait::async_trait]
@@ -130,6 +133,11 @@ impl HitRegistrar for HitRegistrarType {
             HitRegistrarType::Kafka(registrar) => registrar.register(hit).await,
             HitRegistrarType::Fluvio(registrar) => registrar.register(hit).await,
             HitRegistrarType::None() => Ok(()),
+            #[cfg(test)]
+            HitRegistrarType::Recording(hits) => {
+                hits.lock().unwrap().push(serde_json::to_value(hit)?);
+                Ok(())
+            }
         }
     }
 }
@@ -271,6 +279,8 @@ pub enum UserSettingsStoreType {
     Dynamo(DynamoUserSettingsStore),
     Mongodb(MongodbUserSettingsStore),
     InMemory(InMemoryUserSettingsStore),
+    #[cfg(test)]
+    Failing,
 }
 
 #[async_trait::async_trait]
@@ -280,6 +290,8 @@ impl UserSettingsStore for UserSettingsStoreType {
             UserSettingsStoreType::Dynamo(store) => store.get_user_settings(user_id).await,
             UserSettingsStoreType::Mongodb(store) => store.get_user_settings(user_id).await,
             UserSettingsStoreType::InMemory(store) => store.get_user_settings(user_id).await,
+            #[cfg(test)]
+            UserSettingsStoreType::Failing => Err(anyhow::anyhow!("store down")),
         }
     }
 }

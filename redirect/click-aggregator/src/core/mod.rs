@@ -158,7 +158,27 @@ pub struct ClickStreamItem {
     pub session_clicks: Option<u128>,
     pub is_unique: bool,
     pub is_bot: bool,
+    #[serde(default)]
+    pub is_trackable: bool,
     /// Debug trace data from click-router (only present when allow_debug=true)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trace: Option<HitTrace>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn items_without_is_trackable_still_parse() {
+        let mut item = serde_json::to_value(ClickStreamItem {
+            is_trackable: true,
+            ..Default::default()
+        })
+        .unwrap();
+        assert!(serde_json::from_value::<ClickStreamItem>(item.clone()).unwrap().is_trackable);
+
+        item.as_object_mut().unwrap().remove("is_trackable");
+        assert!(!serde_json::from_value::<ClickStreamItem>(item).unwrap().is_trackable);
+    }
 }

@@ -38,6 +38,16 @@ output "user_settings_table_arn" {
   value       = aws_dynamodb_table.user_settings.arn
 }
 
+output "conversions_table_name" {
+  description = "Name of the conversions table"
+  value       = aws_dynamodb_table.conversions.name
+}
+
+output "conversions_table_arn" {
+  description = "ARN of the conversions table"
+  value       = aws_dynamodb_table.conversions.arn
+}
+
 output "domains_table_name" {
   description = "Name of the domains table"
   value       = aws_dynamodb_table.domains.name
@@ -85,6 +95,7 @@ output "all_table_arns" {
     aws_dynamodb_table.routes_encryption.arn,
     aws_dynamodb_table.hostname_mapping.arn,
     aws_dynamodb_table.user_settings.arn,
+    aws_dynamodb_table.conversions.arn,
     aws_dynamodb_table.domains.arn,
     aws_dynamodb_table.routes_to_verify.arn,
     aws_dynamodb_table.certificate_orders.arn,

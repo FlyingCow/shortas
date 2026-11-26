@@ -1,11 +1,14 @@
 //! Click Router API client for route propagation.
 
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use reqwest::Client;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::time::Duration;
 
-use crate::domain::entities::{Route, RoutingPolicy};
+use crate::domain::entities::{Conversion, ConversionStatus, Route, RoutingPolicy};
+use crate::domain::traits::CertificateLookup;
 use crate::settings::ClickRouterSettings;
 
 /// Route DTO for click-router API communication.
@@ -270,6 +273,69 @@ impl ClickRouterClient {
         Ok(())
     }
 
+    /// Send a conversion's definition. Older versions are ignored there.
+    pub async fn put_conversion(&self, conversion: &Conversion) -> anyhow::Result<()> {
+        let url = format!("{}/v1/conversions/{}", self.base_url, conversion.public_key);
+        let definition = &conversion.definition;
+        let last = definition.steps.len().saturating_sub(1);
+        let steps: Vec<_> = definition
+            .steps
+            .iter()
+            .enumerate()
+            .map(|(order, step)| {
+                json!({
+                    "key": step.key,
+                    "order": order,
+                    "isFinal": order == last,
+                    "defaultValue": step.default_value,
+                })
+            })
+            .collect();
+
+        let response = self
+            .client
+            .put(&url)
+            .json(&json!({
+                "publicKey": conversion.public_key,
+                "conversionId": conversion.id,
+                "workspaceId": conversion.workspace_id,
+                "version": conversion.version,
+                "active": conversion.status == ConversionStatus::Active,
+                "secretHash": conversion.secret_hash,
+                "currency": definition.currency,
+                "windowDays": definition.window_days,
+                "counting": definition.counting,
+                "allowedOrigins": definition.allowed_origins,
+                "serverValuesOnly": definition.server_values_only,
+                "steps": steps,
+                "routeFilter": definition.route_filter,
+            }))
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("Click Router API error: {} - {}", status, body);
+        }
+
+        Ok(())
+    }
+
+    /// Stop a conversion that no longer exists, for good.
+    pub async fn delete_conversion(&self, public_key: &str) -> anyhow::Result<()> {
+        let url = format!("{}/v1/conversions/{}", self.base_url, public_key);
+        let response = self.client.delete(&url).send().await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("Click Router API error: {} - {}", status, body);
+        }
+
+        Ok(())
+    }
+
     /// Health check.
     pub async fn health_check(&self) -> anyhow::Result<bool> {
         let url = format!("{}/public/health", self.base_url);
@@ -322,6 +388,28 @@ impl ClickRouterClient {
         }
 
         Ok(())
+    }
+}
+
+#[async_trait]
+impl CertificateLookup for ClickRouterClient {
+    async fn certificate_expiry(&self, domain: &str) -> anyhow::Result<Option<DateTime<Utc>>> {
+        #[derive(Deserialize)]
+        struct CertificateStatus {
+            expires_at: Option<DateTime<Utc>>,
+        }
+
+        let url = format!("{}/v1/certificates/{}/status", self.base_url, domain);
+        let response = self.client.get(&url).send().await?;
+
+        if response.status().as_u16() == 404 {
+            return Ok(None);
+        }
+        if !response.status().is_success() {
+            anyhow::bail!("Click Router API error: {}", response.status());
+        }
+
+        Ok(response.json::<CertificateStatus>().await?.expires_at)
     }
 }
 
