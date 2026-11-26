@@ -3,6 +3,7 @@ use tracing::info;
 
 use crate::{
     adapters::aws::dynamo::{
+        dynamo_conversion_store::DynamoConversionStore,
         dynamo_crypto_store::DynamoCryptoStore,
         dynamo_routes_store::DynamoRoutesStore,
         dynamo_user_settings_store::DynamoUserSettingsStore,
@@ -47,6 +48,10 @@ impl AppBuilder {
             self.settings.aws.dynamo.user_settings_table.clone(),
         )) as Box<_>);
 
+        self.conversion_store = Some(Box::new(DynamoConversionStore::new(
+            &config,
+            self.settings.aws.dynamo.conversions_table.clone(),
+        )));
         self.routes_store = routes_store;
         self.crypto_store = crypto_store;
         self.user_settings_store = user_settings_store;

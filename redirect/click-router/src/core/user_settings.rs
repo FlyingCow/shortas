@@ -26,9 +26,7 @@ pub struct UserSettingsManager {
 
 impl UserSettingsManager {
     pub async fn get_user_settings(&self, user_id: &str) -> Result<Option<Arc<UserSettings>>> {
-        let user_settings_result = self.user_settings_cache.get_user_settings(user_id).await;
-
-        Ok(user_settings_result.unwrap())
+        self.user_settings_cache.get_user_settings(user_id).await
     }
 }
 

@@ -82,6 +82,13 @@ pub trait RouteRepository: Send + Sync {
     /// Delete a route by ID.
     async fn delete(&self, id: Uuid) -> Result<()>;
 
+    /// Routes whose conversion coverage the router has not received, by ID.
+    async fn pending_coverage(&self, after: Uuid, limit: i64) -> Result<Vec<Uuid>>;
+
+    /// Record the coverage the router received. Returns the coverage it should
+    /// have, or `None` if the route is gone.
+    async fn mark_coverage_sent(&self, id: Uuid, sent: bool) -> Result<Option<bool>>;
+
     /// Bulk create routes.
     async fn bulk_create(&self, routes: &[Route]) -> Result<Vec<Route>>;
 

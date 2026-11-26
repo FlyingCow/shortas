@@ -323,6 +323,7 @@ module "ecs" {
         { name = "APP__AWS__DYNAMO__ENCRYPTION_TABLE", value = module.dynamodb.routes_encryption_table_name },
         { name = "APP__AWS__DYNAMO__HOSTNAME_MAPPINGS_TABLE", value = module.dynamodb.hostname_mapping_table_name },
         { name = "APP__AWS__DYNAMO__USER_SETTINGS_TABLE", value = module.dynamodb.user_settings_table_name },
+        { name = "APP__AWS__DYNAMO__CONVERSIONS_TABLE", value = module.dynamodb.conversions_table_name },
         { name = "APP__FLUVIO__HIT_STREAM__HOST", value = local.fluvio_sc_host },
       ]
       secrets = [
@@ -343,6 +344,7 @@ module "ecs" {
         { name = "APP__AWS__DYNAMO__ROUTES_TABLE", value = module.dynamodb.routes_table_name },
         { name = "APP__AWS__DYNAMO__ENCRYPTION_TABLE", value = module.dynamodb.routes_encryption_table_name },
         { name = "APP__AWS__DYNAMO__USER_SETTINGS_TABLE", value = module.dynamodb.user_settings_table_name },
+        { name = "APP__AWS__DYNAMO__CONVERSIONS_TABLE", value = module.dynamodb.conversions_table_name },
       ]
       secrets = [
         { name = "APP__RABBITMQ__URI", valueFrom = "${module.amazon_mq.secret_arn}:amqp_uri::" },

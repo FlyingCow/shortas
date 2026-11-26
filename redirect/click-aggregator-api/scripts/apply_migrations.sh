@@ -115,8 +115,8 @@ fi
 echo ""
 
 # Apply migration 003
-echo -e "${BLUE}Applying migration 003: Create conversions tables...${NC}"
-if execute_file_statements "${MIGRATION_DIR}/003_create_conversions_tables.sql" "Create conversions tables"; then
+echo -e "${BLUE}Applying migration 003: Remove old conversion tables...${NC}"
+if execute_file_statements "${MIGRATION_DIR}/003_drop_old_conversions.sql" "Remove old conversion tables"; then
     echo -e "${GREEN}✓ Migration 003 applied${NC}"
 else
     echo -e "${RED}✗ Migration 003 failed${NC}"
@@ -124,12 +124,22 @@ else
 fi
 echo ""
 
-# Apply migration 004
-echo -e "${BLUE}Applying migration 004: Create conversion materialized views...${NC}"
-if execute_file_statements "${MIGRATION_DIR}/004_create_conversion_materialized_views.sql" "Create conversion materialized views"; then
-    echo -e "${GREEN}✓ Migration 004 applied${NC}"
+# Apply migration 005
+echo -e "${BLUE}Applying migration 005: Trackable clicks...${NC}"
+if execute_file_statements "${MIGRATION_DIR}/005_trackable_clicks.sql" "Trackable clicks"; then
+    echo -e "${GREEN}✓ Migration 005 applied${NC}"
 else
-    echo -e "${RED}✗ Migration 004 failed${NC}"
+    echo -e "${RED}✗ Migration 005 failed${NC}"
+    exit 1
+fi
+echo ""
+
+# Apply migration 006
+echo -e "${BLUE}Applying migration 006: Conversion events...${NC}"
+if execute_file_statements "${MIGRATION_DIR}/006_conversion_events.sql" "Conversion events"; then
+    echo -e "${GREEN}✓ Migration 006 applied${NC}"
+else
+    echo -e "${RED}✗ Migration 006 failed${NC}"
     exit 1
 fi
 echo ""

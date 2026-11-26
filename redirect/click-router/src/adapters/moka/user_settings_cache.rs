@@ -53,19 +53,17 @@ impl UserSettingsCache for MokaUserSettingsCache {
     async fn get_user_settings(&self, user_id: &str) -> Result<Option<Arc<UserSettings>>> {
         let key = get_key(user_id);
 
-        // `get_with` also dedupes concurrent misses for the same key; since
+        // `try_get_with` also dedupes concurrent misses for the same key; since
         // the cached value is now `Option<Arc<UserSettings>>`, both the hit
         // and miss paths only ever clone an `Arc`, never the settings struct.
-        let cache_result = self
-            .cache
-            .get_with(key, async move {
-                let user_settings_result =
-                    self.user_settings_store.get_user_settings(user_id).await;
-                user_settings_result.unwrap().map(Arc::new)
+        // Errors are not cached, so the next request tries again.
+        self.cache
+            .try_get_with(key, async move {
+                let settings = self.user_settings_store.get_user_settings(user_id).await?;
+                anyhow::Ok(settings.map(Arc::new))
             })
-            .await;
-
-        Ok(cache_result)
+            .await
+            .map_err(|e: Arc<anyhow::Error>| anyhow::anyhow!("user settings lookup failed: {e:#}"))
     }
 
     async fn invalidate(&self, user_id: &str) -> Result<()> {

@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
+use super::route_coverage;
 use crate::domain::entities::{
     ApiError, BlockedReason, DestinationFormat, Result, Route, RouteProperties, RouteStatus,
     RoutingPolicy, RoutingTerminal,
@@ -68,6 +69,8 @@ impl PgRouteRepository {
                 .and_then(|s| serde_json::from_str(&s).ok()),
             opengraph: row.try_get("opengraph").unwrap_or(false),
             allow_debug: row.try_get("allow_debug").unwrap_or(false),
+            conversion_opt_out: row.try_get("conversion_opt_out").unwrap_or(false),
+            track_conversions: row.try_get("track_conversions").unwrap_or(false),
         };
 
         let dest_format = match dest_format_str.as_str() {
@@ -173,7 +176,7 @@ impl RouteRepository for PgRouteRepository {
                    p.id as properties_id, p.route_id as prop_route_id, p.domain_id as prop_domain_id,
                    p.owner_id, p.creator_id, p.workspace_id,
                    p.scripts_json, p.tags_json, p.custom_json, p.native_json,
-                   p.bundling_json, p.qr_settings_json, p.opengraph, p.allow_debug
+                   p.bundling_json, p.qr_settings_json, p.opengraph, p.allow_debug, p.conversion_opt_out, p.track_conversions
             FROM routes r
             LEFT JOIN route_properties p ON r.id = p.route_id
             WHERE r.id = $1
@@ -233,7 +236,7 @@ impl RouteRepository for PgRouteRepository {
                    p.id as properties_id, p.route_id as prop_route_id, p.domain_id as prop_domain_id,
                    p.owner_id, p.creator_id, p.workspace_id,
                    p.scripts_json, p.tags_json, p.custom_json, p.native_json,
-                   p.bundling_json, p.qr_settings_json, p.opengraph, p.allow_debug
+                   p.bundling_json, p.qr_settings_json, p.opengraph, p.allow_debug, p.conversion_opt_out, p.track_conversions
             FROM routes r
             LEFT JOIN route_properties p ON r.id = p.route_id
             JOIN route_domains d ON r.domain_id = d.id
@@ -297,7 +300,7 @@ impl RouteRepository for PgRouteRepository {
                    p.id as properties_id, p.route_id as prop_route_id, p.domain_id as prop_domain_id,
                    p.owner_id, p.creator_id, p.workspace_id,
                    p.scripts_json, p.tags_json, p.custom_json, p.native_json,
-                   p.bundling_json, p.qr_settings_json, p.opengraph, p.allow_debug
+                   p.bundling_json, p.qr_settings_json, p.opengraph, p.allow_debug, p.conversion_opt_out, p.track_conversions
             FROM routes r
             LEFT JOIN route_properties p ON r.id = p.route_id
             WHERE r.switch = 'main'
@@ -334,6 +337,7 @@ impl RouteRepository for PgRouteRepository {
 
     async fn create(&self, route: &Route) -> Result<Route> {
         let mut tx = self.pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+        route_coverage::lock_for_route(&mut tx, route.properties.workspace_id.as_deref()).await?;
 
         // Insert route
         let policy_json = serde_json::to_string(&route.policy).unwrap_or_default();
@@ -371,8 +375,8 @@ impl RouteRepository for PgRouteRepository {
             r#"
             INSERT INTO route_properties (id, route_id, domain_id, owner_id, creator_id, workspace_id,
                 scripts_json, tags_json, custom_json, native_json, bundling_json, qr_settings_json,
-                opengraph, allow_debug)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                opengraph, allow_debug, conversion_opt_out)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             "#,
         )
         .bind(Uuid::new_v4())
@@ -389,9 +393,11 @@ impl RouteRepository for PgRouteRepository {
         .bind(&qr_settings_json)
         .bind(route.properties.opengraph)
         .bind(route.properties.allow_debug)
+        .bind(route.properties.conversion_opt_out)
         .execute(&mut *tx)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
+        route_coverage::refresh_route(&mut tx, route.id).await?;
 
         // Keep workspace_stats/domain_stats in sync in the same transaction
         // as the insert. Only "main" rows are counted - a route's family
@@ -419,6 +425,7 @@ impl RouteRepository for PgRouteRepository {
 
     async fn update(&self, route: &Route) -> Result<Route> {
         let mut tx = self.pool.begin().await.map_err(|e| ApiError::internal(e.to_string()))?;
+        route_coverage::lock_for_route(&mut tx, route.properties.workspace_id.as_deref()).await?;
 
         // Snapshot the prior switch/status/workspace so the stats delta
         // below reflects what's actually changing, not just the new state.
@@ -466,7 +473,7 @@ impl RouteRepository for PgRouteRepository {
             UPDATE route_properties
             SET workspace_id = $2, scripts_json = $3, tags_json = $4, custom_json = $5,
                 native_json = $6, bundling_json = $7, qr_settings_json = $8,
-                opengraph = $9, allow_debug = $10
+                opengraph = $9, allow_debug = $10, conversion_opt_out = $11
             WHERE route_id = $1
             "#,
         )
@@ -480,9 +487,11 @@ impl RouteRepository for PgRouteRepository {
         .bind(&qr_settings_json)
         .bind(route.properties.opengraph)
         .bind(route.properties.allow_debug)
+        .bind(route.properties.conversion_opt_out)
         .execute(&mut *tx)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
+        route_coverage::refresh_route(&mut tx, route.id).await?;
 
         // Reconcile workspace_stats against whatever actually changed:
         // status flip, workspace reassignment, or both.
@@ -574,6 +583,31 @@ impl RouteRepository for PgRouteRepository {
         Ok(())
     }
 
+    async fn pending_coverage(&self, after: Uuid, limit: i64) -> Result<Vec<Uuid>> {
+        sqlx::query_scalar(
+            "SELECT route_id FROM route_properties \
+             WHERE track_conversions <> track_conversions_sent AND route_id > $1 \
+             ORDER BY route_id LIMIT $2",
+        )
+        .bind(after)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))
+    }
+
+    async fn mark_coverage_sent(&self, id: Uuid, sent: bool) -> Result<Option<bool>> {
+        sqlx::query_scalar(
+            "UPDATE route_properties SET track_conversions_sent = $2 WHERE route_id = $1 \
+             RETURNING track_conversions",
+        )
+        .bind(id)
+        .bind(sent)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))
+    }
+
     async fn bulk_create(&self, routes: &[Route]) -> Result<Vec<Route>> {
         let mut created = Vec::with_capacity(routes.len());
         for route in routes {
@@ -652,7 +686,7 @@ impl RouteRepository for PgRouteRepository {
                    p.id as properties_id, p.route_id as prop_route_id, p.domain_id as prop_domain_id,
                    p.owner_id, p.creator_id, p.workspace_id,
                    p.scripts_json, p.tags_json, p.custom_json, p.native_json,
-                   p.bundling_json, p.qr_settings_json, p.opengraph, p.allow_debug
+                   p.bundling_json, p.qr_settings_json, p.opengraph, p.allow_debug, p.conversion_opt_out, p.track_conversions
             FROM routes r
             LEFT JOIN route_properties p ON r.id = p.route_id
             WHERE p.owner_id = $1 AND r.switch = 'main'

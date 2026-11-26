@@ -41,7 +41,7 @@ impl FlowModule for RootModule {
             if let Ok(Some(route)) = flow_router.get_route_by_switch(INTERNAL_SWITCH, &index_path).await {
                 if let Some(ref dest) = route.dest {
                     context.result = Some(FlowRouterResult::Redirect(
-                        Uri::from_str(dest).unwrap(),
+                        dest.clone(),
                         RedirectType::Temporary,
                     ));
                     context.add_bool(IS_ROOT, true);
@@ -83,6 +83,7 @@ mod tests {
             not_found_url: "https://example.com/404".to_string(),
             blocked_url: "https://example.com/blocked".to_string(),
             qr_images_base_url: None,
+            click_ids_enabled: false,
         };
         let module = RootModule::new(redirect.clone());
 
@@ -96,6 +97,7 @@ mod tests {
             not_found_url: "https://example.com/404".to_string(),
             blocked_url: "https://example.com/blocked".to_string(),
             qr_images_base_url: None,
+            click_ids_enabled: false,
         };
         let module = RootModule::new(redirect);
         let cloned = module.clone();

@@ -1,6 +1,7 @@
 use config::{Config, ConfigError, Environment, File};
 use serde_derive::Deserialize;
 
+use crate::conversions::settings::Conversions;
 use crate::adapters::{
     clickhouse::settings::Clickhouse, fluvio::settings::Fluvio, kafka::settings::Kafka,
 };
@@ -19,6 +20,8 @@ pub struct Settings {
     pub clickhouse: Clickhouse,
     pub kafka: Kafka,
     pub fluvio: Fluvio,
+    #[serde(default)]
+    pub conversions: Conversions,
 }
 const DEV_RUN_MODE: &'static str = "development";
 

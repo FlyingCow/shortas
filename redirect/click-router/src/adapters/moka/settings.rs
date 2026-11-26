@@ -6,6 +6,27 @@ pub struct CryptoCacheSettings {
     pub max_capacity: u64,
     pub time_to_live_minutes: u64,
     pub time_to_idle_minutes: u64,
+    /// How many names without a certificate to remember.
+    #[serde(default = "default_miss_max_capacity")]
+    pub miss_max_capacity: u64,
+    /// How long to remember that a name has no certificate.
+    #[serde(default = "default_miss_time_to_live_seconds")]
+    pub miss_time_to_live_seconds: u64,
+    /// Concurrent certificate store lookups.
+    #[serde(default = "default_max_concurrent_lookups")]
+    pub max_concurrent_lookups: usize,
+}
+
+fn default_miss_max_capacity() -> u64 {
+    10_000
+}
+
+fn default_miss_time_to_live_seconds() -> u64 {
+    30
+}
+
+fn default_max_concurrent_lookups() -> usize {
+    64
 }
 
 #[derive(Default, Debug, Deserialize, Clone)]
@@ -40,12 +61,35 @@ pub struct ChallengeCacheSettings {
     pub time_to_idle_minutes: u64,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct ConversionCacheSettings {
+    pub max_capacity: u64,
+    /// The longest a pause or key rotation can take to apply.
+    pub time_to_live_seconds: u64,
+    pub miss_max_capacity: u64,
+    pub miss_time_to_live_seconds: u64,
+}
+
+impl Default for ConversionCacheSettings {
+    fn default() -> Self {
+        Self {
+            max_capacity: 10_000,
+            time_to_live_seconds: 60,
+            miss_max_capacity: 10_000,
+            miss_time_to_live_seconds: 10,
+        }
+    }
+}
+
 #[derive(Default, Debug, Deserialize, Clone)]
 #[allow(unused)]
 pub struct Moka {
     pub crypto_cache: CryptoCacheSettings,
     pub routes_cache: RoutesCacheSettings,
     pub user_settings_cache: UserSettingsCacheSettings,
+    #[serde(default)]
+    pub conversion_cache: ConversionCacheSettings,
     #[serde(default = "default_qr_code_cache")]
     pub qr_code_cache: QrCodeCacheSettings,
     #[serde(default = "default_challenge_cache")]

@@ -63,6 +63,12 @@ pub struct RoutePropertiesDto {
     pub opengraph: bool,
     /// Debug allowed
     pub allow_debug: bool,
+    /// Click IDs are never added
+    #[serde(default)]
+    pub conversion_opt_out: bool,
+    /// Click IDs are added to destinations
+    #[serde(default)]
+    pub track_conversions: bool,
 }
 
 impl RouteDto {
@@ -240,6 +246,8 @@ impl Default for RoutePropertiesDto {
             bundling: None,
             opengraph: false,
             allow_debug: false,
+            conversion_opt_out: false,
+            track_conversions: false,
         }
     }
 }
@@ -285,6 +293,8 @@ impl From<crate::model::route::Route> for RouteDto {
                 bundling: route.properties.bundling,
                 opengraph: route.properties.opengraph,
                 allow_debug: route.properties.allow_debug,
+                conversion_opt_out: route.properties.conversion_opt_out,
+                track_conversions: route.properties.track_conversions,
             },
         }
     }
@@ -331,6 +341,8 @@ impl From<&crate::model::route::Route> for RouteDto {
                 bundling: route.properties.bundling.clone(),
                 opengraph: route.properties.opengraph,
                 allow_debug: route.properties.allow_debug,
+                conversion_opt_out: route.properties.conversion_opt_out,
+                track_conversions: route.properties.track_conversions,
             },
         }
     }
@@ -378,6 +390,8 @@ impl Into<crate::model::route::Route> for RouteDto {
                 bundling: self.properties.bundling,
                 opengraph: self.properties.opengraph,
                 allow_debug: self.properties.allow_debug,
+                conversion_opt_out: self.properties.conversion_opt_out,
+                track_conversions: self.properties.track_conversions,
             },
         }
     }

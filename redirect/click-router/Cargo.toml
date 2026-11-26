@@ -67,6 +67,9 @@ prometheus.workspace = true
 lazy_static.workspace = true
 qrcode.workspace = true
 image.workspace = true
+sha2.workspace = true
+subtle = "2.6"
+ipnet = "2.11"
 
 # Project-specific dependencies
 axum = "0.7"
@@ -74,6 +77,8 @@ axum-server = { version = "0.7", features = ["tls-rustls"] }
 tower-http = { version = "0.6", features = ["trace", "cors", "timeout"] }
 tower-cookies = "0.10"
 mimalloc = "0.1.52"
+tokio-rustls = { version = "0.26", default-features = false }
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem"] }
 
 [dev-dependencies]
 criterion.workspace = true

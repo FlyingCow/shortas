@@ -12,6 +12,11 @@ host = "localhost:9103"
 consumer = "click_aggs"
 
 
+[conversions.stream]
+topic = "conversion-stream-local"
+host = "localhost:9103"
+consumer = "conversions"
+
 [clickhouse]
 [clickhouse.click_stream_store]
 url = "http://clickhouse:8123"

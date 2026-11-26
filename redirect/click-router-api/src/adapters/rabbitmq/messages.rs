@@ -70,3 +70,35 @@ pub struct UserSettingsChangedMessage {
     pub user_id: String,
     pub action: ChangeAction,
 }
+
+/// A domain's certificate was stored, replaced or deleted. Never carries key
+/// material.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CertificateChangedMessage {
+    pub domain: String,
+    pub action: ChangeAction,
+}
+
+/// A conversion definition was stored. Routers reload it on next use.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversionChangedMessage {
+    pub public_key: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn certificate_message_carries_only_domain_and_action() {
+        let message = CertificateChangedMessage {
+            domain: "go.example.com".to_string(),
+            action: ChangeAction::Updated,
+        };
+
+        assert_eq!(
+            serde_json::to_value(&message).unwrap(),
+            serde_json::json!({ "domain": "go.example.com", "action": "Updated" })
+        );
+    }
+}

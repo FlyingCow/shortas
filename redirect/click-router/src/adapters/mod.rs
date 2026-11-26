@@ -112,7 +112,8 @@ pub mod mongodb;
 pub mod rabbitmq;
 pub mod rdkafka;
 pub mod axum;
-// pub mod salvo; // Temporarily commented out during migration to Axum
+// pub mod salvo;
+pub mod tls; // Temporarily commented out during migration to Axum
 pub mod uaparser;
 
 #[derive(Clone)]
@@ -120,6 +121,9 @@ pub enum HitRegistrarType {
     Kafka(KafkaHitRegistrar),
     Fluvio(FluvioHitRegistrar),
     None(),
+    /// Keeps the serialized hits
+    #[cfg(test)]
+    Recording(Arc<std::sync::Mutex<Vec<serde_json::Value>>>),
 }
 
 #[async_trait::async_trait]
@@ -129,6 +133,11 @@ impl HitRegistrar for HitRegistrarType {
             HitRegistrarType::Kafka(registrar) => registrar.register(hit).await,
             HitRegistrarType::Fluvio(registrar) => registrar.register(hit).await,
             HitRegistrarType::None() => Ok(()),
+            #[cfg(test)]
+            HitRegistrarType::Recording(hits) => {
+                hits.lock().unwrap().push(serde_json::to_value(hit)?);
+                Ok(())
+            }
         }
     }
 }
@@ -270,6 +279,8 @@ pub enum UserSettingsStoreType {
     Dynamo(DynamoUserSettingsStore),
     Mongodb(MongodbUserSettingsStore),
     InMemory(InMemoryUserSettingsStore),
+    #[cfg(test)]
+    Failing,
 }
 
 #[async_trait::async_trait]
@@ -279,6 +290,8 @@ impl UserSettingsStore for UserSettingsStoreType {
             UserSettingsStoreType::Dynamo(store) => store.get_user_settings(user_id).await,
             UserSettingsStoreType::Mongodb(store) => store.get_user_settings(user_id).await,
             UserSettingsStoreType::InMemory(store) => store.get_user_settings(user_id).await,
+            #[cfg(test)]
+            UserSettingsStoreType::Failing => Err(anyhow::anyhow!("store down")),
         }
     }
 }
@@ -307,6 +320,8 @@ impl UserSettingsCache for UserSettingsCacheType {
 pub enum CryptoStoreType {
     Dynamo(DynamoCryptoStore),
     Mongodb(MongodbCryptoStore),
+    #[cfg(test)]
+    Test(Arc<dyn CryptoStore + Send + Sync>),
 }
 
 #[async_trait::async_trait]
@@ -315,6 +330,8 @@ impl CryptoStore for CryptoStoreType {
         match self {
             CryptoStoreType::Dynamo(store) => store.get_certificate(server_name).await,
             CryptoStoreType::Mongodb(store) => store.get_certificate(server_name).await,
+            #[cfg(test)]
+            CryptoStoreType::Test(store) => store.get_certificate(server_name).await,
         }
     }
 }
@@ -326,7 +343,7 @@ pub enum CryptoCacheType {
 
 #[async_trait::async_trait]
 impl CryptoCache for CryptoCacheType {
-    async fn get_certificate(&self, server_name: &str) -> Result<Option<Keycert>> {
+    async fn get_certificate(&self, server_name: &str) -> Result<Option<Arc<Keycert>>> {
         match self {
             CryptoCacheType::Moka(store) => store.get_certificate(server_name).await,
         }

@@ -347,7 +347,9 @@ impl DomainRepository for PgDomainRepository {
             UPDATE route_domains
             SET verification_status = $2, verification_reason = $3,
                 last_verification_check = NOW(), updated_at = NOW()
-            WHERE id = $1
+            -- Shared domains are trusted by configuration and may lack the
+            -- TXT record, so a failed check doesn't take them away.
+            WHERE id = $1 AND (NOT is_shared OR $2 = 'Verified')
             "#,
         )
         .bind(id)

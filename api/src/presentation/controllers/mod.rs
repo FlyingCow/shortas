@@ -2,6 +2,7 @@
 
 pub mod certificates;
 pub mod clickstream;
+pub mod conversions;
 pub mod domains;
 pub mod health;
 pub mod invitations;
@@ -13,6 +14,7 @@ pub mod workspaces;
 
 pub use certificates::*;
 pub use clickstream::*;
+pub use conversions::*;
 pub use domains::*;
 pub use health::*;
 pub use invitations::*;
@@ -67,6 +69,7 @@ pub fn api_routes(jwt_settings: JwtSettings) -> Router {
         .push(domains::domains_controller())
         .push(workspaces::workspaces_controller())
         .push(Router::with_path("workspaces/{id}").push(invitations::workspace_invitations_controller()))
+        .push(Router::with_path("workspaces/{id}").push(conversions::conversions_controller()))
         .push(invitations::invitations_controller())
         .push(users::users_controller())
         .push(notifications::notifications_controller())

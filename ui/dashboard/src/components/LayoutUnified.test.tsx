@@ -67,6 +67,11 @@ describe('LayoutUnified', () => {
     expect(screen.getByRole('link', { name: /routes/i }).className).not.toContain('active');
   });
 
+  it('highlights Conversions on its subpages', () => {
+    renderLayout('/conversions/c1/edit');
+    expect(screen.getByRole('link', { name: /conversions/i }).className).toContain('active');
+  });
+
   it('renders the page content passed as children', () => {
     renderLayout();
     expect(screen.getByText('page content')).toBeInTheDocument();
@@ -178,6 +183,12 @@ describe('LayoutUnified', () => {
       renderLayout();
       fireEvent.keyDown(document, { key: '6', altKey: true });
       expect(screen.getByTestId('current-path')).toHaveTextContent('/settings');
+    });
+
+    it('Alt+7 navigates to conversions', () => {
+      renderLayout();
+      fireEvent.keyDown(document, { key: '7', altKey: true });
+      expect(screen.getByTestId('current-path')).toHaveTextContent('/conversions');
     });
 
     it('ignores Alt+number shortcuts while an input is focused', () => {

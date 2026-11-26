@@ -226,6 +226,8 @@ impl From<&internal::RouteProperties> for common::RouteProperties {
             qr_settings: None,
             opengraph: props.opengraph,
             allow_debug: props.allow_debug,
+            conversion_opt_out: props.conversion_opt_out,
+            track_conversions: props.track_conversions,
         }
     }
 }
@@ -429,6 +431,8 @@ impl From<&common::RouteProperties> for internal::RouteProperties {
             bundling: props.bundling.clone(),
             opengraph: props.opengraph,
             allow_debug: props.allow_debug,
+            conversion_opt_out: props.conversion_opt_out,
+            track_conversions: props.track_conversions,
         }
     }
 }

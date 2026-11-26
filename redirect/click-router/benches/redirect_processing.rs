@@ -43,6 +43,8 @@ fn create_test_route(link: &str, dest: &str) -> Route {
             creator_id: Some("creator-789".to_string()),
             workspace_id: Some("workspace-abc".to_string()),
             allow_debug: false,
+            conversion_opt_out: false,
+            track_conversions: false,
             ..Default::default()
         },
     }

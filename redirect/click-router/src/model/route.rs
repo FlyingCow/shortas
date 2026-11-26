@@ -63,6 +63,10 @@ pub struct RouteProperties {
     pub opengraph: bool,
     #[serde(default)]
     pub allow_debug: bool,
+    #[serde(default)]
+    pub conversion_opt_out: bool,
+    #[serde(default)]
+    pub track_conversions: bool,
 }
 
 impl Default for RouteProperties {
@@ -80,6 +84,8 @@ impl Default for RouteProperties {
             bundling: Default::default(),
             opengraph: false,
             allow_debug: false,
+            conversion_opt_out: false,
+            track_conversions: false,
         }
     }
 }
@@ -298,6 +304,8 @@ mod tests {
             bundling: Some(json!({"bundle": true})),
             opengraph: true,
             allow_debug: true,
+            conversion_opt_out: false,
+            track_conversions: true,
         };
 
         let serialized = serde_json::to_string(&props).unwrap();
@@ -306,6 +314,7 @@ mod tests {
         assert_eq!(deserialized.route_id, Some("route_123".to_string()));
         assert_eq!(deserialized.opengraph, true);
         assert_eq!(deserialized.allow_debug, true);
+        assert!(deserialized.track_conversions && !deserialized.conversion_opt_out);
         assert!(deserialized.custom.is_some());
     }
 

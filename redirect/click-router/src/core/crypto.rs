@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 
 use crate::adapters::CryptoCacheType;
@@ -13,7 +15,7 @@ pub trait CryptoStore {
 
 #[async_trait::async_trait()]
 pub trait CryptoCache {
-    async fn get_certificate(&self, server_name: &str) -> Result<Option<Keycert>>;
+    async fn get_certificate(&self, server_name: &str) -> Result<Option<Arc<Keycert>>>;
 
     async fn invalidate(&self, server_name: &str) -> Result<()>;
 }
@@ -24,14 +26,12 @@ pub struct CryptoManager {
 }
 
 impl CryptoManager {
-    async fn get_default_certificate(&self) -> Result<Option<Keycert>> {
+    async fn get_default_certificate(&self) -> Result<Option<Arc<Keycert>>> {
         self.get_certificate(DEFAULT).await
     }
 
-    async fn get_certificate(&self, server_name: &str) -> Result<Option<Keycert>> {
-        let keycert_result = self.crypto_cache.get_certificate(server_name).await;
-
-        Ok(keycert_result.unwrap())
+    async fn get_certificate(&self, server_name: &str) -> Result<Option<Arc<Keycert>>> {
+        self.crypto_cache.get_certificate(server_name).await
     }
 }
 

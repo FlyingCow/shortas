@@ -34,3 +34,17 @@ pub struct UserSettingsChangedMessage {
     pub user_id: String,
     pub action: ChangeAction,
 }
+
+/// A domain's certificate was stored, replaced or deleted. Never carries key
+/// material.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CertificateChangedMessage {
+    pub domain: String,
+    pub action: ChangeAction,
+}
+
+/// A conversion definition was stored.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversionChangedMessage {
+    pub public_key: String,
+}

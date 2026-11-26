@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Keyboard,
   Menu,
+  Target,
   X
 } from 'lucide-react';
 import { logout, getUserInfo } from '../config/keycloak';
@@ -60,9 +61,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Domains', href: '/domains', icon: Globe },
     { name: 'Workspaces', href: '/workspaces', icon: Briefcase },
     { name: 'Clickstream', href: '/clickstream', icon: Activity },
+    { name: 'Conversions', href: '/conversions', icon: Target },
   ];
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) =>
+    location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   // Close the drawer whenever the route changes (nav links, logo, programmatic navigation).
   useEffect(() => {
@@ -128,6 +131,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         const n = parseInt(e.key, 10);
         if (e.key === '6' || n === 6) {
           navigate('/settings');
+          e.preventDefault();
+        } else if (n === 7) {
+          navigate('/conversions');
           e.preventDefault();
         } else if (n >= 1 && n <= 5) {
           const item = navigation[n - 1];
@@ -389,6 +395,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd className="shortcut-kbd">Alt</kbd> + <kbd className="shortcut-kbd">4</kbd></td><td style={{ padding: '0.35rem 0' }}>Workspaces</td></tr>
                   <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd className="shortcut-kbd">Alt</kbd> + <kbd className="shortcut-kbd">5</kbd></td><td style={{ padding: '0.35rem 0' }}>Clickstream</td></tr>
                   <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd className="shortcut-kbd">Alt</kbd> + <kbd className="shortcut-kbd">6</kbd></td><td style={{ padding: '0.35rem 0' }}>Settings</td></tr>
+                  <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd className="shortcut-kbd">Alt</kbd> + <kbd className="shortcut-kbd">7</kbd></td><td style={{ padding: '0.35rem 0' }}>Conversions</td></tr>
                   <tr><td colSpan={2} style={{ padding: '0.5rem 0 0.25rem 0', borderTop: '1px solid var(--border-primary)' }}></td></tr>
                   <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd className="shortcut-kbd">Alt</kbd> + <kbd className="shortcut-kbd">R</kbd></td><td style={{ padding: '0.35rem 0' }}>Refresh (Dashboard)</td></tr>
                   <tr><td style={{ padding: '0.35rem 0.5rem 0.35rem 0' }}><kbd className="shortcut-kbd">Ctrl</kbd> / <kbd className="shortcut-kbd">Alt</kbd> + <kbd className="shortcut-kbd">N</kbd></td><td style={{ padding: '0.35rem 0' }}>New route (Routes)</td></tr>

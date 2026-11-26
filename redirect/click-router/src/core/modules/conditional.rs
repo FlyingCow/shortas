@@ -134,6 +134,8 @@ mod tests {
                 bundling: None,
                 opengraph: false,
                 allow_debug: true,
+                conversion_opt_out: false,
+                track_conversions: true,
             },
             policy: RoutingPolicy::Conditional(
                 [ConditionalRouting {

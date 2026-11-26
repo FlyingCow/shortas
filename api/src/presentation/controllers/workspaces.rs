@@ -480,7 +480,11 @@ pub async fn delete_workspace(req: &mut Request, depot: &mut Depot, res: &mut Re
     }
 
     match app_state.workspace_repo.delete(id).await {
-        Ok(()) => render_no_content(res),
+        Ok(()) => {
+            // Its routes are no longer covered by its conversions.
+            app_state.coverage_signal.notify();
+            render_no_content(res)
+        }
         Err(e) => render_error(res, e),
     }
 }

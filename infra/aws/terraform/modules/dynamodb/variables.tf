@@ -91,6 +91,19 @@ variable "user_settings_write_capacity" {
   default     = 2
 }
 
+# Conversions table capacity
+variable "conversions_read_capacity" {
+  description = "Read capacity units for conversions table"
+  type        = number
+  default     = 5
+}
+
+variable "conversions_write_capacity" {
+  description = "Write capacity units for conversions table"
+  type        = number
+  default     = 2
+}
+
 # Domains table capacity
 variable "domains_read_capacity" {
   description = "Read capacity units for domains table"

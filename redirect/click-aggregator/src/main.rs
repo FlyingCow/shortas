@@ -57,6 +57,9 @@ async fn start(token: CancellationToken) -> Result<()> {
 
     let modules = init_modules(&settings, token.clone()).await;
 
+    // Stopped when this is dropped
+    let _conversions = click_aggregator::conversions::start(&settings, token.clone());
+
     let pipe = AggsPipe::new(modules);
 
     let mut threads = App::run(init_sources(settings).await, pipe, token)

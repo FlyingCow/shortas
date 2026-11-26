@@ -336,7 +336,8 @@ services:
           sleep 3
         done &&
         (fluvio topic create hit-stream-main || true) &&
-        (fluvio topic create click-aggs-main || true)
+        (fluvio topic create click-aggs-main || true) &&
+        (fluvio topic create conversion-stream-main || true)
       "
     networks:
       - shortas-net
@@ -660,9 +661,10 @@ services:
       - click-router-api
     environment:
       <<: *rust-logging
-      # Staging ACME directory by default — see README.md before going live.
       # cert-bot's config loader uses prefix "CERTBOT", not "APP" like every
       # other service — see workers/cert-bot/src/settings.rs.
+      # Staging unless ACME_DIRECTORY_URL is set — see README.md before going live.
+      CERTBOT__ACME__DIRECTORY_URL: ${ACME_DIRECTORY_URL:-https://acme-staging-v02.api.letsencrypt.org/directory}
       CERTBOT__ACME__ACCOUNT_EMAIL: ${ACME_ACCOUNT_EMAIL}
       CERTBOT__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017
       CERTBOT__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f

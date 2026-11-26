@@ -158,6 +158,10 @@ pub struct RouteProperties {
     pub opengraph: bool,
     #[serde(default)]
     pub allow_debug: bool,
+    #[serde(default)]
+    pub conversion_opt_out: bool,
+    #[serde(default)]
+    pub track_conversions: bool,
 }
 
 impl Default for RouteProperties {
@@ -176,6 +180,8 @@ impl Default for RouteProperties {
             qr_settings: None,
             opengraph: false,
             allow_debug: false,
+            conversion_opt_out: false,
+            track_conversions: false,
         }
     }
 }

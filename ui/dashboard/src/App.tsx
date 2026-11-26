@@ -12,6 +12,7 @@ import Domains from './components/Domains';
 import Workspaces from './components/Workspaces';
 import Settings from './components/SettingsUnified';
 import Clickstream from './components/ClickstreamUnified';
+import Conversions from './components/conversions/Conversions';
 import Layout from './components/LayoutUnified';
 import LoadingSpinner from './components/LoadingSpinner';
 import LoggedOut from './components/LoggedOut';
@@ -181,6 +182,7 @@ function AppContent() {
                   <Route path="/domains" element={<Domains />} />
                   <Route path="/workspaces" element={<Workspaces />} />
                   <Route path="/clickstream" element={<Clickstream />} />
+                  <Route path="/conversions/*" element={<Conversions />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>

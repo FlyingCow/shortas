@@ -1,7 +1,7 @@
 use salvo::oapi::endpoint;
 use salvo::prelude::*;
 
-use crate::adapters::api::routes::{clickstream_controller, stats_controller};
+use crate::adapters::api::routes::{clickstream_controller, conversion_log_controller, stats_controller};
 
 pub fn routes() -> Router {
     // Public routes (no authentication required)
@@ -12,6 +12,7 @@ pub fn routes() -> Router {
     // Protected API routes (authorization disabled)
     let protected_routes = Router::with_path("/v1")
         .push(clickstream_controller::api_routes())
+        .push(conversion_log_controller::routes())
         .push(stats_controller::stats_routes());
 
     // Combine all routes

@@ -7,22 +7,24 @@ use std::sync::Arc;
 
 use crate::{
     adapters::{
+        api::conversion_endpoints::{not_found_prefix, ConversionEndpoints},
         aws::{
             dynamo::{
-                crypto_store::DynamoCryptoStore, routes_store::DynamoRoutesStore,
+                conversion_store::DynamoConversionStore, crypto_store::DynamoCryptoStore, routes_store::DynamoRoutesStore,
                 user_settings_store::DynamoUserSettingsStore,
             },
             settings::AWS,
         },
-        fluvio::hit_registrar::FluvioHitRegistrar,
+        fluvio::{conversion_publisher::FluvioConversionPublisher, hit_registrar::FluvioHitRegistrar},
         geo_ip::geo_ip_location_detector::GeoIPLocationDetector,
         moka::{
+            conversion_cache::MokaConversionCache,
             crypto_cache::MokaCryptoCache,
             qr_code_cache::MokaQrCodeCache, routes_cache::MokaRoutesCache, settings::Moka,
             user_settings_cache::MokaUserSettingsCache,
         },
         mongodb::{
-            crypto_store::MongodbCryptoStore,
+            conversion_store::MongodbConversionStore, crypto_store::MongodbCryptoStore,
             routes_store::MongodbRoutesStore, settings::Mongodb,
             user_settings_store::MongodbUserSettingsStore,
         },
@@ -50,6 +52,7 @@ pub struct AppBuilder {
     user_settings_cache: Option<UserSettingsCacheType>,
     routes_cache: Option<RoutesCacheType>,
     crypto_cache: Option<CryptoCacheType>,
+    conversion_cache: Option<MokaConversionCache>,
     qr_code_cache: Option<Arc<MokaQrCodeCache>>,
     user_agent_detector: Option<UserAgentDetectorType>,
     location_detector: Option<LocationDetectorType>,
@@ -147,6 +150,14 @@ impl AppBuilder {
             .init_moka_cache_with_dynamo_stores(&self.settings.moka, &self.settings.aws)
             .await;
 
+        let aws_config = self.load_aws_config(self.settings.aws.clone()).await;
+        self.conversion_cache = Some(MokaConversionCache::new(
+            Arc::new(DynamoConversionStore::new(
+                &aws_config,
+                self.settings.aws.dynamo.conversions_table.clone(),
+            )),
+            &self.settings.moka.conversion_cache,
+        ));
         self.crypto_cache = Some(crypto_cache);
         self.routes_cache = Some(routes_cache);
         self.user_settings_cache = Some(user_settings_cache);
@@ -216,6 +227,10 @@ impl AppBuilder {
             .init_moka_cache_with_mongodb_stores(&self.settings.moka, &self.settings.mongodb)
             .await;
 
+        self.conversion_cache = Some(MokaConversionCache::new(
+            Arc::new(MongodbConversionStore::new(&self.settings.mongodb).await),
+            &self.settings.moka.conversion_cache,
+        ));
         self.crypto_cache = Some(crypto_cache);
         self.routes_cache = Some(routes_cache);
         self.user_settings_cache = Some(user_settings_cache);
@@ -233,6 +248,8 @@ impl AppBuilder {
                     rmq_settings.clone(),
                     routes_cache.clone(),
                     user_settings_cache.clone(),
+                    self.crypto_cache.clone(),
+                    self.conversion_cache.clone(),
                 );
             } else {
                 tracing::warn!(
@@ -247,7 +264,7 @@ impl AppBuilder {
 
     pub async fn with_fluvio(mut self) -> Self {
         let hit_registrar = HitRegistrarType::Fluvio(
-            FluvioHitRegistrar::new(&self.settings.fluvio.hit_stream).await,
+            FluvioHitRegistrar::new(&self.settings.fluvio.hit_stream),
         );
 
         self.hit_registrar = Some(hit_registrar);
@@ -359,6 +376,21 @@ impl AppBuilder {
             self.hit_registrar.clone().unwrap(),
             self.modules.clone(),
         )
+        .with_click_ids(self.settings.redirect.click_ids_enabled)
+    }
+
+    /// The conversion endpoints. When off, their path still answers not found.
+    pub fn conversion_endpoints(&self) -> anyhow::Result<axum::Router> {
+        let settings = &self.settings.conversions;
+        match &self.conversion_cache {
+            Some(definitions) if settings.enabled => Ok(ConversionEndpoints::new(
+                settings,
+                definitions.clone(),
+                Arc::new(FluvioConversionPublisher::new(&settings.stream)),
+            )?
+            .router()),
+            _ => Ok(not_found_prefix()),
+        }
     }
 
     /// Get the crypto cache for dynamic TLS certificate resolution

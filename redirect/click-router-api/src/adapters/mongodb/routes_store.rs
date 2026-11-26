@@ -222,3 +222,60 @@ impl RoutesStore for MongodbRoutesStore {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod conversion_flag_tests {
+    use super::*;
+
+    fn flagged(link: &str) -> Route {
+        Route {
+            switch: "main".into(),
+            link: link.into(),
+            dest: Some("https://e.com".into()),
+            code: Some(302),
+            ttl: Some(60),
+            properties: RouteProperties {
+                route_id: Some("r".into()),
+                owner_id: Some("o".into()),
+                conversion_opt_out: true,
+                track_conversions: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    async fn flags(store: &dyn RoutesStore, link: &str) -> (bool, bool) {
+        let p = store.get_route("main", link).await.unwrap().unwrap().properties;
+        (p.conversion_opt_out, p.track_conversions)
+    }
+
+    async fn round_trip(store: &dyn RoutesStore) {
+        let mut route = flagged("a%2fb");
+        store.store_route(&route).await.unwrap();
+        assert_eq!(flags(store, "a%2fb").await, (true, true));
+        route.properties.track_conversions = false;
+        store.update_route(&route).await.unwrap();
+        assert_eq!(flags(store, "a%2fb").await, (true, false));
+        store.store_route_family(&[flagged("a%2fb")]).await.unwrap();
+        assert_eq!(flags(store, "a%2fb").await, (true, true));
+    }
+
+    #[tokio::test]
+    #[ignore = "needs MongoDB"]
+    async fn conversion_flags_round_trip() {
+        let client = mongodb::Client::with_uri_str(std::env::var("TEST_MONGODB_URI").unwrap()).await.unwrap();
+        let database = client.database("shortas_route_flags_test");
+        database.drop().await.unwrap();
+        round_trip(&MongodbRoutesStore::new(&database, "routes")).await;
+
+        // Routes stored before the flags existed.
+        database
+            .collection::<mongodb::bson::Document>("routes")
+            .update_many(doc! {}, doc! { "$unset": { "properties.conversion_opt_out": "", "properties.track_conversions": "" } })
+            .await
+            .unwrap();
+        assert_eq!(flags(&MongodbRoutesStore::new(&database, "routes"), "a%2fb").await, (false, false));
+        database.drop().await.unwrap();
+    }
+}

@@ -1,8 +1,10 @@
+pub mod conversion;
 pub mod expression;
 pub mod hit;
 pub mod keycert;
 pub mod route;
 pub mod user_settings;
+pub use conversion::{Conversion, ConversionStep};
 pub use hit::Hit;
 pub use keycert::Keycert;
 pub use route::Route;

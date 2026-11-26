@@ -4,6 +4,7 @@
 //! Use shortas-common types only when communicating with underlying APIs.
 
 pub mod condition;
+pub mod conversion;
 pub mod domain;
 pub mod error;
 pub mod invitation;
@@ -15,6 +16,9 @@ pub mod user;
 
 // Re-export condition types
 pub use condition::{Condition, DefaultOperator, NumericCondition, StringCondition};
+
+// Re-export conversion types
+pub use conversion::*;
 
 // Re-export domain types
 pub use domain::{

@@ -29,7 +29,12 @@ pub fn domains_controller() -> Router {
                 .put(update_domain)
                 .delete(delete_domain)
                 .options(cors_preflight)
-                .push(Router::with_path("verify").post(verify_domain).options(cors_preflight)),
+                .push(Router::with_path("verify").post(verify_domain).options(cors_preflight))
+                .push(
+                    Router::with_path("conversions")
+                        .get(super::conversions::list_domain_conversions)
+                        .options(cors_preflight),
+                ),
         )
         // Keyed by domain name rather than ID: the dashboard's Custom Pages
         // dialog is opened straight off a domain row, which only has the

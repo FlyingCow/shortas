@@ -45,9 +45,7 @@ impl RoutesManager {
     ) -> Result<Option<Arc<Route>>> {
         let key = get_key(domain, path);
 
-        let route_result = self.routes_cache.get_route(switch, key.as_str()).await;
-
-        Ok(route_result.unwrap())
+        self.routes_cache.get_route(switch, key.as_str()).await
     }
 
     /// Get a route by switch and raw path (without key construction)
@@ -57,9 +55,7 @@ impl RoutesManager {
         switch: &str,
         path: &str,
     ) -> Result<Option<Arc<Route>>> {
-        let route_result = self.routes_cache.get_route(switch, path).await;
-
-        Ok(route_result.unwrap())
+        self.routes_cache.get_route(switch, path).await
     }
 }
 

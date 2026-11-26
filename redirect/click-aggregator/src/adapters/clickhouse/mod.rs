@@ -52,6 +52,7 @@ pub struct ClickStreamItemRow {
     pub session_clicks: u64,
     pub is_unique: u8,
     pub is_bot: u8,
+    pub is_trackable: u8,
 }
 
 impl Row for ClickStreamItemRow {
@@ -78,6 +79,7 @@ impl Row for ClickStreamItemRow {
         "session_clicks",
         "is_unique",
         "is_bot",
+        "is_trackable",
     ];
 }
 
@@ -174,6 +176,7 @@ impl ClickStreamStore for ClickhouseClickStreamStore {
             // Boolean to u8 conversion
             is_unique: if click.is_unique { 1 } else { 0 },
             is_bot: if click.is_bot { 1 } else { 0 },
+            is_trackable: u8::from(click.is_trackable),
         });
         
         // Handle write errors

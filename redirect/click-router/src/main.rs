@@ -19,7 +19,6 @@
 use clap::Parser;
 use http::StatusCode;
 use mimalloc::MiMalloc;
-use rustls::server::ClientHello;
 use std::{
     io::{Error as IoError, Result as IoResult},
     sync::Arc,
@@ -39,22 +38,18 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use axum_server::tls_rustls::RustlsConfig;
-use rustls::server::ResolvesServerCert;
-use rustls::sign::CertifiedKey;
 use tower_cookies::{CookieManagerLayer, Cookies};
 use tower_http::trace::TraceLayer;
 use tokio::time::{timeout, Duration};
 
 use click_router::{
     adapters::{
-        api::conversion_routes,
         axum::{axum_proxy::{Client, hyper_client::HyperClient}, parse_queries, AxumRequest, AxumResponse},
-        CryptoCacheType, RequestType, ResponseType,
+        tls::SniAcceptor,
+        RequestType, ResponseType,
     },
     app::AppBuilder,
     core::{
-        crypto::CryptoCache,
         flow_router::{FlowRouterResult, RedirectType},
         metrics::{Timer, METRICS},
         metrics_endpoint::create_metrics_router,
@@ -210,12 +205,16 @@ async fn redirect_handler(
                         RedirectType::Permanent => StatusCode::PERMANENT_REDIRECT,
                         RedirectType::Temporary => StatusCode::TEMPORARY_REDIRECT,
                     };
-                    (
-                        status,
-                        [(http::header::LOCATION, url.to_string())],
-                        "",
-                    )
-                        .into_response()
+                    // Bytes, because a destination may be UTF-8
+                    match http::HeaderValue::from_bytes(url.as_bytes()) {
+                        Ok(location) => {
+                            (status, [(http::header::LOCATION, location)], "").into_response()
+                        }
+                        Err(_) => {
+                            METRICS.requests_error.inc();
+                            (StatusCode::INTERNAL_SERVER_ERROR, "").into_response()
+                        }
+                    }
                 }
                 FlowRouterResult::Retargeting(url, _script_urls) => url.to_string().into_response(),
                 FlowRouterResult::Error => {
@@ -235,18 +234,6 @@ async fn redirect_handler(
     METRICS.active_requests.dec();
 
     response
-}
-
-/// Create a default TLS configuration from embedded certificates
-async fn create_default_tls_config() -> RustlsConfig {
-    // TODO: Implement dynamic certificate resolution for SNI
-    // For now, using static embedded certificates
-    RustlsConfig::from_pem_file(
-        "certs/cert.pem",
-        "certs/key.pem"
-    )
-    .await
-    .expect("Failed to load TLS certificates")
 }
 
 /// Main entry point for the Click Router application
@@ -316,6 +303,8 @@ async fn main() {
     )
     .unwrap();
 
+    let tls_settings = settings.tls.clone();
+
     let app_builder = AppBuilder::new(settings)
         .with_geo_ip()
         .with_ua_parser()
@@ -331,17 +320,21 @@ async fn main() {
         app_builder.with_mongodb().await
     };
 
-    let mut app_builder = app_builder.with_rabbitmq().with_default_modules();
+    let app_builder = app_builder.with_rabbitmq().with_default_modules();
 
     // Get crypto cache for dynamic certificate resolution before building
     let crypto_cache = app_builder.get_crypto_cache();
+
+    let conversion_endpoints = app_builder
+        .conversion_endpoints()
+        .expect("Invalid conversion settings");
 
     let flow_router = app_builder.build();
     init_flow_router(flow_router);
 
     // Create routers for HTTP and HTTPS servers
     let app = Router::new()
-        .merge(conversion_routes::conversion_routes())
+        .merge(conversion_endpoints)
         // Axum's "/*rest_path" wildcard requires at least one segment after
         // the slash to capture, so it never matches the bare root path "/" -
         // every domain's index page has been 404ing at this routing layer,
@@ -393,18 +386,20 @@ async fn main() {
     }
 
     // Start main application server
-    if crypto_cache.is_some() {
-        tracing::info!("🔐 Dynamic TLS certificate resolution enabled (will be implemented)");
+    if tls_settings.sni_enabled && crypto_cache.is_some() {
+        tracing::info!("🔐 Certificates are selected by server name");
     } else {
-        tracing::warn!("⚠️ Crypto cache not available");
+        tracing::warn!("⚠️ Every HTTPS connection gets the fallback certificate");
     }
 
     // Start HTTPS server on port 4433
+    let acceptor =
+        SniAcceptor::new(&tls_settings, crypto_cache).expect("Failed to set up the TLS certificate");
     let app_clone = app.clone();
     tokio::spawn(async move {
-        let tls_config = create_default_tls_config().await;
         tracing::info!("🔐 HTTPS server listening on https://0.0.0.0:4433");
-        axum_server::bind_rustls("0.0.0.0:4433".parse().unwrap(), tls_config)
+        axum_server::bind("0.0.0.0:4433".parse().unwrap())
+            .acceptor(acceptor)
             .serve(app_clone)
             .await
             .expect("HTTPS server failed");

@@ -5,6 +5,8 @@ use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
+use super::conversion_repo::queue_propagation;
+use super::route_coverage;
 use crate::domain::entities::{ApiError, Result, UserWorkspace, Workspace};
 use crate::domain::traits::{WorkspaceRepository, WorkspaceStats};
 
@@ -144,20 +146,38 @@ impl WorkspaceRepository for PgWorkspaceRepository {
     }
 
     async fn delete(&self, id: Uuid) -> Result<()> {
+        let db_err = |e: sqlx::Error| ApiError::internal(e.to_string());
+        let mut tx = self.pool.begin().await.map_err(db_err)?;
+
+        route_coverage::lock_for_conversions(&mut tx, id).await?;
+
+        // Conversions disappear with the workspace, so queue stopping them.
+        let conversions = sqlx::query("SELECT id, public_key FROM conversions WHERE workspace_id = $1")
+            .bind(id)
+            .fetch_all(&mut *tx)
+            .await
+            .map_err(db_err)?;
+        for row in conversions {
+            let public_key: String = row.try_get("public_key").map_err(db_err)?;
+            let conversion_id = row.try_get("id").map_err(db_err)?;
+            queue_propagation(&mut tx, id, conversion_id, &public_key).await?;
+        }
+
         // Delete memberships first
         sqlx::query("DELETE FROM user_workspaces WHERE workspace_id = $1")
             .bind(id)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
-            .map_err(|e| ApiError::internal(e.to_string()))?;
+            .map_err(db_err)?;
 
         sqlx::query("DELETE FROM workspaces WHERE id = $1")
             .bind(id)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
-            .map_err(|e| ApiError::internal(e.to_string()))?;
+            .map_err(db_err)?;
 
-        Ok(())
+        route_coverage::refresh_workspace(&mut tx, id).await?;
+        tx.commit().await.map_err(db_err)
     }
 
     async fn get_system_workspace(&self, user_id: &str) -> Result<Option<Workspace>> {

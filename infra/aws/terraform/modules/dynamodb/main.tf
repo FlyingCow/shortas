@@ -21,6 +21,20 @@ resource "aws_dynamodb_table" "routes" {
     type = "S"
   }
 
+  attribute {
+    name = "route_id"
+    type = "S"
+  }
+
+  # Global Secondary Index for lookups by route ID. Only master routes have one.
+  global_secondary_index {
+    name            = "route-id-index"
+    hash_key        = "route_id"
+    projection_type = "ALL"
+    read_capacity   = var.billing_mode == "PROVISIONED" ? var.routes_read_capacity : null
+    write_capacity  = var.billing_mode == "PROVISIONED" ? var.routes_write_capacity : null
+  }
+
   # Global Secondary Index for owner lookups
   global_secondary_index {
     name            = "owner-index"
@@ -144,6 +158,34 @@ resource "aws_dynamodb_table" "user_settings" {
 
   tags = {
     Name        = "core-user-settings-${var.environment}"
+    Environment = var.environment
+  }
+}
+
+# Conversions Table - Conversion definitions by public key
+resource "aws_dynamodb_table" "conversions" {
+  name         = "core-conversions-${var.environment}"
+  billing_mode = var.billing_mode
+  hash_key     = "public_key"
+
+  read_capacity  = var.billing_mode == "PROVISIONED" ? var.conversions_read_capacity : null
+  write_capacity = var.billing_mode == "PROVISIONED" ? var.conversions_write_capacity : null
+
+  attribute {
+    name = "public_key"
+    type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = var.enable_point_in_time_recovery
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  tags = {
+    Name        = "core-conversions-${var.environment}"
     Environment = var.environment
   }
 }

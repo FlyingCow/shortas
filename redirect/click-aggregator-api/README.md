@@ -1,6 +1,6 @@
 # click-aggregator-api
 
-An internal analytics API over ClickHouse. It serves clickstream statistics (daily and hourly, geography, devices, browsers, traffic types, top routes and destinations) and conversions (rates, revenue, attribution, funnels). The Management API proxies it for the dashboard, and it has no authentication of its own.
+An internal analytics API over ClickHouse. It serves clickstream statistics (daily and hourly, geography, devices, browsers, traffic types, top routes and destinations), and conversion event logs. The Management API proxies it for the dashboard, and it has no authentication of its own.
 
 ## Run
 

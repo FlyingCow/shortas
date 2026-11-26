@@ -83,7 +83,11 @@ Workers talk to each other through RabbitMQ events such as `domain.state.changed
                 Click Router loads it on the TLS handshake (cached)
 ```
 
-Click Router terminates TLS itself. It reads certificates from MongoDB by server name and keeps them in a cache, so a handshake never needs a network call.
+Click Router terminates TLS itself. It looks up the certificate for the requested server name and keeps it in a cache, so most handshakes need no network call. Names without a usable certificate get a fallback: the files in `tls.fallback_cert_path` and `tls.fallback_key_path`, or a self-signed certificate generated at startup when neither is set.
+
+Click Router API announces stored, replaced and deleted certificates on the RabbitMQ exchange `cache.invalidation.certificates`, and routers drop their cached copy. Set `tls.sni_enabled = false` to serve only the fallback.
+
+On AWS the load balancer terminates TLS with its own certificate, so this does not apply to custom domains there.
 
 ## Notifications
 

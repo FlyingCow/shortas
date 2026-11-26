@@ -348,8 +348,9 @@ const RouteForm: React.FC<RouteFormProps> = ({
     isEdit && (formData.code && formData.code !== 302);
   const hasConditions = (formData.conditions?.length ?? 0) > 0;
   const hasTags = (formData.properties?.tags?.length ?? 0) > 0;
-  const hasFlags = formData.properties?.opengraph || formData.properties?.allowDebug;
-  const hasTagsOrFlags = isEdit && (hasTags || hasFlags);
+  const hasFlags = formData.properties?.opengraph || formData.properties?.allowDebug || formData.properties?.conversionOptOut;
+  // Also opened to show why the route cannot drive conversions.
+  const hasTagsOrFlags = isEdit && (hasTags || hasFlags || !formData.properties?.workspaceId);
 
   const fieldError = (field: string) =>
     touched[field] && errors[field] ? (
@@ -602,6 +603,21 @@ const RouteForm: React.FC<RouteFormProps> = ({
                   />
                   Allow Debug
                 </label>
+
+                <label className="rf-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.properties?.conversionOptOut || false}
+                    onChange={(e) => handlePropertyChange('conversionOptOut', e.target.checked)}
+                    disabled={saving || !formData.properties?.workspaceId}
+                  />
+                  Exclude from conversion tracking
+                </label>
+                <span className="rf-helper">
+                  {formData.properties?.workspaceId
+                    ? 'While a conversion covers this route, shortas_cid is added to its destination. Exclude the route if its destination is signed or rejects unknown parameters.'
+                    : 'This route belongs to no workspace, so it cannot drive conversions.'}
+                </span>
               </div>
             </div>
           </div>

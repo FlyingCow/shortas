@@ -1,4 +1,5 @@
 pub mod app_builder_extensions;
+pub mod conversion_store;
 pub mod crypto_store;
 pub mod routes_store;
 pub mod settings;

@@ -9,6 +9,7 @@ encryption_table = "core-routes-encryption-dev"
 routes_table = "core-routes-dev"
 hostname_mappings_table = "core-routes-hostname-mapping-dev"
 user_settings_table = "core-user-settings-dev"
+conversions_table = "core-conversions-dev"
 challenges_table = "core-challenges-dev"
 
 # MongoDB is not used in AWS - DynamoDB is the primary store

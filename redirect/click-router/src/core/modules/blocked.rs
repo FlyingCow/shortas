@@ -97,6 +97,7 @@ mod tests {
             not_found_url: "https://example.com/404".to_string(),
             blocked_url: "https://example.com/blocked".to_string(),
             qr_images_base_url: None,
+            click_ids_enabled: false,
         };
         let module = BlockedModule::new(redirect.clone());
 
@@ -110,6 +111,7 @@ mod tests {
             not_found_url: "https://example.com/404".to_string(),
             blocked_url: "https://example.com/blocked".to_string(),
             qr_images_base_url: None,
+            click_ids_enabled: false,
         };
         let module = BlockedModule::new(redirect);
         let cloned = module.clone();

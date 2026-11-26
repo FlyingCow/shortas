@@ -56,7 +56,7 @@ impl RedirectOnlyModule {
             return Ok(false);
         }
 
-        let settings = &flow_router
+        let settings = flow_router
             .get_user_settings(
                 context
                     .main_route
@@ -67,7 +67,17 @@ impl RedirectOnlyModule {
                     .as_ref()
                     .unwrap(),
             )
-            .await?;
+            .await;
+
+        // The link still works, and an owner who skips tracking is never
+        // tracked by mistake.
+        let settings = match settings {
+            std::result::Result::Ok(settings) => settings,
+            Err(e) => {
+                tracing::error!(error = %e, "User settings unavailable, click not recorded");
+                return Ok(false);
+            }
+        };
 
         if let Some(settings) = settings {
             if settings.skip.iter().any(|s| s == SKIP_TRACKING) {

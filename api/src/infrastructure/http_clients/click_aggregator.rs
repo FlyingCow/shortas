@@ -18,6 +18,45 @@ pub struct ClickAggregatorClient {
 // Response DTOs matching click-aggregator-api
 // ============================================================================
 
+/// A conversion event, refund or rejected event.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct ConversionLogItem {
+    pub id: String,
+    /// `event` or `refund`.
+    pub kind: String,
+    /// `pending`, `attributed`, `unattributed` or `rejected`; for refunds
+    /// `refunded`, `invalid` or `rejected`.
+    pub status: String,
+    /// Why an event is unattributed or rejected, or a refund invalid.
+    pub reason: String,
+    /// The field that made an event invalid.
+    pub field: String,
+    /// `browser` or `server`.
+    pub source: String,
+    pub test: bool,
+    pub step: String,
+    pub event_id: String,
+    pub external_id: String,
+    pub refund_id: String,
+    pub click_id: String,
+    pub route_id: String,
+    /// Decimal string.
+    pub value: Option<String>,
+    /// The part of a refund that reduces revenue.
+    pub applied: Option<String>,
+    pub currency: String,
+    pub occurred_at: String,
+    pub received_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct ConversionLog {
+    pub items: Vec<ConversionLogItem>,
+    pub has_more: bool,
+}
+
 /// Daily statistics from click-aggregator-api.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DailyStats {
@@ -206,6 +245,27 @@ impl ClickAggregatorClient {
     // ========================================================================
     // Direct API methods (matching click-aggregator-api endpoints)
     // ========================================================================
+
+    /// A conversion's events, newest first. Does not check access.
+    pub async fn get_conversion_events(
+        &self,
+        workspace_id: uuid::Uuid,
+        conversion_id: uuid::Uuid,
+        limit: u32,
+        offset: u32,
+    ) -> anyhow::Result<ConversionLog> {
+        let url = format!(
+            "{}/v1/workspaces/{workspace_id}/conversions/{conversion_id}/events",
+            self.base_url
+        );
+        let response = self
+            .client
+            .get(&url)
+            .query(&[("limit", limit), ("offset", offset)])
+            .send()
+            .await?;
+        self.handle_response(response).await
+    }
 
     /// Get daily statistics.
     pub async fn get_daily_stats(
@@ -820,6 +880,28 @@ mod tests {
             human_clicks: 9,
             unique_ips: 7,
         }]
+    }
+
+    #[tokio::test]
+    async fn test_get_conversion_events_asks_for_the_workspace_and_page() {
+        let server = MockServer::start().await;
+        let (workspace, conversion) = (uuid::Uuid::new_v4(), uuid::Uuid::new_v4());
+        Mock::given(method("GET"))
+            .and(path(format!("/v1/workspaces/{workspace}/conversions/{conversion}/events")))
+            .and(query_param("limit", "20"))
+            .and(query_param("offset", "40"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "items": [], "has_more": true
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let log = test_client(server.uri())
+            .get_conversion_events(workspace, conversion, 20, 40)
+            .await
+            .unwrap();
+        assert!(log.has_more);
     }
 
     #[tokio::test]

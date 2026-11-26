@@ -1,5 +1,9 @@
 use serde_derive::Deserialize;
 
+fn default_conversions_collection() -> String {
+    "core_conversions".to_string()
+}
+
 fn default_challenges_collection() -> String {
     "acme_challenges".to_string()
 }
@@ -13,6 +17,8 @@ pub struct Mongodb {
     pub routes_collection: String,
     pub hostname_mappings_collection: String,
     pub user_settings_collection: String,
+    #[serde(default = "default_conversions_collection")]
+    pub conversions_collection: String,
     #[serde(default = "default_challenges_collection")]
     pub challenges_collection: String,
 }
