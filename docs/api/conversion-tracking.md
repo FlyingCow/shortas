@@ -9,6 +9,8 @@ Report signups, orders and other goals reached by visitors of your short links. 
 
 Covered links add `shortas_cid` to their destination. It identifies the click and must be returned with each event for the event to be attributed. Nothing is inferred from IP addresses.
 
+An event can arrive before its click has been stored, for example during a burst of traffic. It waits up to 15 minutes for the click. After that it counts as unattributed, with reason `click_not_found`, and is checked again for 72 hours after it was received. If the click is stored in that time, the event becomes attributed and is credited to its link. Conversion counts and revenue stay the same; only the attribution changes.
+
 ## Browser script
 
 ```html

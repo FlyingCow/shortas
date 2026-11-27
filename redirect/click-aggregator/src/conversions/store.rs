@@ -8,9 +8,18 @@ use serde::{Deserialize, Serialize};
 use crate::adapters::clickhouse::settings::ClickStreamStoreConfig;
 
 use super::{
-    attribution::{Click, Decision},
+    attribution::{decide, Click, Decision},
     record::ConversionRecord,
 };
+
+/// Values of `conversion_pending.resolved`. The highest wins.
+pub mod state {
+    /// Waiting for its click.
+    pub const WAITING: u8 = 0;
+    /// Counted as unattributed, and still re-checked.
+    pub const LATE: u8 = 1;
+    pub const DONE: u8 = 2;
+}
 
 #[derive(Clone)]
 pub struct ConversionStore {
@@ -87,7 +96,7 @@ struct PendingRow {
 }
 
 #[derive(Debug, Row, Deserialize)]
-struct WaitingRow {
+struct PendingReadRow {
     id: String,
     payload: String,
     #[serde(with = "clickhouse::serde::chrono::datetime64::millis")]
@@ -108,12 +117,13 @@ struct ClickRow {
     is_trackable: u8,
 }
 
-/// An event waiting for its click.
+/// An event waiting for its click, or late.
 #[derive(Debug)]
-pub struct Waiting {
+pub struct Pending {
     pub id: String,
     /// `None` when unreadable.
     pub record: Option<ConversionRecord>,
+    payload: String,
     pub stored_at: DateTime<Utc>,
 }
 
@@ -126,8 +136,14 @@ pub struct Batch {
 }
 
 impl Batch {
-    /// Adds a record. Events with a click ID wait for the reconciler.
-    pub fn add(&mut self, record: &ConversionRecord, now: DateTime<Utc>) -> Result<&'static str> {
+    /// Adds a record. An event with a click ID is decided by its click, given
+    /// in `clicks` when stored, and otherwise waits for the reconciler.
+    pub fn add(
+        &mut self,
+        record: &ConversionRecord,
+        clicks: &HashMap<String, Click>,
+        now: DateTime<Utc>,
+    ) -> Result<&'static str> {
         if let Some(reason) = &record.rejection {
             // Rejected events may hold anything.
             let value = record.scaled_value().ok().flatten();
@@ -140,63 +156,62 @@ impl Batch {
             self.events.push(event_row(record, value, None, ""));
             return Ok("refund");
         }
-        if record.click_id.is_none() {
+        let Some(click_id) = &record.click_id else {
             self.events.push(event_row(record, value, None, "no_click_id"));
             return Ok("unattributed");
+        };
+        match decide(record, clicks.get(click_id), now, now) {
+            Decision::Wait => {
+                self.pending.push(PendingRow {
+                    id: record.id.clone(),
+                    workspace_id: record.workspace_id.clone(),
+                    conversion_id: record.conversion_id.clone(),
+                    resolved: state::WAITING,
+                    payload: serde_json::to_string(record)?,
+                    inserted_at: now,
+                });
+                Ok("pending")
+            }
+            decision => self.decided(record, decision),
         }
-        self.pending.push(PendingRow {
-            id: record.id.clone(),
-            workspace_id: record.workspace_id.clone(),
-            conversion_id: record.conversion_id.clone(),
-            resolved: 0,
-            payload: serde_json::to_string(record)?,
-            inserted_at: now,
-        });
-        Ok("pending")
     }
 
-    /// Adds what was decided for a waiting event. Nothing while it waits.
-    pub fn resolve(
-        &mut self,
-        waiting: &Waiting,
-        decision: Decision,
-        now: DateTime<Utc>,
-    ) -> Result<&'static str> {
-        let outcome = match &waiting.record {
-            None => "unreadable",
-            Some(record) => {
-                let value = record.scaled_value()?;
-                match decision {
-                    Decision::Wait => return Ok("waiting"),
-                    Decision::Attributed(click) => {
-                        self.events.push(event_row(record, value, Some(click), ""));
-                        "attributed"
-                    }
-                    Decision::Unattributed(reason) => {
-                        self.events.push(event_row(record, value, None, reason));
-                        "unattributed"
-                    }
-                    Decision::Rejected(reason) => {
-                        self.rejected.push(rejected_row(record, value, reason, String::new()));
-                        "rejected"
-                    }
-                }
+    /// Adds the rows of a verdict. Nothing while it waits.
+    pub fn decided(&mut self, record: &ConversionRecord, decision: Decision) -> Result<&'static str> {
+        let value = record.scaled_value()?;
+        Ok(match decision {
+            Decision::Wait => "waiting",
+            Decision::Attributed(click) => {
+                self.events.push(event_row(record, value, Some(click), ""));
+                "attributed"
             }
-        };
-        let (workspace_id, conversion_id) = waiting
+            Decision::Unattributed(reason) => {
+                self.events.push(event_row(record, value, None, reason));
+                "unattributed"
+            }
+            Decision::Rejected(reason) => {
+                self.rejected.push(rejected_row(record, value, reason, String::new()));
+                "rejected"
+            }
+        })
+    }
+
+    /// Moves a pending event to `to`, one of [`state`]. Late events keep their
+    /// record for the next re-check.
+    pub fn mark(&mut self, pending: &Pending, to: u8, now: DateTime<Utc>) {
+        let (workspace_id, conversion_id) = pending
             .record
             .as_ref()
             .map(|r| (r.workspace_id.clone(), r.conversion_id.clone()))
             .unwrap_or_default();
         self.pending.push(PendingRow {
-            id: waiting.id.clone(),
+            id: pending.id.clone(),
             workspace_id,
             conversion_id,
-            resolved: 1,
-            payload: String::new(),
+            resolved: to,
+            payload: if to == state::LATE { pending.payload.clone() } else { String::new() },
             inserted_at: now,
         });
-        Ok(outcome)
     }
 }
 
@@ -303,24 +318,30 @@ impl ConversionStore {
         Ok(insert.end().await?)
     }
 
-    /// Waiting events with IDs after `after`, in order.
-    pub async fn waiting(&self, after: &str, limit: u32) -> Result<Vec<Waiting>> {
-        let rows: Vec<WaitingRow> = self
+    /// Pending events in state `of`, with IDs after `after`, in order.
+    pub async fn pending(&self, of: u8, after: &str, limit: u32) -> Result<Vec<Pending>> {
+        let rows: Vec<PendingReadRow> = self
             .client
             .query(
                 "SELECT ?fields FROM conversion_pending FINAL \
-                 WHERE resolved = 0 AND id > ? ORDER BY id LIMIT ?",
+                 WHERE resolved = ? AND id > ? ORDER BY id LIMIT ?",
             )
+            .bind(of)
             .bind(after)
             .bind(limit)
             .fetch_all()
             .await?;
         Ok(rows
             .into_iter()
-            .map(|row| Waiting {
-                record: serde_json::from_str(&row.payload)
+            .map(|row| Pending {
+                // Rows resolved before late re-checks existed have no payload.
+                record: (!row.payload.is_empty())
+                    .then(|| serde_json::from_str(&row.payload))
+                    .transpose()
                     .inspect_err(|e| tracing::error!(id = %row.id, error = %e, "Unreadable event"))
-                    .ok(),
+                    .ok()
+                    .flatten(),
+                payload: row.payload,
                 id: row.id,
                 stored_at: row.inserted_at,
             })

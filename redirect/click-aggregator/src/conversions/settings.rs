@@ -9,6 +9,9 @@ pub struct Conversions {
     pub stream: ClickStreamConfig,
     /// How often waiting events are matched again.
     pub reconcile_millis: u64,
+    /// How often late events, whose click was not found in time, are
+    /// matched again.
+    pub late_recheck_millis: u64,
 }
 
 impl Default for Conversions {
@@ -21,6 +24,7 @@ impl Default for Conversions {
                 consumer: "conversions".into(),
             },
             reconcile_millis: 5_000,
+            late_recheck_millis: 60_000,
         }
     }
 }

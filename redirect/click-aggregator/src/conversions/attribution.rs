@@ -1,9 +1,17 @@
 use chrono::{DateTime, Duration, Utc};
+use ulid::Ulid;
 
 use super::record::ConversionRecord;
 
 /// How long an event waits for its click to be stored.
 pub const CLICK_WAIT: Duration = Duration::minutes(15);
+/// How long after its receipt an event is re-checked when its click was not
+/// found in time. It is counted as unattributed meanwhile.
+pub const LATE_HORIZON: Duration = Duration::hours(72);
+/// Clocks of routers may differ by this much.
+const CLOCK_DIFFERENCE: Duration = Duration::minutes(1);
+
+pub const CLICK_NOT_FOUND: &str = "click_not_found";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Click {
@@ -37,7 +45,7 @@ pub fn decide<'a>(
         return if now - stored_at < CLICK_WAIT {
             Decision::Wait
         } else {
-            Decision::Unattributed("click_not_found")
+            Decision::Unattributed(CLICK_NOT_FOUND)
         };
     };
     if click.workspace_id != record.workspace_id {
@@ -61,6 +69,20 @@ pub fn decide<'a>(
         return Decision::Unattributed("outside_window");
     }
     Decision::Attributed(click)
+}
+
+/// Whether the event's click ID can still name a click: click IDs are ULIDs
+/// made at the redirect, so they tell when their click happened.
+pub fn may_name_a_click(record: &ConversionRecord) -> bool {
+    let Some(Ok(id)) = record.click_id.as_deref().map(Ulid::from_string) else {
+        return false;
+    };
+    let Some(clicked) = DateTime::from_timestamp_millis(id.timestamp_ms() as i64) else {
+        return false;
+    };
+    let received = record.received_at;
+    clicked <= received + CLOCK_DIFFERENCE
+        && received - clicked <= Duration::days(record.window_days.into())
 }
 
 #[cfg(test)]
@@ -118,5 +140,29 @@ mod tests {
         assert_eq!(at(0), Decision::Wait);
         assert_eq!(at(14), Decision::Wait);
         assert_eq!(at(15), Decision::Unattributed("click_not_found"));
+    }
+
+    #[test]
+    fn only_ulids_from_the_window_may_name_a_click() {
+        let mut r = record("e");
+        let at = |offset: Duration| {
+            let ms = (r.received_at + offset).timestamp_millis() as u64;
+            Some(Ulid::from_parts(ms, 7).to_string())
+        };
+        let cases = [
+            (Some("not-a-ulid".to_string()), false),
+            (None, false),
+            (at(Duration::minutes(2)), false),
+            (at(Duration::seconds(30)), true),
+            (at(Duration::hours(-1)), true),
+            (at(Duration::days(-29)), true),
+            (at(Duration::days(-31)), false),
+        ];
+        for (click_id, expected) in cases {
+            r.click_id = click_id.clone();
+            assert_eq!(may_name_a_click(&r), expected, "{click_id:?}");
+        }
+        r.click_id = at(Duration::hours(-1)).map(|id| id.to_lowercase());
+        assert!(may_name_a_click(&r));
     }
 }

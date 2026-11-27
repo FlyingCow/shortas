@@ -12,6 +12,7 @@ consumer = "click_aggs"
 [conversions]
 enabled = true
 reconcile_millis = 5000
+late_recheck_millis = 60000
 
 [conversions.stream]
 topic = "conversion-stream-main"
