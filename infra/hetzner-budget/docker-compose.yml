@@ -452,6 +452,9 @@ services:
       APP__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
       APP__REDIS__HOST: redis://:${REDIS_PASSWORD}@redis:6379
       APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
+      APP__CONVERSIONS__ENABLED: "true"
+      APP__REDIRECT__CLICK_IDS_ENABLED: "true"
+
     # Bound to a SECOND server IP (not the default/all-interfaces bind) so
     # it can own standard ports 443/80 for short-link domains without
     # colliding with Caddy, which owns 443/80 on the primary IP for the

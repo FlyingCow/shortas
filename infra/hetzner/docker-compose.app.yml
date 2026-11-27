@@ -51,6 +51,8 @@ services:
       APP__MONGODB__URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/
       APP__REDIS__HOST: redis://:${REDIS_PASSWORD}@redis:6379
       APP__RABBITMQ__URI: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@shortas-rabbitmq:5672/%2f
+      APP__CONVERSIONS__ENABLED: "true"
+      APP__REDIRECT__CLICK_IDS_ENABLED: "true"
     ports:
       - "4433:4433"
       - "5800:5800"
