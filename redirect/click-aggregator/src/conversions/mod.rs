@@ -31,6 +31,11 @@ lazy_static! {
         "Conversion events waiting for their click"
     )
     .unwrap();
+    pub(crate) static ref LATE: IntGauge = register_int_gauge!(
+        "conversion_events_late",
+        "Conversion events counted as unattributed whose click is still looked for"
+    )
+    .unwrap();
     pub(crate) static ref ERRORS: IntCounterVec = register_int_counter_vec!(
         "conversion_errors_total",
         "Failed conversion operations, which are retried",
@@ -41,7 +46,7 @@ lazy_static! {
 
 const RETRY_DELAY: Duration = Duration::from_secs(5);
 
-/// Starts the consumer and the reconciler.
+/// Starts the consumer, the reconciler and the late re-checks.
 pub fn start(settings: &Settings, token: CancellationToken) -> JoinSet<()> {
     let mut tasks = JoinSet::new();
     let conversions = &settings.conversions;
@@ -59,10 +64,22 @@ pub fn start(settings: &Settings, token: CancellationToken) -> JoinSet<()> {
         .await;
     });
 
-    let interval = Duration::from_millis(conversions.reconcile_millis);
+    let (interval, reconcile_store, reconcile_token) = (
+        Duration::from_millis(conversions.reconcile_millis),
+        store.clone(),
+        token.clone(),
+    );
     tasks.spawn(async move {
-        repeat("reconcile", interval, &token, || async {
-            reconciler::reconcile(&store, chrono::Utc::now()).await.map(drop)
+        repeat("reconcile", interval, &reconcile_token, || async {
+            reconciler::reconcile(&reconcile_store, chrono::Utc::now()).await.map(drop)
+        })
+        .await;
+    });
+
+    let interval = Duration::from_millis(conversions.late_recheck_millis);
+    tasks.spawn(async move {
+        repeat("recheck_late", interval, &token, || async {
+            reconciler::recheck_late(&store, chrono::Utc::now()).await.map(drop)
         })
         .await;
     });

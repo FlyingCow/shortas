@@ -2,14 +2,18 @@
 //! `CONVERSIONS_CLICKHOUSE_URL`, `_USER`, `_PASSWORD` and `_DATABASE`.
 //! Run with `cargo test -p click-aggregator -- --ignored`.
 
+use std::{collections::HashMap, sync::Mutex};
+
 use chrono::{DateTime, Duration, Utc};
 use clickhouse::{Client, Compression};
 
 use super::{
+    attribution::LATE_HORIZON,
     consumer::store_batch,
-    reconciler::reconcile,
+    reconciler::{judge, late_step, recheck_late, reconcile, waiting_step, Step},
     record::{tests::record, ConversionRecord},
-    store::ConversionStore,
+    store::{state, ConversionStore, Pending},
+    RECORDS,
 };
 use crate::adapters::clickhouse::settings::ClickStreamStoreConfig;
 
@@ -17,6 +21,8 @@ struct Db {
     store: ConversionStore,
     client: Client,
     workspace: String,
+    /// Click IDs by name: ULIDs, like the router's.
+    clicks: Mutex<HashMap<String, String>>,
 }
 
 impl Db {
@@ -42,6 +48,7 @@ impl Db {
             store: ConversionStore::new(&config),
             client,
             workspace: ulid::Ulid::new().to_string(),
+            clicks: Mutex::default(),
         }
     }
 
@@ -54,17 +61,24 @@ impl Db {
     }
 
     fn click_id(&self, click: &str) -> String {
-        format!("{}-{click}", self.workspace)
+        let mut clicks = self.clicks.lock().unwrap();
+        clicks
+            .entry(click.into())
+            .or_insert_with(|| ulid::Ulid::new().to_string())
+            .clone()
     }
 
     async fn click(&self, click: &str, workspace: &str, created: DateTime<Utc>) {
         self.client
             .query(
-                "INSERT INTO click_stream (id, workspace_id, route_id, created, country, \
+                // The owner is this test's own: daily click rows are summed by
+                // owner and route, so a shared owner would merge them away.
+                "INSERT INTO click_stream (id, owner_id, workspace_id, route_id, created, country, \
                  device_family, os_family, user_agent_family, is_trackable) \
-                 VALUES (?, ?, 'route', fromUnixTimestamp64Milli(toInt64(?)), 'DE', 'Mac', 'Mac OS X', 'Safari', 1)",
+                 VALUES (?, ?, ?, 'route', fromUnixTimestamp64Milli(toInt64(?)), 'DE', 'Mac', 'Mac OS X', 'Safari', 1)",
             )
             .bind(self.click_id(click))
+            .bind(&self.workspace)
             .bind(workspace)
             .bind(created.timestamp_millis())
             .execute()
@@ -119,9 +133,44 @@ impl Db {
     }
 
     async fn waiting(&self) -> String {
-        self.one(
+        self.in_state(state::WAITING).await
+    }
+
+    async fn late(&self) -> String {
+        self.in_state(state::LATE).await
+    }
+
+    async fn in_state(&self, of: u8) -> String {
+        self.one(&format!(
             "SELECT toString(count()) FROM conversion_pending FINAL \
-             WHERE workspace_id = ? AND resolved = 0",
+             WHERE workspace_id = ? AND resolved = {of}"
+        ))
+        .await
+    }
+
+    /// Applies `step` to this event alone: the shared table holds other
+    /// tests' events, which must not be judged at a made-up time.
+    async fn judge_alone(&self, e: &ConversionRecord, of: u8, step: Step, now: DateTime<Utc>) {
+        let pending = self.pending(e, of).await.expect("not pending");
+        judge(&self.store, &[pending], now, step).await.unwrap();
+    }
+
+    async fn pending(&self, e: &ConversionRecord, of: u8) -> Option<Pending> {
+        let mut after = String::new();
+        loop {
+            let page = self.store.pending(of, &after, 1000).await.unwrap();
+            after = page.last()?.id.clone();
+            if let Some(p) = page.into_iter().find(|p| p.id == e.id) {
+                return Some(p);
+            }
+        }
+    }
+
+    /// The event's value and status, and its route when attributed.
+    async fn event_row(&self) -> String {
+        self.one(
+            "SELECT concat(status, ' ', reason, ' ', route_id, ' ', ifNull(toString(value), '')) \
+             FROM conversion_events FINAL WHERE workspace_id = ? AND kind = 'event'",
         )
         .await
     }
@@ -170,9 +219,8 @@ async fn events_take_their_dimensions_from_the_click_and_are_not_clicks() {
     let daily = "SELECT toString(sum(total_clicks)) FROM click_stream_daily_mv WHERE workspace_id = ?";
     let before = (db.one(clicks).await, db.one(daily).await);
     let e = db.event("a");
+    // Decided when read: the click is already stored.
     db.store(&[e.clone()]).await;
-    assert_eq!(db.count().await, 0);
-    db.reconcile(Utc::now()).await;
     assert_eq!(
         db.one(
             "SELECT concat(status, ' ', route_id, ' ', country, ' ', device_family, ' ', \
@@ -182,7 +230,8 @@ async fn events_take_their_dimensions_from_the_click_and_are_not_clicks() {
         .await,
         "attributed route DE Mac Mac OS X Safari 49"
     );
-    assert_eq!(db.waiting().await, "0");
+    let pending = "SELECT toString(count()) FROM conversion_pending WHERE workspace_id = ?";
+    assert_eq!(db.one(pending).await, "0");
     assert_eq!(before, (db.one(clicks).await, db.one(daily).await));
     assert_eq!(before.0, "1");
 }
@@ -227,28 +276,91 @@ async fn late_clicks_are_found_also_after_a_restart() {
 
 #[tokio::test]
 #[ignore]
-async fn missing_clicks_are_given_up() {
+async fn missing_clicks_are_counted_unattributed_and_stay_late() {
     let db = Db::new();
     let e = db.event("never");
+    let mut forged = db.event("forged");
+    forged.click_id = Some("not-a-click-id".into());
+    db.store(&[e.clone(), forged.clone()]).await;
+    let stored = db.pending(&e, state::WAITING).await.unwrap().stored_at;
+    let now = stored + Duration::minutes(15);
+    db.judge_alone(&e, state::WAITING, waiting_step, now).await;
+    db.judge_alone(&forged, state::WAITING, waiting_step, now).await;
+    let mut expected = [e.id.clone(), forged.id.clone()].map(|id| format!("{id} unattributed click_not_found"));
+    expected.sort();
+    assert_eq!(db.events().await, expected);
+    // Only the event whose click ID can name a click stays late.
+    assert_eq!((db.waiting().await, db.late().await), ("0".into(), "1".into()));
+    assert!(db.pending(&e, state::LATE).await.is_some());
+}
+
+/// An event that went late in this test's workspace, with value 49.
+async fn late_event(db: &Db, click: &str) -> ConversionRecord {
+    let e = db.event(click);
     db.store(&[e.clone()]).await;
-    // Judged alone: the shared table holds other tests' waiting events, which
-    // must not be given up here.
-    let store = &db.store;
-    let mut after = String::new();
-    let waiting = loop {
-        let page = store.waiting(&after, 1000).await.unwrap();
-        after = page.last().expect("not stored").id.clone();
-        if let Some(w) = page.into_iter().find(|w| w.id == e.id) {
-            break w;
-        }
-    };
-    let now = waiting.stored_at + Duration::minutes(15);
-    let mut batch = super::store::Batch::default();
-    let decision = super::attribution::decide(&e, None, waiting.stored_at, now);
-    batch.resolve(&waiting, decision, now).unwrap();
-    store.insert(batch).await.unwrap();
-    assert_eq!(db.events().await, [format!("{} unattributed click_not_found", e.id)]);
-    assert_eq!(db.waiting().await, "0");
+    let stored = db.pending(&e, state::WAITING).await.unwrap().stored_at;
+    db.judge_alone(&e, state::WAITING, waiting_step, stored + Duration::minutes(15)).await;
+    assert_eq!(db.event_row().await, "unattributed click_not_found  49");
+    e
+}
+
+#[tokio::test]
+#[ignore]
+async fn clicks_delayed_by_a_backlog_attribute_late_events() {
+    let db = Db::new();
+    let e = late_event(&db, "delayed").await;
+    let counted = RECORDS.with_label_values(&["late_attributed"]).get();
+
+    // Nothing yet: it stays late.
+    db.judge_alone(&e, state::LATE, late_step, Utc::now() + Duration::hours(1)).await;
+    assert_eq!(db.late().await, "1");
+
+    // The click is stored two hours late; the aggregator restarted meanwhile.
+    db.click("delayed", &db.workspace, e.received_at - Duration::minutes(1)).await;
+    let restarted = Db { workspace: db.workspace.clone(), ..Db::new() };
+    restarted.judge_alone(&e, state::LATE, late_step, Utc::now() + Duration::hours(2)).await;
+    assert_eq!(db.event_row().await, "attributed  route 49");
+    assert_eq!(db.count().await, 1);
+    assert_eq!(db.late().await, "0");
+    assert!(RECORDS.with_label_values(&["late_attributed"]).get() > counted);
+}
+
+#[tokio::test]
+#[ignore]
+async fn both_passes_run_over_the_whole_table() {
+    let db = Db::new();
+    late_event(&db, "now").await;
+    db.my_click("now").await;
+    reconcile(&db.store, Utc::now()).await.unwrap();
+    recheck_late(&db.store, Utc::now()).await.unwrap();
+    assert_eq!(db.event_row().await, "attributed  route 49");
+    let metrics: Vec<_> = prometheus::gather().into_iter().map(|m| m.get_name().to_string()).collect();
+    assert!(metrics.iter().any(|m| m == "conversion_events_late"), "{metrics:?}");
+}
+
+#[tokio::test]
+#[ignore]
+async fn late_events_without_a_click_end_after_the_horizon() {
+    let db = Db::new();
+    let e = late_event(&db, "never").await;
+    let end = e.received_at + LATE_HORIZON;
+    db.judge_alone(&e, state::LATE, late_step, end - Duration::minutes(1)).await;
+    assert_eq!(db.late().await, "1");
+    db.judge_alone(&e, state::LATE, late_step, end).await;
+    assert_eq!(db.late().await, "0");
+    assert_eq!(db.event_row().await, "unattributed click_not_found  49");
+}
+
+#[tokio::test]
+#[ignore]
+async fn late_events_with_an_ineligible_click_end_unchanged() {
+    let db = Db::new();
+    let e = late_event(&db, "theirs").await;
+    db.click("theirs", "other", e.received_at - Duration::minutes(1)).await;
+    db.judge_alone(&e, state::LATE, late_step, Utc::now()).await;
+    assert_eq!(db.late().await, "0");
+    assert_eq!(db.event_row().await, "unattributed click_not_found  49");
+    assert_eq!(db.rejected().await, "");
 }
 
 #[tokio::test]
@@ -257,7 +369,6 @@ async fn other_workspaces_clicks_are_rejected_and_reveal_nothing() {
     let db = Db::new();
     db.click("theirs", "other", Utc::now() - Duration::hours(1)).await;
     db.store(&[db.event("theirs")]).await;
-    db.reconcile(Utc::now()).await;
     assert_eq!(db.count().await, 0);
     assert_eq!(db.rejected().await, "click_not_eligible");
 }
@@ -272,7 +383,6 @@ async fn window_and_filter_are_applied() {
     let mut filtered = db.event("filtered");
     filtered.route_filter = Some(vec!["elsewhere".into()]);
     db.store(&[db.event("old"), db.event("future"), filtered]).await;
-    db.reconcile(Utc::now()).await;
     let mut reasons = db
         .rows("SELECT concat(status, ' ', reason) FROM conversion_events FINAL WHERE workspace_id = ?")
         .await;

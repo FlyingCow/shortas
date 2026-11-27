@@ -73,17 +73,32 @@ pub async fn consume(settings: &ClickStreamConfig, store: &ConversionStore) -> R
     }
 }
 
+/// Stores records, deciding events whose click is already stored.
 pub async fn store_batch<'a>(
     store: &ConversionStore,
     payloads: impl Iterator<Item = &'a [u8]>,
 ) -> Result<()> {
+    let records: Vec<Result<ConversionRecord>> = payloads
+        .map(|payload| serde_json::from_slice(payload).map_err(anyhow::Error::from))
+        .collect();
+    let mut ids: Vec<&str> = records
+        .iter()
+        .flatten()
+        .filter(|r| r.rejection.is_none() && !r.is_refund())
+        .filter_map(|r| r.click_id.as_deref())
+        .collect();
+    ids.sort_unstable();
+    ids.dedup();
+    let clicks = store.clicks(&ids).await?;
+
     let now = Utc::now();
     let mut batch = Batch::default();
     let mut outcomes = Vec::new();
-    for payload in payloads {
-        let outcome = serde_json::from_slice::<ConversionRecord>(payload)
-            .map_err(anyhow::Error::from)
-            .and_then(|record| batch.add(&record, now));
+    for record in &records {
+        let outcome = match record {
+            Ok(record) => batch.add(record, &clicks, now),
+            Err(error) => Err(anyhow::anyhow!("{error}")),
+        };
         // Skipped, or it would block every later record.
         outcomes.push(outcome.unwrap_or_else(|e| {
             tracing::error!(error = %e, "Skipping an unreadable conversion record");

@@ -142,6 +142,15 @@ else
     echo -e "${RED}✗ Migration 006 failed${NC}"
     exit 1
 fi
+
+# Apply migration 007
+echo -e "${BLUE}Applying migration 007: Late conversion re-checks...${NC}"
+if execute_file_statements "${MIGRATION_DIR}/007_conversion_late.sql" "Late conversion re-checks"; then
+    echo -e "${GREEN}✓ Migration 007 applied${NC}"
+else
+    echo -e "${RED}✗ Migration 007 failed${NC}"
+    exit 1
+fi
 echo ""
 
 echo "========================================"
